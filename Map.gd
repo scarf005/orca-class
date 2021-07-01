@@ -4,10 +4,13 @@ const MAPSIZE := Vector2(16, 16)
 
 # TODO: JSON support
 const TILES := {
-	"crater": {"w": 20, "p": Vector2(1, 2)},
-	"floor": {"w": 50, "p": Vector2(0, 11)},
-	"dune": {"w": 30, "p": Vector2(1, 11)},
+	"peak": {"t": 70, "p": Vector2(0, 11)},
+	"dune": {"t": 55, "p": Vector2(1, 11)},
+	"plain": {"t": 0, "p": Vector2(2, 11)}
 }
+# "peak": {"t": 70, "p": Vector2(14, 1)},
+# "dune": {"t": 50, "p": Vector2(7, 15)},
+# "plain": {"t": 0, "p": Vector2(15, 5)},
 
 export (int, 1, 128) var _period = 20
 export (int, 1, 10) var _octaves = 4
@@ -17,17 +20,11 @@ var gamemap := []
 onready var tilemap := $TileMap
 
 
-func _weighted_noise_tile(tiledict, r: float):
-	var weight_total := 0
-	for v in tiledict.values():
-		weight_total += v['w']
-	r *= weight_total as float
+func _weighted_noise_tile(tiledict, noise: float):
+	var r := (noise * 0.5 + 0.5) * 100 as int
 
-	# var r := randi() % weight_total + 1
-	var weight := 0
 	for v in tiledict.values():
-		weight += v['w']
-		if r < weight:
+		if r > v['t']:  # threshold
 			return v['p']
 
 
@@ -44,7 +41,7 @@ func _create_noisemap(octaves, period, persistence) -> void:
 	for x in MAPSIZE.x:
 		gamemap.append([])
 		for y in MAPSIZE.y:
-			r = noise.get_noise_2d(x, y) * 0.5 + 0.5
+			r = noise.get_noise_2d(x, y)
 			# gamemap[x].append(int(r * 100))
 			gamemap[x].append(_weighted_noise_tile(TILES, r))
 			tilemap.set_cell_simple2(x, y, gamemap[x][y])
