@@ -27,3 +27,5 @@ func _input(event):
 		if event.scancode == KEY_R:
 			print("reloading")
 			gamemap = terrainmap.create_noisemap(_octaves, _period, _persistence)
+
+

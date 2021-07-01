@@ -1,11 +1,19 @@
 extends Sprite
 
-var x = 14
-var y = 14
+var pos: Vector2 setget _addpos, _getpos
+
+
+func _addpos(value: Vector2) -> void:
+	pos += value
+	position = _pos_to_screenvec(pos)
+
+
+func _getpos() -> Vector2:
+	return pos
 
 
 func _ready():
-	position = index_to_vector(x, y)
+	pos = Vector2(4, 4)
 
 
 func _input(event):
@@ -23,10 +31,7 @@ func _input(event):
 
 
 func _try_move(dx, dy):
-	x += dx
-	y += dy
-	position = index_to_vector(x, y)
-	return
+	_addpos(Vector2(dx, dy))
 	# Sprite.position += Vector2(dx * 32, dy * 32)
 
 
@@ -34,10 +39,10 @@ const STARTPOS := Vector2(0, 0)
 const TILESIZE := Vector2(32, 32)
 
 
-func vector_to_array(vector_coord: Vector2) -> Array:
+func _screenvec_to_pos(vector_coord: Vector2) -> Array:
 	var res := (vector_coord - STARTPOS) / TILESIZE
 	return [res.x, res.y]
 
 
-func index_to_vector(x: int, y: int, x_offset: int = 0, y_offset: int = 0) -> Vector2:
-	return STARTPOS + Vector2(x, y) * TILESIZE + Vector2(x_offset, y_offset)
+func _pos_to_screenvec(pos_vec: Vector2, offset: Vector2 = Vector2(0, 0)) -> Vector2:
+	return STARTPOS + pos_vec * TILESIZE + offset
