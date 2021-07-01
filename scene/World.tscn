@@ -1,18 +1,14 @@
 [gd_scene load_steps=12 format=2]
 
-[ext_resource path="res://Map.gd" type="Script" id=1]
+[ext_resource path="res://scene/map/Map.gd" type="Script" id=1]
 [ext_resource path="res://assets/32x32.png" type="Texture" id=2]
-[ext_resource path="res://scene/TerrainMap.gd" type="Script" id=3]
+[ext_resource path="res://scene/map/MapInfo.gd" type="Script" id=3]
 [ext_resource path="res://assets/neodgm_code.ttf" type="DynamicFontData" id=4]
 [ext_resource path="res://assets/orca.png" type="Texture" id=5]
 [ext_resource path="res://scene/Player.gd" type="Script" id=6]
-[ext_resource path="res://RocketTrail.tscn" type="PackedScene" id=7]
+[ext_resource path="res://scene/Cursor.gd" type="Script" id=7]
 [ext_resource path="res://scene/World.gd" type="Script" id=8]
-
-[sub_resource type="Environment" id=3]
-background_mode = 4
-glow_enabled = true
-glow_hdr_threshold = 1.5
+[ext_resource path="res://scene/map/TerrainMap.gd" type="Script" id=9]
 
 [sub_resource type="DynamicFont" id=1]
 font_data = ExtResource( 4 )
@@ -43,9 +39,6 @@ font_data = ExtResource( 4 )
 [node name="World" type="Node2D"]
 script = ExtResource( 8 )
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
-environment = SubResource( 3 )
-
 [node name="UI" type="CanvasLayer" parent="."]
 
 [node name="Panel" type="Panel" parent="UI"]
@@ -62,8 +55,8 @@ margin_left = 512.0
 margin_right = 640.0
 margin_bottom = 64.0
 custom_fonts/font = SubResource( 1 )
-text = "2021-07-21
-타일맵 실험"
+text = "2021-07-22
+이동 및 턴"
 autowrap = true
 __meta__ = {
 "_edit_use_anchors_": false
@@ -71,14 +64,21 @@ __meta__ = {
 
 [node name="Map" type="Node2D" parent="."]
 script = ExtResource( 1 )
-_period = 12
 
 [node name="TerrainMap" type="TileMap" parent="Map"]
 modulate = Color( 0.701961, 0.572549, 0.505882, 1 )
 tile_set = SubResource( 2 )
 cell_size = Vector2( 32, 32 )
 format = 1
+script = ExtResource( 9 )
+
+[node name="MapInfo" type="Label" parent="Map"]
+margin_right = 40.0
+margin_bottom = 14.0
 script = ExtResource( 3 )
+__meta__ = {
+"_edit_use_anchors_": false
+}
 
 [node name="Player" type="Sprite" parent="."]
 position = Vector2( 224, 224 )
@@ -86,12 +86,8 @@ texture = ExtResource( 5 )
 centered = false
 script = ExtResource( 6 )
 
-[node name="Camera2D" type="Camera2D" parent="Player"]
+[node name="Camera" type="Camera2D" parent="Player"]
 current = true
 
-[node name="Fire" parent="." instance=ExtResource( 7 )]
-modulate = Color( 2, 0.901961, 0.478431, 0.85098 )
-position = Vector2( 320, 384 )
-amount = 12
-speed_scale = 1.0
-randomness = 1.0
+[node name="Cursor" type="Sprite" parent="."]
+script = ExtResource( 7 )
