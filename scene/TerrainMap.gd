@@ -23,12 +23,8 @@ func create_noisemap(octaves, period, persistence) -> Array:
 		gamemap.append([])
 		for y in get_parent().MAPSIZE.y:
 			r = noise.get_noise_2d(x, y)
-			# gamemap[x].append(int(r * 100))
 			gamemap[x].append(_threshold_noise_tile(get_parent().TILES, r))
 			set_cell_simple2(x, y, gamemap[x][y])
-			# tilemap.set_cell_simple2(x, y, gamemap[x][y])
-			# tilemap.set_cell(x, y, randi() % 100)
-			# gamemap[y].append(int(r * 100))
 	return gamemap
 
 
