@@ -7,10 +7,10 @@
 [ext_resource path="res://assets/orca.png" type="Texture" id=5]
 [ext_resource path="res://scene/Player.gd" type="Script" id=6]
 
-[sub_resource type="DynamicFont" id=2]
+[sub_resource type="DynamicFont" id=1]
 font_data = ExtResource( 4 )
 
-[sub_resource type="TileSet" id=1]
+[sub_resource type="TileSet" id=2]
 0/name = "tiles"
 0/texture = ExtResource( 2 )
 0/tex_offset = Vector2( 0, 0 )
@@ -50,7 +50,7 @@ __meta__ = {
 margin_left = 512.0
 margin_right = 640.0
 margin_bottom = 64.0
-custom_fonts/font = SubResource( 2 )
+custom_fonts/font = SubResource( 1 )
 text = "2021-07-21
 타일맵 실험"
 autowrap = true
@@ -63,7 +63,8 @@ script = ExtResource( 1 )
 _period = 12
 
 [node name="TerrainMap" type="TileMap" parent="Map"]
-tile_set = SubResource( 1 )
+modulate = Color( 0.701961, 0.572549, 0.505882, 1 )
+tile_set = SubResource( 2 )
 cell_size = Vector2( 32, 32 )
 format = 1
 script = ExtResource( 3 )
