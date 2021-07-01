@@ -16,6 +16,10 @@ boot_splash/image="res://assets/32x32.png"
 boot_splash/bg_color=Color( 0.733333, 0.733333, 0.733333, 1 )
 config/icon="res://assets/orca.png"
 
+[autoload]
+
+Const="*res://Const.gd"
+
 [debug]
 
 gdscript/warnings/unused_class_variable=true

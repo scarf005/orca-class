@@ -62,6 +62,9 @@ __meta__ = {
 "_edit_use_anchors_": false
 }
 
+[node name="Cursor" type="Sprite" parent="."]
+script = ExtResource( 7 )
+
 [node name="Map" type="Node2D" parent="."]
 script = ExtResource( 1 )
 
@@ -72,9 +75,11 @@ cell_size = Vector2( 32, 32 )
 format = 1
 script = ExtResource( 9 )
 
-[node name="MapInfo" type="Label" parent="Map"]
-margin_right = 40.0
-margin_bottom = 14.0
+[node name="RichTextLabel" type="RichTextLabel" parent="Map"]
+margin_left = 52.669
+margin_top = 576.999
+margin_right = 564.669
+margin_bottom = 1089.0
 script = ExtResource( 3 )
 __meta__ = {
 "_edit_use_anchors_": false
@@ -88,6 +93,3 @@ script = ExtResource( 6 )
 
 [node name="Camera" type="Camera2D" parent="Player"]
 current = true
-
-[node name="Cursor" type="Sprite" parent="."]
-script = ExtResource( 7 )

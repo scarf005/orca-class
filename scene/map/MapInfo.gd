@@ -1,5 +1,9 @@
-extends Label
+extends RichTextLabel
 
 
 func _ready():
-	text = "initializing"
+	pass
+
+
+func _print_map_info():
+	pass

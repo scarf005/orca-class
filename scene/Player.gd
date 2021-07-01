@@ -49,14 +49,10 @@ func _try_move(dx, dy):
 	# Sprite.position += Vector2(dx * 32, dy * 32)
 
 
-const STARTPOS := Vector2(0, 0)
-const TILESIZE := Vector2(32, 32)
-
-
 func _screenvec_to_pos(vector_coord: Vector2) -> Array:
-	var res := (vector_coord - STARTPOS) / TILESIZE
+	var res := (vector_coord - Const.MAPSTART) / Const.TILESIZE
 	return [res.x, res.y]
 
 
 func _pos_to_screenvec(pos_vec: Vector2, offset: Vector2 = Vector2(0, 0)) -> Vector2:
-	return STARTPOS + pos_vec * TILESIZE + offset
+	return Const.MAPSTART + pos_vec * Const.TILESIZE + offset
