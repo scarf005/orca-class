@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=2]
+[gd_scene load_steps=13 format=2]
 
 [ext_resource path="res://scene/map/Map.gd" type="Script" id=1]
 [ext_resource path="res://assets/32x32.png" type="Texture" id=2]
@@ -35,6 +35,10 @@ font_data = ExtResource( 4 )
 0/shape_one_way_margin = 0.0
 0/shapes = [  ]
 0/z_index = 0
+
+[sub_resource type="DynamicFont" id=3]
+size = 15
+font_data = ExtResource( 4 )
 
 [node name="World" type="Node2D"]
 script = ExtResource( 8 )
@@ -75,11 +79,11 @@ cell_size = Vector2( 32, 32 )
 format = 1
 script = ExtResource( 9 )
 
-[node name="RichTextLabel" type="RichTextLabel" parent="Map"]
-margin_left = 52.669
-margin_top = 576.999
-margin_right = 564.669
-margin_bottom = 1089.0
+[node name="MapInfo" type="RichTextLabel" parent="Map"]
+margin_right = 512.0
+margin_bottom = 512.0
+custom_fonts/normal_font = SubResource( 3 )
+bbcode_enabled = true
 script = ExtResource( 3 )
 __meta__ = {
 "_edit_use_anchors_": false
