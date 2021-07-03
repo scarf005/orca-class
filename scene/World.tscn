@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=2]
+[gd_scene load_steps=15 format=2]
 
 [ext_resource path="res://scene/map/Map.gd" type="Script" id=1]
 [ext_resource path="res://assets/32x32.png" type="Texture" id=2]
@@ -43,6 +43,9 @@ font_data = ExtResource( 4 )
 [sub_resource type="AtlasTexture" id=4]
 atlas = ExtResource( 2 )
 region = Rect2( 224, 416, 32, 32 )
+
+[sub_resource type="DynamicFont" id=5]
+font_data = ExtResource( 4 )
 
 [node name="World" type="Node2D"]
 script = ExtResource( 8 )
@@ -100,14 +103,18 @@ script = ExtResource( 6 )
 current = true
 
 [node name="Cursor" type="Sprite" parent="."]
-modulate = Color( 0.635294, 0.717647, 0.733333, 1 )
+modulate = Color( 0.333333, 0.282353, 0.396078, 1 )
 texture = SubResource( 4 )
+centered = false
 region_rect = Rect2( 224, 416, 32, 32 )
 script = ExtResource( 7 )
 
 [node name="Label" type="Label" parent="Cursor"]
-margin_right = 64.0
+margin_left = 32.0
+margin_right = 96.0
 margin_bottom = 32.0
+custom_fonts/font = SubResource( 5 )
+text = "(position)"
 __meta__ = {
 "_edit_use_anchors_": false
 }

@@ -1,27 +1,19 @@
 extends TileMap
 
-var selected_tile: Vector2 setget , get_selected_tile
+onready var selected_tile: Vector2
+onready var mouse_in_tilemap: bool
 
 
-func _ready():
-	print(self.selected_tile)
-
-
-func get_selected_tile() -> Vector2:
-	var localpos: Vector2 = world_to_map(to_local(get_global_mouse_position()))
-	selected_tile = Vector2(
-		clamp(localpos.x, 0, Const.MAPSIZE.x - 1),
-		clamp(localpos.y, 0, Const.MAPSIZE.y - 1)
-	)
-	return selected_tile
-
-
-func mouse_in_tilemap() -> bool:
-	# print(to_local(get_global_mouse_position()), self.selected_tile)
-	return (
-		world_to_map(to_local(get_global_mouse_position()))
-		== self.selected_tile
-	)
+func _input(event):
+	if event is InputEventMouseMotion:
+		var localpos: Vector2 = world_to_map(
+			to_local(get_global_mouse_position())
+		)
+		selected_tile = Vector2(
+			clamp(localpos.x, 0, Const.MAPSIZE.x - 1),
+			clamp(localpos.y, 0, Const.MAPSIZE.y - 1)
+		)
+		mouse_in_tilemap = selected_tile == localpos
 
 
 func _threshold_noise_tile(tiledict, noise: float):
