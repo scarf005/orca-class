@@ -59,15 +59,12 @@ margin_left = 512.0
 margin_right = 640.0
 margin_bottom = 64.0
 custom_fonts/font = SubResource( 1 )
-text = "2021-07-22
-이동 및 턴"
+text = "2021-07-03
+마우스 조작 및 턴"
 autowrap = true
 __meta__ = {
 "_edit_use_anchors_": false
 }
-
-[node name="Cursor" type="Sprite" parent="."]
-script = ExtResource( 7 )
 
 [node name="Map" type="Node2D" parent="."]
 script = ExtResource( 1 )
@@ -97,3 +94,13 @@ script = ExtResource( 6 )
 
 [node name="Camera" type="Camera2D" parent="Player"]
 current = true
+
+[node name="Cursor" type="Sprite" parent="."]
+script = ExtResource( 7 )
+
+[node name="Label" type="Label" parent="Cursor"]
+margin_right = 64.0
+margin_bottom = 32.0
+__meta__ = {
+"_edit_use_anchors_": false
+}

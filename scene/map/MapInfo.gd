@@ -12,5 +12,5 @@ func print_mapinfo(gamemap: Array) -> void:
 			pop()
 		pop()
 
-	print(text)
+	# print(text)
 	# print(bbcode_text)

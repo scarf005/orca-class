@@ -5,7 +5,7 @@ export (int, 1, 10) var _octaves = 4
 export (float) var _persistence = 0.8
 
 onready var terrainmap := $TerrainMap
-onready var mapinfo := $MapInfo
+# onready var mapinfo := $MapInfo
 
 var gamemap := []
 
@@ -13,7 +13,7 @@ var gamemap := []
 # Called when the node enters the scene tree for the first time.
 func _ready():
 	gamemap = terrainmap.create_noisemap(_octaves, _period, _persistence)
-	mapinfo.print_mapinfo(gamemap)
+	# mapinfo.print_mapinfo(gamemap)
 
 
 func _input(event):
