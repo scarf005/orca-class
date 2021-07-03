@@ -1,5 +1,28 @@
 extends TileMap
 
+var selected_tile: Vector2 setget , get_selected_tile
+
+
+func _ready():
+	print(self.selected_tile)
+
+
+func get_selected_tile() -> Vector2:
+	var localpos: Vector2 = world_to_map(to_local(get_global_mouse_position()))
+	selected_tile = Vector2(
+		clamp(localpos.x, 0, Const.MAPSIZE.x - 1),
+		clamp(localpos.y, 0, Const.MAPSIZE.y - 1)
+	)
+	return selected_tile
+
+
+func mouse_in_tilemap() -> bool:
+	# print(to_local(get_global_mouse_position()), self.selected_tile)
+	return (
+		world_to_map(to_local(get_global_mouse_position()))
+		== self.selected_tile
+	)
+
 
 func _threshold_noise_tile(tiledict, noise: float):
 	var r := (noise * 0.5 + 0.5) * 100 as int
@@ -29,19 +52,12 @@ func create_noisemap(octaves, period, persistence) -> Array:
 
 
 func _int_to_vector2(i: int) -> Vector2:
-	return Vector2(i % 16, i / 16)
-	# FIXME: change to constant
+	return Vector2(i % int(Const.ATLASSIZE.x), i / int(Const.ATLASSIZE.y))
 
 
 func set_cell_simple(x, y, tile_index: int) -> void:
-	"""
-	TODO: Add documentation
-	"""
 	.set_cell(x, y, 0, false, false, false, _int_to_vector2(tile_index))
 
 
 func set_cell_simple2(x, y, tile_coord = Vector2()) -> void:
-	"""
-	TODO: Add documentation
-	"""
 	.set_cell(x, y, 0, false, false, false, tile_coord)

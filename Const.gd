@@ -2,6 +2,7 @@ extends Node
 
 const MAPSTART := Vector2(0, 0)
 const MAPSIZE := Vector2(16, 16)
+const ATLASSIZE := Vector2(16, 16)
 
 const TILESIZE := Vector2(32, 32)
 const TILES := {  # TODO: JSON support
