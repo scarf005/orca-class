@@ -1,24 +1,19 @@
 extends Sprite
 
-var pos: Vector2 setget _addpos, _getpos
-
-
-func setpos(value: Vector2) -> void:
-	pos = value
-	position = _pos_to_screenvec(pos)
-
-
-func _addpos(value: Vector2) -> void:
-	pos += value
-	position = _pos_to_screenvec(pos)
-
-
-func _getpos() -> Vector2:
-	return pos
+var coord: Vector2 setget _set_coord, _get_coord
 
 
 func _ready():
-	setpos(Vector2(4, 4))
+	_set_coord(Vector2(4, 4))
+
+
+func _set_coord(value: Vector2) -> void:
+	coord = value
+	position = _coord_to_world(value)
+
+
+func _get_coord() -> Vector2:
+	return coord
 
 
 func _input(event):
@@ -45,14 +40,14 @@ func _input(event):
 
 
 func _try_move(dx, dy):
-	_addpos(Vector2(dx, dy))
+	_set_coord(coord + Vector2(dx, dy))
 	# Sprite.position += Vector2(dx * 32, dy * 32)
 
 
-func _screenvec_to_pos(vector_coord: Vector2) -> Array:
-	var res := (vector_coord - Const.MAPSTART) / Const.TILESIZE
+func _world_to_coord(world_pos: Vector2) -> Array:
+	var res := (world_pos - Const.MAPSTART) / Const.TILESIZE
 	return [res.x, res.y]
 
 
-func _pos_to_screenvec(pos_vec: Vector2, offset: Vector2 = Vector2(0, 0)) -> Vector2:
-	return Const.MAPSTART + pos_vec * Const.TILESIZE + offset
+func _coord_to_world(coord_vec: Vector2, offset: Vector2 = Vector2(0, 0)) -> Vector2:
+	return Const.MAPSTART + coord_vec * Const.TILESIZE + offset
