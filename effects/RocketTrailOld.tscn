@@ -15,8 +15,8 @@ _data = [ Vector2( 0, 0 ), 0.0, 0.0, 0, 0, Vector2( 0.766082, 0.192143 ), 0.6418
 curve = SubResource( 2 )
 
 [sub_resource type="Gradient" id=4]
-offsets = PoolRealArray( 0.0569106, 0.0731707, 1 )
-colors = PoolColorArray( 0.989258, 0.435446, 0.239586, 0.92, 0.423529, 0.392157, 0.392157, 0.878431, 0.282353, 0.164706, 0.164706, 0 )
+offsets = PoolRealArray( 0.0569106, 0.291667, 1 )
+colors = PoolColorArray( 1.5, 0.68, 0.39, 0.92, 0.423529, 0.392157, 0.392157, 0.878431, 0.282353, 0.164706, 0.164706, 0.435294 )
 
 [sub_resource type="GradientTexture" id=5]
 gradient = SubResource( 4 )
@@ -31,13 +31,16 @@ curve = SubResource( 6 )
 [sub_resource type="ParticlesMaterial" id=8]
 flag_disable_z = true
 direction = Vector3( 0, -1, 0 )
-spread = 3.0
-gravity = Vector3( -20, 0, 0 )
+spread = 5.0
+gravity = Vector3( -80, 3, 0 )
 initial_velocity = 180.0
 initial_velocity_random = 0.3
+angular_velocity = 90.0
+angular_velocity_random = 1.0
 orbit_velocity = 0.0
 orbit_velocity_random = 0.0
-linear_accel = -120.0
+linear_accel = -160.0
+linear_accel_random = 0.3
 angle = 360.0
 angle_random = 1.0
 scale = 1.2
@@ -45,6 +48,8 @@ scale_random = 1.0
 scale_curve = SubResource( 7 )
 color_ramp = SubResource( 5 )
 anim_speed = 0.5
+anim_speed_random = 1.0
+anim_offset_random = 1.0
 anim_offset_curve = SubResource( 3 )
 
 [sub_resource type="GDScript" id=9]
@@ -57,13 +62,11 @@ func _ready():
 "
 
 [node name="RocketTrail" type="Particles2D"]
-modulate = Color( 2, 2, 2, 0.85 )
 material = SubResource( 1 )
-amount = 96
-lifetime = 2.0
-speed_scale = 2.0
+amount = 24
+speed_scale = 0.2
+randomness = 0.2
 fract_delta = false
-local_coords = false
 process_material = SubResource( 8 )
 texture = ExtResource( 1 )
 script = SubResource( 9 )
