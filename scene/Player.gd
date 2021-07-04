@@ -40,8 +40,13 @@ func _input(event):
 
 
 func _try_move(dx, dy):
-	_set_coord(coord + Vector2(dx, dy))
-	# Sprite.position += Vector2(dx * 32, dy * 32)
+	var temp := coord + Vector2(dx, dy)
+	_set_coord(
+		Vector2(
+			clamp(temp.x, 0, Const.MAPSIZE.x - 1),
+			clamp(temp.y, 0, Const.MAPSIZE.y - 1)
+		)
+	)
 
 
 func _world_to_coord(world_pos: Vector2) -> Array:
