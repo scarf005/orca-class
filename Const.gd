@@ -1,7 +1,7 @@
 extends Node
 
 const MAPSTART := Vector2(0, 0)
-const MAPSIZE := Vector2(20, 16)
+const MAPSIZE := Vector2(40, 30)
 const ATLASSIZE := Vector2(16, 16)
 
 const TILESIZE := Vector2(32, 32)

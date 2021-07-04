@@ -1,10 +1,19 @@
 extends Sprite
 
-onready var map := $"../Map"
 onready var debug := $Debug
+onready var map := $"../Map"
+onready var world := $"/root/World"
+onready var smoke := preload("res://scene/entities/Smoke.tscn")
 
 var coord: Vector2 setget _set_coord, _get_coord
 var destination: Vector2
+
+
+func _smoke():  # TODO: needs to be in gamemap as well since it's an entity
+	var s = smoke.instance()
+	s.rotation = destination.angle_to_point(coord)
+	s.position = position + Const.TILESIZE / 2  # match offset
+	world.add_child(s)
 
 
 func _ready():
@@ -14,7 +23,7 @@ func _ready():
 
 func _process(_delta):
 	var temp = Utils.zsign(destination - coord)
-	debug.text = str(coord, destination, "\n", destination - coord, "\n", temp)
+	debug.text = str(coord, destination)
 	_try_move(temp.x, temp.y)
 
 
@@ -53,6 +62,8 @@ func _input(event):
 
 
 func _try_move(dx, dy):
+	if coord != destination:
+		_smoke()
 	var temp := coord + Vector2(dx, dy)
 	_set_coord(
 		Vector2(
