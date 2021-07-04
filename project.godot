@@ -19,6 +19,7 @@ config/icon="res://assets/orca.png"
 [autoload]
 
 Const="*res://Const.gd"
+Utils="*res://Utils.gd"
 
 [debug]
 

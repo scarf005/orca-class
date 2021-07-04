@@ -9,7 +9,7 @@ func _ready():
 
 func _set_coord(value: Vector2) -> void:
 	coord = value
-	position = _coord_to_world(value)
+	position = Utils._coord_to_world(value)
 
 
 func _get_coord() -> Vector2:
@@ -47,12 +47,3 @@ func _try_move(dx, dy):
 			clamp(temp.y, 0, Const.MAPSIZE.y - 1)
 		)
 	)
-
-
-func _world_to_coord(world_pos: Vector2) -> Array:
-	var res := (world_pos - Const.MAPSTART) / Const.TILESIZE
-	return [res.x, res.y]
-
-
-func _coord_to_world(coord_vec: Vector2, offset: Vector2 = Vector2(0, 0)) -> Vector2:
-	return Const.MAPSTART + coord_vec * Const.TILESIZE + offset
