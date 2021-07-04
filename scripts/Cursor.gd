@@ -1,6 +1,7 @@
 extends Sprite
 
 onready var map := $"../Map"
+# onready var player := $"root/Player"
 onready var label := $Label
 
 

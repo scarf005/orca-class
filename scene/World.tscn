@@ -37,12 +37,12 @@ font_data = ExtResource( 4 )
 0/shapes = [  ]
 0/z_index = 0
 
+[sub_resource type="DynamicFont" id=4]
+font_data = ExtResource( 4 )
+
 [sub_resource type="AtlasTexture" id=3]
 atlas = ExtResource( 2 )
 region = Rect2( 224, 416, 32, 32 )
-
-[sub_resource type="DynamicFont" id=4]
-font_data = ExtResource( 4 )
 
 [node name="World" type="Node2D"]
 script = ExtResource( 8 )
@@ -106,7 +106,18 @@ script = ExtResource( 6 )
 [node name="Camera" type="Camera2D" parent="Player"]
 current = true
 
+[node name="Debug" type="Label" parent="Player"]
+margin_left = 32.0
+margin_right = 144.0
+margin_bottom = 96.0
+custom_fonts/font = SubResource( 4 )
+text = "(player debug)"
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
 [node name="Cursor" type="Sprite" parent="."]
+visible = false
 modulate = Color( 0.333333, 0.282353, 0.396078, 1 )
 texture = SubResource( 3 )
 centered = false
