@@ -23,6 +23,7 @@ Utils="*res://Utils.gd"
 
 [debug]
 
+settings/fps/force_fps=144
 gdscript/warnings/unused_class_variable=true
 gdscript/warnings/integer_division=false
 gdscript/warnings/unsafe_cast=true
