@@ -1,13 +1,14 @@
-[gd_scene load_steps=13 format=2]
+[gd_scene load_steps=14 format=2]
 
-[ext_resource path="res://scene/map/Map.gd" type="Script" id=1]
+[ext_resource path="res://scripts/map/Map.gd" type="Script" id=1]
 [ext_resource path="res://assets/32x32.png" type="Texture" id=2]
-[ext_resource path="res://scene/map/MapGen.gd" type="Script" id=3]
+[ext_resource path="res://scripts/map/MapGen.gd" type="Script" id=3]
 [ext_resource path="res://assets/neodgm_code.ttf" type="DynamicFontData" id=4]
 [ext_resource path="res://assets/orca.png" type="Texture" id=5]
-[ext_resource path="res://scene/Player.gd" type="Script" id=6]
-[ext_resource path="res://scene/Cursor.gd" type="Script" id=7]
-[ext_resource path="res://scene/World.gd" type="Script" id=8]
+[ext_resource path="res://scripts/Player.gd" type="Script" id=6]
+[ext_resource path="res://scripts/Cursor.gd" type="Script" id=7]
+[ext_resource path="res://scripts/World.gd" type="Script" id=8]
+[ext_resource path="res://scripts/FPS.gd" type="Script" id=9]
 
 [sub_resource type="DynamicFont" id=1]
 size = 14
@@ -36,11 +37,11 @@ font_data = ExtResource( 4 )
 0/shapes = [  ]
 0/z_index = 0
 
-[sub_resource type="AtlasTexture" id=4]
+[sub_resource type="AtlasTexture" id=3]
 atlas = ExtResource( 2 )
 region = Rect2( 224, 416, 32, 32 )
 
-[sub_resource type="DynamicFont" id=5]
+[sub_resource type="DynamicFont" id=4]
 font_data = ExtResource( 4 )
 
 [node name="World" type="Node2D"]
@@ -69,6 +70,21 @@ __meta__ = {
 "_edit_use_anchors_": false
 }
 
+[node name="FPS" type="Label" parent="UI"]
+margin_left = 576.0
+margin_top = 480.0
+margin_right = 640.0
+margin_bottom = 513.0
+custom_fonts/font = SubResource( 1 )
+text = "(FPS counter)"
+align = 2
+valign = 2
+autowrap = true
+script = ExtResource( 9 )
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
 [node name="Map" type="TileMap" parent="."]
 modulate = Color( 0.701961, 0.572549, 0.505882, 1 )
 position = Vector2( 1, 0 )
@@ -92,7 +108,7 @@ current = true
 
 [node name="Cursor" type="Sprite" parent="."]
 modulate = Color( 0.333333, 0.282353, 0.396078, 1 )
-texture = SubResource( 4 )
+texture = SubResource( 3 )
 centered = false
 region_rect = Rect2( 224, 416, 32, 32 )
 script = ExtResource( 7 )
@@ -101,7 +117,7 @@ script = ExtResource( 7 )
 margin_left = 32.0
 margin_right = 96.0
 margin_bottom = 32.0
-custom_fonts/font = SubResource( 5 )
+custom_fonts/font = SubResource( 4 )
 text = "(position)"
 __meta__ = {
 "_edit_use_anchors_": false

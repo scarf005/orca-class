@@ -1,8 +1,6 @@
 extends Sprite
 
-# onready var camera := $"../Player/Camera"
 onready var map := $"../Map"
-# onready var trail := $RocketTrail
 onready var label := $Label
 
 
