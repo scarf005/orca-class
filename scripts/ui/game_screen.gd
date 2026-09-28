@@ -40,7 +40,7 @@ func _ready() -> void:
 	if checkpoint.is_empty():
 		hud.hint(tr("HINT_CONTROLS"), 8.0)
 	hud.shout(tr("SHOUT_MISSION_START"), Palette.AMBER, 2.0)
-	Input.mouse_mode = Input.MOUSE_MODE_CONFINED_HIDDEN
+	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN if OS.has_feature("web") else Input.MOUSE_MODE_CONFINED_HIDDEN
 
 
 func _exit_tree() -> void:
@@ -102,7 +102,7 @@ func _close_overlay() -> void:
 		_overlay.queue_free()
 		_overlay = null
 	get_tree().paused = false
-	Input.mouse_mode = Input.MOUSE_MODE_CONFINED_HIDDEN
+	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN if OS.has_feature("web") else Input.MOUSE_MODE_CONFINED_HIDDEN
 
 
 func _on_game_over() -> void:

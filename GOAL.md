@@ -9,8 +9,9 @@ The bar: intense, fun, readable, and "one more run" addictive. It must feel hand
 
 ## Platform and tech
 
-- Engine: Godot **4.7.2-stable** (latest stable, 2026-08-18; `/home/scarf/opt/bin/godot`). Typed GDScript. Forward+.
-- Target: desktop Linux and Windows, 60 FPS at 1080p on a mid-range GPU. Web export is not a goal.
+- Engine: Godot **4.7.2-stable** (latest stable, 2026-08-18; `/home/scarf/opt/bin/godot`). Typed GDScript.
+  Forward+ on desktop; Compatibility on Web.
+- Target: desktop Linux and Windows, 60 FPS at 1080p on a mid-range GPU, plus desktop browsers through Web export.
 - Input: keyboard + mouse (WASD drive, mouse aims turret) and gamepad dual stick (left stick drive, right stick aims).
 - Text: Korean by default, switchable to English in settings. All strings go through Godot translation files; no
   hard-coded UI text.

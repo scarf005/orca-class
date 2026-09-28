@@ -1,6 +1,23 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/ui/fps_counter.gd" id="2"]
 
 [node name="Main" type="Node"]
 script = ExtResource("1")
+
+[node name="Performance" type="CanvasLayer" parent="."]
+process_mode = 3
+layer = 100
+
+[node name="FPS" type="Label" parent="Performance"]
+offset_left = 16.0
+offset_top = 44.0
+offset_right = 112.0
+offset_bottom = 60.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.984, 0.953, 0.894, 1)
+theme_override_colors/font_outline_color = Color(0.169, 0.129, 0.251, 1)
+theme_override_constants/outline_size = 2
+theme_override_font_sizes/font_size = 12
+script = ExtResource("2")

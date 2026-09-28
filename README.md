@@ -14,6 +14,29 @@ godot --path .
 
 `godot --path . -- --play` skips the title screen.
 
+FPS is displayed below the score in the upper-left corner, including in menus and while paused.
+
+### Web
+
+Install the Godot 4.7.2 export templates through **Editor → Manage Export Templates**, then export the
+[`Web` preset](export_presets.cfg) and serve it locally:
+
+```sh
+mkdir -p builds/web
+touch builds/.gdignore
+godot --headless --path . --export-release Web builds/web/index.html
+python3 -m http.server 8000 --bind 127.0.0.1 --directory builds/web
+```
+
+Open [the local game](http://127.0.0.1:8000) in a desktop browser with WebGL 2 and WebAssembly. Click the game
+to focus it and enable audio; keyboard, mouse and gamepad controls are the same as on desktop.
+
+To publish, serve the entire `builds/web/` directory from an HTTPS static host, keeping the generated filenames.
+The Web build uses the Compatibility renderer and preserves worker threads for terrain generation. Its generated
+PWA service worker supplies the cross-origin isolation headers required for threads, so the page may reload once
+on its first visit. A host can also supply `Cross-Origin-Opener-Policy: same-origin` and
+`Cross-Origin-Embedder-Policy: require-corp` directly. See [Godot's Web export guide](https://docs.godotengine.org/en/stable/tutorials/export/exporting_for_web.html#serving-the-files).
+
 ### Controls
 
 | Action | Keyboard / mouse | Gamepad |

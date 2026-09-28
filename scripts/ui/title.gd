@@ -52,7 +52,8 @@ func _show_main() -> void:
 		_menu.add_item(tr("MENU_FROM_BOSS"), _begin.bind(Game.Difficulty.NORMAL, "boss"))
 	_menu.add_item(tr("MENU_DEBUG_ROOM"), func() -> void: debug_room.emit())
 	_menu.add_item(tr("MENU_SETTINGS"), _show_settings)
-	_menu.add_item(tr("MENU_QUIT"), func() -> void: get_tree().quit())
+	if not OS.has_feature("web"):
+		_menu.add_item(tr("MENU_QUIT"), func() -> void: get_tree().quit())
 	add_child(_menu)
 
 

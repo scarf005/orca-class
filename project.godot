@@ -32,6 +32,7 @@ locale/translations=PackedStringArray("res://i18n/strings.ko.translation", "res:
 locale/fallback="ko"
 
 [rendering]
+renderer/rendering_method.web="gl_compatibility"
 textures/canvas_textures/default_texture_filter=0
 anti_aliasing/quality/msaa_3d=0
 lights_and_shadows/directional_shadow/size=2048
