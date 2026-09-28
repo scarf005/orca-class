@@ -2,14 +2,16 @@ class_name Colossus
 extends Enemy
 ## Mid-boss rooted in the schoolyard. Three glowing nodes hide under spongy caps that burn off
 ## with fire (or wear down under heavy fire). With every node destroyed the core opens.
+## One cannon shell pops a cap or bursts a bare node, and takes a quarter of the open core.
 ## Attacks: half-corridor tendril sweeps, spore barrages and crawler spawns; the exposed core
 ## adds a full sweep that must be dodged with an anchor drift.
 
 enum Attack { NONE, SWEEP, BARRAGE, SPAWN }
 
-const NODE_HP := 480.0
-const CAP_HP := 160.0
-const CORE_HP := 1100.0
+const NODE_HP := 100.0
+const CAP_HP := 100.0
+const CORE_HP := 600.0
+const CANNON_CORE_SHARE := 0.25
 
 class Part:
 	var name := ""
@@ -153,6 +155,9 @@ func take_hit(hit: Hit) -> void:
 	var amount := hit.damage
 	if hit.kind == Hit.Kind.BULLET:
 		amount *= 0.35 # Spongy mass soaks machine-gun fire.
+	if hit.kind == Hit.Kind.SHELL and hit.caliber >= 100:
+		amount = CORE_HP * CANNON_CORE_SHARE if best == core else maxf(amount, NODE_HP)
+		world.hitstop(0.05)
 	if best.cap > 0.0:
 		best.cap -= amount * (4.0 if hit.kind == Hit.Kind.FIRE or hit.incendiary else 1.0)
 		best.cap_mesh.scale = Vector3.ONE * clampf(0.5 + best.cap / CAP_HP * 0.5, 0.5, 1.0)
@@ -164,7 +169,7 @@ func take_hit(hit: Hit) -> void:
 			world.shake(0.3)
 		flash()
 		return
-	if hit.kind == Hit.Kind.SHELL and hit.pierce:
+	if hit.kind == Hit.Kind.SHELL and hit.pierce and hit.caliber < 100:
 		amount *= 1.5
 	best.hp -= amount
 	hp = _total_hp()

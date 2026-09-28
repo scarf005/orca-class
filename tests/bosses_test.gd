@@ -73,20 +73,97 @@ func _helicopter(world: World) -> Helicopter:
 	return boss
 
 
-func test_helicopter_armor_then_phases() -> void:
+func _shell(at: Vector3, direction := Vector3.FORWARD) -> Hit:
+	var hit := Hit.make(Hit.Kind.SHELL, 110.0, at, direction)
+	hit.caliber = 100
+	return hit
+
+
+## A world point on the airframe at a model-local spot.
+func _on(boss: Helicopter, local: Vector3) -> Vector3:
+	return boss.model.global_transform * local
+
+
+func test_helicopter_era_eats_a_shell_then_bare_hull_takes_a_quarter() -> void:
 	var world := stage("boss")
 	var boss := _helicopter(world)
-	var body_hit := Hit.make(Hit.Kind.SHELL, 100.0, boss.global_position + Vector3(0, 0, 40))
+	var flank := Vector3(-0.8, 0.0, 0.8)
+	boss.take_hit(_shell(_on(boss, flank)))
+	check_near(boss.hp, boss.max_hp * (1.0 - Helicopter.PLATED_SHARE), 0.5, "a plated flank only loses the plate")
+	check(not boss._live("era_left"), "the shell pops the left plate")
+	check(boss._live("era_right") and boss._live("era_front"), "other plates hold")
+	boss.take_hit(_shell(_on(boss, flank)))
+	check_near(boss.hp, boss.max_hp * (1.0 - Helicopter.PLATED_SHARE - Helicopter.CANNON_SHARE), 0.5, "the bared flank takes a quarter")
 	var hp := boss.hp
-	boss.take_hit(body_hit)
-	check_near(hp - boss.hp, 50.0, 0.5, "armor panels halve body damage")
-	for side in ["panel_l", "panel_r"]:
-		var part: Helicopter.Part = boss.parts[side]
-		boss.take_hit(Hit.make(Hit.Kind.SHELL, 999.0, boss.model.global_transform * part.offset))
-	check_eq(boss.phase, Helicopter.Phase.STRIPPED, "losing both panels strips it")
-	boss.hp = boss.max_hp * 0.34
-	boss.take_hit(Hit.make(Hit.Kind.SHELL, boss.max_hp * 0.05, boss.global_position + Vector3(0, 0, 40)))
-	check_eq(boss.phase, Helicopter.Phase.INFECTED, "below a third it turns")
+	boss.take_hit(_shell(_on(boss, Vector3(0, 0.3, 4.5))))
+	check_near(hp - boss.hp, boss.max_hp * Helicopter.CANNON_SHARE, 0.5, "the tail boom was never plated")
+	var coax := Hit.make(Hit.Kind.BULLET, 10.0, _on(boss, Vector3(0, 0.3, 4.5)))
+	coax.caliber = 20
+	hp = boss.hp
+	boss.take_hit(coax)
+	check(hp - boss.hp < boss.max_hp * 0.01, "machine guns only scratch it")
+
+
+func test_helicopter_four_bare_shells_bring_it_down() -> void:
+	var world := stage("boss")
+	var boss := _helicopter(world)
+	for i in 4:
+		check(boss._crash <= 0.0, "still flying before shell %d" % (i + 1))
+		boss.take_hit(_shell(_on(boss, Vector3(0, 0.3, 4.5))))
+	check(boss._crash > 0.0, "four shells on bare airframe start the crash")
+
+
+func test_helicopter_phases_follow_hull() -> void:
+	var world := stage("boss")
+	var boss := _helicopter(world)
+	boss.take_hit(_shell(_on(boss, Vector3(0, 0.3, 4.5))))
+	boss.take_hit(_shell(_on(boss, Vector3(0, 0.3, 4.5))))
+	check_eq(boss.phase, Helicopter.Phase.STRIPPED, "half its hull gone: it closes in")
+	boss.take_hit(_shell(_on(boss, Vector3(0, 0.3, 4.5))))
+	check_eq(boss.phase, Helicopter.Phase.INFECTED, "a quarter left: it turns")
+
+
+func test_helicopter_modules_change_the_fight() -> void:
+	var world := stage("boss")
+	var boss := _helicopter(world)
+	boss.take_hit(_shell(_on(boss, boss.parts.chin.offset)))
+	check(not boss._live("chin"), "a shell wrecks the chin gun")
+	for i in 30:
+		boss._choose_attack()
+		check(boss._attack != Helicopter.Attack.GUN, "no gun runs without the chin gun")
+		boss._end_attack()
+	boss.take_hit(_shell(_on(boss, boss.parts.tail_rotor.offset)))
+	check(not boss._live("tail_rotor"), "a shell wrecks the tail rotor")
+	var yaw := boss.model.rotation.y
+	boss.stagger = 0.0
+	boss.behave(0.1)
+	check(absf(boss.model.rotation.y - yaw) > 0.2, "without a tail rotor it spins")
+	boss.hp = boss.max_hp
+	boss.take_hit(_shell(_on(boss, boss.parts.engine_l.offset)))
+	check(boss._crash <= 0.0, "one engine keeps it up")
+	boss.take_hit(_shell(_on(boss, boss.parts.engine_r.offset)))
+	check(boss._crash > 0.0, "losing both engines drops it")
+
+
+func test_colossus_cannon_sized() -> void:
+	var world := stage()
+	var boss := _colossus(world)
+	var node: Colossus.Part = boss.parts[0]
+	_hit_part_with(boss, node, _shell(Vector3.ZERO))
+	check(node.cap <= 0.0 and node.hp == Colossus.NODE_HP, "one shell pops a cap")
+	_hit_part_with(boss, node, _shell(Vector3.ZERO))
+	check(node.hp <= 0.0, "one shell bursts a bare node")
+	for part: Colossus.Part in boss.parts:
+		part.cap = 0.0
+		part.hp = 0.0
+	for i in 3:
+		_hit_part_with(boss, boss.core, _shell(Vector3.ZERO))
+	check_near(boss.core.hp, Colossus.CORE_HP * 0.25, 0.5, "each shell takes a quarter of the core")
+
+
+func _hit_part_with(boss: Colossus, part: Colossus.Part, hit: Hit) -> void:
+	hit.position = boss.global_transform * part.offset
+	boss.take_hit(hit)
 
 
 func test_helicopter_crash_clears_stage() -> void:

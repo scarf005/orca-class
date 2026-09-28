@@ -336,9 +336,10 @@ func smoke(position: Vector3, count: int, radius := 1.0, colors := [Palette.MIST
 		spawn(Kind.GLOW, position + dir * radius * 0.4, dir * randf_range(1.0, 3.0) + Vector3.UP * 1.5, randf_range(0.8, 1.6), randf_range(0.5, 0.9) * (0.4 + radius * 0.15), colors[i % colors.size()], {"end_size": 0.8 + radius * 0.35, "drag": 2.2, "gravity": -1.0, "fade": 0.15})
 
 
-func debris(position: Vector3, count: int, colors: Array, force := 6.0, size := 0.35) -> void:
+## `push` biases the spray along the attack: chunks fly on through, away from the shooter.
+func debris(position: Vector3, count: int, colors: Array, force := 6.0, size := 0.35, push := Vector3.ZERO) -> void:
 	for i in count:
-		var dir := Vector3(randf_range(-1, 1), randf_range(0.5, 1.5), randf_range(-1, 1)).normalized()
+		var dir := (Vector3(randf_range(-1, 1), randf_range(0.5, 1.5), randf_range(-1, 1)).normalized() + push * 1.6).normalized()
 		spawn(Kind.SOLID, position, dir * randf_range(0.4, 1.0) * force, randf_range(1.2, 2.4), randf_range(0.6, 1.3) * size, colors[i % colors.size()], {"gravity": 22.0, "bounce": true, "spin": 1.0, "end_size": size * 0.8})
 
 

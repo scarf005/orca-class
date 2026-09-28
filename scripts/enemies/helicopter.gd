@@ -1,16 +1,24 @@
 class_name Helicopter
 extends Enemy
 ## Final boss: an attack helicopter overtaken by mycelium, fought in the arena below the dam.
+## It is built from modules like the tank. ERA plates cover the nose and flanks: a cannon shell
+## there only pops the plate. A shell on bare airframe (a stripped facing, the top, the belly or
+## the tail boom) takes a quarter of its hull. Knocking out modules changes the fight: the chin gun
+## and rocket pods silence their attacks, a lost tail rotor sends it spinning and wild, and losing
+## both engines drops it out of the sky.
 ## Phase 1 (Hunter) orbits wide with chin-gun strafes and rocket ripples that saturate the laser.
-## Phase 2 (Stripped) closes in once its armor is off: flares, ATGMs and FPV calls.
+## Phase 2 (Stripped) closes in: flares, ATGMs and FPV calls.
 ## Phase 3 (Infected) turns erratic, sheds spores and dives. It dies crashing into the dam.
 
 enum Phase { HUNTER, STRIPPED, INFECTED }
 enum Attack { NONE, GUN, ROCKETS, ATGM, DRONES, DIVE }
 
-const BODY_HP := 5200.0
-const PANEL_HP := 320.0
-const POD_HP := 260.0
+const BODY_HP := 1600.0
+const CANNON_SHARE := 0.25 ## Hull taken by one main-gun shell on bare airframe.
+const PLATED_SHARE := 0.03 ## Hull taken when an ERA plate eats the shell.
+const ERA_HP := 100.0 ## One shell pops a plate; machine guns chew through it slowly.
+const MODULE_HP := {"engine_l": 150.0, "engine_r": 150.0, "tail_rotor": 110.0, "chin": 90.0, "pod_l": 140.0, "pod_r": 140.0}
+const PLATES := ["era_front", "era_left", "era_right"]
 
 class Part:
 	var name := ""
@@ -18,6 +26,7 @@ class Part:
 	var radius := 1.0
 	var hp := 0.0
 	var node: Node3D
+	var module := false ## A working component; plates and the mast are not.
 
 var phase := Phase.HUNTER
 var parts := {}
@@ -108,11 +117,18 @@ func build() -> void:
 	var chin_mesh := MeshInstance3D.new()
 	chin_mesh.mesh = c.mesh()
 	_chin.add_child(chin_mesh)
-	_add_part("panel_l", Vector3(-0.85, 0.1, -0.2), 1.2, PANEL_HP, _panel_mesh(-1.0))
-	_add_part("panel_r", Vector3(0.85, 0.1, -0.2), 1.2, PANEL_HP, _panel_mesh(1.0))
-	_add_part("pod_l", Vector3(-2.6, -0.4, 0.2), 0.8, POD_HP, _pod_mesh())
-	_add_part("pod_r", Vector3(2.6, -0.4, 0.2), 0.8, POD_HP, _pod_mesh())
+	_add_part("era_left", Vector3(-0.85, 0.1, -0.2), 1.2, ERA_HP, _panel_mesh(-1.0))
+	_add_part("era_right", Vector3(0.85, 0.1, -0.2), 1.2, ERA_HP, _panel_mesh(1.0))
+	_add_part("era_front", Vector3(0, -0.1, -3.3), 0.9, ERA_HP, _nose_mesh())
+	_add_part("pod_l", Vector3(-2.6, -0.4, 0.2), 0.8, MODULE_HP.pod_l, _pod_mesh())
+	_add_part("pod_r", Vector3(2.6, -0.4, 0.2), 0.8, MODULE_HP.pod_r, _pod_mesh())
+	_add_part("engine_l", Vector3(-0.95, 1.1, 0.4), 0.75, MODULE_HP.engine_l, null)
+	_add_part("engine_r", Vector3(0.95, 1.1, 0.4), 0.75, MODULE_HP.engine_r, null)
+	_add_part("tail_rotor", _tail_rotor.position, 0.9, MODULE_HP.tail_rotor, null)
+	_add_part("chin", _chin.position, 0.6, MODULE_HP.chin, null)
 	_add_part("mast", Vector3(0, 1.9, 0.2), 0.7, INF, null)
+	for part: Part in parts.values():
+		part.module = MODULE_HP.has(part.name)
 	model.add_child(_fungus)
 	_grow_fungus(4)
 	_rotor_sound = Sfx.loop("rotor", self, 2.0)
@@ -137,6 +153,14 @@ func _panel_mesh(side: float) -> Mesh:
 	var b := LowPoly.new()
 	b.box(Transform3D(Basis(Vector3.BACK, side * 0.12), Vector3(side * 0.1, 0, 0)), Vector3(0.12, 1.3, 3.0), Palette.STONE)
 	b.box(Transform3D(Basis(), Vector3(side * 0.18, 0.3, 0)), Vector3(0.02, 0.1, 2.4), Palette.CORAL)
+	return b.mesh()
+
+
+func _nose_mesh() -> Mesh:
+	var b := LowPoly.new()
+	for i in 3:
+		b.box(Transform3D(Basis(Vector3.RIGHT, 0.3), Vector3(0, 0.25 - i * 0.32, -0.1 * i)), Vector3(1.35, 0.26, 0.14), Palette.STONE)
+	b.box(Transform3D(Basis(), Vector3(0, -0.6, 0.1)), Vector3(1.2, 0.04, 0.3), Palette.CORAL)
 	return b.mesh()
 
 
@@ -185,43 +209,70 @@ func take_hit(hit: Hit) -> void:
 	if dead or _crash > 0.0:
 		return
 	var world := World.current
-	# Route to the nearest part: pods and panels absorb what hits them.
-	var nearest: Part = null
-	var nearest_distance := 1.2
-	for part: Part in parts.values():
-		if part.hp <= 0.0:
-			continue
-		var distance := hit.position.distance_to(model.global_transform * part.offset) - part.radius
-		if distance < nearest_distance:
-			nearest_distance = distance
-			nearest = part
+	var cannon := hit.kind == Hit.Kind.SHELL and hit.caliber >= 100
 	var amount := hit.damage * damage_multiplier(hit)
-	if nearest and nearest.name != "mast":
-		nearest.hp -= amount
-		flash()
-		world.fx.sparks(hit.position, -hit.direction, 5, Palette.BUTTER)
-		if nearest.hp <= 0.0:
-			_lose_part(nearest)
-		# Some of it still reaches the airframe.
-		amount *= 0.3
-	elif nearest and nearest.name == "mast":
-		amount *= 2.0 if hit.pierce else 1.3
-		if hit.stagger > 0.5:
+	var hull := max_hp * CANNON_SHARE if cannon else amount
+	var local := model.global_transform.affine_inverse() * hit.position
+	var struck := _struck_part(hit.position)
+	var plate := _plate_facing(local)
+	if struck and struck.module:
+		# A module takes the hit; a shell wrecks it outright and still tears the airframe.
+		struck.hp -= INF if cannon else amount
+		world.fx.sparks(hit.position, -hit.direction, 6, Palette.BUTTER)
+		if struck.hp <= 0.0:
+			_lose_part(struck, hit.direction)
+		if not cannon:
+			hull = amount * 0.3
+	elif struck and struck.name == "mast":
+		hull *= 1.3
+		if hit.stagger > 0.3:
 			stagger = maxf(stagger, 1.2)
 			world.fx.sparks(hit.position, Vector3.UP, 16, Palette.WHITE, 12.0)
-	var armored := _live("panel_l") or _live("panel_r")
-	if armored and not hit.pierce and hit.kind != Hit.Kind.BLAST:
-		amount *= 0.5
-	hp -= amount
+	elif plate != "" and _live(plate) and hit.kind != Hit.Kind.FIRE:
+		# ERA on the struck facing detonates outward and eats the shell.
+		var era: Part = parts[plate]
+		era.hp -= amount
+		world.fx.sparks(hit.position, -hit.direction, 8, Palette.WHITE, 9.0)
+		if era.hp <= 0.0:
+			_lose_part(era, hit.direction)
+		hull = max_hp * PLATED_SHARE if cannon else amount * 0.1
+	hp -= hull
 	flash()
+	if cannon:
+		world.hitstop(0.05)
+		world.shake(0.3, hit.position)
 	if hit.stagger >= 1.0:
 		stagger = maxf(stagger, 0.6)
 		if _attack in [Attack.GUN, Attack.ATGM] and _attack_time < 0.8:
 			_end_attack()
-	if hp <= 0.0:
+	if hp <= 0.0 or not (_live("engine_l") or _live("engine_r")):
 		_begin_crash()
 		return
 	_update_phase()
+
+
+## The live part whose shell the impact landed in, if any.
+func _struck_part(at: Vector3) -> Part:
+	var nearest: Part = null
+	var nearest_distance := 0.35
+	for part: Part in parts.values():
+		if part.hp <= 0.0 or part.name in PLATES:
+			continue
+		var distance := at.distance_to(model.global_transform * part.offset) - part.radius
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest = part
+	return nearest
+
+
+## Which ERA plate covers the airframe at a local impact point: the nose, a flank below the
+## engines, or none (top, belly, tail boom).
+static func _plate_facing(local: Vector3) -> String:
+	if local.z < -1.7 and absf(local.x) < 1.0:
+		return "era_front"
+	if local.z < 3.0 and local.y < 0.9 and absf(local.x) > 0.45:
+		return "era_left" if local.x < 0.0 else "era_right"
+	return ""
 
 
 func damage_multiplier(hit: Hit) -> float:
@@ -234,35 +285,40 @@ func damage_multiplier(hit: Hit) -> float:
 	return multiplier
 
 
-func _lose_part(part: Part) -> void:
+func _lose_part(part: Part, direction := Vector3.ZERO) -> void:
 	var world := World.current
 	var at: Vector3 = model.global_transform * part.offset
-	world.fx.explosion(at, 2.5 if part.name.begins_with("pod") else 1.6)
-	world.fx.debris(at, 10, [Palette.STONE, Palette.CORAL, Palette.INK], 10.0, 0.4)
+	part.hp = 0.0
+	var push := (at - global_position).normalized() if direction == Vector3.ZERO else direction.normalized()
+	world.fx.explosion(at, 2.5 if part.module else 1.6)
+	world.fx.debris(at, 14, [Palette.STONE, Palette.CORAL, Palette.INK], 14.0, 0.4, push)
 	world.shake(0.4)
 	world.hitstop(0.06)
 	world.award(1500, at, false)
 	Sfx.play("blast", at)
 	if part.node:
 		part.node.queue_free()
-	if part.name.begins_with("pod"):
-		# Cooking off the remaining rockets.
-		hp -= 80.0
+	match part.name:
+		"tail_rotor":
+			_tail_rotor.visible = false
+		"chin":
+			_chin.visible = false
+			if _attack == Attack.GUN:
+				_end_attack()
+		"pod_l", "pod_r":
+			# Cooking off the remaining rockets.
+			hp -= max_hp * 0.05
 	_update_phase()
 
 
 func _update_phase() -> void:
 	var world := World.current
 	var ratio := hp / max_hp
-	if phase == Phase.HUNTER and (ratio < 0.66 or not (_live("panel_l") or _live("panel_r"))):
+	if phase == Phase.HUNTER and (ratio < 0.66 or PLATES.all(func(plate: String) -> bool: return not _live(plate))):
 		phase = Phase.STRIPPED
 		world.radio.emit(&"AI_BOSS_PHASE2")
 		_resupply()
 		_grow_fungus(6)
-		for side in ["panel_l", "panel_r"]:
-			if _live(side):
-				parts[side].hp = 0.0
-				_lose_part(parts[side])
 		_next_attack = 1.0
 	elif phase == Phase.STRIPPED and ratio < 0.33:
 		phase = Phase.INFECTED
@@ -301,6 +357,10 @@ func behave(delta: float) -> void:
 	var orbit_radius := [55.0, 34.0, 28.0][phase] as float
 	var altitude := [19.0, 13.0, 11.0][phase] as float
 	var speed := [0.18, 0.3, 0.42][phase] as float
+	if not (_live("engine_l") and _live("engine_r")):
+		speed *= 0.6
+		altitude *= 0.7
+	_smoke_modules(delta)
 	if randf() < delta * 0.15:
 		_orbit_dir = -_orbit_dir
 	_orbit_angle += _orbit_dir * speed * delta * (0.3 if is_staggered() else 1.0)
@@ -327,12 +387,26 @@ func behave(delta: float) -> void:
 	# Nose at the tank, bank into the turn.
 	var to_tank := tank.global_position - global_position
 	var yaw := atan2(-to_tank.x, -to_tank.z)
-	model.rotation.y = lerp_angle(model.rotation.y, yaw, 2.5 * delta)
+	if _live("tail_rotor"):
+		model.rotation.y = lerp_angle(model.rotation.y, yaw, 2.5 * delta)
+	else:
+		# No anti-torque: it slews around, only now and then facing the tank.
+		model.rotation.y += delta * 2.4
 	var lateral := _velocity.dot(model.global_basis.x)
 	model.rotation.z = lerpf(model.rotation.z, -lateral * 0.04, 3.0 * delta)
 	model.rotation.x = lerpf(model.rotation.x, -_velocity.dot(-model.global_basis.z) * 0.02 - 0.08, 3.0 * delta)
 	_chin.look_at(tank.hit_center(), Vector3.UP)
 	_update_attack(delta, tank)
+
+
+## Fire and smoke from wrecked modules.
+func _smoke_modules(delta: float) -> void:
+	var world := World.current
+	for name in ["engine_l", "engine_r", "tail_rotor"]:
+		if not _live(name) and randf() < delta * 14.0:
+			var at: Vector3 = model.global_transform * parts[name].offset
+			world.fx.spawn(Fx.Kind.FLAME, at, Vector3.UP * 2.0, 0.35, 0.9, [Palette.AMBER, Palette.BUTTER][randi() % 2])
+			world.fx.smoke(at, 1, 1.6, [Palette.INK, Palette.DUSK, Palette.SLATE])
 
 
 func _watch_for_shells() -> void:
@@ -407,6 +481,10 @@ func _choose_attack() -> void:
 			options = [Attack.GUN, Attack.ROCKETS, Attack.ATGM, Attack.DIVE, Attack.ROCKETS]
 	if not (_live("pod_l") or _live("pod_r")):
 		options.erase(Attack.ROCKETS)
+	if not _live("chin"):
+		options.erase(Attack.GUN)
+	if options.is_empty():
+		options = [Attack.DIVE]
 	_attack = options.pick_random()
 	_attack_time = 0.0
 	_shots = 0
@@ -442,7 +520,8 @@ func _gun(delta: float, tank: Tank) -> void:
 		_shot_timer = 0.07
 		var from := _chin.global_position
 		var lead := tank.hit_center() + tank.velocity * (from.distance_to(tank.hit_center()) / 110.0) * 0.7
-		var shot := fire_at("orb", from, lead + Vector3(randf_range(-1.5, 1.5), randf_range(-0.5, 0.5), randf_range(-1.5, 1.5)), 110.0, 4.5)
+		var wild := 1.0 if _live("tail_rotor") else 3.0
+		var shot := fire_at("orb", from, lead + Vector3(randf_range(-1.5, 1.5), randf_range(-0.5, 0.5), randf_range(-1.5, 1.5)) * wild, 110.0, 4.5)
 		shot.hit.caliber = 30
 		world.fx.spawn(Fx.Kind.FLAME, from, Vector3.ZERO, 0.05, 0.4, Palette.CORAL)
 		Sfx.play("enemy_gun", from, 0.0, 0.8)
