@@ -13,7 +13,7 @@ func _ready() -> void:
 	if OS.get_cmdline_user_args().has("--play"):
 		start_game("")
 	elif OS.get_cmdline_user_args().has("--debug-room"):
-		_swap(DebugRoom.new())
+		_open_debug_room()
 	else:
 		show_title()
 
@@ -21,7 +21,13 @@ func _ready() -> void:
 func show_title() -> void:
 	_swap(load("res://scripts/ui/title.gd").new())
 	_screen.start.connect(start_game)
-	_screen.debug_room.connect(func() -> void: _swap(DebugRoom.new()))
+	_screen.debug_room.connect(_open_debug_room)
+
+
+func _open_debug_room() -> void:
+	var room := DebugRoom.new()
+	room.exit.connect(show_title)
+	_swap(room)
 
 
 func start_game(checkpoint: String) -> void:

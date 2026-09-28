@@ -479,7 +479,9 @@ func _instantiate(spec: Spec) -> void:
 	var position := Course.to_world(spec.d, spec.u, y)
 	var yaw := spec.yaw + Course.yaw_at(spec.d)
 	if not spec.pickup.is_empty():
-		spec.node = World.current.spawn_pickup(spec.pickup, position + Vector3.UP * 1.6)
+		# Loot is only laid out for a tank to collect; the title backdrop has none.
+		if World.current.player:
+			spec.node = World.current.spawn_pickup(spec.pickup, position + Vector3.UP * 1.6)
 	elif spec.decor:
 		var decor := MeshInstance3D.new()
 		decor.mesh = spec.mesh

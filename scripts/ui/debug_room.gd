@@ -1,8 +1,10 @@
 class_name DebugRoom
 extends Control
+
+signal exit ## Esc: back to the title.
 ## A gallery of every model and effect in labeled rows on a flat checkered floor (10 m squares).
 ## Fly with WASD (Q/E down/up, Shift fast), look by dragging with the right mouse button,
-## jump between rows with 1-9. Left click fires the main gun from the camera; the mouse wheel
+## jump between rows with 1-9, leave with Esc. Left click fires the main gun from the camera; the mouse wheel
 ## picks the round. Effect stations replay every two seconds.
 ## Run: godot --path . -- --debug-room
 
@@ -280,6 +282,8 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
 		_looking = event.pressed
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if _looking else Input.MOUSE_MODE_VISIBLE
+	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		exit.emit()
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		_fire()
 	elif event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
