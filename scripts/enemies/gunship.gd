@@ -4,18 +4,22 @@ extends Enemy
 ## AH12 HC: a long armored hull, two intermeshing rotors on masts splayed in a V above it, stub
 ## wings ending in huge missile racks, gatling turrets on the shoulders and a searchlight nose.
 ## Nose and flank plates protect the hull; three bare-airframe cannon hits bring it down.
-## Each wing carries a destructible rotor: one lost lowers and banks the craft, both lost crash it.
-## Chin gun and missile racks can be silenced independently. The three phases retain gun runs,
-## rocket ripples, flares, ATGMs, drone calls and the infected dive before the crash into the dam.
+## Every weapon and rotor is its own module with its own health: hitting one hurts only it, and
+## wrecking it tears it off the airframe and silences that attack. One rotor lost lowers and banks
+## the craft, both lost crash it. Weapons: two shoulder gatlings, a nose cannon, a chin ATGM drum,
+## two wing rocket racks and a belly bomb bay. The three phases add flares, drone calls and the
+## infected dive before the crash into the dam.
 
 enum Phase { HUNTER, STRIPPED, INFECTED }
-enum Attack { NONE, GUN, ROCKETS, ATGM, DRONES, DIVE }
+enum Attack { NONE, GUN, ROCKETS, ATGM, DRONES, DIVE, BOMBS, CANNON }
 
 const BODY_HP := 1600.0
 const CANNON_SHARE := 0.34 ## Hull taken by one main-gun shell on bare airframe: three clean hits.
 const PLATED_SHARE := 0.03 ## Hull taken when an ERA plate eats the shell.
 const ERA_HP := 100.0 ## One shell pops a plate; machine guns chew through it slowly.
-const MODULE_HP := {"rotor_l": 150.0, "rotor_r": 150.0, "chin": 90.0, "pod_l": 140.0, "pod_r": 140.0}
+const MODULE_HP := {"rotor_l": 150.0, "rotor_r": 150.0, "chin": 90.0, "pod_l": 140.0, "pod_r": 140.0,
+	"gatling_l": 80.0, "gatling_r": 80.0, "nose_gun": 110.0, "bay": 120.0}
+const GATLINGS := ["gatling_l", "gatling_r"]
 const ROTORS := ["rotor_l", "rotor_r"]
 const ROTOR_RADIUS := 8.5
 const ROTOR_TILT := 0.22 ## Each mast leans outward, so the two rotors mesh like an eggbeater.
@@ -168,6 +172,9 @@ func build() -> void:
 		barrels.add_child(spin)
 		_gatlings.append(turret)
 		_barrels.append(barrels)
+		var gatling := "gatling_l" if side < 0.0 else "gatling_r"
+		_add_part(gatling, turret.position, 1.1, MODULE_HP[gatling], null)
+		parts[gatling].node = turret
 	# Chin rocket turret: an eight-tube drum under the nose; losing it silences the gun runs too.
 	_chin.position = Vector3(0, -2.3, -5.2)
 	model.add_child(_chin)
@@ -182,9 +189,12 @@ func build() -> void:
 	_add_part("era_left", Vector3(-2.6, 0.0, -1.2), 2.0, ERA_HP, _panel_mesh(-1.0))
 	_add_part("era_right", Vector3(2.6, 0.0, -1.2), 2.0, ERA_HP, _panel_mesh(1.0))
 	_add_part("era_front", Vector3(0, 0.4, -6.9), 1.6, ERA_HP, _nose_mesh())
-	_add_part("pod_l", Vector3(-6.4, -0.4, 0.2), 1.9, MODULE_HP.pod_l, _pod_mesh())
-	_add_part("pod_r", Vector3(6.4, -0.4, 0.2), 1.9, MODULE_HP.pod_r, _pod_mesh())
+	_add_part("pod_l", Vector3(-6.4, -0.4, 0.2), 2.4, MODULE_HP.pod_l, _pod_mesh())
+	_add_part("pod_r", Vector3(6.4, -0.4, 0.2), 2.4, MODULE_HP.pod_r, _pod_mesh())
 	_add_part("chin", _chin.position, 1.1, MODULE_HP.chin, null)
+	parts.chin.node = _chin
+	_add_part("nose_gun", Vector3(0, -1.3, -7.6), 1.0, MODULE_HP.nose_gun, _nose_gun_mesh())
+	_add_part("bay", Vector3(0, -2.6, 2.0), 1.6, MODULE_HP.bay, _bay_mesh())
 	for part: Part in parts.values():
 		part.module = MODULE_HP.has(part.name)
 	model.add_child(_fungus)
@@ -251,6 +261,25 @@ func _pod_mesh() -> Mesh:
 	return b.mesh()
 
 
+## A long-barreled autocannon slung under the sensor nose.
+func _nose_gun_mesh() -> Mesh:
+	var b := LowPoly.new()
+	b.box(Transform3D(), Vector3(1.2, 0.9, 1.6), Palette.STONE)
+	b.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(0, 0, -0.8)), 0.22, 3.2, 8, Palette.INK)
+	b.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(0, 0, -3.8)), 0.34, 0.5, 8, Palette.SLATE)
+	return b.mesh()
+
+
+## A belly bomb bay: a boxy pannier with its doors and a row of bomb noses showing.
+func _bay_mesh() -> Mesh:
+	var b := LowPoly.new()
+	b.box(Transform3D(), Vector3(2.6, 1.2, 4.2), Palette.ASH)
+	b.box(Transform3D(Basis(), Vector3(0, -0.62, 0)), Vector3(2.2, 0.05, 3.8), Palette.BUTTER)
+	for z in [-1.4, 0.0, 1.4]:
+		b.blob(Transform3D(Basis(), Vector3(0, -0.6, z)), 0.35, Palette.RED, 0, 0.0, 2)
+	return b.mesh()
+
+
 func _grow_fungus(count: int) -> void:
 	for i in count:
 		var blob := MeshInstance3D.new()
@@ -276,7 +305,7 @@ func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 	for part: Part in parts.values():
 		if part.hp <= 0.0:
 			continue
-		var t := Entity.segment_sphere(from, to, model.global_transform * part.offset, part.radius + extra_radius)
+		var t := Entity.segment_sphere(from, to, model.global_transform * part.offset, part.radius * MODEL_SCALE + extra_radius)
 		if t >= 0.0 and (best < 0.0 or t < best):
 			best = t
 	var local_from := model.to_local(from)
@@ -307,13 +336,12 @@ func take_hit(hit: Hit) -> void:
 	var struck := _struck_part(hit.position)
 	var plate := _plate_facing(local)
 	if struck and struck.module:
-		# A module takes the hit; a shell wrecks it outright and still tears the airframe.
+		# A module takes the hit alone and shields the airframe behind it; a shell wrecks it outright.
 		struck.hp -= INF if cannon else amount
-		world.fx.sparks(hit.position, -hit.direction, 6, Palette.BUTTER)
+		world.fx.sparks(hit.position, -hit.direction, 10, Palette.BUTTER, 12.0)
 		if struck.hp <= 0.0:
 			_lose_part(struck, hit.direction)
-		if not cannon:
-			hull = amount * 0.3
+		hull = 0.0
 	elif plate != "" and _live(plate) and hit.kind != Hit.Kind.FIRE:
 		# ERA on the struck facing detonates outward and eats the shell.
 		var era: Part = parts[plate]
@@ -323,10 +351,19 @@ func take_hit(hit: Hit) -> void:
 			_lose_part(era, hit.direction)
 		hull = max_hp * PLATED_SHARE if cannon else amount * 0.1
 	hp -= hull
-	impact_feedback(hit, hull, hp <= 0.0 or not (_live("rotor_l") or _live("rotor_r")))
+	impact_feedback(hit, amount, hp <= 0.0 or not (_live("rotor_l") or _live("rotor_r")))
 	if cannon:
-		world.hitstop(0.05)
-		world.shake(0.3, hit.position)
+		# A 100 mm shell lands like a truck: a blast on the skin, the whole craft lurches and rolls.
+		world.fx.explosion(hit.position, 2.2, [Palette.WHITE, Palette.BUTTER, Palette.AMBER, Palette.CORAL], hit.direction)
+		world.fx.debris(hit.position, 10, debris, 14.0, 0.5, hit.direction)
+		_velocity += hit.direction.normalized() * 9.0 + Vector3.UP * 3.0
+		model.rotation.z += randf_range(-0.2, 0.2)
+		model.rotation.x += randf_range(-0.12, 0.12)
+		world.hitstop(0.08)
+		world.shake(0.45, hit.position)
+		world.screen_flash(Palette.WHITE, 0.15)
+		world.camera.kick(0.03)
+		Sfx.play("blast_small", hit.position, 4.0, 0.8)
 	if hit.stagger >= 1.0:
 		stagger = maxf(stagger, 0.6)
 		if _attack in [Attack.GUN, Attack.ATGM] and _attack_time < 0.8:
@@ -350,7 +387,7 @@ func _struck_part(at: Vector3) -> Part:
 	for part: Part in parts.values():
 		if part.hp <= 0.0 or part.name in PLATES:
 			continue
-		var distance := at.distance_to(model.global_transform * part.offset) - part.radius
+		var distance := at.distance_to(model.global_transform * part.offset) - part.radius * MODEL_SCALE
 		if distance < nearest_distance:
 			nearest_distance = distance
 			nearest = part
@@ -389,15 +426,26 @@ func _lose_part(part: Part, direction := Vector3.ZERO) -> void:
 	world.award(1500, at, false)
 	Sfx.play("blast", at)
 	if part.node:
-		part.node.visible = false
-		part.node.queue_free()
+		# Torn off, it tumbles away burning and blows up where it lands.
+		Wreck.launch(part.node, at, part.radius * MODEL_SCALE, true, push * 10.0 + Vector3.UP * 6.0)
 	match part.name:
 		"rotor_l", "rotor_r":
 			_rotors.erase(part.name)
 			stagger = maxf(stagger, 1.2)
 		"chin":
-			_chin.visible = false
-			if _attack == Attack.GUN:
+			if _attack == Attack.ATGM:
+				_end_attack()
+		"gatling_l", "gatling_r":
+			var index := GATLINGS.find(part.name)
+			_gatlings[index] = null
+			_barrels[index] = null
+			if _attack == Attack.GUN and GATLINGS.all(func(name: String) -> bool: return not _live(name)):
+				_end_attack()
+		"nose_gun":
+			if _attack == Attack.CANNON:
+				_end_attack()
+		"bay":
+			if _attack == Attack.BOMBS:
 				_end_attack()
 		"pod_l", "pod_r":
 			# Cooking off the remaining rockets.
@@ -412,13 +460,14 @@ func _update_phase() -> void:
 		return
 	var world := World.current
 	var ratio := hp / max_hp
-	if phase == Phase.HUNTER and (ratio < 0.7 or PLATES.all(func(plate: String) -> bool: return not _live(plate))):
+	var lost := MODULE_HP.keys().filter(func(name: String) -> bool: return not _live(name)).size()
+	if phase == Phase.HUNTER and (ratio < 0.7 or lost >= 3 or PLATES.all(func(plate: String) -> bool: return not _live(plate))):
 		phase = Phase.STRIPPED
 		world.radio.emit(&"AI_BOSS_PHASE2")
 		_resupply()
 		_grow_fungus(6)
 		_next_attack = 1.0
-	elif phase == Phase.STRIPPED and ratio < 0.34:
+	elif phase == Phase.STRIPPED and (ratio < 0.34 or lost >= 6):
 		phase = Phase.INFECTED
 		world.radio.emit(&"AI_BOSS_PHASE3")
 		_resupply()
@@ -494,19 +543,22 @@ func behave(delta: float) -> void:
 		damaged_bank = -0.3
 	model.rotation.z = lerpf(model.rotation.z, clampf(-lateral * 0.04, -0.15, 0.15) + damaged_bank, 3.0 * delta)
 	model.rotation.x = lerpf(model.rotation.x, -_velocity.dot(-model.global_basis.z) * 0.02 - 0.08, 3.0 * delta)
-	_chin.look_at(tank.hit_center(), Vector3.UP)
+	if _live("chin"):
+		_chin.look_at(tank.hit_center(), Vector3.UP)
 	for gatling in _gatlings:
-		gatling.look_at(tank.hit_center(), Vector3.UP)
+		if gatling:
+			gatling.look_at(tank.hit_center(), Vector3.UP)
 	for barrels in _barrels:
-		barrels.rotation.z += delta * (30.0 if _attack == Attack.GUN else 2.0)
+		if barrels:
+			barrels.rotation.z += delta * (30.0 if _attack == Attack.GUN else 2.0)
 	_update_attack(delta, tank)
 
 
-## Fire and smoke from wrecked modules.
+## Fire and smoke from the stumps of wrecked modules.
 func _smoke_modules(delta: float) -> void:
 	var world := World.current
-	for name in ROTORS:
-		if not _live(name) and randf() < delta * 14.0:
+	for name: String in MODULE_HP:
+		if not _live(name) and randf() < delta * 10.0:
 			var at: Vector3 = model.global_transform * parts[name].offset
 			world.fx.spawn(Fx.Kind.FLAME, at, Vector3.UP * 2.0, 0.35, 0.9, [Palette.AMBER, Palette.BUTTER][randi() % 2])
 			world.fx.smoke(at, 1, 1.6, [Palette.INK, Palette.DUSK, Palette.SLATE])
@@ -548,6 +600,10 @@ func _update_attack(delta: float, tank: Tank) -> void:
 			_gun(delta, tank)
 		Attack.ROCKETS:
 			_rockets(delta, tank)
+		Attack.BOMBS:
+			_bombs(tank)
+		Attack.CANNON:
+			_cannon(delta, tank)
 		Attack.ATGM:
 			if _attack_time < 1.3:
 				set_meta("locking", true)
@@ -576,16 +632,21 @@ func _update_attack(delta: float, tank: Tank) -> void:
 
 
 func _choose_attack() -> void:
-	var options: Array[Attack] = [Attack.GUN, Attack.ROCKETS]
+	var options: Array[Attack] = [Attack.GUN, Attack.ROCKETS, Attack.CANNON]
 	match phase:
 		Phase.STRIPPED:
-			options = [Attack.GUN, Attack.ROCKETS, Attack.ATGM, Attack.DRONES]
+			options = [Attack.GUN, Attack.ROCKETS, Attack.CANNON, Attack.ATGM, Attack.DRONES, Attack.BOMBS]
 		Phase.INFECTED:
-			options = [Attack.GUN, Attack.ROCKETS, Attack.ATGM, Attack.DIVE, Attack.ROCKETS]
-	if not (_live("pod_l") or _live("pod_r")):
-		options = options.filter(func(attack: Attack) -> bool: return attack != Attack.ROCKETS)
-	if not _live("chin"):
-		options.erase(Attack.GUN)
+			options = [Attack.GUN, Attack.ROCKETS, Attack.CANNON, Attack.ATGM, Attack.BOMBS, Attack.DIVE, Attack.ROCKETS]
+	# A wrecked module takes its attack with it.
+	var armed := {
+		Attack.GUN: GATLINGS.any(func(name: String) -> bool: return _live(name)),
+		Attack.ROCKETS: _live("pod_l") or _live("pod_r"),
+		Attack.ATGM: _live("chin"),
+		Attack.CANNON: _live("nose_gun"),
+		Attack.BOMBS: _live("bay"),
+	}
+	options = options.filter(func(attack: Attack) -> bool: return armed.get(attack, true))
 	if options.is_empty():
 		options = [Attack.DIVE]
 	_attack = options.pick_random()
@@ -598,6 +659,8 @@ func _choose_attack() -> void:
 			Sfx.play("warn", global_position, 2.0, 0.8)
 		Attack.ATGM:
 			Sfx.play("lock", global_position)
+		Attack.CANNON, Attack.BOMBS:
+			Sfx.play("warn", global_position, 2.0, 0.6)
 		Attack.DIVE:
 			Sfx.play("roar", global_position, 0.0, 1.4)
 
@@ -622,7 +685,11 @@ func _gun(delta: float, tank: Tank) -> void:
 		_shots += 1
 		_shot_timer = 0.07
 		# The shoulder gatlings take turns, so the stream visibly comes from both sides.
-		var from: Vector3 = _barrels[_shots % 2].global_transform * Vector3(0, 0, -2.0)
+		var live: Array = _barrels.filter(func(b: Node3D) -> bool: return b != null)
+		if live.is_empty():
+			_end_attack()
+			return
+		var from: Vector3 = (live[_shots % live.size()] as Node3D).global_transform * Vector3(0, 0, -2.0)
 		var lead := tank.hit_center() + tank.velocity * (from.distance_to(tank.hit_center()) / 110.0) * 0.7
 		var wild := 1.0 if _live("rotor_l") and _live("rotor_r") else 2.0
 		var shot := fire_at("orb", from, lead + Vector3(randf_range(-1.5, 1.5), randf_range(-0.5, 0.5), randf_range(-1.5, 1.5)) * wild, 110.0, 4.5)
@@ -674,8 +741,65 @@ func _rockets(delta: float, tank: Tank) -> void:
 		_end_attack()
 
 
+## Nose cannon: its barrel glows and a sight line settles on the tank, then three heavy shells
+## thump out one after another.
+func _cannon(delta: float, tank: Tank) -> void:
+	var world := World.current
+	var muzzle: Vector3 = model.global_transform * (parts.nose_gun.offset + Vector3(0, 0, -4.2))
+	if _attack_time < 0.9:
+		if fmod(_attack_time, 0.1) < 0.05:
+			world.fx.beam(muzzle, tank.hit_center(), Palette.HOT, 0.08, 0.05)
+		world.fx.spawn(Fx.Kind.FLAME, muzzle, Vector3.ZERO, 0.06, 0.3 + _attack_time, Palette.HOT)
+		return
+	_shot_timer -= delta
+	if _shot_timer <= 0.0 and _shots < 3:
+		_shots += 1
+		_shot_timer = 0.4
+		var lead := tank.hit_center() + tank.velocity * (muzzle.distance_to(tank.hit_center()) / 75.0)
+		var shell := fire_at("shell", muzzle, lead, 75.0, 0.0)
+		shell.hit = Hit.make(Hit.Kind.SHELL, 10.0, muzzle)
+		shell.hit.source = self
+		shell.blast_radius = 3.4
+		shell.blast_damage = 16.0
+		shell.interceptable = true
+		shell.intercept_hp = 1.0
+		_velocity -= (lead - muzzle).normalized() * 3.0
+		Sfx.play("cannon", muzzle, 0.0, 1.3)
+	elif _shots >= 3 and _shot_timer <= 0.0:
+		_end_attack()
+
+
+## Bomb bay: red circles walk along the tank's path, then the bombs fall onto them.
+func _bombs(tank: Tank) -> void:
+	if _attack_time < 0.4 or _shots > 0:
+		if _shots > 0 and _attack_time > 2.6:
+			_end_attack()
+		return
+	var world := World.current
+	var from: Vector3 = model.global_transform * parts.bay.offset
+	var count := [6, 8, 10][phase] as int
+	_shots = count
+	for i in count:
+		var flight := 1.4 + i * 0.12
+		var target := tank.global_position + tank.velocity * flight + Vector3(randf_range(-4, 4), 0, randf_range(-4, 4))
+		target.y = Course.height_at(target)
+		var velocity_out := (target - from) / flight
+		velocity_out.y += 0.5 * 20.0 * flight
+		var bomb := world.spawn_projectile(Team.ENEMY, from, velocity_out, "bomb", Palette.HOT)
+		bomb.gravity = 20.0
+		bomb.hit = Hit.make(Hit.Kind.BLAST, 0.0, from)
+		bomb.hit.source = self
+		bomb.blast_radius = 3.6
+		bomb.blast_damage = 16.0
+		bomb.interceptable = true
+		bomb.intercept_hp = 0.8
+		bomb.life = flight + 1.0
+		world.fx.marker(target, 3.6, flight, Palette.RED)
+	Sfx.play("launch", from, 0.0, 0.7)
+
+
 func _launch_atgm(tank: Tank, index: int) -> void:
-	var from := global_position + model.global_basis.x * (index - 1) * 1.5 + Vector3.DOWN
+	var from := _chin.global_position + model.global_basis.x * (index - 1) * 1.5
 	var missile := fire_at("atgm", from, from + Vector3.UP * 2.0 + model.global_basis.x * (index - 1) * 4.0 + (tank.hit_center() - from).normalized() * 4.0, 30.0, 0.0)
 	missile.hit = Hit.make(Hit.Kind.SHELL, 0.0, from)
 	missile.hit.source = self
