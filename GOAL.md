@@ -38,7 +38,7 @@ starting values for tuning.
 | 100 mm gun | ~1.0 s reload, direct hit and blast, heavy recoil pushes the tank back | The big punch; one shot kills most small enemies and staggers large ones |
 | 8 mm coaxial gun | High rate of fire, low damage, follows the turret | Always-on fire; upgradable (below) |
 | RWS: 200 kW laser CIWS | Automatic; zaps incoming missiles, rockets, shells and FPV drones in a short radius; heats with each engagement | Defensive layer. Saturation attacks can overheat it, and then the player must dodge |
-| Tracks | At speed the tank flattens every building, wreck and ground enemy in its path; only landmarks (the church, the old zelkova, the dam) stand | Aggressive driving is rewarded |
+| Tracks | At speed the tank flattens every building, wreck and ground enemy in its path. Big landmarks (church, branch school, the old zelkova) are modular: each piece breaks on its own, and what rested on it topples. Only the dam stands | Aggressive driving is rewarded |
 | Reactive armor | ERA bricks: 4 front, 3 per side, none at the rear | Each brick stops one shaped charge from its facing |
 | Bio tail | Three-segment muscular tail with a pink claw; no weapon; acts on its own | Melee, pickup and defense (below) |
 
@@ -149,6 +149,8 @@ Each enemy has a distinct silhouette, a clear telegraph before it attacks, a sat
 | UAV (fixed-wing) | Makes bombing and strafing passes; drops loitering munitions | Shadow and dither sweep across the ground before the pass | Airburst, coax |
 | Fungal crawler | Swarms over terrain; bursts into spores | Swells and brightens before bursting | Dragon's breath, ramming |
 | Spore spitter | Rooted; lobs arcing spore mortars | Glowing sac inflates | Any cannon round |
+| Bipedal walker | Reverse-jointed legs with wheeled feet; skates between lanes, then plants and fires a 15 mm burst or a missile pair | Crouches, eye flashes | Shoot the legs to topple it; grab and throw |
+| Quad mech | Heavy four-legged walker with a quad 20 mm flak turret or a mortar | Barrels spin up / impact circles | Shoot legs off (two lost: it collapses) or the turret |
 | Fungal colossus (mid-boss) | Large rooted mass; tendril sweeps, spore barrages, spawns crawlers | Tendrils rear up; the ground cracks along the sweep line | Burn the weak points, then shoot the core |
 
 ### Boss: attack helicopter
@@ -191,7 +193,11 @@ smoke, lingering smoke columns and burning wrecks.
 
 ### Mayhem and style
 
-Destruction is the point, as in ULTRAKILL. A style meter ranks play from D to SSS and multiplies score:
+Destruction is the point, as in ULTRAKILL and Metal Slug: destroyed vehicles are blown into the air spinning and
+blow up again where they land; every death blast hurts what is packed around it, so kills chain; explosive drums
+and gas stations line the road; swarm enemies come in large numbers; weapon pickups and mission start and clear
+are announced with huge arcade call-outs. Projectiles use saturated accent colors with ink outlines so they cut
+through the pastel scene. A style meter ranks play from D to SSS and multiplies score:
 
 - Kills are named by how they happened (crushed, tail whip, thrown, burned, airburst, sky shot, collateral from a
   wreck the tank set off, multikill, deflect, demolition, close call). Repeating the same trick earns less.
