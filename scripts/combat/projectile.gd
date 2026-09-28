@@ -174,13 +174,13 @@ func splash_direction() -> Vector3:
 ## Programmable airburst: a fragment cone sweeping forward from the burst point.
 func _airburst(point: Vector3) -> void:
 	var world := World.current
-	world.fx.explosion(point, 1.6, [Palette.WHITE, Palette.SKY, Palette.BUTTER])
+	world.fx.explosion(point, 2.8, [Palette.WHITE, Palette.SKY, Palette.BUTTER])
 	var forward := velocity.normalized()
 	for i in airburst_fragments:
 		var dir := (forward + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 0.55).normalized()
 		var fragment := World.current.spawn_projectile(team, point, dir * 90.0, "fragment")
 		fragment.hit = Hit.make(Hit.Kind.FRAGMENT, hit.damage, point)
-		fragment.life = 0.18
+		fragment.life = 0.26
 		fragment.terrain_only_after = 0.0
 	Sfx.play("airburst", point)
 

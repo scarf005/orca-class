@@ -600,21 +600,29 @@ func fire_cannon() -> void:
 	world.stats.shots += 1
 	match round:
 		Armament.Round.CANISTER:
-			for i in 26:
-				var dir := (_fire_direction(muzzle, 200.0) + Vector3(randf_range(-1, 1), randf_range(-0.6, 1), randf_range(-1, 1)) * 0.11).normalized()
+			# A wall of tungsten balls, and a muzzle blast that flattens everything just ahead.
+			var aim_dir := _fire_direction(muzzle, 200.0)
+			world.blast(muzzle + aim_dir * 7.0, 6.0, 260.0, Team.PLAYER, _cannon_hit(), null, [Palette.WHITE, Palette.BUTTER, Palette.AMBER], aim_dir)
+			for i in 40:
+				var dir := (aim_dir + Vector3(randf_range(-1, 1), randf_range(-0.6, 1), randf_range(-1, 1)) * 0.13).normalized()
 				var pellet := world.spawn_projectile(Team.PLAYER, muzzle, dir * randf_range(170, 210), "pellet", Palette.SKY)
-				pellet.hit = Hit.make(Hit.Kind.BULLET, 45.0, muzzle)
+				pellet.hit = Hit.make(Hit.Kind.BULLET, 90.0, muzzle)
 				pellet.hit.caliber = 20
-				pellet.life = 0.28
+				pellet.life = 0.36
 				pellet.impacted.connect(_count_hit, CONNECT_ONE_SHOT)
 		Armament.Round.DRAGON:
-			for i in 34:
-				var dir := (_fire_direction(muzzle, 60.0) + Vector3(randf_range(-1, 1), randf_range(-0.4, 0.8), randf_range(-1, 1)) * 0.16).normalized()
-				var flame := world.spawn_projectile(Team.PLAYER, muzzle, dir * randf_range(38, 62), "fire", [Palette.WHITE, Palette.PEACH, Palette.BUTTER, Palette.AMBER][i % 4])
-				flame.hit = Hit.make(Hit.Kind.FIRE, 22.0, muzzle)
+			# A roaring cone of burning magnesium: a fireball right ahead and a long gout of flame.
+			var aim_dir := _fire_direction(muzzle, 60.0)
+			var burst := _cannon_hit()
+			burst.incendiary = true
+			world.blast(muzzle + aim_dir * 9.0, 7.0, 220.0, Team.PLAYER, burst, null, [Palette.WHITE, Palette.BUTTER, Palette.AMBER, Palette.HOT], aim_dir)
+			for i in 52:
+				var dir := (aim_dir + Vector3(randf_range(-1, 1), randf_range(-0.4, 0.8), randf_range(-1, 1)) * 0.18).normalized()
+				var flame := world.spawn_projectile(Team.PLAYER, muzzle, dir * randf_range(45, 75), "fire", [Palette.WHITE, Palette.PEACH, Palette.BUTTER, Palette.AMBER][i % 4])
+				flame.hit = Hit.make(Hit.Kind.FIRE, 45.0, muzzle)
 				flame.hit.incendiary = true
 				flame.gravity = 6.0
-				flame.life = randf_range(0.45, 0.75)
+				flame.life = randf_range(0.6, 0.95)
 				flame.radius = 0.6
 				flame.impacted.connect(_on_flame_impact)
 		_:
@@ -632,14 +640,14 @@ func fire_cannon() -> void:
 			shell.impacted.connect(_count_hit, CONNECT_ONE_SHOT)
 			match round:
 				Armament.Round.APHE:
-					shell.blast_radius = 8.0
-					shell.blast_damage = 320.0
+					shell.blast_radius = 12.0
+					shell.blast_damage = 600.0
 				Armament.Round.HEAT:
 					shell.hit.damage = Armament.SHELL_DAMAGE * 1.5
 					shell.hit.pierce = true
 					shell.hit.stagger = 1.0
-					shell.blast_radius = 5.5
-					shell.blast_damage = 220.0
+					shell.blast_radius = 9.0
+					shell.blast_damage = 500.0
 					shell.blast_colors = [Palette.WHITE, Palette.CORAL, Palette.RED, Palette.PEACH]
 				Armament.Round.APFSDS:
 					shell.hit.damage = Armament.SHELL_DAMAGE * 2.0
@@ -647,10 +655,13 @@ func fire_cannon() -> void:
 					shell.pierce_entities = true
 					shell.gravity = 0.0
 					shell.life = 0.7
+					# The dart goes through everything in line and slams into the ground with a crater.
+					shell.blast_radius = 7.0
+					shell.blast_damage = 450.0
 				Armament.Round.AIRBURST:
-					shell.hit.damage = 30.0
+					shell.hit.damage = 70.0
 					shell.fuse_distance = maxf(muzzle.distance_to(aim_point) - 2.0, 6.0)
-					shell.airburst_fragments = 40
+					shell.airburst_fragments = 70
 	if round != Armament.Round.APHE:
 		round_count -= 1
 		if round_count <= 0:
@@ -658,6 +669,14 @@ func fire_cannon() -> void:
 		round_changed.emit()
 	reload = (Armament.HEAT_RELOAD if round == Armament.Round.HEAT else Armament.RELOAD) * modules.reload_factor()
 	_cannon_feedback(muzzle, barrel_dir)
+
+
+## A player cannon hit template for blasts fired straight from the muzzle.
+func _cannon_hit() -> Hit:
+	var hit := Hit.make(Hit.Kind.BLAST, 0.0, global_position)
+	hit.source = self
+	hit.stagger = 1.0
+	return hit
 
 
 func _cannon_feedback(muzzle: Vector3, dir: Vector3) -> void:
