@@ -29,6 +29,8 @@ static var _glow_material := _fade_material(true)
 
 var _pools := {Kind.SOLID: [], Kind.GLOW: []}
 var _multimeshes := {}
+var _buffers := {} ## Kind -> PackedFloat32Array uploaded to the MultiMesh in one call per frame.
+static var _mesh_cache := {} ## Unit-sized transient meshes by name and color.
 var _transients: Array[Dictionary] = []
 var _scorches: Array[MeshInstance3D] = []
 var _flashes: Array[OmniLight3D] = []
@@ -58,6 +60,9 @@ func _ready() -> void:
 		instance.custom_aabb = AABB(Vector3(-5000, -500, -5000), Vector3(10000, 1000, 10000))
 		add_child(instance)
 		_multimeshes[kind] = multimesh
+		var buffer := PackedFloat32Array()
+		buffer.resize(MAX_PARTICLES * 16)
+		_buffers[kind] = buffer
 	for i in 4:
 		var light := OmniLight3D.new()
 		light.light_color = Palette.PEACH
@@ -104,6 +109,7 @@ func _process(delta: float) -> void:
 	for kind: Kind in _pools:
 		var pool: Array = _pools[kind]
 		var multimesh: MultiMesh = _multimeshes[kind]
+		var buffer: PackedFloat32Array = _buffers[kind]
 		var alive: Array = []
 		var index := 0
 		for p: Particle in pool:
@@ -120,11 +126,25 @@ func _process(delta: float) -> void:
 					p.velocity = Vector3(p.velocity.x * 0.5, absf(p.velocity.y) * 0.3, p.velocity.z * 0.5)
 			var t := p.life / p.max_life
 			var s := lerpf(p.size, p.end_size, t)
-			var basis := Basis.from_euler(p.spin * p.life).scaled(Vector3.ONE * s)
-			multimesh.set_instance_transform(index, Transform3D(basis, p.position))
-			var color := p.color
-			color.a = 1.0 - smoothstep(p.fade_start, 1.0, t)
-			multimesh.set_instance_color(index, color)
+			var basis := Basis.from_euler(p.spin * p.life).scaled(Vector3.ONE * s) if p.spin != Vector3.ZERO else Basis.from_scale(Vector3.ONE * s)
+			# Row-major 3x4 transform followed by the color, as the MultiMesh buffer expects.
+			var o := index * 16
+			buffer[o] = basis.x.x
+			buffer[o + 1] = basis.y.x
+			buffer[o + 2] = basis.z.x
+			buffer[o + 3] = p.position.x
+			buffer[o + 4] = basis.x.y
+			buffer[o + 5] = basis.y.y
+			buffer[o + 6] = basis.z.y
+			buffer[o + 7] = p.position.y
+			buffer[o + 8] = basis.x.z
+			buffer[o + 9] = basis.y.z
+			buffer[o + 10] = basis.z.z
+			buffer[o + 11] = p.position.z
+			buffer[o + 12] = p.color.r
+			buffer[o + 13] = p.color.g
+			buffer[o + 14] = p.color.b
+			buffer[o + 15] = 1.0 - smoothstep(p.fade_start, 1.0, t)
 			if p.trail.a > 0.0:
 				p.trail_timer -= delta
 				if p.trail_timer <= 0.0:
@@ -133,6 +153,9 @@ func _process(delta: float) -> void:
 			alive.append(p)
 			index += 1
 		_pools[kind] = alive
+		_buffers[kind] = buffer
+		if index > 0:
+			multimesh.buffer = buffer
 		multimesh.visible_instance_count = index
 	for p in trails:
 		spawn(Kind.GLOW, p.position, Vector3.UP * 0.8, 0.9, p.size * 0.9, p.trail, {"end_size": p.size * 2.5, "drag": 1.5, "fade": 0.1})
@@ -156,8 +179,7 @@ func _update_transients(delta: float) -> void:
 			continue
 		if t.grow != Vector2.ONE:
 			node.scale = Vector3.ONE * lerpf(t.grow.x, t.grow.y, 1.0 - pow(1.0 - k, 3.0))
-		var material: ShaderMaterial = t.material
-		material.set_shader_parameter("alpha_scale", 1.0 - smoothstep(t.get("fade_from", 0.3), 1.0, k))
+		node.set_instance_shader_parameter("instance_alpha", 1.0 - smoothstep(t.fade_from, 1.0, k))
 		keep.append(t)
 	_transients = keep
 
@@ -166,12 +188,22 @@ func _transient(mesh: Mesh, xf: Transform3D, life: float, glow: bool, grow := Ve
 	var node := MeshInstance3D.new()
 	node.mesh = mesh
 	node.transform = xf
-	var material := (_glow_material if glow else _solid_material).duplicate() as ShaderMaterial
-	node.material_override = material
+	node.material_override = _glow_material if glow else _solid_material
 	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(node)
-	_transients.append({"node": node, "age": 0.0, "life": life, "grow": grow, "material": material, "fade_from": fade_from})
+	_transients.append({"node": node, "age": 0.0, "life": life, "grow": grow, "fade_from": fade_from})
 	return node
+
+
+## Builds a unit-sized effect mesh once per name and color; callers scale the node instead.
+static func _cached(name: String, color: Color, build: Callable) -> Mesh:
+	var key := "%s_%s" % [name, color.to_html()]
+	if not _mesh_cache.has(key):
+		var b := LowPoly.new()
+		b.glow = true
+		build.call(b, color)
+		_mesh_cache[key] = b.mesh()
+	return _mesh_cache[key]
 
 
 func light_flash(position: Vector3, energy: float, color := Palette.PEACH, radius := 14.0) -> void:
@@ -191,12 +223,10 @@ func explosion(position: Vector3, damage_radius: float, palette := [Palette.WHIT
 	# Visuals read bigger than the damage area: it has to register at 480x270 across the valley.
 	var radius := damage_radius * 1.5
 	var pick := func(i: int) -> Color: return palette[mini(i, palette.size() - 1)]
-	var core := LowPoly.new()
-	core.blob(Transform3D(), 1.0, palette[0], 1, 0.2, randi())
-	_transient(core.mesh(), Transform3D(Basis(), position), 0.16 + radius * 0.02, true, Vector2(radius * 0.4, radius * 0.9), 0.1)
-	var fireball := LowPoly.new()
-	fireball.blob(Transform3D(), 1.0, pick.call(2), 1, 0.3, randi())
-	_transient(fireball.mesh(), Transform3D(Basis(), position + Vector3.UP * radius * 0.2), 0.4 + radius * 0.05, true, Vector2(radius * 0.5, radius * 1.35), 0.2)
+	var variant := randi() % 3
+	var ball := func(b: LowPoly, c: Color) -> void: b.blob(Transform3D(), 1.0, c, 1, 0.3, variant)
+	_transient(_cached("ball%d" % variant, palette[0], ball), Transform3D(Basis(), position), 0.16 + radius * 0.02, true, Vector2(radius * 0.4, radius * 0.9), 0.1)
+	_transient(_cached("ball%d" % variant, pick.call(2), ball), Transform3D(Basis(), position + Vector3.UP * radius * 0.2), 0.4 + radius * 0.05, true, Vector2(radius * 0.5, radius * 1.35), 0.2)
 	shockwave(position, radius * 2.2, pick.call(1))
 	light_flash(position, 8.0 + radius * 1.5, pick.call(2), radius * 5.0)
 	for i in int(10 + radius * 7):
@@ -296,28 +326,25 @@ func spores(position: Vector3, count: int, spread := 1.5) -> void:
 
 
 func shockwave(position: Vector3, radius: float, color: Color) -> void:
-	var ring := LowPoly.new()
-	ring.glow = true
-	for i in 16:
-		var a0 := TAU * i / 16.0
-		var a1 := TAU * (i + 1) / 16.0
-		var o0 := Vector3(cos(a0), 0, sin(a0))
-		var o1 := Vector3(cos(a1), 0, sin(a1))
-		ring.quad(o0 * 0.8, o1 * 0.8, o1, o0, color, Vector3.UP)
-	_transient(ring.mesh(), Transform3D(Basis(), position + Vector3.UP * 0.2), 0.3, true, Vector2(radius * 0.2, radius), 0.1)
+	var mesh := _cached("ring", color, func(b: LowPoly, c: Color) -> void:
+		for i in 16:
+			var o0 := Vector3(cos(TAU * i / 16.0), 0, sin(TAU * i / 16.0))
+			var o1 := Vector3(cos(TAU * (i + 1) / 16.0), 0, sin(TAU * (i + 1) / 16.0))
+			b.quad(o0 * 0.8, o1 * 0.8, o1, o0, c, Vector3.UP))
+	_transient(mesh, Transform3D(Basis(), position + Vector3.UP * 0.2), 0.3, true, Vector2(radius * 0.2, radius), 0.1)
 
 
 ## A star-shaped muzzle flash: a forward spike and a cross of side petals, gone in a blink.
 func muzzle_flash(position: Vector3, dir: Vector3, size: float, color := Palette.BUTTER) -> void:
-	var b := LowPoly.new()
-	b.glow = true
-	b.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3.ZERO), size * 0.35, size * 2.2, 5, Palette.WHITE, 0.0)
-	for i in 4:
-		var petal := Basis(Vector3.BACK, i * PI * 0.5 + randf() * 0.4) * Basis(Vector3.BACK, PI * 0.5)
-		b.prism(Transform3D(petal, Vector3.ZERO), size * 0.22, size * 1.1, 4, color, 0.0)
-	b.blob(Transform3D(), size * 0.5, color)
+	var variant := randi() % 3
+	var mesh := _cached("flash%d" % variant, color, func(b: LowPoly, c: Color) -> void:
+		b.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3.ZERO), 0.35, 2.2, 5, Palette.WHITE, 0.0)
+		for i in 4:
+			var petal := Basis(Vector3.BACK, i * PI * 0.5 + variant * 0.35) * Basis(Vector3.BACK, PI * 0.5)
+			b.prism(Transform3D(petal, Vector3.ZERO), 0.22, 1.1, 4, c, 0.0)
+		b.blob(Transform3D(), 0.5, c))
 	var up := Vector3.UP if absf(dir.y) < 0.99 else Vector3.RIGHT
-	_transient(b.mesh(), Transform3D(Basis.looking_at(dir, up), position), 0.06, true, Vector2.ONE, 0.6)
+	_transient(mesh, Transform3D(Basis.looking_at(dir, up).scaled(Vector3.ONE * size), position), 0.06, true, Vector2.ONE, 0.6)
 
 
 ## A straight glowing line, used for laser zaps and designator lines.
@@ -325,27 +352,23 @@ func beam(from: Vector3, to: Vector3, color: Color, width := 0.12, life := 0.06)
 	var length := from.distance_to(to)
 	if length < 0.01:
 		return
-	var builder := LowPoly.new()
-	builder.glow = true
-	builder.box(Transform3D(Basis(), Vector3(0, 0, -length * 0.5)), Vector3(width, width, length), color)
+	var mesh := _cached("beam", color, func(b: LowPoly, c: Color) -> void:
+		b.box(Transform3D(Basis(), Vector3(0, 0, -0.5)), Vector3.ONE, c))
 	var up := Vector3.UP if absf((to - from).normalized().y) < 0.99 else Vector3.RIGHT
-	_transient(builder.mesh(), Transform3D(Basis.looking_at(to - from, up), from), life, true, Vector2.ONE, 0.5)
+	_transient(mesh, Transform3D(Basis.looking_at(to - from, up).scaled(Vector3(width, width, length)), from), life, true, Vector2.ONE, 0.5)
 
 
 ## A pulsing ring on the ground that tightens until `time` runs out: where something will land.
 func marker(position: Vector3, radius: float, time: float, color := Palette.RED) -> void:
-	var ring := LowPoly.new()
-	ring.glow = true
-	for i in 20:
-		var a0 := TAU * i / 20.0
-		var a1 := TAU * (i + 0.6) / 20.0
-		var o0 := Vector3(cos(a0), 0, sin(a0))
-		var o1 := Vector3(cos(a1), 0, sin(a1))
-		ring.quad(o0 * 0.86, o1 * 0.86, o1, o0, color, Vector3.UP)
-	ring.box(Transform3D(), Vector3(0.5, 0.02, 0.08), color)
-	ring.box(Transform3D(), Vector3(0.08, 0.02, 0.5), color)
+	var mesh := _cached("marker", color, func(b: LowPoly, c: Color) -> void:
+		for i in 20:
+			var o0 := Vector3(cos(TAU * i / 20.0), 0, sin(TAU * i / 20.0))
+			var o1 := Vector3(cos(TAU * (i + 0.6) / 20.0), 0, sin(TAU * (i + 0.6) / 20.0))
+			b.quad(o0 * 0.86, o1 * 0.86, o1, o0, c, Vector3.UP)
+		b.box(Transform3D(), Vector3(0.5, 0.02, 0.08), c)
+		b.box(Transform3D(), Vector3(0.08, 0.02, 0.5), c))
 	var ground := Vector3(position.x, Course.height_at(position) + 0.15, position.z)
-	var node := _transient(ring.mesh(), Transform3D(Basis(), ground), time, true, Vector2(radius * 1.6, radius), 0.97)
+	var node := _transient(mesh, Transform3D(Basis(), ground), time, true, Vector2(radius * 1.6, radius), 0.97)
 	node.scale = Vector3.ONE * radius * 1.6
 
 

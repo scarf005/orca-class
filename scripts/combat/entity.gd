@@ -21,6 +21,7 @@ var dead := false
 var interceptable := false ## The player's laser CIWS may target this.
 var armor := 0.0 ## Fraction of small-caliber damage (below 20 mm) that is stopped.
 var invulnerable := false
+var always_tick := true ## False for scenery: it only processes while a hit flash is showing.
 var _flash := 0.0
 var _meshes: Array[GeometryInstance3D] = []
 
@@ -122,6 +123,7 @@ func track_meshes(root: Node) -> void:
 
 func flash() -> void:
 	_flash = FLASH_TIME
+	set_process(true)
 	for mesh in _meshes:
 		if is_instance_valid(mesh):
 			mesh.material_overlay = _flash_material
@@ -134,6 +136,10 @@ func _process(delta: float) -> void:
 			for mesh in _meshes:
 				if is_instance_valid(mesh):
 					mesh.material_overlay = null
+	if not always_tick:
+		if _flash <= 0.0:
+			set_process(false)
+		return
 	tick(delta)
 
 

@@ -387,6 +387,7 @@ func _instantiate(spec: Spec) -> void:
 	if spec.decor:
 		var decor := MeshInstance3D.new()
 		decor.mesh = spec.mesh
+		decor.visibility_range_end = 260.0
 		add_child(decor)
 		decor.global_position = position
 		decor.rotation.y = spec.yaw

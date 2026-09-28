@@ -17,8 +17,12 @@ var rubble_mesh: Mesh
 var score := 0
 
 
+const DRAW_DISTANCE := 150.0 ## Fog hides small props well before this.
+
+
 func _init() -> void:
 	team = Team.NEUTRAL
+	always_tick = false
 
 
 func setup(kind_value: String, mesh: Mesh, footprint_value: float, height_value: float, hp_value: float) -> Prop:
@@ -32,6 +36,10 @@ func setup(kind_value: String, mesh: Mesh, footprint_value: float, height_value:
 	var instance := MeshInstance3D.new()
 	instance.mesh = mesh
 	instance.name = "Mesh"
+	# Tall landmarks stay visible down the valley; small clutter is culled and casts no shadow.
+	instance.visibility_range_end = DRAW_DISTANCE + height_value * 12.0
+	if height_value < 2.5 or footprint_value < 1.0:
+		instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(instance)
 	track_meshes(self)
 	return self
