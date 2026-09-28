@@ -6,7 +6,6 @@ extends Node
 signal section_changed(section: Course.Section)
 signal checkpoint_reached(name: String)
 signal storm(duration: float)
-signal hint(key: String)
 signal incoming(from: Vector3) ## A wave is arriving from outside the view; the HUD points to it.
 
 const ENEMY_SCRIPTS := {
@@ -120,8 +119,6 @@ func _fire(event: Dictionary) -> void:
 			_start_midboss(event)
 		"storm":
 			storm.emit(event.duration)
-		"hint":
-			hint.emit(event.key)
 		"music":
 			Sfx.play_music(event.path)
 

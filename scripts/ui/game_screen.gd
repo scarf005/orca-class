@@ -31,14 +31,11 @@ func _ready() -> void:
 	hud.world = world
 	add_child(hud)
 	world.director.storm.connect(_on_storm)
-	world.director.hint.connect(func(key: String) -> void: hud.hint(tr(key), 5.0))
 	world.director.checkpoint_reached.connect(func(name: String) -> void:
 		_reached_checkpoint = name
 		Game.unlock_checkpoint(name))
 	world.game_over.connect(_on_game_over)
 	world.stage_cleared.connect(_on_cleared)
-	if checkpoint.is_empty():
-		hud.hint(tr("HINT_CONTROLS"), 8.0)
 	hud.shout(tr("SHOUT_MISSION_START"), Palette.AMBER, 2.0)
 	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN if OS.has_feature("web") else Input.MOUSE_MODE_CONFINED_HIDDEN
 

@@ -20,8 +20,6 @@ var _shout := ""
 var _shout_time := 0.0
 var _shout_total := 1.0
 var _shout_color := Palette.AMBER
-var _hint := ""
-var _hint_time := 0.0
 var _armor_shake := 0.0
 var _last_armor := 100.0
 var _time := 0.0
@@ -83,11 +81,6 @@ func shout(text: String, color := Palette.AMBER, time := 1.4) -> void:
 	_shout_time = time
 	_shout_total = time
 	Sfx.ui("shout")
-
-
-func hint(text: String, time := 4.0) -> void:
-	_hint = text
-	_hint_time = time
 
 
 func set_storm(amount: float) -> void:
@@ -152,7 +145,6 @@ func _process(delta: float) -> void:
 	_kill_marker = maxf(0.0, _kill_marker - delta)
 	_banner_time -= delta
 	_shout_time -= delta
-	_hint_time -= delta
 	_radio_time -= delta
 	if _radio_time <= 0.0 and not _radio_queue.is_empty():
 		_radio_line = _radio_queue.pop_front()
@@ -468,9 +460,6 @@ func _draw_banner() -> void:
 		var y := 150.0
 		draw_rect(Rect2(480 - w * 0.5 - 16, y - 24, w + 32, 34), Color(Palette.INK, 0.75 * alpha))
 		_text(Vector2(480 - w * 0.5, y), _banner, Color(Palette.CREAM, alpha), 24)
-	if _hint_time > 0.0:
-		var w := font.get_string_size(_hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
-		_text(Vector2(480 - w * 0.5, 430), _hint, Color(Palette.BUTTER, clampf(_hint_time, 0.0, 1.0)))
 
 
 const CALLSIGNS := {"FpvDrone": "FPV", "Ugv": "UGV", "Uav": "UAV", "Walker": "WALKER", "QuadMech": "QUAD",
