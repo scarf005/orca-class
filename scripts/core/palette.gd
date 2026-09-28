@@ -31,8 +31,12 @@ const MIST := Color("ddd3e3")
 const LEAF := Color("b5d19a")
 const CREAM := Color("fbf3e4")
 const WHITE := Color("fffaf5")
+## Saturated accents, kept for projectiles and muzzle fire so they cut through the pastel scene.
+const HOT := Color("ff3565")
+const AMBER := Color("ffb01f")
+const CYAN := Color("2fd3ea")
 
 const ALL: Array[Color] = [
 	INK, DUSK, SLATE, MOSS, PINE, SAGE, LEAF, HULL, HULL_LIGHT, MINT, TEAL, SKY, PERIWINKLE, LILAC, MAUVE,
-	BLUSH, FUNGUS, PEACH, CORAL, RED, BUTTER, STRAW, OCHRE, WOOD, CONCRETE, STONE, ASH, MIST, CREAM, WHITE,
+	BLUSH, FUNGUS, PEACH, CORAL, RED, BUTTER, STRAW, OCHRE, WOOD, CONCRETE, STONE, ASH, MIST, CREAM, WHITE, HOT, AMBER, CYAN,
 ]

@@ -172,13 +172,8 @@ func _build_projectiles(d: float) -> void:
 	for i in shapes.size():
 		var at := _slot(d, i, shapes.size(), 4.5) + Vector3.UP * 2.0
 		var enemy_shot: bool = shapes[i] in ["orb", "rocket", "atgm", "bomb", "mortar"]
-		var color := Palette.RED if enemy_shot else Palette.BUTTER
-		var meshes := World._projectile_meshes(shapes[i], color)
-		for k in meshes.size():
-			var node := MeshInstance3D.new()
-			node.mesh = meshes[k]
-			if k == 1:
-				node.material_override = World._halo_material
+		var color := Palette.HOT if enemy_shot else Palette.AMBER
+		for node in World.projectile_visual(shapes[i], color):
 			world.add_child(node)
 			node.global_position = at
 			node.rotation.y = PI * 0.5

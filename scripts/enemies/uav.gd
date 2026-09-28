@@ -143,7 +143,7 @@ func _bomb_run(delta: float, tank: Tank, ahead: float) -> void:
 	var from := global_position + Vector3.DOWN * 0.6
 	var velocity_out := (target - from) / flight
 	velocity_out.y += 0.5 * 20.0 * flight
-	var bomb := world.spawn_projectile(Team.ENEMY, from, velocity_out, "bomb", Palette.CORAL)
+	var bomb := world.spawn_projectile(Team.ENEMY, from, velocity_out, "bomb", Palette.HOT)
 	bomb.gravity = 20.0
 	bomb.hit = Hit.make(Hit.Kind.BLAST, 0.0, from)
 	bomb.hit.source = self
