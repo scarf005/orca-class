@@ -260,47 +260,61 @@ def chord_notes(name, octave=3):
     return [r + i for i in intervals]
 
 
+
+
+# --- Music ---------------------------------------------------------------------------------
+# Arcade military funk-rock in the Metal Slug vein: brass stabs and a brass lead over slap bass,
+# palm-muted power chords, a marching snare with rolls, toms and crashes. Every part is placed on
+# the beat grid of a `Song`; the lead and brass get their own echo bus so the rhythm stays dry.
+
+
 class Song:
     def __init__(self, bpm, bars, beats_per_bar=4):
         self.bpm = bpm
         self.beat = 60.0 / bpm
+        self.bars = bars
         self.length = bars * beats_per_bar * self.beat
         n = int(round(self.length * RATE))
-        self.left = np.zeros(n)
-        self.right = np.zeros(n)
+        self.buses = {name: (np.zeros(n), np.zeros(n)) for name in ("dry", "wet")}
 
-    def add(self, start_beat, sig, pan=0.0, gain=1.0):
+    def add(self, start_beat, sig, pan=0.0, gain=1.0, bus="dry"):
+        left, right = self.buses[bus]
         s = int(round(start_beat * self.beat * RATE))
-        if s >= len(self.left):
+        if s >= len(left) or s < 0:
             return
-        end = min(len(self.left), s + len(sig))
-        chunk = sig[: end - s] * gain
-        self.left[s:end] += chunk * np.sqrt(0.5 * (1 - pan))
-        self.right[s:end] += chunk * np.sqrt(0.5 * (1 + pan))
+        end = min(len(left), s + len(sig))
+        gl, gr = np.sqrt(0.5 * (1 - pan)) * gain, np.sqrt(0.5 * (1 + pan)) * gain
+        left[s:end] += sig[: end - s] * gl
+        right[s:end] += sig[: end - s] * gr
         # Wrap the tail into the start so loops have no gap.
-        if s + len(sig) > len(self.left):
-            rest = sig[end - s:] * gain
-            k = min(len(rest), len(self.left))
-            self.left[:k] += rest[:k] * np.sqrt(0.5 * (1 - pan))
-            self.right[:k] += rest[:k] * np.sqrt(0.5 * (1 + pan))
+        rest = sig[end - s:]
+        if len(rest):
+            k = min(len(rest), len(left))
+            left[:k] += rest[:k] * gl
+            right[:k] += rest[:k] * gr
 
-    def echo(self, beats=0.75, feedback=0.35, mix=0.3):
-        delay = int(beats * self.beat * RATE)
-        for ch, other in ((self.left, self.right), (self.right, self.left)):
-            wet = np.zeros_like(ch)
-            tap = ch * mix
-            for i in range(1, 5):
-                shift = delay * i
-                wet += np.roll(tap, shift) * feedback ** (i - 1)
-            ch += wet * 0.5
-            other += wet * 0.2
-
-    def render(self, name, loop=True):
+    def render(self, name, echo_beats=0.75, feedback=0.3, wet_mix=0.28):
         os.makedirs(MUSIC_DIR, exist_ok=True)
-        stereo = np.stack([self.left, self.right], axis=1)
-        stereo /= np.max(np.abs(stereo)) or 1.0
-        stereo = np.tanh(stereo * 1.2) * 0.85
-        data = (stereo * 32767).astype(np.int16)
+        dl, dr = self.buses["dry"]
+        wl, wr = self.buses["wet"]
+        # Ping-pong echo on the wet bus only; np.roll keeps it seamless across the loop point.
+        delay = int(echo_beats * self.beat * RATE)
+        el, er = np.zeros_like(wl), np.zeros_like(wr)
+        for i in range(1, 5):
+            g = wet_mix * feedback ** (i - 1)
+            src_l, src_r = (wr, wl) if i % 2 else (wl, wr)
+            el += np.roll(lowpass(src_l, 3500), delay * i) * g
+            er += np.roll(lowpass(src_r, 3500), delay * i) * g
+        left, right = dl + wl + el, dr + wr + er
+        stereo = np.stack([left, right], axis=1)
+        stereo = highpass(stereo[:, 0], 30), highpass(stereo[:, 1], 30)
+        stereo = np.stack(stereo, axis=1)
+        # Normalize, a soft-knee saturator as the bus compressor, then settle at about -15 dBFS RMS
+        # so the music sits under the effects instead of fighting them.
+        stereo /= np.percentile(np.abs(stereo), 99.9) or 1.0
+        stereo = np.tanh(stereo * 1.1) / np.tanh(1.1)
+        stereo *= min(0.89 / np.max(np.abs(stereo)), 10 ** (-15 / 20) / np.sqrt(np.mean(stereo ** 2)))
+        data = (np.clip(stereo, -1, 1) * 32767).astype(np.int16)
         tmp = os.path.join(MUSIC_DIR, name + ".tmp.wav")
         with wave.open(tmp, "wb") as f:
             f.setnchannels(2)
@@ -308,217 +322,372 @@ class Song:
             f.setframerate(RATE)
             f.writeframes(data.tobytes())
         out = os.path.join(MUSIC_DIR, name + ".ogg")
-        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", tmp, "-c:a", "libvorbis", "-q:a", "5", out], check=True)
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", tmp, "-c:a", "libvorbis", "-q:a", "6", out], check=True)
         os.remove(tmp)
-        print("wrote", out, f"{self.length:.1f}s")
+        rms = np.sqrt(np.mean(stereo ** 2))
+        print("wrote", out, f"{self.length:.1f}s rms {20 * np.log10(rms):.1f} dBFS")
 
 
-def inst_lead(m, beats, song, vibrato=True, shape="square"):
-    seconds = beats * song.beat
-    t = t_axis(seconds + 0.08)
-    f = freq(m)
-    vib = np.sin(2 * np.pi * 5.5 * t) * 0.006 * np.clip((t - 0.15) * 4, 0, 1) if vibrato else 0
-    phase = 2 * np.pi * f * np.cumsum(1 + vib) / RATE
-    wave_sum = np.zeros_like(t)
-    for h in range(1, 12):
-        if shape == "square" and h % 2 == 0:
-            wave_sum += np.sin(phase * h) / h * 0.35  # A 25% pulse keeps some even harmonics.
-        else:
-            wave_sum += np.sin(phase * h) / h
-    return wave_sum * env(len(t), 0.01, 0.08, decay=0.2, sustain=0.7)
-
-
-def inst_bell(m, beats, song):
-    seconds = beats * song.beat + 0.6
-    t = t_axis(seconds)
-    f = freq(m)
-    mod = np.sin(2 * np.pi * f * 3.5 * t) * 2.0 * np.exp(-t * 6)
-    return np.sin(2 * np.pi * f * t + mod) * np.exp(-t * 2.5) * env(len(t), 0.002, 0.3)
-
-
-def inst_bass(m, beats, song, shape="triangle"):
-    seconds = beats * song.beat
-    sig = tone(freq(m), seconds, shape, 8)
-    sig += np.sin(2 * np.pi * freq(m) / 2 * t_axis(seconds)) * 0.5
-    return sig * env(len(sig), 0.005, 0.03, decay=0.15, sustain=0.6)
-
-
-def inst_pad(notes, beats, song):
-    seconds = beats * song.beat
+def saw_stack(f, seconds, voices=(0.0,), bend=0.0, bend_time=0.04):
+    """Band-limited saws detuned by `voices` (cents), each starting `bend` cents flat and sliding up."""
     t = t_axis(seconds)
     out = np.zeros_like(t)
-    for m in notes:
-        for detune in (0.997, 1.003):
-            out += tone(freq(m) * detune, seconds, "saw", 6) * 0.5
-    out = lowpass(out, 1400)
-    return out * env(len(t), 0.25, 0.4)
+    glide = bend * np.clip(1 - t / bend_time, 0, 1)
+    for cents in voices:
+        inst = f * 2 ** ((cents + glide) / 1200)
+        phase = 2 * np.pi * np.cumsum(inst) / RATE
+        for h in range(1, 40):
+            if f * h > RATE / 2.4:
+                break
+            out += np.sin(phase * h) / h
+    return out / len(voices)
 
 
-def inst_arp(m, beats, song):
-    seconds = beats * song.beat
-    return tone(freq(m), seconds, "square", 7) * env(int(seconds * RATE), 0.002, 0.05, decay=0.08, sustain=0.3)
+def filter_env(raw, n, dark_cutoff, attack, decay, floor):
+    """Crossfades a dark (lowpassed) copy into the raw signal: a cheap filter envelope."""
+    dark = lowpass(raw, dark_cutoff)
+    t = np.arange(n) / RATE
+    k = np.clip(t / max(attack, 1e-4), 0, 1) * (floor + (1 - floor) * np.exp(-np.maximum(t - attack, 0) / decay))
+    return dark * (1 - k) + raw * k
+
+
+def brass(m, beats, song, stab=False):
+    """Synth brass: detuned saws that blat up into pitch with the filter opening on the attack."""
+    seconds = beats * song.beat * (0.55 if stab else 1.0) + 0.05
+    raw = saw_stack(freq(m), seconds, (-8.0, 0.0, 7.0), bend=-45.0)
+    n = len(raw)
+    sig = filter_env(raw, n, 700, 0.02, 0.09 if stab else 0.25, 0.25 if stab else 0.55)
+    return sig * env(n, 0.012, 0.06 if stab else 0.1, decay=0.12, sustain=0.5 if stab else 0.8)
+
+
+def brass_chord(notes, beats, song, stab=True):
+    return sum(brass(m, beats, song, stab) for m in notes) / np.sqrt(len(notes))
+
+
+def lead(m, beats, song):
+    """Lead brass line: brighter, with delayed vibrato."""
+    seconds = beats * song.beat + 0.04
+    t = t_axis(seconds)
+    vib = np.sin(2 * np.pi * 5.8 * t) * 14 * np.clip((t - 0.18) * 3, 0, 1)
+    f = freq(m)
+    out = np.zeros_like(t)
+    for cents in (-6.0, 5.0):
+        inst = f * 2 ** ((cents + vib - 30 * np.clip(1 - t / 0.035, 0, 1)) / 1200)
+        phase = 2 * np.pi * np.cumsum(inst) / RATE
+        for h in range(1, 30):
+            if f * h > RATE / 2.4:
+                break
+            out += np.sin(phase * h) / h * (0.6 if h % 2 == 0 else 1.0)
+    sig = filter_env(out / 2, len(t), 2200, 0.015, 0.3, 0.8)
+    return sig * env(len(t), 0.01, 0.07, decay=0.15, sustain=0.75)
+
+
+def slap(m, beats, song, pop=False):
+    """Slap bass: plucked saw with a snapping filter; pops are an octave up with a click."""
+    seconds = min(beats * song.beat, 0.5) + 0.02
+    f = freq(m + (12 if pop else 0))
+    raw = saw_stack(f, seconds, (0.0,)) + np.sin(2 * np.pi * f * t_axis(seconds)) * 0.8
+    n = len(raw)
+    sig = filter_env(raw, n, 380, 0.002, 0.05 if pop else 0.08, 0.1)
+    if pop:
+        sig[: int(0.004 * RATE)] += highpass(noise(0.004), 2000) * 0.6
+    return np.tanh(sig * 1.6) * env(n, 0.002, 0.04, decay=0.18, sustain=0.35)
+
+
+def power_chord(m, beats, song, mute=True):
+    """Overdriven root-fifth-octave; palm-muted chugs are short and dark."""
+    seconds = beats * song.beat * (0.8 if mute else 1.0) + 0.02
+    raw = sum(saw_stack(freq(n), seconds, (-4.0, 4.0)) for n in (m, m + 7, m + 12))
+    sig = np.tanh(raw * 5.0)
+    sig = lowpass(sig, 900 if mute else 2600)
+    sig = highpass(sig, 90)
+    return sig * env(len(sig), 0.003, 0.03, decay=0.08 if mute else 0.4, sustain=0.3 if mute else 0.8)
 
 
 def kick():
-    return sweep(150, 42, 0.22, curve=0.4) * env(int(0.22 * RATE), 0.001, 0.12)
+    n = int(0.3 * RATE)
+    body = sweep(190, 44, 0.3, curve=0.3) * np.exp(-np.arange(n) / RATE * 9)
+    click = np.zeros(n)
+    click[: int(0.003 * RATE)] = highpass(noise(0.003), 1500) * 0.5
+    return np.tanh((body + click) * 1.8) * 0.75
 
 
-def snare():
-    body = sweep(240, 170, 0.16) * env(int(0.16 * RATE), 0.001, 0.1) * 0.6
-    return pad([(0, body), (0, highpass(noise(0.18), 1500) * env(int(0.18 * RATE), 0.001, 0.15))], 0.18)
+def snare(accent=1.0):
+    n = int(0.22 * RATE)
+    body = sweep(260, 180, 0.22) * np.exp(-np.arange(n) / RATE * 28) * 0.8
+    wires = highpass(noise(0.22), 1800) * np.exp(-np.arange(n) / RATE * (16 + 6 * (1 - accent)))
+    return (body + wires) * accent
+
+
+def tom(f):
+    n = int(0.35 * RATE)
+    return sweep(f * 1.4, f, 0.35, curve=0.4) * np.exp(-np.arange(n) / RATE * 9)
 
 
 def hat(open_hat=False):
-    seconds = 0.2 if open_hat else 0.05
-    return highpass(noise(seconds), 7000) * env(int(seconds * RATE), 0.001, seconds * 0.8)
+    seconds = 0.25 if open_hat else 0.045
+    n = int(seconds * RATE)
+    return highpass(noise(seconds), 8000) * np.exp(-np.arange(n) / RATE * (10 if open_hat else 90))
 
 
-def drums(song, bars, style, start_bar=0):
-    k, s, h, oh = kick(), snare(), hat(), hat(True)
-    for bar in range(start_bar, start_bar + bars):
-        b = bar * 4
-        if style == "four":
-            for i in range(4):
-                song.add(b + i, k, 0, 0.9)
+def crash():
+    n = int(1.8 * RATE)
+    return highpass(noise(1.8), 5000) * np.exp(-np.arange(n) / RATE * 2.2) * 0.8
+
+
+def orchestra_hit(notes, song):
+    """Brass chord, a wash of noise and a low boom: the arcade 'stab'."""
+    sig = brass_chord([m + 12 for m in notes] + notes, 1.0, song)
+    n = len(sig)
+    sig = sig + highpass(noise(n / RATE), 3000) * np.exp(-np.arange(n) / RATE * 20) * 0.5
+    boom = tom(55)
+    sig[: len(boom)] += boom[: n] * 0.8
+    return sig
+
+
+class Drums:
+    def __init__(self, song):
+        self.song = song
+        self.k, self.h, self.oh, self.c = kick(), hat(), hat(True), crash()
+        self.s = [snare(a) for a in (1.0, 0.55, 0.3)]
+        self.toms = [tom(f) for f in (180, 140, 105)]
+
+    def bar(self, bar, style):
+        s, b = self.song, bar * 4
+        if style == "march":
+            # Snare-led march groove: kick on 1 and 3, backbeat plus ghost notes, 8th hats.
+            for i in (0, 2, 2.75):
+                s.add(b + i, self.k, 0, 0.95)
             for i in (1, 3):
-                song.add(b + i, s, 0.1, 0.6)
+                s.add(b + i, self.s[0], 0.08, 0.7)
+            for i in (0.25, 1.75, 2.5, 3.75):
+                s.add(b + i, self.s[2], 0.08, 0.7)
             for i in range(8):
-                song.add(b + i * 0.5 + (0.5 if i % 2 == 0 else 0), oh if i % 2 == 0 else h, -0.3, 0.13)
-        elif style == "break":
-            for i in (0, 1.5, 2.5):
-                song.add(b + i, k, 0, 0.9)
+                s.add(b + i * 0.5, self.oh if i == 7 else self.h, -0.35, 0.16 if i % 2 == 0 else 0.1)
+        elif style == "drive":
+            for i in (0, 1, 2, 3, 3.5):
+                s.add(b + i, self.k, 0, 0.9)
             for i in (1, 3):
-                song.add(b + i, s, 0.1, 0.65)
+                s.add(b + i, self.s[0], 0.08, 0.75)
             for i in range(16):
-                song.add(b + i * 0.25, h, -0.3, 0.08 if i % 2 else 0.13)
-        elif style == "boss":
-            for i in (0, 0.75, 1.5, 2, 2.75, 3.5):
-                song.add(b + i, k, 0, 0.95)
+                s.add(b + i * 0.25, self.h, -0.35, 0.12 if i % 2 == 0 else 0.07)
+        elif style == "gallop":
+            for i in (0, 0.75, 1, 1.75, 2, 2.75, 3, 3.75):
+                s.add(b + i, self.k, 0, 0.85)
             for i in (1, 3):
-                song.add(b + i, s, 0.1, 0.7)
-            if bar % 2 == 1:
-                for i in (3.5, 3.75):
-                    song.add(b + i, s, 0.2, 0.4)
-            for i in range(16):
-                song.add(b + i * 0.25, h, -0.3, 0.07 if i % 2 else 0.12)
-        elif style == "soft":
-            song.add(b, k, 0, 0.5)
-            song.add(b + 2.5, k, 0, 0.35)
+                s.add(b + i, self.s[0], 0.08, 0.8)
+            for i in range(8):
+                s.add(b + i * 0.5, self.h, -0.35, 0.14)
+        elif style == "half":
+            s.add(b, self.k, 0, 0.9)
+            s.add(b + 2, self.s[0], 0.08, 0.7)
             for i in range(4):
-                song.add(b + i + 0.5, h, -0.3, 0.12)
+                s.add(b + i + 0.5, self.h, -0.35, 0.1)
+
+    def roll(self, bar, beats=4):
+        """Marching snare roll swelling into the next bar."""
+        s, b = self.song, bar * 4 + (4 - beats)
+        steps = int(beats * 8)
+        for i in range(steps):
+            k = (i + 1) / steps
+            s.add(b + i / 8, self.s[1], 0.08 * (1 if i % 2 else -1), 0.25 + 0.6 * k * k)
+
+    def fill(self, bar):
+        """Last two beats of a bar down the toms."""
+        s, b = self.song, bar * 4 + 2
+        for i in range(8):
+            s.add(b + i * 0.25, self.toms[min(i // 3, 2)], -0.3 + i * 0.08, 0.7)
+
+    def crash(self, bar, beat=0.0):
+        self.song.add(bar * 4 + beat, self.c, 0.3, 0.45)
+        self.song.add(bar * 4 + beat, self.k, 0, 1.0)
 
 
-def progression(song, chords, bars, start_bar=0, pad_gain=0.18, bass_pattern="eighths", bass_gain=0.5, arp_gain=0.0, arp_octave=5):
+def slap_bar(song, root, bar, pattern="funk"):
+    """One bar of slap bass on `root` (MIDI): thumbed roots and octave pops."""
+    b = bar * 4
+    if pattern == "funk":
+        hits = [(0, 0, False), (0.75, 0, False), (1.0, 12, True), (1.5, 0, False), (2.0, 0, False), (2.5, 10, False),
+                (2.75, 12, True), (3.25, 7, False), (3.5, 12, True)]
+    elif pattern == "drive":
+        hits = [(i * 0.5, 12 if i % 4 == 3 else 0, i % 4 == 3) for i in range(8)]
+    else:  # gallop
+        hits = [(i * 0.25, 0, False) for i in range(16) if i % 4 != 1]
+    for beat, offset, pop in hits:
+        song.add(b + beat, slap(root + offset, 0.4, song, pop), 0.0, 0.45 if pop else 0.42)
+
+
+def chug_bar(song, root, bar, pattern="eighths", gain=0.22):
+    b = bar * 4
+    if pattern == "eighths":
+        for i in range(8):
+            song.add(b + i * 0.5, power_chord(root, 0.45, song), -0.5 if i % 2 else 0.5, gain)
+    elif pattern == "gallop":
+        for i in range(16):
+            if i % 4 != 1:
+                song.add(b + i * 0.25, power_chord(root, 0.22, song), -0.5 if i % 2 else 0.5, gain)
+    elif pattern == "ring":
+        song.add(b, power_chord(root, 3.6, song, mute=False), -0.4, gain)
+        song.add(b, power_chord(root, 3.6, song, mute=False), 0.4, gain)
+
+
+def stab_bar(song, chord, bar, beats=(0.5, 1.5, 2.5, 3.5), gain=0.2):
+    notes = chord_notes(chord, 4)
+    for beat in beats:
+        song.add(bar * 4 + beat, brass_chord(notes, 0.5, song), 0.2, gain, "wet")
+
+
+def place_lead(song, text, start_bar, gain=0.34, shift=0, pan=0.12):
+    for beat, beats, m in melody(text):
+        if m is not None:
+            song.add(start_bar * 4 + beat, lead(m + shift, beats, song), pan, gain, "wet")
+
+
+def root_of(chord, octave=1):
+    return chord_notes(chord, octave)[0]
+
+
+def arrange(song, drums, chords, bars, start, style, bass="funk", chug="eighths", stabs=True):
     for i in range(bars):
         chord = chords[i % len(chords)]
-        b = (start_bar + i) * 4
-        notes = chord_notes(chord, 4)
-        song.add(b, inst_pad(notes, 4, song), 0.0, pad_gain)
-        root = chord_notes(chord, 2)[0]
-        if bass_pattern == "eighths":
-            for j in range(8):
-                song.add(b + j * 0.5, inst_bass(root + (12 if j % 2 else 0), 0.45, song), 0, bass_gain)
-        elif bass_pattern == "gallop":
-            for j in range(16):
-                if j % 4 != 3:
-                    song.add(b + j * 0.25, inst_bass(root + (1 if j in (6, 14) else 0), 0.22, song, "saw"), 0, bass_gain)
-        elif bass_pattern == "whole":
-            song.add(b, inst_bass(root, 3.8, song), 0, bass_gain)
-        elif bass_pattern == "syncopated":
-            for j in (0, 0.75, 1.5, 2, 2.75, 3.5):
-                song.add(b + j, inst_bass(root + (12 if j in (1.5, 3.5) else 0), 0.4, song), 0, bass_gain)
-        if arp_gain > 0:
-            arp = chord_notes(chord, arp_octave)
-            for j in range(16):
-                song.add(b + j * 0.25, inst_arp(arp[j % len(arp)] + (12 if (j // 4) % 2 else 0), 0.24, song), 0.4 if j % 2 else -0.4, arp_gain)
-
-
-def place_melody(song, text, start_bar, instrument="lead", gain=0.35, octave_shift=0, pan=0.1):
-    for beat, beats, m in melody(text):
-        if m is None:
-            continue
-        m += 12 * octave_shift
-        sig = inst_bell(m, beats, song) if instrument == "bell" else inst_lead(m, beats, song)
-        song.add(start_bar * 4 + beat, sig, pan, gain)
+        bar = start + i
+        drums.bar(bar, style)
+        slap_bar(song, root_of(chord, 1), bar, bass)
+        chug_bar(song, root_of(chord, 2), bar, chug)
+        if stabs:
+            stab_bar(song, chord, bar)
 
 
 def music():
-    # Stage A: farm road and village. D minor, driving and bright.
-    song = Song(140, 32)
-    chords = ["Dm", "Bb", "F", "C"]
-    m1 = ("A4:1 D5:.5 E5:.5 F5:1 E5:.5 D5:.5 D5:1.5 C5:.5 Bb4:1 F4:1 A4:1 C5:.5 F5:.5 A5:1 G5:.5 F5:.5 E5:2 G5:1 E5:1 "
-          "A5:1 G5:.5 F5:.5 E5:1 D5:1 F5:1.5 E5:.5 D5:1 Bb4:1 C5:1 D5:.5 E5:.5 F5:1 A5:1 G5:3 -:1")
-    m2 = ("D6:.5 C6:.5 A5:.5 F5:.5 A5:1 D6:1 F6:1.5 D6:.5 Bb5:2 C6:.5 A5:.5 F5:.5 A5:.5 C6:1 F6:1 E6:1 D6:.5 C6:.5 G5:2 "
-          "D6:.5 E6:.5 F6:1 E6:.5 D6:.5 A5:1 Bb5:1 D6:1 F6:1 D6:1 C6:1 A5:1 F6:1 E6:1 E6:2 D6:1 C6:1")
-    progression(song, chords, 8, 0, bass_pattern="eighths", arp_gain=0.05)
-    progression(song, chords, 24, 8, bass_pattern="eighths", arp_gain=0.07)
-    drums(song, 4, "soft", 0)
-    drums(song, 4, "break", 4)
-    drums(song, 24, "four", 8)
-    place_melody(song, m1, 8)
-    place_melody(song, m2, 16)
-    place_melody(song, m1, 24, gain=0.3)
-    place_melody(song, m1, 24, "bell", 0.2, 1, -0.3)
-    song.echo(0.75, 0.35, 0.25)
-    song.render("stage_a")
+    # Stage A: farm road and village. G minor military funk, 150 bpm.
+    song = Song(150, 36)
+    d = Drums(song)
+    verse = ["Gm", "Gm", "Eb", "F", "Gm", "Gm", "Cm", "D"]
+    chorus = ["Eb", "F", "Gm", "Gm", "Eb", "F", "D", "D"]
+    # Intro: brass hits over a swelling roll.
+    for bar, chord in enumerate(["Gm", "Eb", "F", "D"]):
+        song.add(bar * 4, orchestra_hit(chord_notes(chord, 3), song), 0, 0.5)
+        song.add(bar * 4 + 1.5, orchestra_hit(chord_notes(chord, 3), song), 0, 0.35)
+    d.roll(2, 8)
+    d.crash(4)
+    arrange(song, d, verse, 8, 4, "march")
+    arrange(song, d, verse, 8, 12, "march")
+    d.fill(19)
+    d.crash(20)
+    arrange(song, d, chorus, 8, 20, "drive")
+    d.fill(27)
+    d.crash(28)
+    # Breakdown: bass and drums, stabs answering.
+    for i, chord in enumerate(verse):
+        d.bar(28 + i, "half" if i < 4 else "march")
+        slap_bar(song, root_of(chord, 1), 28 + i, "funk")
+        if i % 2 == 1:
+            stab_bar(song, chord, 28 + i, beats=(2.5, 3.0, 3.5), gain=0.24)
+    d.roll(35, 4)
+    theme = ("G4:.5 A#4:.5 D5:1 C5:.5 A#4:.5 C5:1 D5:1.5 F5:.5 D5:1 -:1 "
+             "D#5:.5 D5:.5 C5:1 A#4:.5 C5:.5 D5:1 C5:1.5 A#4:.5 A4:1 -:1 "
+             "G4:.5 A#4:.5 D5:1 C5:.5 A#4:.5 C5:1 D5:.5 F5:.5 G5:1 A#5:1 G5:1 "
+             "G5:.5 F5:.5 D#5:1 D5:.5 C5:.5 D#5:1 D5:2 F#5:1 A5:1")
+    hook = ("A#5:1.5 G5:.5 D#5:1 G5:1 A5:1.5 F5:.5 C5:1 F5:1 G5:1 A#5:1 D6:1 C6:.5 A#5:.5 A5:.5 A#5:.5 A5:.5 G5:.5 D5:2 "
+            "A#5:1.5 G5:.5 D#5:1 G5:1 C6:1.5 A5:.5 F5:1 A5:1 A#5:1 A5:1 G5:1 F#5:1 A5:4")
+    place_lead(song, theme, 4)
+    place_lead(song, theme, 12, shift=12, gain=0.28)
+    place_lead(song, theme, 12, gain=0.2, pan=-0.3)
+    place_lead(song, hook, 20)
+    place_lead(song, hook, 20, shift=-12, gain=0.18, pan=-0.3)
+    song.render("stage_a", 0.75)
 
-    # Stage B: school, reservoir and overpass. E minor, tense and quicker.
-    song = Song(150, 32)
-    chords = ["Em", "C", "Am", "B7"]
-    m3 = ("E5:.75 G5:.75 B5:.5 A5:1 G5:1 E5:1.5 G5:.5 C6:1 B5:1 A5:.75 C6:.75 E6:.5 D6:1 C6:1 B5:2 D#6:1 F#6:1 "
-          "G6:1 F#6:.5 E6:.5 D6:1 B5:1 C6:1 E6:1 G6:1 E6:1 A5:.5 B5:.5 C6:1 E6:1 D#6:1 B5:4")
-    progression(song, chords, 8, 0, bass_pattern="syncopated", arp_gain=0.06)
-    progression(song, chords, 24, 8, bass_pattern="syncopated", arp_gain=0.08)
-    drums(song, 8, "break", 0)
-    drums(song, 24, "four", 8)
-    place_melody(song, m3, 8)
-    place_melody(song, m3, 16, octave_shift=0, gain=0.3)
-    place_melody(song, m3, 16, "bell", 0.18, 1, -0.3)
-    place_melody(song, m3, 24, gain=0.34)
-    song.echo(0.5, 0.3, 0.22)
-    song.render("stage_b")
+    # Stage B: school, reservoir and overpass. D minor, harder drive, 160 bpm.
+    song = Song(160, 36)
+    d = Drums(song)
+    verse = ["Dm", "Dm", "Bb", "C", "Dm", "Dm", "Gm", "A"]
+    chorus = ["Bb", "C", "Am", "Dm", "Bb", "C", "A", "A"]
+    for bar in range(4):
+        chug_bar(song, root_of("Dm", 2), bar, "gallop", 0.2)
+        d.bar(bar, "half")
+    d.roll(3, 4)
+    d.crash(4)
+    arrange(song, d, verse, 8, 4, "drive", bass="drive")
+    arrange(song, d, verse, 8, 12, "drive", bass="funk")
+    d.fill(19)
+    d.crash(20)
+    arrange(song, d, chorus, 8, 20, "drive", bass="drive", chug="ring")
+    d.fill(27)
+    d.crash(28)
+    arrange(song, d, verse, 8, 28, "march", bass="funk", stabs=False)
+    d.roll(35, 2)
+    theme = ("D5:.75 D5:.25 F5:.5 A5:.5 G5:.5 F5:.5 E5:.5 F5:.5 D5:1 A4:1 D5:1 -:1 "
+             "F5:.75 F5:.25 A#5:.5 A5:.5 G5:1 F5:1 E5:.5 F5:.5 G5:1 C5:2 "
+             "D5:.75 D5:.25 F5:.5 A5:.5 G5:.5 F5:.5 E5:.5 F5:.5 D5:1 A5:1 D6:1 C6:1 "
+             "A#5:1 A5:.5 G5:.5 A#5:1 D6:1 C#6:2 E6:2")
+    hook = ("F6:1.5 E6:.5 D6:1 C6:1 E6:1.5 D6:.5 C6:1 G5:1 A5:1 C6:1 E6:1 D6:.5 C6:.5 D6:2 A5:2 "
+            "F6:1.5 E6:.5 D6:1 C6:1 E6:1.5 D6:.5 C6:1 E6:1 C#6:1 D6:1 E6:1 G6:1 E6:4")
+    place_lead(song, theme, 4)
+    place_lead(song, theme, 12, gain=0.3)
+    place_lead(song, theme, 12, shift=-12, gain=0.2, pan=-0.3)
+    place_lead(song, hook, 20)
+    place_lead(song, theme, 28, shift=12, gain=0.22)
+    song.render("stage_b", 0.5)
 
-    # Boss: E phrygian riffing at 164 bpm.
-    song = Song(164, 32)
-    chords = ["Em", "F", "Em", "D", "C", "D", "Em", "Em"]
-    m4 = ("E5:.5 F5:.5 G5:.5 B5:.5 E6:1 D6:.5 B5:.5 C6:1 A5:.5 F5:.5 A5:1 C6:1 B5:.5 G5:.5 E5:.5 G5:.5 B5:1 E6:1 "
-          "F#6:1.5 E6:.5 D6:2 E6:1 G6:1 E6:.5 C6:.5 G5:1 F#6:1 A6:1 F#6:.5 D6:.5 A5:1 G6:.5 F#6:.5 E6:.5 D6:.5 B5:1 G5:1 E6:3 -:1")
-    progression(song, chords, 32, 0, pad_gain=0.14, bass_pattern="gallop", bass_gain=0.45, arp_gain=0.07)
-    drums(song, 4, "break", 0)
-    drums(song, 28, "boss", 4)
-    place_melody(song, m4, 8)
-    place_melody(song, m4, 16, gain=0.3)
-    place_melody(song, m4, 16, "bell", 0.18, 1, -0.3)
-    place_melody(song, m4, 24, gain=0.35, octave_shift=0)
-    song.echo(0.5, 0.25, 0.2)
-    song.render("boss")
+    # Boss: E minor with a phrygian F, galloping, 172 bpm.
+    song = Song(172, 36)
+    d = Drums(song)
+    prog = ["Em", "Em", "C", "D", "Em", "Em", "F", "B7"]
+    for bar in range(4):
+        song.add(bar * 4, orchestra_hit(chord_notes("Em" if bar < 3 else "B7", 3), song), 0, 0.55)
+        song.add(bar * 4 + 0.75, orchestra_hit(chord_notes("Em" if bar < 3 else "B7", 3), song), 0, 0.4)
+    d.roll(2, 8)
+    d.crash(4)
+    arrange(song, d, prog, 16, 4, "gallop", bass="gallop", chug="gallop")
+    d.fill(19)
+    d.crash(20)
+    arrange(song, d, prog, 8, 20, "drive", bass="drive", chug="ring")
+    d.crash(28)
+    arrange(song, d, prog, 8, 28, "gallop", bass="gallop", chug="gallop", stabs=False)
+    d.roll(35, 4)
+    theme = ("B5:.5 E6:.5 B5:.5 A5:.5 G5:1 F#5:1 E5:.5 G5:.5 B5:1 E6:2 C6:.5 B5:.5 A5:.5 G5:.5 A5:1 C6:1 B5:1 A5:1 F#5:2 "
+             "E6:.5 F#6:.5 G6:1 F#6:.5 E6:.5 D6:1 B5:.5 D6:.5 E6:1 G6:2 F6:1 E6:1 D6:1 C6:1 B5:2 D#6:2")
+    place_lead(song, theme, 4)
+    place_lead(song, theme, 12, gain=0.3)
+    place_lead(song, theme, 12, shift=-12, gain=0.22, pan=-0.3)
+    place_lead(song, theme, 20, shift=12, gain=0.26)
+    song.render("boss", 0.5)
 
-    # Title: dreamy F lydian, slow.
-    song = Song(84, 16)
-    chords = ["Fmaj7", "Fmaj7", "Em7", "Em7", "Dm7", "Dm7", "Cmaj7", "Cmaj7"]
-    m5 = "A5:2 G5:1 E5:1 C5:4 B4:2 D5:1 G5:1 E5:4 F5:2 E5:1 D5:1 A5:3 C6:1 B5:2 G5:1 E5:1 G5:4"
-    progression(song, chords, 16, 0, pad_gain=0.3, bass_pattern="whole", bass_gain=0.4, arp_gain=0.04, arp_octave=5)
-    drums(song, 8, "soft", 8)
-    place_melody(song, m5, 0, "bell", 0.35)
-    place_melody(song, m5, 8, "bell", 0.3, 1, -0.2)
-    place_melody(song, m5, 8, "lead", 0.12, 0, 0.3)
-    song.echo(1.0, 0.45, 0.35)
-    song.render("title")
+    # Title: a slow brass anthem over a ringing guitar and soft march.
+    song = Song(96, 16)
+    d = Drums(song)
+    prog = ["Gm", "Eb", "Bb", "F", "Gm", "Eb", "Cm", "D"]
+    for i in range(16):
+        chord = prog[i % 8]
+        chug_bar(song, root_of(chord, 2), i, "ring", 0.14)
+        song.add(i * 4, brass_chord(chord_notes(chord, 3), 4.0, song, stab=False), 0, 0.2, "wet")
+        if i >= 8:
+            d.bar(i, "half")
+    d.roll(7, 4)
+    d.crash(8)
+    anthem = "D5:2 G5:1 A5:1 A#5:3 A5:1 G5:2 F5:1 D#5:1 D5:4 D5:2 G5:1 A5:1 A#5:2 C6:2 A5:3 F#5:1 G5:4"
+    place_lead(song, anthem, 0, gain=0.3)
+    place_lead(song, anthem, 8, gain=0.3)
+    place_lead(song, anthem, 8, shift=-12, gain=0.2, pan=-0.3)
+    song.render("title", 1.0, 0.4, 0.35)
 
     # Clear fanfare (not looped).
-    song = Song(120, 6)
-    fan = "C5:.5 E5:.5 G5:.5 C6:1.5 -:1 A5:.5 C6:.5 F6:1 E6:.5 D6:.5 E6:1 D6:.5 B5:.5 G5:1 C6:6"
-    progression(song, ["C", "F", "G", "C", "C", "C"], 6, 0, pad_gain=0.25, bass_pattern="whole", bass_gain=0.4)
-    place_melody(song, fan, 0, "lead", 0.4)
-    place_melody(song, fan, 0, "bell", 0.25, 1, -0.3)
-    song.add(0, kick(), 0, 0.8)
-    song.add(4, kick(), 0, 0.8)
-    song.add(8, kick(), 0, 0.8)
-    song.add(12, kick(), 0, 1.0)
-    song.echo(0.5, 0.3, 0.2)
-    song.render("clear")
+    song = Song(132, 6)
+    d = Drums(song)
+    fan = "G4:.33 G4:.33 G4:.34 C5:1 G4:.5 C5:.5 E5:1.5 -:.5 D5:.33 D5:.33 D5:.34 E5:.5 F5:.5 G5:1 A5:.5 B5:.5 C6:6"
+    for bar, chord in enumerate(["C", "C", "G", "G", "C", "C"]):
+        song.add(bar * 4, orchestra_hit(chord_notes(chord, 3), song), 0, 0.45)
+    d.roll(3, 2)
+    d.crash(4)
+    place_lead(song, fan, 0, gain=0.4)
+    place_lead(song, fan, 0, shift=-12, gain=0.22, pan=-0.3)
+    song.render("clear", 0.5)
 
 
 if __name__ == "__main__":
-    sfx()
-    music()
+    import sys
+    parts = sys.argv[1:] or ["sfx", "music"]
+    if "sfx" in parts:
+        sfx()
+    if "music" in parts:
+        music()
