@@ -47,16 +47,6 @@ MOUSE_2,마우스 오른쪽,RMB
 MOUSE_3,마우스 가운데,MMB
 MOUSE_8,마우스 4,MOUSE 4
 MOUSE_9,마우스 5,MOUSE 5
-HUD_ARMOR,장갑,ARMOR
-HUD_TAIL,꼬리,TAIL
-HUD_READY,준비,READY
-HUD_BRAKE,감속,BRAKE
-HUD_BOOST,가속,BOOST
-HUD_COAX,동축,COAX
-HUD_LASER,레이저,LASER
-HUD_OVERHEAT,과열,OVERHEAT
-HUD_ENGAGE,요격,ENGAGE
-HUD_COMBO,%d 연속,%d CHAIN
 ROUND_APHE,철갑유탄,APHE
 ROUND_HEAT,대전차고폭탄,HEAT
 ROUND_CANISTER,산탄,CANISTER
@@ -78,8 +68,7 @@ SECTION_3,저수지,RESERVOIR
 SECTION_4,고가도로,OVERPASS
 SECTION_5,댐,THE DAM
 CHECKPOINT,체크포인트,CHECKPOINT
-SPEAKER_HY,하윤,HA YOON
-SPEAKER_CT,관제,CONTROL
+SPEAKER_AI,오르카 전투 보조,ORCA COMBAT ASSIST
 BOSS_COLOSSUS,균사 거인,HYPHAL COLOSSUS
 BOSS_HELICOPTER,감염된 공격헬기,INFECTED GUNSHIP
 HINT_CONTROLS,WASD 이동 · 좌클릭 동축 · 우클릭 주포 · 스페이스 꼬리 · Q 꼬리 박기 · Shift/Ctrl 가속/감속,WASD MOVE · LMB COAX · RMB MAIN GUN · SPACE TAIL · Q ANCHOR · SHIFT/CTRL BOOST/BRAKE
@@ -95,30 +84,28 @@ RESULT_TIME,시간,TIME
 RESULT_RANK,등급,RANK
 RESULT_NEW_BEST,최고 기록!,NEW BEST!
 RESULT_UNRANKED,체크포인트 시작 — 기록 제외,STARTED FROM CHECKPOINT — UNRANKED
-HY_INTRO,"오르카, 균사 구역 진입. …논이 전부 분홍색이네.",Orca entering the hypha zone. ...The paddies have all gone pink.
-CT_BRIEF,관제. 마을을 지나 저수지 댐까지 돌파한다. 무인기 신호 다수.,Control. Push through the village to the reservoir dam. Multiple drone signals.
-HY_DRONES,FPV다. 빨간 불 켜지면 들이받는다.,"FPVs. When the light goes red, they dive."
-HY_BEHIND,뒤에서 온다!,Six o'clock!
-CT_UGV,무인 전차 확인. 대전차 미사일 조심.,UGVs confirmed. Watch for ATGMs.
-HY_VILLAGE,"할머니 댁 같은 동네네. …죄송해요, 좀 부술게요.",Looks like grandma's village. ...Sorry. I'm going to break some things.
-CT_UAV,"고정익 무인기, 폭격 접근!",Fixed-wing UAVs on a bombing run!
-HY_FUNGUS,비닐하우스에서 뭔가 기어 나온다.,Something's crawling out of the greenhouses.
-CT_SPITTER,포자 박격 개체. 착탄 표시를 피해.,Spore mortars. Stay out of the marked circles.
-HY_SCHOOL,분교다. 운동장이… 숨을 쉬고 있어.,The branch school. The schoolyard is... breathing.
-CT_MIDBOSS,대형 균사체. 빛나는 결절을 태워.,Massive fungal body. Burn the glowing nodes.
-HY_CORE,핵이 드러났다. 지금이야!,The core's open. Now!
-HY_JUMP,전면 휩쓸기! Q로 꼬리 박고 빠져!,Full sweep! Anchor with Q and slip it!
-HY_MIDBOSS_DOWN,쓰러졌다. 계속 간다.,It's down. Moving on.
-HY_RESERVOIR,저수지. 갈대 속에 뭔가 있어.,The reservoir. Something's in the reeds.
-CT_SPORE_STORM,포자 폭풍. 시야 확보 어려움.,Spore storm. Visibility dropping.
-HY_OVERPASS,고속도로로 올라간다.,Taking the highway.
-HY_QUIET,…조용하네.,...Quiet.
-CT_ROTOR,로터음 접근! 공격헬기다!,Rotor noise closing! Attack helicopter!
-HY_BOSS,"저것도 먹혔어. 조종사는… 아니, 생각하지 말자.",That one's infected too. The pilot... no. Don't think about it.
-CT_BOSS_PHASE2,장갑판 탈락! 놈이 붙는다!,Armor panels off! It's closing in!
-HY_BOSS_PHASE3,균사가 기체를 삼켰어…!,The fungus swallowed the airframe...!
-HY_CLEAR,"…끝났다. 오르카, 복귀한다.","...It's over. Orca, returning."
-HY_LOW_ARMOR,장갑 한계야!,Armor's failing!
-CT_LIFE_LOST,"오르카, 응답하라! …예비 차체 투입.","Orca, respond! ...Deploying spare hull."
-HY_CIWS_OVERHEAT,레이저 과열! 직접 피해야 해.,Laser's overheating! I have to dodge!
-CT_NO_DAMAGE,무피해 돌파. 좋아.,Clean run. Nice.
+AI_BOOT,전투 보조 시스템 가동. 균사 오염 구역 진입.,Combat assist online. Entering hyphal contamination zone.
+AI_ROUTE,"작전 경로 설정: 마을 경유, 저수지 댐.",Route set: through the village to the reservoir dam.
+AI_FPV,경고: 자폭 드론 접근. 적색 표시등 점등 시 강하.,Warning: loitering munitions. Red light precedes dive.
+AI_REAR,경고: 후방 위협.,Warning: rear arc threat.
+AI_UGV,무인 전투차량 탐지. 대전차 유도 활성.,Unmanned combat vehicles detected. Anti-tank guidance active.
+AI_BIO,생체 반응 다수. 소이탄 유효.,Multiple biosignatures. Incendiary effective.
+AI_UAV,고정익 무인기 접근. 착탄 지점 표시.,Fixed-wing drones inbound. Impact zones marked.
+AI_SPITTER,포자 투사체 탐지. 착탄 지점 표시.,Spore projectiles detected. Impact points marked.
+AI_BIO_LARGE,전방 대형 생체 반응.,Massive biosignature ahead.
+AI_MIDBOSS,발광 결절 3개 식별. 소이 공격 권장.,Three luminous nodes identified. Incendiary recommended.
+AI_CORE,핵 노출.,Core exposed.
+AI_SWEEP,전폭 촉수 공격. 회피 기동 권장.,Full-width sweep. Evasive maneuver advised.
+AI_BIO_DOWN,생체 반응 소멸.,Biosignature terminated.
+AI_REEDS,갈대 지대에 열원 다수.,Multiple heat sources in the reeds.
+AI_STORM,포자 폭풍. 광학 효율 저하.,Spore storm. Optical efficiency degraded.
+AI_AREA_CLEAR,주변 위협 없음.,No threats in range.
+AI_ROTOR,경고: 회전익 공격기 접근.,Warning: rotary-wing gunship inbound.
+AI_BOSS,대상: 감염 공격헬기. 무장 식별 중.,Target: infected gunship. Identifying armament.
+AI_BOSS_PHASE2,대상 장갑판 이탈. 근접 기동.,Target armor shed. Closing distance.
+AI_BOSS_PHASE3,대상 생체 전환 감지. 거동 예측 불가.,Target bio-conversion detected. Behavior unpredictable.
+AI_CLEAR,위협 소멸. 작전 구역 확보.,Threats neutralized. Area secured.
+AI_LOW_ARMOR,경고: 장갑 무결성 위험.,Warning: hull integrity critical.
+AI_LIFE_LOST,차체 손실. 예비 차체 투입.,Hull lost. Deploying spare hull.
+AI_OVERHEAT,레이저 과열. 냉각 중.,Laser overheat. Cooling.
+AI_NO_DAMAGE,구역 무손상 통과.,Sector cleared without damage.

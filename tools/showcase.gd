@@ -64,6 +64,9 @@ func _stage_vfx(world: World) -> void:
 		world.add_enemy(drone)
 	world.fx.explosion(Course.ground_at(base + 22.0, 5.0) + Vector3.UP, 4.5)
 	world.fx.burn(Course.ground_at(base + 26.0, -9.0), 20.0, 1.3)
+	world.radio.emit(&"AI_REAR")
+	world.player.load_round(Armament.Round.HEAT)
+	world.player.set_coax_tier(4)
 
 
 func _drive(world: World, t: float) -> void:

@@ -4,12 +4,10 @@ extends Control
 ## the reticle with lead marker, radio chatter, boss bar, threat arrows and score popups.
 
 const SCALE := 2.0 ## Screen pixels per 3D-view pixel.
-const RADIO_TIME := 4.2
-const SPEAKERS := {"HY": "SPEAKER_HY", "CT": "SPEAKER_CT"}
+const RADIO_TIME := 3.6
 
 var world: World
 var font: Font
-var _pilot := preload("res://assets/art/pilot.png")
 var _radio_queue: Array[StringName] = []
 var _radio_line := &""
 var _radio_time := 0.0
@@ -80,7 +78,7 @@ func _process(delta: float) -> void:
 	if _radio_time <= 0.0 and not _radio_queue.is_empty():
 		_radio_line = _radio_queue.pop_front()
 		_radio_time = RADIO_TIME
-		Sfx.ui("radio")
+		Sfx.ui("ai")
 	for popup in _popups:
 		popup.time += delta
 	_popups = _popups.filter(func(p: Dictionary) -> bool: return p.time < 0.9)
@@ -135,29 +133,28 @@ func _bar(rect: Rect2, value: float, color: Color, segments := 20, back := Palet
 func _draw_status() -> void:
 	var p := world.player
 	var shake := Vector2(randf_range(-2, 2), randf_range(-2, 2)) * (_armor_shake / 0.3) * 3.0
-	var origin := Vector2(16, 470) + shake
-	_panel(Rect2(origin, Vector2(250, 58)), Palette.MINT)
+	var origin := Vector2(16, 480) + shake
+	_panel(Rect2(origin, Vector2(210, 48)), Palette.MINT)
 	var armor := p.hp / p.max_hp
 	var color := Palette.MINT if armor > 0.5 else (Palette.BUTTER if armor > 0.25 else Palette.RED)
 	if armor <= 0.25 and fmod(_time, 0.4) < 0.2:
 		color = Palette.CORAL
-	_text(origin + Vector2(8, 16), tr("HUD_ARMOR"), Palette.CREAM)
-	_bar(Rect2(origin + Vector2(62, 7), Vector2(178, 10)), armor, color)
-	_text(origin + Vector2(8, 34), tr("HUD_TAIL"), Palette.CREAM)
+	_icon_shield(origin + Vector2(10, 8), color)
+	_bar(Rect2(origin + Vector2(28, 9), Vector2(172, 10)), armor, color)
 	var tail := p.tail.hp / Tail.MAX_HP
-	_bar(Rect2(origin + Vector2(62, 26), Vector2(90, 7)), tail, Palette.FUNGUS if not p.tail.is_hurt() else Palette.CORAL, 10)
-	var ready := p.tail.cooldown <= 0.0
-	_text(origin + Vector2(160, 34), tr("HUD_READY") if ready else "…", Palette.FUNGUS if ready else Palette.STONE)
+	var tail_color := Palette.FUNGUS if not p.tail.is_hurt() else Palette.CORAL
+	_icon_tail(origin + Vector2(10, 28), tail_color if p.tail.cooldown <= 0.0 else Palette.STONE)
+	_bar(Rect2(origin + Vector2(28, 29), Vector2(84, 6)), tail, tail_color, 10)
 	# Lives as small hull silhouettes.
 	for i in world.stats.lives:
-		var at := origin + Vector2(8 + i * 22, 42)
+		var at := origin + Vector2(124 + i * 22, 32)
 		draw_rect(Rect2(at, Vector2(16, 6)), Palette.HULL)
 		draw_rect(Rect2(at + Vector2(4, -3), Vector2(7, 3)), Palette.HULL_LIGHT)
 		draw_rect(Rect2(at + Vector2(10, -2), Vector2(8, 1)), Palette.HULL_LIGHT)
-	# Throttle meter.
+	# Throttle meter between brake and boost chevrons.
 	var rail := world.rail
-	var m := Vector2(372, 516)
-	_panel(Rect2(m - Vector2(4, 16), Vector2(224, 28)), Palette.SKY)
+	var m := Vector2(400, 510)
+	_panel(Rect2(m - Vector2(8, 10), Vector2(176, 22)), Palette.SKY)
 	var meter_color := Palette.SKY
 	if rail.is_meter_locked():
 		meter_color = Palette.STONE
@@ -165,9 +162,9 @@ func _draw_status() -> void:
 		meter_color = Palette.BUTTER
 	elif rail.throttle == -1:
 		meter_color = Palette.PERIWINKLE
-	_text(m + Vector2(0, 0), tr("HUD_BRAKE"), Palette.PERIWINKLE if rail.throttle == -1 else Palette.STONE)
-	_bar(Rect2(m + Vector2(48, -8), Vector2(120, 8)), rail.meter, meter_color, 12)
-	_text(m + Vector2(174, 0), tr("HUD_BOOST"), Palette.BUTTER if rail.throttle == 1 else Palette.STONE)
+	_chevrons(m + Vector2(7, 1), -1.0, Palette.PERIWINKLE if rail.throttle == -1 else Palette.STONE)
+	_bar(Rect2(m + Vector2(24, -3), Vector2(112, 8)), rail.meter, meter_color, 12)
+	_chevrons(m + Vector2(146, 1), 1.0, Palette.BUTTER if rail.throttle == 1 else Palette.STONE)
 
 
 func _coax_label() -> String:
@@ -183,36 +180,33 @@ func _coax_label() -> String:
 
 func _draw_weapons() -> void:
 	var p := world.player
-	var origin := Vector2(694, 440)
-	_panel(Rect2(origin, Vector2(250, 88)), Armament.ROUND_COLORS[p.current_round])
-	# Cannon and the loaded round.
+	var origin := Vector2(734, 456)
 	var round_color: Color = Armament.ROUND_COLORS[p.current_round]
-	_text(origin + Vector2(8, 16), "100MM", Palette.CREAM)
-	_text(origin + Vector2(62, 16), tr("ROUND_" + Armament.ROUND_IDS[p.current_round].to_upper()), round_color)
+	_panel(Rect2(origin, Vector2(210, 72)), round_color)
+	# Main gun: round icon, magazine pips (infinity for APHE) and a reload bar.
+	_icon_shell(origin + Vector2(10, 7), round_color)
 	if p.current_round != Armament.Round.APHE:
 		for i in p.round_count:
-			draw_rect(Rect2(origin + Vector2(8 + i * 8, 22), Vector2(5, 9)), round_color)
+			draw_rect(Rect2(origin + Vector2(30 + i * 8, 9), Vector2(5, 11)), round_color)
 	else:
-		_text(origin + Vector2(8, 32), "∞", Palette.STONE)
+		_text(origin + Vector2(30, 20), "∞", Palette.STONE)
 	var reload := 1.0 - p.reload / Armament.RELOAD
-	_bar(Rect2(origin + Vector2(150, 8), Vector2(92, 6)), reload, Palette.CREAM if reload >= 1.0 else Palette.STONE, 8)
-	# Coax tier pips.
-	_text(origin + Vector2(8, 50), tr("HUD_COAX"), Palette.CREAM)
-	_text(origin + Vector2(62, 50), _coax_label(), Palette.BUTTER)
+	_bar(Rect2(origin + Vector2(110, 12), Vector2(90, 6)), reload, Palette.CREAM if reload >= 1.0 else Palette.STONE, 8)
+	# Coax: one bullet glyph per mounted gun, sized by caliber, plus tier pips.
+	var x := 10.0
+	for caliber in Armament.tier_calibers(p.coax_tier):
+		_icon_bullet(origin + Vector2(x, 28), caliber, Armament.GUNS[caliber].color)
+		x += 8.0 + caliber * 0.35
 	for i in Armament.COAX_TIERS.size():
-		draw_rect(Rect2(origin + Vector2(150 + i * 15, 42), Vector2(11, 8)), Palette.BUTTER if i <= p.coax_tier else Palette.DUSK)
+		draw_rect(Rect2(origin + Vector2(110 + i * 15, 33), Vector2(11, 6)), Palette.BUTTER if i <= p.coax_tier else Palette.DUSK)
 	# Laser CIWS heat.
-	_text(origin + Vector2(8, 76), tr("HUD_LASER"), Palette.CREAM)
 	var heat_color := Palette.MINT
 	if p.ciws_overheated:
 		heat_color = Palette.RED if fmod(_time, 0.3) < 0.15 else Palette.CORAL
 	elif p.ciws_heat > 0.7:
 		heat_color = Palette.BUTTER
-	_bar(Rect2(origin + Vector2(62, 67), Vector2(130, 8)), p.ciws_heat, heat_color, 13)
-	if p.ciws_overheated:
-		_text(origin + Vector2(196, 76), tr("HUD_OVERHEAT"), heat_color)
-	elif p.ciws_target != null:
-		_text(origin + Vector2(196, 76), tr("HUD_ENGAGE"), Palette.MINT)
+	_icon_laser(origin + Vector2(10, 52), heat_color, p.ciws_target != null and not p.ciws_overheated)
+	_bar(Rect2(origin + Vector2(30, 54), Vector2(170, 8)), p.ciws_heat, heat_color, 13)
 
 
 func _draw_score() -> void:
@@ -221,9 +215,9 @@ func _draw_score() -> void:
 	if stats.combo > 1:
 		var mult := stats.multiplier()
 		var color := [Palette.CREAM, Palette.BUTTER, Palette.PEACH, Palette.CORAL, Palette.FUNGUS][mini(mult - 1, 4)] as Color
-		_text(Vector2(16, 58), tr("HUD_COMBO") % stats.combo, color)
-		_text(Vector2(120, 58), "×%d" % mult, color, 24)
-		draw_rect(Rect2(16, 64, 96 * stats.combo_timer / RunStats.COMBO_WINDOW, 3), color)
+		_text(Vector2(16, 60), "×%d" % mult, color, 24)
+		_text(Vector2(64, 58), str(stats.combo), color)
+		draw_rect(Rect2(16, 66, 96 * stats.combo_timer / RunStats.COMBO_WINDOW, 3), color)
 
 
 func _draw_progress() -> void:
@@ -235,7 +229,43 @@ func _draw_progress() -> void:
 		draw_rect(Rect2(origin + Vector2(width * start / Course.ARENA_CENTER_D, -3), Vector2(2, 9)), Palette.MIST)
 	var k := clampf(world.rail.d / Course.ARENA_CENTER_D, 0.0, 1.0)
 	draw_rect(Rect2(origin + Vector2(width * k - 3, -3), Vector2(6, 9)), Palette.FUNGUS)
-	_text(origin + Vector2(0, 20), tr("SECTION_%d" % world.director.section), Palette.CREAM, 12)
+
+
+func _icon_shield(at: Vector2, color: Color) -> void:
+	draw_colored_polygon(PackedVector2Array([at, at + Vector2(12, 0), at + Vector2(12, 7), at + Vector2(6, 12), at + Vector2(0, 7)]), color)
+	draw_rect(Rect2(at + Vector2(5, 2), Vector2(2, 7)), Palette.INK)
+
+
+func _icon_tail(at: Vector2, color: Color) -> void:
+	for i in 3:
+		draw_rect(Rect2(at + Vector2(i * 3, 6 - i * 3), Vector2(4, 4)), color)
+	draw_colored_polygon(PackedVector2Array([at + Vector2(9, -2), at + Vector2(14, -3), at + Vector2(11, 1)]), color)
+	draw_colored_polygon(PackedVector2Array([at + Vector2(9, 2), at + Vector2(14, 4), at + Vector2(10, 4)]), color)
+
+
+func _icon_shell(at: Vector2, color: Color) -> void:
+	draw_rect(Rect2(at + Vector2(0, 4), Vector2(9, 6)), Palette.OCHRE)
+	draw_colored_polygon(PackedVector2Array([at + Vector2(9, 3), at + Vector2(15, 7), at + Vector2(9, 11)]), color)
+
+
+func _icon_bullet(at: Vector2, caliber: int, color: Color) -> void:
+	var h := 6.0 + caliber * 0.4
+	var w := 2.0 + caliber * 0.2
+	draw_rect(Rect2(at + Vector2(0, 14 - h * 0.7), Vector2(w, h * 0.7)), Palette.OCHRE)
+	draw_rect(Rect2(at + Vector2(0, 14 - h), Vector2(w, h * 0.3)), color)
+
+
+func _icon_laser(at: Vector2, color: Color, firing: bool) -> void:
+	draw_rect(Rect2(at + Vector2(0, 2), Vector2(6, 8)), Palette.HULL_LIGHT)
+	draw_rect(Rect2(at + Vector2(6, 4), Vector2(3, 4)), color)
+	if firing and fmod(_time, 0.1) < 0.06:
+		draw_line(at + Vector2(9, 6), at + Vector2(18, 6), Palette.WHITE, 2.0)
+
+
+func _chevrons(at: Vector2, direction: float, color: Color) -> void:
+	for i in 2:
+		var x := at.x + i * 7.0 * direction
+		draw_colored_polygon(PackedVector2Array([Vector2(x, at.y - 5), Vector2(x + 6 * direction, at.y), Vector2(x, at.y + 5)]), color)
 
 
 func _draw_boss() -> void:
@@ -249,26 +279,23 @@ func _draw_boss() -> void:
 		draw_rect(Rect2(rect.position + Vector2(rect.size.x * mark - 1, -3), Vector2(2, 16)), Palette.CREAM)
 
 
+## Combat assist announcements: a terse terminal line beside a waveform, typed out.
 func _draw_radio() -> void:
 	if _radio_time <= 0.0 or _radio_line == &"":
 		return
-	var line := String(_radio_line)
-	var speaker := line.split("_")[0]
-	var text := tr(line)
-	var shown := int(clampf((RADIO_TIME - _radio_time) * 40.0, 0.0, text.length()))
-	var origin := Vector2(16, 360)
+	var text := tr(_radio_line)
+	var shown := int(clampf((RADIO_TIME - _radio_time) * 45.0, 0.0, text.length()))
+	var warning := text.begins_with("경고") or text.begins_with("Warning")
+	var accent := Palette.CORAL if warning else Palette.MINT
+	var origin := Vector2(16, 400)
 	var slide := clampf((RADIO_TIME - _radio_time) * 8.0, 0.0, 1.0) * clampf(_radio_time * 6.0, 0.0, 1.0)
-	origin.x -= (1.0 - slide) * 320.0
-	_panel(Rect2(origin, Vector2(330, 72)), Palette.FUNGUS if speaker == "HY" else Palette.SKY)
-	if speaker == "HY":
-		draw_texture(_pilot, origin + Vector2(6, 6))
-	else:
-		# Control has no face: a radio waveform instead.
-		for i in 12:
-			var h := absf(sin(_time * 18.0 + i * 1.3)) * 22.0 + 3.0
-			draw_rect(Rect2(origin + Vector2(10 + i * 4, 38 - h * 0.5), Vector2(2, h)), Palette.SKY)
-	_text(origin + Vector2(74, 18), tr(SPEAKERS.get(speaker, "SPEAKER_CT")), Palette.FUNGUS if speaker == "HY" else Palette.SKY)
-	_text(origin + Vector2(74, 36), text.substr(0, shown), Palette.CREAM, 12, HORIZONTAL_ALIGNMENT_LEFT, 250)
+	origin.x -= (1.0 - slide) * 380.0
+	_panel(Rect2(origin, Vector2(370, 34)), accent)
+	for i in 8:
+		var h := absf(sin(_time * 22.0 + i * 1.7)) * 16.0 * (1.0 if shown < text.length() else 0.25) + 2.0
+		draw_rect(Rect2(origin + Vector2(8 + i * 3, 19 - h * 0.5), Vector2(2, h)), accent)
+	var caret := "_" if fmod(_time, 0.5) < 0.25 else ""
+	_text(origin + Vector2(40, 23), text.substr(0, shown) + caret, Palette.PEACH if warning else Palette.CREAM, 12, HORIZONTAL_ALIGNMENT_LEFT, 322)
 
 
 func _draw_banner() -> void:

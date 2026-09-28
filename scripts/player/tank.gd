@@ -593,7 +593,7 @@ func _update_ciws(delta: float) -> void:
 		ciws_overheated = true
 		ciws_target = null
 		Sfx.play("overheat", origin)
-		world.radio.emit(&"HY_CIWS_OVERHEAT")
+		world.radio.emit(&"AI_OVERHEAT")
 
 
 ## Tail button: throw what is held, else snatch a pickup, grab or stab an enemy, or swat around.
@@ -798,7 +798,7 @@ func on_damaged(hit: Hit, amount: float) -> void:
 		tail.damage(amount * 0.8)
 	invuln = maxf(invuln, 0.12)
 	if hp < MAX_ARMOR * 0.3 and hp + amount >= MAX_ARMOR * 0.3:
-		world.radio.emit(&"HY_LOW_ARMOR")
+		world.radio.emit(&"AI_LOW_ARMOR")
 
 
 ## Losing all armor costs a life instead of removing the tank.
@@ -827,7 +827,7 @@ func die(_hit: Hit) -> void:
 		world.game_over.emit()
 		return
 	_respawn = RESPAWN_DELAY
-	world.radio.emit(&"CT_LIFE_LOST")
+	world.radio.emit(&"AI_LIFE_LOST")
 
 
 func _finish_respawn() -> void:

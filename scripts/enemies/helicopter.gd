@@ -256,7 +256,7 @@ func _update_phase() -> void:
 	var ratio := hp / max_hp
 	if phase == Phase.HUNTER and (ratio < 0.66 or not (_live("panel_l") or _live("panel_r"))):
 		phase = Phase.STRIPPED
-		world.radio.emit(&"CT_BOSS_PHASE2")
+		world.radio.emit(&"AI_BOSS_PHASE2")
 		_grow_fungus(6)
 		for side in ["panel_l", "panel_r"]:
 			if _live(side):
@@ -265,7 +265,7 @@ func _update_phase() -> void:
 		_next_attack = 1.0
 	elif phase == Phase.STRIPPED and ratio < 0.33:
 		phase = Phase.INFECTED
-		world.radio.emit(&"HY_BOSS_PHASE3")
+		world.radio.emit(&"AI_BOSS_PHASE3")
 		_grow_fungus(14)
 		world.screen_flash(Palette.FUNGUS, 0.4)
 		Sfx.play("roar", global_position, 6.0, 0.7)
@@ -501,7 +501,7 @@ func _begin_crash() -> void:
 	world.shake(0.7)
 	world.hitstop(0.25)
 	world.screen_flash(Palette.WHITE, 0.7)
-	world.radio.emit(&"HY_CLEAR")
+	world.radio.emit(&"AI_CLEAR")
 	Sfx.play("blast", global_position)
 	for side in ["pod_l", "pod_r"]:
 		if _live(side):

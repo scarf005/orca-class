@@ -2,7 +2,7 @@ extends TestCase
 ## Every translation key used by the code exists in Korean and English.
 
 ## Keys built by concatenation (e.g. "PICKUP_" + id) end in "_" and are checked explicitly below.
-const KEY_PATTERNS := ["tr\\(\"([A-Z0-9_]*[A-Z0-9])\"", "&\"((?:HY|CT)_[A-Z0-9_]+)\"", "\"line\": \"([A-Z_]+)\"", "radio\\.call\\([^,]+, \"([A-Z_]+)\"", "\"title\", \"([A-Z_]+)\"", "\"key\": \"([A-Z_]+)\""]
+const KEY_PATTERNS := ["tr\\(\"([A-Z0-9_]*[A-Z0-9])\"", "&\"(AI_[A-Z0-9_]+)\"", "\"line\": \"([A-Z_]+)\"", "radio\\.call\\([^,]+, \"([A-Z_]+)\"", "\"title\", \"([A-Z_]+)\"", "\"key\": \"([A-Z_]+)\""]
 
 
 func test_all_keys_translated() -> void:
