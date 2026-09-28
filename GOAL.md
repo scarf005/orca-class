@@ -1,4 +1,4 @@
-# Hypha — Goal
+# orca class — Goal
 
 A Star Fox-style action shooter in pastel, ditherpunk 3D. You play Ha Yoon (하윤), driver of the tank
 *Orca-class*, pushing through a fungus-infested, abandoned Korean countryside. This goal covers one complete,

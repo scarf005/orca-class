@@ -1,4 +1,4 @@
-# Orca Class
+# orca class
 
 ![](image.webp)
 

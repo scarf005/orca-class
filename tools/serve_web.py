@@ -29,7 +29,7 @@ if __name__ == "__main__":
         parser.error("Export the Web preset to builds/web/index.html first.")
     handler = partial(WebHandler, directory=str(WEB_ROOT))
     with ThreadingHTTPServer(("127.0.0.1", args.port), handler) as server:
-        print(f"Serving Hypha at http://127.0.0.1:{server.server_port}/", flush=True)
+        print(f"Serving orca class at http://127.0.0.1:{server.server_port}/", flush=True)
         try:
             server.serve_forever()
         except KeyboardInterrupt:
