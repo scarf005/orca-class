@@ -560,7 +560,7 @@ func _fire_coax(muzzle: Node3D, caliber: int, spec: Dictionary, target: Entity) 
 	# Brass spills out of the mantlet and bounces off the deck.
 	var eject := global_basis.x * randf_range(2.0, 4.0) + Vector3.UP * randf_range(3.0, 5.0)
 	world.fx.spawn(Fx.Kind.SOLID, from - dir * 0.6, eject, 0.9, 0.15 + caliber * 0.01, Color.WHITE, {"gravity": 22.0, "bounce": true, "spin": 1.0, "material": Fx.Debris.BRASS})
-	Sfx.play(spec.sound, from, -4.0, randf_range(0.95, 1.08))
+	Sfx.gun(spec.sound, randf_range(0.93, 1.07))
 
 
 func fire_cannon() -> void:

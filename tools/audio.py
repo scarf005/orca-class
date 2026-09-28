@@ -236,6 +236,20 @@ def sfx():
     write_wav("kill_crunch", np.tanh((thump * 1.4 + crunch * 1.0 + crack * 0.9) * 1.6))
 
 
+def guns():
+    """Coaxial gun reports, one per caliber: a sharp muzzle crack, a chest thump and a short
+    mechanical clack. Bigger calibers are lower, longer and heavier. Uses its own noise so adding
+    it leaves the other effects unchanged."""
+    local = np.random.default_rng(805)
+    for caliber, pitch, length, weight in ((8, 1.35, 0.14, 0.7), (15, 1.0, 0.2, 1.0), (20, 0.72, 0.28, 1.4)):
+        t = t_axis(length)
+        crack = highpass(local.uniform(-1, 1, len(t)), 2400 * pitch) * np.exp(-t * 95 / weight)
+        blast = lowpass(local.uniform(-1, 1, len(t)), 1500 * pitch) * np.exp(-t * 32 / weight)
+        thump = sweep(170 * pitch, 55 * pitch, length, curve=0.4) * np.exp(-t * 26 / weight)
+        clack = pad([(0.018 / pitch, highpass(local.uniform(-1, 1, int(0.012 * RATE)), 4000) * np.exp(-t_axis(0.012) * 300))], length)
+        write_wav(f"coax{caliber}", np.tanh((crack * 1.3 + blast * 1.1 + thump * 1.5 * weight + clack * 0.5) * 2.2), 0.95)
+
+
 # --- Music ---------------------------------------------------------------------------------
 
 NOTE_NAMES = {"C": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3, "E": 4, "F": 5, "F#": 6, "Gb": 6, "G": 7,
@@ -702,5 +716,8 @@ if __name__ == "__main__":
     parts = sys.argv[1:] or ["sfx", "music"]
     if "sfx" in parts:
         sfx()
+        guns()
+    elif "guns" in parts:
+        guns()
     if "music" in parts:
         music()

@@ -9,9 +9,9 @@ const SOUNDS := {
 	"impact": ["res://assets/audio/rubble.ogg", -2.0, 0.7],
 	"hit_confirm": ["res://assets/audio/synth/hit_metal.wav", -5.0, 1.0],
 	"kill_confirm": ["res://assets/audio/synth/kill_crunch.wav", 0.0, 1.0],
-	"coax8": ["res://assets/audio/ciws.ogg", -6.0, 1.35],
-	"coax15": ["res://assets/audio/ciws.ogg", -4.0, 1.0],
-	"coax20": ["res://assets/audio/ciws.ogg", -2.0, 0.72],
+	"coax8": ["res://assets/audio/synth/coax8.wav", -9.0],
+	"coax15": ["res://assets/audio/synth/coax15.wav", -8.0],
+	"coax20": ["res://assets/audio/synth/coax20.wav", -7.0],
 	"enemy_gun": ["res://assets/audio/ciws.ogg", -6.0, 0.9],
 	"zap": ["res://assets/audio/laser.ogg", -4.0, 1.3],
 	"rubble": ["res://assets/audio/rubble.ogg", 0.0],
@@ -54,6 +54,7 @@ var _next := 0
 var _ui := AudioStreamPlayer.new()
 var _combat := AudioStreamPlayer.new()
 var _last_hit_sound := -100
+var _guns := {} ## Sound name -> its own non-positional player, so different guns overlap.
 var music := AudioStreamPlayer.new()
 var _music_path := ""
 
@@ -116,6 +117,24 @@ func play(name: String, position := Vector3.INF, volume_db := 0.0, pitch := 1.0)
 	player.volume_db = spec[1] + volume_db
 	player.pitch_scale = base_pitch * pitch
 	player.global_position = position
+	player.play()
+
+
+## The tank's own guns: full volume whatever the camera distance, each shot overlapping the last.
+func gun(name: String, pitch := 1.0) -> void:
+	var audio := stream(name)
+	if audio == null:
+		return
+	if not _guns.has(name):
+		var player := AudioStreamPlayer.new()
+		player.bus = &"SFX"
+		player.max_polyphony = 8
+		player.stream = audio
+		player.volume_db = SOUNDS[name][1]
+		add_child(player)
+		_guns[name] = player
+	var player: AudioStreamPlayer = _guns[name]
+	player.pitch_scale = pitch
 	player.play()
 
 
