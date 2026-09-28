@@ -5,12 +5,16 @@ extends TestCase
 func test_coax_tier_climbs_to_max_then_scores() -> void:
 	var world := stage()
 	var tank := world.player
+	# All spawned while still needed: at max tier a fresh coax drop turns into something else.
+	var pickups: Array[Pickup] = []
+	for i in Armament.COAX_TIERS.size():
+		pickups.append(world.spawn_pickup("coax", tank.global_position + Vector3(0, 30, 0)))
 	for i in Armament.COAX_TIERS.size() - 1:
-		tank.collect(world.spawn_pickup("coax", tank.global_position + Vector3(0, 30, 0)))
+		tank.collect(pickups[i])
 	check_eq(tank.coax_tier, Armament.COAX_TIERS.size() - 1, "tier after five upgrades")
 	check_eq(tank.model.coax_muzzles.size(), 3, "max tier mounts three guns")
 	var before := world.stats.score
-	tank.collect(world.spawn_pickup("coax", tank.global_position + Vector3(0, 30, 0)))
+	tank.collect(pickups[-1])
 	check_eq(tank.coax_tier, Armament.COAX_TIERS.size() - 1, "tier stays at max")
 	check(world.stats.score - before >= 2000, "extra coax at max gives a score bonus")
 
@@ -68,12 +72,13 @@ func test_airburst_detonates_at_fuse_distance() -> void:
 	var world := stage()
 	var tank := world.player
 	tank.load_round(Armament.Round.AIRBURST)
-	tank.aim_point = tank.model.muzzle.global_position + (-tank.global_basis.z) * 40.0 + Vector3.UP * 12.0
+	var muzzle := tank.model.muzzle.global_position
+	tank.aim_point = muzzle + -tank.model.barrel.global_basis.z * 40.0 # The shell follows the barrel.
 	tank.reload = 0.0
-	tank.fire_cannon()
-	var shell: Projectile = world.projectiles[-1]
-	check(shell.airburst_fragments > 0, "airburst shell carries fragments")
-	check_near(shell.fuse_distance, 40.0 + 0.0, 4.0, "fuse set near the aim distance")
-	var fragments_before := world.projectiles.size()
-	await wait_until(gone(shell), 120)
-	check(world.projectiles.size() > fragments_before, "burst releases fragments in the air")
+	var before := world.projectiles.size()
+	tank.fire_cannon() # Hitscan: the shell flies and bursts within this call.
+	var fragments := world.projectiles.slice(before).filter(func(p: Projectile) -> bool: return not p.is_queued_for_deletion()) # Minus the spent shell.
+	check(fragments.size() > 0, "burst releases fragments")
+	var burst: Vector3 = fragments[0].global_position if fragments.size() > 0 else muzzle
+	check_near(muzzle.distance_to(burst), muzzle.distance_to(tank.aim_point) - 2.0, 1.0, "fuse bursts just short of the aim point")
+	check(burst.y > Course.height_at(burst) + 1.0, "the burst is in the air")
