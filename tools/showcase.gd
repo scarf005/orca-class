@@ -46,6 +46,8 @@ func run() -> int:
 			tank.tail.damage(70.0)
 			world.radio.emit(&"AI_MOD_TRACK_R_OUT")
 			_stage_vfx(world)
+		"fungus":
+			world.player.model.visible = true
 		"boss":
 			world.rail.d = Course.ARENA_CENTER_D - 60.0
 			world.director._start_boss({"kind": "helicopter"})
