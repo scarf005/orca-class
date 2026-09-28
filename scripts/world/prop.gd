@@ -18,6 +18,7 @@ var blast_size := 4.5 ## Radius of the explosion when an explosive prop goes up.
 var fungal := false ## Bursts into spores and splatter when destroyed.
 var supports: Array[Prop] = [] ## Pieces resting on this one; they topple when it breaks.
 var falls := false
+var vehicle := false ## Run over, it is squashed, knocked flying or burst apart, but never blows up.
 var _topple := -1.0
 var _topple_axis := Vector3.RIGHT
 var _topple_by_player := false
@@ -156,6 +157,31 @@ func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 	return t * from.distance_to(to)
 
 
+## Driven over: one of a squashed hulk left behind, the whole car knocked flying in one wrecked
+## piece, or a burst of parts; a crunch of glass and sparks either way, and no explosion.
+func _run_over(world: World, push: Vector3) -> void:
+	world.fx.sparks(global_position + Vector3.UP * 0.8, push + Vector3.UP, 18, Palette.BUTTER, 12.0)
+	world.fx.debris(global_position + Vector3.UP, 6, [Fx.Debris.GLASS, Fx.Debris.PAINT], 9.0, 0.2, push)
+	world.fx.dust(global_position, 6, footprint, Palette.OCHRE)
+	world.shake(0.2, global_position)
+	Sfx.play("rubble", global_position, 2.0, 1.3)
+	Sfx.play("impact", global_position, 0.0, 0.7)
+	var mesh := get_node("Mesh") as MeshInstance3D
+	match randi() % 3:
+		0:
+			var hulk := MeshInstance3D.new()
+			hulk.mesh = mesh.mesh
+			hulk.transform = global_transform.scaled_local(Vector3(1.12, 0.28, 1.06))
+			world.props.add_child(hulk)
+		1:
+			Wreck.launch(mesh, global_position + Vector3.UP, footprint, true, push * 16.0 + Vector3.UP * 4.0, false)
+		2:
+			world.fx.shatter(visual_bounds(), debris, push * 2.0)
+	if score > 0:
+		world.award(score, global_position, false)
+	world.style_event("CRUSH", 12.0)
+
+
 func damage_multiplier(hit: Hit) -> float:
 	if hit.kind == Hit.Kind.FIRE:
 		return 3.0 if burnable else 0.3
@@ -169,6 +195,9 @@ func on_death(hit: Hit) -> void:
 	# Rammed at speed, the pieces fly on ahead of the tank like it hit them at 80 km/h. What leaves
 	# rubble sheds only some of itself; everything else goes entirely to pieces.
 	var rammed := hit != null and hit.kind == Hit.Kind.RAM
+	if vehicle and _rammed(hit):
+		_run_over(world, push)
+		return
 	var remains := rubble_mesh != null and not overkilled
 	world.fx.shatter(visual_bounds(), debris, push * (2.0 if rammed else 1.0), 0.35 if remains else 1.0)
 	world.fx.dust(global_position, int(clampf(footprint * 3.0, 3, 14)), footprint, Palette.MIST)

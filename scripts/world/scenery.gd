@@ -47,6 +47,9 @@ const PROPS := {
 	"plane_tree": [0.9, 9.0, 22.5, true, true, 10, false, false],
 }
 
+## Cars: run over, they are squashed, knocked flying or burst apart instead of blowing up.
+const VEHICLES := ["car", "truck", "infested_car", "cultivator"]
+
 ## Tall thin props that snap and fall over rather than vanish.
 const FALLING := ["pole", "plane_tree", "persimmon", "cordyceps"]
 
@@ -491,6 +494,7 @@ func _instantiate(spec: Spec) -> void:
 		if cfg[7]:
 			prop.rubble_mesh = PropKit.mesh("rubble", spec.variant)
 		prop.falls = spec.kind in FALLING
+		prop.vehicle = spec.kind in VEHICLES
 		prop.fungal = spec.kind in FUNGAL
 		prop.debris = _debris(spec.kind)
 		# Position before entering the tree: props register into spatial buckets on entry.
