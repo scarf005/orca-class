@@ -332,6 +332,30 @@ static func school(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
 	return b.mesh()
 
 
+## A highway pier: a stained concrete column from below the road bed up into the deck.
+static func overpass_pier(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.box(_xf(Vector3(0, 7.5, 0)), Vector3(2.0, 15.0, 3.0), Palette.CONCRETE)
+	b.box(_xf(Vector3(0, 14.6, 0)), Vector3(3.2, 0.8, 4.0), Palette.STONE)
+	b.box(_xf(Vector3(1.01, 5.0, 0)), Vector3(0.05, 6.0, 1.2), Palette.ASH)
+	return b.mesh()
+
+
+## One span of the highway deck, `variant` meters long, with its crash barriers and fungus
+## dripping from the underside.
+static func overpass_deck(variant: int, rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	var length := float(variant)
+	b.box(_xf(Vector3(0, 0.2, 0)), Vector3(length, 0.4, 10.0), Palette.STONE)
+	b.box(_xf(Vector3(0, 1.1, 0)), Vector3(length, 1.4, 14.0), Palette.CONCRETE)
+	for side in [-1.0, 1.0]:
+		b.box(_xf(Vector3(0, 2.2, side * 6.8)), Vector3(length, 0.8, 0.4), Palette.MIST)
+	for i in int(length / 8.0):
+		var x := -length * 0.5 + 4.0 + i * 8.0
+		b.blob(_xf(Vector3(x, -0.2, rng.randf_range(-3.0, 3.0))), rng.randf_range(0.8, 1.5), Palette.FUNGUS if i % 2 else Palette.LILAC, 0, 0.4, i)
+	return b.mesh()
+
+
 static func gate(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
 	var b := LowPoly.new()
 	b.box(_xf(Vector3(0, 1.6, 0)), Vector3(1.0, 3.2, 1.0), Palette.CONCRETE)

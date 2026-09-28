@@ -45,7 +45,16 @@ const PROPS := {
 	"gas_station": [4.5, 6.0, 100.0, false, false, 150, false, true],
 	"fungal_spire": [4.0, 14.0, 350.0, false, true, 400, false, false],
 	"plane_tree": [0.9, 9.0, 22.5, true, true, 10, false, false],
+	"overpass_pier": [1.6, 15.0, 200.0, false, false, 300, false, false],
+	"overpass_deck": [11.0, 2.6, 150.0, false, false, 200, false, false],
 }
+
+## The highway crossing overhead: piers standing in the valley (lateral offsets) and deck spans
+## [center, length, pier it rests on]. Knock out a pier and the spans on it come down.
+const OVERPASS_PIERS: Array[float] = [-62.0, -40.0, -18.0, 18.0, 40.0, 62.0]
+const OVERPASS_SPANS := [[-73.0, 22, -62.0], [-51.0, 22, -62.0], [-29.0, 22, -40.0], [-9.0, 18, -18.0], [9.0, 18, 18.0], [29.0, 22, 40.0], [51.0, 22, 62.0], [73.0, 22, 62.0]]
+const OVERPASS_PIER_Y := -4.0
+const OVERPASS_DECK_Y := 7.9
 
 ## Cars: run over, they are squashed, knocked flying or burst apart instead of blowing up.
 const VEHICLES := ["car", "truck", "infested_car", "cultivator"]
@@ -285,7 +294,20 @@ func _reservoir() -> void:
 
 
 func _overpass() -> void:
-	add_decor(_bridge_mesh(), Course.UNDERPASS_D, 0.0, 0.0, 0.0)
+	var group := _groups.size()
+	_groups.append({})
+	for i in OVERPASS_PIERS.size():
+		var pier := add("overpass_pier", Course.UNDERPASS_D, OVERPASS_PIERS[i], 0.0, 0)
+		pier.set_meta("y", OVERPASS_PIER_Y)
+		pier.group = group
+		pier.index = i
+	for j in OVERPASS_SPANS.size():
+		var span: Array = OVERPASS_SPANS[j]
+		var deck := add("overpass_deck", Course.UNDERPASS_D, span[0], 0.0, span[1])
+		deck.set_meta("y", OVERPASS_DECK_Y)
+		deck.group = group
+		deck.index = OVERPASS_PIERS.size() + j
+		deck.rests_on = OVERPASS_PIERS.find(span[2])
 	var d := Course.RAMP_UP.y
 	while d < Course.RAMP_DOWN.x:
 		add_decor(_rail_mesh(), d, -14.6, 0.0)
@@ -391,22 +413,6 @@ func _wire_mesh(a: Vector3, b: Vector3, yaw: float) -> Mesh:
 			var dir := points[i + 1] - points[i]
 			builder.box(Transform3D(Basis.looking_at(dir, Vector3.UP), (points[i] + points[i + 1]) * 0.5), Vector3(0.05, 0.05, dir.length()), Palette.INK)
 	return builder.mesh()
-
-
-func _bridge_mesh() -> Mesh:
-	var b := LowPoly.new()
-	var h := 9.0
-	b.box(Transform3D(Basis(), Vector3(0, h, 0)), Vector3(220.0, 1.4, 14.0), Palette.CONCRETE)
-	b.box(Transform3D(Basis(), Vector3(0, h + 1.1, 6.8)), Vector3(220.0, 0.8, 0.4), Palette.MIST)
-	b.box(Transform3D(Basis(), Vector3(0, h + 1.1, -6.8)), Vector3(220.0, 0.8, 0.4), Palette.MIST)
-	b.box(Transform3D(Basis(), Vector3(0, h - 0.9, 0)), Vector3(220.0, 0.4, 10.0), Palette.STONE)
-	for x in [-60.0, -38.0, -18.0, 18.0, 38.0, 60.0]:
-		b.box(Transform3D(Basis(), Vector3(x, h * 0.5 - 2.0, 0)), Vector3(2.0, h + 4.0, 3.0), Palette.CONCRETE)
-	# Fungus drips from the deck.
-	for i in 8:
-		b.blob(Transform3D(Basis(), Vector3(-40.0 + i * 11.0, h - 1.2, 3.0 - (i % 3) * 3.0)), 1.0 + (i % 2) * 0.6, Palette.FUNGUS if i % 2 else Palette.LILAC, 0, 0.4, i)
-	b.box(Transform3D(Basis(), Vector3(0, h + 0.2, -7.05)), Vector3(8.0, 1.2, 0.1), Palette.PINE)
-	return b.mesh()
 
 
 func _rail_mesh() -> Mesh:
@@ -589,4 +595,6 @@ func _debris(kind: String) -> Array:
 			return [Fx.Debris.WOOD]
 		"rock":
 			return [Fx.Debris.ROCK]
+		"overpass_pier", "overpass_deck":
+			return [Fx.Debris.CONCRETE, Fx.Debris.ROCK, Fx.Debris.METAL]
 	return [Fx.Debris.CONCRETE, Fx.Debris.WOOD]
