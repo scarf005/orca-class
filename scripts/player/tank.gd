@@ -580,7 +580,9 @@ func _fire_coax(muzzle: Node3D, caliber: int, spec: Dictionary, target: Entity) 
 		bullet.blast_radius = spec.blast
 		bullet.blast_damage = spec.damage * 0.5
 		bullet.blast_colors = [Palette.WHITE, Palette.PEACH, Palette.CORAL]
-	world.fx.muzzle_flash(from + dir * 0.2, dir, 0.3 + caliber * 0.025, spec.color)
+	world.fx.muzzle_flash(from + dir * 0.2, dir, 0.55 + caliber * 0.04, spec.color)
+	_barrel_recoil = maxf(_barrel_recoil, 0.08 + caliber * 0.006)
+	world.shake(0.01 + caliber * 0.001)
 	# Brass spills out of the mantlet and bounces off the deck.
 	var eject := global_basis.x * randf_range(2.0, 4.0) + Vector3.UP * randf_range(3.0, 5.0)
 	world.fx.spawn(Fx.Kind.SOLID, from - dir * 0.6, eject, 0.9, 0.05 + caliber * 0.004, Palette.BUTTER, {"gravity": 22.0, "bounce": true, "spin": 1.0})
@@ -621,7 +623,7 @@ func fire_cannon() -> void:
 				flame.radius = 0.6
 				flame.impacted.connect(_on_flame_impact)
 		_:
-			var speed := 600.0 if round == Armament.Round.APFSDS else Armament.SHELL_SPEED
+			var speed := Armament.SHELL_SPEED
 			var shape := "dart" if round == Armament.Round.APFSDS else "shell"
 			var dir := _fire_direction(muzzle, speed)
 			var shell := world.spawn_projectile(Team.PLAYER, muzzle, dir * speed, shape, Armament.ROUND_COLORS[round])
@@ -629,7 +631,7 @@ func fire_cannon() -> void:
 			shell.hit.caliber = 100
 			shell.hit.source = self
 			shell.hit.stagger = 0.4
-			shell.gravity = 2.0
+			shell.gravity = 0.0
 			shell.life = 2.0
 			shell.impact_sound = "impact"
 			shell.impacted.connect(_count_hit, CONNECT_ONE_SHOT)
@@ -649,7 +651,6 @@ func fire_cannon() -> void:
 					shell.hit.pierce = true
 					shell.pierce_entities = true
 					shell.gravity = 0.0
-					shell.life = 0.7
 					# The dart goes through everything in line and slams into the ground with a crater.
 					shell.blast_radius = 7.0
 					shell.blast_damage = 450.0
@@ -657,6 +658,14 @@ func fire_cannon() -> void:
 					shell.hit.damage = 70.0
 					shell.fuse_distance = maxf(muzzle.distance_to(aim_point) - 2.0, 6.0)
 					shell.airburst_fragments = 70
+			# Hitscan: the round lands this very frame, and a tracer flash marks its line.
+			var end := shell.resolve_now(Armament.SHELL_RANGE)
+			world.fx.beam(muzzle, end, Palette.WHITE, 0.28, 0.07)
+			world.fx.beam(muzzle, end, Armament.ROUND_COLORS[round], 0.7, 0.12)
+			var length := muzzle.distance_to(end)
+			for k in int(length / 6.0):
+				var at := muzzle.lerp(end, (k + 0.5) * 6.0 / length)
+				world.fx.spawn(Fx.Kind.GLOW, at, Vector3(randf_range(-0.4, 0.4), 0.8, randf_range(-0.4, 0.4)), randf_range(0.5, 0.9), 0.5, Palette.MIST, {"end_size": 1.4, "drag": 2.0, "fade": 0.2})
 	if round != Armament.Round.APHE:
 		round_count -= 1
 		if round_count <= 0:

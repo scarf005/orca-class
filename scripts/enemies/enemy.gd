@@ -13,6 +13,7 @@ var stagger := 0.0
 var burning := 0.0
 var can_stagger := true
 var despawn_behind := 30.0 ## Removed once this far behind the rail; 0 keeps it.
+var _shudder := 0.0 ## Seconds of hit shudder left.
 var wreck_on_death := false ## Vehicles: the hull is blown into the air and blows up again on landing.
 var pop_parts: Array[Node3D] = [] ## Parts (turrets) that blow off and fly separately when it dies as a wreck.
 var model := Node3D.new()
@@ -47,7 +48,10 @@ func tick(delta: float) -> void:
 		_burn(delta)
 	if dead:
 		return
-	model.position = model.position.lerp(Vector3.ZERO, 1.0 - exp(-22.0 * delta))
+	# Shudder from recent hits, settling back onto the body.
+	_shudder = maxf(0.0, _shudder - delta)
+	var jitter := Vector3(randf_range(-1, 1), randf_range(-0.5, 1), randf_range(-1, 1)) * _shudder * 1.6
+	model.position = model.position.lerp(Vector3.ZERO, 1.0 - exp(-22.0 * delta)) + jitter
 	behave(delta)
 	velocity = (global_position - _last_position) / maxf(delta, 0.0001)
 	_last_position = global_position
@@ -95,19 +99,27 @@ func impact_feedback(hit: Hit, amount: float, killed := false) -> void:
 	if amount <= 0.0:
 		return
 	flash()
-	_flash = 0.11
+	_flash = 0.09
 	var heavy := hit.kind in [Hit.Kind.SHELL, Hit.Kind.BLAST, Hit.Kind.RAM, Hit.Kind.TAIL, Hit.Kind.THROWN]
-	var kick := 0.65 if heavy else 0.22
-	model.position = (model.position + global_basis.inverse() * hit.direction.normalized() * kick).limit_length(0.85)
+	var kick := 0.7 if heavy else 0.3
+	model.position = (model.position + global_basis.inverse() * hit.direction.normalized() * kick).limit_length(0.9)
+	_shudder = maxf(_shudder, 0.14 if heavy else 0.08)
 	var world := World.current
-	world.fx.sparks(hit.position, -hit.direction, 14 if heavy else 7, Palette.WHITE, 18.0 if heavy else 11.0)
-	world.fx.spawn(Fx.Kind.FLAME, hit.position, Vector3.ZERO, 0.09, 1.2 if heavy else 0.65, Palette.BUTTER)
+	var caliber_size := clampf(hit.caliber / 20.0, 0.4, 1.0)
+	world.fx.impact_star(hit.position, (2.6 if heavy else 1.2 + caliber_size * 0.8), Palette.WHITE)
+	world.fx.sparks(hit.position, -hit.direction, 14 if heavy else 8, Palette.BUTTER, 18.0 if heavy else 13.0)
+	# Chips of the enemy itself spray back out of the hole.
+	var out := (-hit.direction * 0.6 + Vector3.UP * 0.6).normalized()
+	world.fx.debris(hit.position, 8 if heavy else 3, debris_colors, 12.0 if heavy else 8.0, 0.3 if heavy else 0.2, out)
 	if hit.by_player():
 		world.hit_confirmed.emit(killed)
 		Sfx.confirm_hit(killed)
-		world.shake(0.14 if heavy else 0.035, hit.position)
+		world.shake(0.16 if heavy else 0.05, hit.position)
 		if killed:
-			world.hitstop(0.065 if heavy else 0.035)
+			world.hitstop(0.09 if heavy else 0.05)
+			world.shake(0.28 if heavy else 0.18, hit.position)
+			world.fx.shockwave(hit_center(), 3.0 + radius * 2.0, Palette.WHITE)
+			world.fx.impact_star(hit_center(), 2.4 + radius, Palette.BUTTER)
 
 
 func _burn(delta: float) -> void:

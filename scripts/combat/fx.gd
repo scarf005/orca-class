@@ -423,6 +423,13 @@ func muzzle_flash(position: Vector3, dir: Vector3, size: float, color := Palette
 	_transient(mesh, Transform3D(Basis.looking_at(dir, up).scaled(Vector3.ONE * size), position), 0.06, true, Vector2.ONE, 0.6, true)
 
 
+## A bright star where a round lands, turned toward the camera so it always reads full size.
+func impact_star(position: Vector3, size: float, color := Palette.WHITE) -> void:
+	var camera := get_viewport().get_camera_3d()
+	var toward := (camera.global_position - position).normalized() if camera else Vector3.BACK
+	muzzle_flash(position, toward, size, color)
+
+
 ## A straight glowing line, used for laser zaps and designator lines.
 func beam(from: Vector3, to: Vector3, color: Color, width := 0.12, life := 0.06) -> void:
 	var length := from.distance_to(to)

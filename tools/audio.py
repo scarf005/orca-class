@@ -222,6 +222,19 @@ def sfx():
     growl = lowpass(growl, 900) * (0.6 + 0.4 * np.sin(2 * np.pi * 23 * t)) * env(len(t), 0.08, 0.4)
     write_wav("roar", growl + lowpass(noise(1.0), 600) * env(len(t), 0.05, 0.5) * 0.8)
 
+    # Bullet on armor: a sharp tick, a bright metallic ring and a little grit. Must cut through gunfire.
+    t = t_axis(0.16)
+    ring = sum(np.sin(2 * np.pi * f * t) * np.exp(-t * d) for f, d in ((2350, 38), (3710, 52), (5200, 70))) / 3
+    tick = highpass(noise(0.16), 2500) * np.exp(-t * 90)
+    thud = np.sin(2 * np.pi * 180 * t) * np.exp(-t * 45)
+    write_wav("hit_metal", ring * 0.8 + tick * 1.2 + thud * 0.6, 0.85)
+    # Kill: a heavy low thump, a crunching mid burst and a bright crack on top.
+    t = t_axis(0.5)
+    thump = sweep(140, 38, 0.5, curve=0.35) * np.exp(-t * 7)
+    crunch = lowpass(noise(0.5), 1800) * np.exp(-t * 14)
+    crack = highpass(noise(0.5), 3500) * np.exp(-t * 60)
+    write_wav("kill_crunch", np.tanh((thump * 1.4 + crunch * 1.0 + crack * 0.9) * 1.6))
+
 
 # --- Music ---------------------------------------------------------------------------------
 
