@@ -25,6 +25,8 @@ func run() -> int:
 	var frames := 0
 	var slow_frames := 0
 	var worst := 0.0
+	var boss_start := -1.0
+	var boss_end := -1.0
 	while elapsed < seconds:
 		var start := Time.get_ticks_usec()
 		await get_tree().process_frame
@@ -47,9 +49,15 @@ func run() -> int:
 		if not shots.is_empty() and elapsed >= shots[0]:
 			shots.pop_front()
 			get_viewport().get_texture().get_image().save_png("%s/t%03d.png" % [out, int(elapsed)])
+		if world.boss != null and boss_start < 0.0:
+			boss_start = elapsed
+		if world.boss == null and boss_start >= 0.0 and boss_end < 0.0:
+			boss_end = elapsed
 		if world.player.dead or screen._finished:
 			break
 	var stats := world.stats
+	if boss_start >= 0.0:
+		print("AUTOPLAY boss_fight=%.1fs" % ((boss_end if boss_end >= 0.0 else elapsed) - boss_start))
 	print("AUTOPLAY d=%.0f score=%d kills=%d/%d lives=%d hp=%.0f enemies=%d projectiles=%d frames=%d slow=%d worst=%.1fms" % [
 		world.rail.d, stats.score, stats.kills, stats.spawned, stats.lives, world.player.hp, world.enemies.size(),
 		world.projectiles.size(), frames, slow_frames, worst])

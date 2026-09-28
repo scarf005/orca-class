@@ -23,7 +23,7 @@ func test_colossus_caps_shield_nodes_and_burn_off() -> void:
 	_hit_part(boss, node, Hit.Kind.SHELL, 60.0)
 	check_eq(node.hp, Colossus.NODE_HP, "capped node takes no damage")
 	check(node.cap < Colossus.CAP_HP, "cap wears down")
-	_hit_part(boss, node, Hit.Kind.FIRE, 10.0, true)
+	_hit_part(boss, node, Hit.Kind.FIRE, Colossus.CAP_HP / 4.0, true)
 	check(node.cap <= 0.0, "fire burns the cap off fast (4x)")
 	_hit_part(boss, node, Hit.Kind.SHELL, 50.0)
 	check_near(node.hp, Colossus.NODE_HP - 50.0, 0.01, "exposed node takes damage")
@@ -100,3 +100,18 @@ func test_flares_catch_shells() -> void:
 	var flares := world.enemies.filter(func(e: Entity) -> bool: return e is Flare)
 	check(flares.size() >= 4, "pops a spread of flares")
 	check(flares.all(func(e: Entity) -> bool: return e.team == Entity.Team.ENEMY), "flares are targets for shells")
+
+
+func test_bosses_shrug_off_machine_guns() -> void:
+	var world := stage("boss")
+	var boss := _helicopter(world)
+	var coax := Hit.make(Hit.Kind.BULLET, 10.0, boss.global_position)
+	coax.caliber = 20
+	var fragment := Hit.make(Hit.Kind.FRAGMENT, 10.0, boss.global_position)
+	check_near(boss.damage_multiplier(coax), 0.4, 0.001, "20 mm coax only scratches the gunship")
+	check_near(boss.damage_multiplier(fragment), 1.5, 0.001, "airburst fragments shred it")
+	var colossus := _colossus(world)
+	var node: Colossus.Part = colossus.parts[0]
+	node.cap = 0.0
+	_hit_part(colossus, node, Hit.Kind.BULLET, 100.0)
+	check_near(node.hp, Colossus.NODE_HP - 35.0, 0.01, "the colossus soaks machine-gun fire")

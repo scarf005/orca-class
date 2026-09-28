@@ -8,9 +8,9 @@ extends Enemy
 enum Phase { HUNTER, STRIPPED, INFECTED }
 enum Attack { NONE, GUN, ROCKETS, ATGM, DRONES, DIVE }
 
-const BODY_HP := 1700.0
-const PANEL_HP := 170.0
-const POD_HP := 120.0
+const BODY_HP := 5200.0
+const PANEL_HP := 320.0
+const POD_HP := 260.0
 
 class Part:
 	var name := ""
@@ -45,6 +45,7 @@ var _jitter := Vector3.ZERO
 func _init() -> void:
 	super()
 	radius = 3.2
+	armor = 0.6
 	center_height = 0.0
 	flying = true
 	can_stagger = true
@@ -225,9 +226,11 @@ func take_hit(hit: Hit) -> void:
 
 func damage_multiplier(hit: Hit) -> float:
 	var multiplier := super(hit)
-	if hit.kind == Hit.Kind.BULLET and hit.caliber >= 20 and hit.source is Tank and hit.damage < 15.0:
-		# Airburst fragments shred rotorcraft.
-		multiplier *= 1.3
+	match hit.kind:
+		Hit.Kind.FRAGMENT:
+			multiplier *= 1.5 # Airburst fragments shred rotorcraft.
+		Hit.Kind.BULLET:
+			multiplier *= 0.4 # Machine guns only scratch it; the main gun does the work.
 	return multiplier
 
 
@@ -238,7 +241,7 @@ func _lose_part(part: Part) -> void:
 	world.fx.debris(at, 10, [Palette.STONE, Palette.CORAL, Palette.INK], 10.0, 0.4)
 	world.shake(0.4)
 	world.hitstop(0.06)
-	world.award(1500, at, true)
+	world.award(1500, at, false)
 	Sfx.play("blast", at)
 	if part.node:
 		part.node.queue_free()

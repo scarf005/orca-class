@@ -130,7 +130,7 @@ S = {
 }
 
 with open("i18n/strings.csv", "w", newline="", encoding="utf-8") as f:
-    w = csv.writer(f)
+    w = csv.writer(f, lineterminator="\n")
     w.writerow(["keys", "ko", "en"])
     for key, (ko, en) in S.items():
         w.writerow([key, ko, en])

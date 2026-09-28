@@ -7,9 +7,9 @@ extends Enemy
 
 enum Attack { NONE, SWEEP, BARRAGE, SPAWN }
 
-const NODE_HP := 200.0
-const CAP_HP := 90.0
-const CORE_HP := 480.0
+const NODE_HP := 480.0
+const CAP_HP := 160.0
+const CORE_HP := 1100.0
 
 class Part:
 	var name := ""
@@ -149,6 +149,8 @@ func take_hit(hit: Hit) -> void:
 			world.fx.spawn(Fx.Kind.GLOW, hit.position, Vector3.UP * 2.0, 0.4, 0.6, Palette.PEACH)
 		return
 	var amount := hit.damage
+	if hit.kind == Hit.Kind.BULLET:
+		amount *= 0.35 # Spongy mass soaks machine-gun fire.
 	if best.cap > 0.0:
 		best.cap -= amount * (4.0 if hit.kind == Hit.Kind.FIRE or hit.incendiary else 1.0)
 		best.cap_mesh.scale = Vector3.ONE * clampf(0.5 + best.cap / CAP_HP * 0.5, 0.5, 1.0)
@@ -171,7 +173,7 @@ func take_hit(hit: Hit) -> void:
 		world.fx.explosion(global_transform * best.offset, 3.5, [Palette.WHITE, Palette.BLUSH, Palette.FUNGUS, Palette.LILAC])
 		world.hitstop(0.08)
 		world.shake(0.5)
-		world.award(2000, global_transform * best.offset, true)
+		world.award(2000, global_transform * best.offset, false)
 		Sfx.play("roar", global_position, 0.0, 0.8)
 		if best != core and _core_phase():
 			core.mesh.visible = true

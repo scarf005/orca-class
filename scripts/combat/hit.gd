@@ -2,7 +2,7 @@ class_name Hit
 extends RefCounted
 ## One instance of damage. Receivers scale `damage` by their own armor and weaknesses.
 
-enum Kind { BULLET, SHELL, BLAST, FIRE, RAM, TAIL, LASER, SPORE, THROWN }
+enum Kind { BULLET, SHELL, BLAST, FIRE, RAM, TAIL, LASER, SPORE, THROWN, FRAGMENT }
 
 var damage := 0.0
 var kind := Kind.BULLET
