@@ -6,45 +6,45 @@ extends Node3D
 const AHEAD := 330.0
 const BEHIND := 45.0
 
-## kind -> [footprint, height, hp, solid, crushable, burnable, score, explosive, rubble]
+## kind -> [footprint, height, hp, crushable, burnable, score, explosive, rubble]
 const PROPS := {
-	"house": [4.2, 5.0, 150.0, true, false, false, 50, false, true],
-	"wall": [1.6, 1.7, 20.0, false, true, false, 5, false, false],
-	"jars": [1.6, 1.0, 10.0, false, true, false, 10, false, false],
-	"greenhouse": [3.2, 2.8, 40.0, false, true, true, 30, false, false],
-	"pole": [0.5, 10.0, 25.0, false, true, false, 10, false, false],
-	"persimmon": [1.1, 4.5, 30.0, false, true, true, 10, false, false],
-	"zelkova_trunk": [1.3, 5.0, 260.0, true, false, true, 60, false, false],
-	"zelkova_canopy": [5.0, 7.0, 150.0, false, false, true, 60, false, false],
-	"pavilion": [3.0, 5.0, 220.0, true, false, false, 80, false, true],
-	"bus_stop": [1.8, 3.0, 30.0, false, true, false, 20, false, false],
-	"cultivator": [1.8, 1.6, 30.0, false, true, false, 30, true, false],
-	"bale": [1.0, 1.6, 12.0, false, true, true, 10, false, false],
-	"church_nave": [4.8, 9.0, 380.0, true, false, false, 150, false, true],
-	"church_tower": [2.2, 13.0, 320.0, true, false, false, 150, false, true],
-	"church_spire": [2.4, 8.0, 120.0, false, false, false, 200, false, false],
-	"school_wing": [5.5, 8.5, 420.0, true, false, false, 120, false, true],
-	"school_center": [5.0, 10.5, 480.0, true, false, false, 200, false, true],
-	"hall": [6.0, 5.0, 420.0, true, false, false, 150, false, true],
-	"car": [2.1, 1.8, 70.0, true, false, false, 40, true, false],
-	"truck": [3.2, 3.5, 160.0, true, false, false, 80, true, false],
-	"mushroom": [0.9, 3.0, 15.0, false, true, true, 20, false, false],
-	"spore_tower": [1.7, 8.0, 120.0, true, false, true, 150, false, false],
-	"reeds": [1.3, 2.4, 8.0, false, true, true, 5, false, false],
-	"crate": [1.1, 1.2, 18.0, false, true, false, 50, false, false],
-	"rock": [2.2, 1.6, 400.0, true, false, false, 60, false, false],
-	"gate": [0.8, 3.3, 200.0, true, false, false, 20, false, false],
-	"infested_house": [4.2, 5.0, 150.0, true, false, true, 70, false, true],
-	"infested_car": [2.1, 1.8, 70.0, true, false, true, 50, true, false],
-	"flesh_mound": [2.4, 4.0, 90.0, true, false, true, 80, false, false],
-	"cordyceps": [1.2, 5.0, 30.0, false, true, true, 30, false, false],
-	"husk_cow": [1.4, 2.2, 25.0, false, true, true, 40, false, false],
-	"egg_sacs": [1.4, 2.0, 15.0, false, true, true, 40, false, false],
-	"barrel": [0.5, 1.0, 10.0, false, false, false, 20, true, false],
-	"gas_pump": [0.7, 1.8, 20.0, false, false, false, 60, true, false],
-	"gas_station": [4.5, 6.0, 200.0, true, false, false, 150, false, true],
-	"fungal_spire": [4.0, 14.0, 700.0, true, false, true, 400, false, false],
-	"plane_tree": [0.9, 9.0, 45.0, false, true, true, 10, false, false],
+	"house": [4.2, 5.0, 150.0, false, false, 50, false, true],
+	"wall": [1.6, 1.7, 20.0, true, false, 5, false, false],
+	"jars": [1.6, 1.0, 10.0, true, false, 10, false, false],
+	"greenhouse": [3.2, 2.8, 40.0, true, true, 30, false, false],
+	"pole": [0.5, 10.0, 25.0, true, false, 10, false, false],
+	"persimmon": [1.1, 4.5, 30.0, true, true, 10, false, false],
+	"zelkova_trunk": [1.3, 5.0, 260.0, false, true, 60, false, false],
+	"zelkova_canopy": [5.0, 7.0, 150.0, false, true, 60, false, false],
+	"pavilion": [3.0, 5.0, 220.0, false, false, 80, false, true],
+	"bus_stop": [1.8, 3.0, 30.0, true, false, 20, false, false],
+	"cultivator": [1.8, 1.6, 30.0, true, false, 30, true, false],
+	"bale": [1.0, 1.6, 12.0, true, true, 10, false, false],
+	"church_nave": [4.8, 9.0, 380.0, false, false, 150, false, true],
+	"church_tower": [2.2, 13.0, 320.0, false, false, 150, false, true],
+	"church_spire": [2.4, 8.0, 120.0, false, false, 200, false, false],
+	"school_wing": [5.5, 8.5, 420.0, false, false, 120, false, true],
+	"school_center": [5.0, 10.5, 480.0, false, false, 200, false, true],
+	"hall": [6.0, 5.0, 420.0, false, false, 150, false, true],
+	"car": [2.1, 1.8, 70.0, false, false, 40, true, false],
+	"truck": [3.2, 3.5, 160.0, false, false, 80, true, false],
+	"mushroom": [0.9, 3.0, 15.0, true, true, 20, false, false],
+	"spore_tower": [1.7, 8.0, 120.0, false, true, 150, false, false],
+	"reeds": [1.3, 2.4, 8.0, true, true, 5, false, false],
+	"crate": [1.1, 1.2, 18.0, true, false, 50, false, false],
+	"rock": [2.2, 1.6, 400.0, false, false, 60, false, false],
+	"gate": [0.8, 3.3, 200.0, false, false, 20, false, false],
+	"infested_house": [4.2, 5.0, 150.0, false, true, 70, false, true],
+	"infested_car": [2.1, 1.8, 70.0, false, true, 50, true, false],
+	"flesh_mound": [2.4, 4.0, 90.0, false, true, 80, false, false],
+	"cordyceps": [1.2, 5.0, 30.0, true, true, 30, false, false],
+	"husk_cow": [1.4, 2.2, 25.0, true, true, 40, false, false],
+	"egg_sacs": [1.4, 2.0, 15.0, true, true, 40, false, false],
+	"barrel": [0.5, 1.0, 10.0, false, false, 20, true, false],
+	"gas_pump": [0.7, 1.8, 20.0, false, false, 60, true, false],
+	"gas_station": [4.5, 6.0, 200.0, false, false, 150, false, true],
+	"fungal_spire": [4.0, 14.0, 700.0, false, true, 400, false, false],
+	"plane_tree": [0.9, 9.0, 45.0, true, true, 10, false, false],
 }
 
 ## Wrecked cars: the tank drives over them and flattens them; shooting them still sets them off.
@@ -475,13 +475,12 @@ func _instantiate(spec: Spec) -> void:
 		var cfg: Array = PROPS[spec.kind]
 		var prop := Prop.new()
 		prop.setup(spec.kind, PropKit.mesh(spec.kind, spec.variant), cfg[0], cfg[1], cfg[2])
-		prop.solid = cfg[3]
-		prop.crushable = cfg[4]
-		prop.burnable = cfg[5]
-		prop.score = cfg[6]
-		prop.explosive = cfg[7]
+		prop.crushable = cfg[3]
+		prop.burnable = cfg[4]
+		prop.score = cfg[5]
+		prop.explosive = cfg[6]
 		prop.blast_size = {"barrel": 4.0, "gas_pump": 8.0}.get(spec.kind, 4.5)
-		if cfg[8]:
+		if cfg[7]:
 			prop.rubble_mesh = PropKit.mesh("rubble", spec.variant)
 		prop.drop = spec.drop
 		prop.falls = spec.kind in FALLING

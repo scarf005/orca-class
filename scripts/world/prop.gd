@@ -1,15 +1,15 @@
 class_name Prop
 extends Entity
 ## A destructible piece of scenery with a vertical-cylinder footprint.
-## Solid props block the tank; crushable ones break when the tank drives into them. Tall thin ones
-## (`falls`: poles, trees) snap at the base and topple the way they were hit instead of vanishing.
+## Anything the tank drives into breaks at once; crushable ones also give way to a tail swat. Tall
+## thin ones (`falls`: poles, trees) snap at the base and topple the way they were shot instead of
+## vanishing.
 
 signal felled(prop: Prop) ## It started to topple.
 
 var kind := ""
 var footprint := 1.0
 var height := 2.0
-var solid := true
 var crushable := false
 var debris_colors: Array = [Palette.WOOD, Palette.CONCRETE]
 var drop := "" ## Pickup id dropped when destroyed.
@@ -87,8 +87,13 @@ func is_falling() -> bool:
 	return _topple >= 0.0
 
 
+## Driven into by the tank itself, as opposed to crashing down or being shot.
+static func _rammed(hit: Hit) -> bool:
+	return hit != null and hit.kind == Hit.Kind.RAM and hit.source is Tank
+
+
 func die(hit: Hit) -> void:
-	if falls and not is_falling() and not dead:
+	if falls and not is_falling() and not dead and not _rammed(hit):
 		# Snaps at the base in a burst of splinters and goes over, away from the blow.
 		hp = 1.0
 		var push := Enemy.kill_push(hit)
@@ -160,7 +165,6 @@ func _crush(world: World, push: Vector3) -> void:
 	world.fx.debris(global_position + Vector3.UP, 10, [Palette.SKY, Palette.WHITE, Palette.INK], 9.0, 0.18, push)
 	world.fx.dust(global_position, 6, footprint, Palette.OCHRE)
 	world.shake(0.2, global_position)
-	world.hitstop(0.025)
 	Sfx.play("rubble", global_position, 2.0, 1.3)
 	Sfx.play("impact", global_position, 0.0, 0.7)
 	var hulk := MeshInstance3D.new()
@@ -198,7 +202,12 @@ func on_death(hit: Hit) -> void:
 	if not drop.is_empty():
 		world.spawn_pickup(drop, global_position + Vector3.UP)
 	for piece in supports:
-		if is_instance_valid(piece) and not piece.dead:
+		if not is_instance_valid(piece) or piece.dead:
+			continue
+		if _rammed(hit):
+			# Rammed, the whole stack goes up at once instead of waiting to fall.
+			piece.take_hit(hit)
+		else:
 			# Knocked out from one side, what it held falls away from the blow.
 			piece.topple(hit != null and hit.by_player(), piece.global_position - push * 5.0 if push != Vector3.ZERO else global_position)
 	if explosive:
@@ -218,7 +227,6 @@ func on_death(hit: Hit) -> void:
 			# Bulldozed buildings go up in a cloud of plaster and roof tiles.
 			world.fx.dust(global_position + Vector3.UP, 16, footprint * 1.2, Palette.MIST)
 			world.fx.debris(center + Vector3.UP * height * 0.3, 18, debris_colors, 12.0, 0.5)
-			world.hitstop(0.03)
 	if fungal:
 		world.fx.spores(center, int(5 + footprint * 3), footprint)
 		world.fx.debris(center, int(3 + footprint * 2), [Palette.FUNGUS, Palette.MAUVE, Palette.BLUSH], 7.0, 0.3)

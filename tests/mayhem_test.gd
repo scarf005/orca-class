@@ -2,10 +2,9 @@ extends TestCase
 ## Destruction: crushing buildings and enemies, collateral chains, style from kills, mayhem healing.
 
 
-func _prop(world: World, kind: String, at: Vector3, hp: float, solid := true) -> Prop:
+func _prop(world: World, kind: String, at: Vector3, hp: float) -> Prop:
 	var prop := Prop.new()
 	prop.setup(kind, PropKit.mesh(kind, 0), 2.5, 4.0, hp)
-	prop.solid = solid
 	prop.position = at
 	world.props.add_child(prop)
 	return prop
@@ -127,7 +126,7 @@ func test_held_pieces_fall_away_from_the_blow() -> void:
 	check(crown.global_basis.y.x > 0.05, "the crown tips over toward +X, the way the shot went")
 
 
-func test_rammed_pole_snaps_falls_and_drops_its_wires() -> void:
+func test_rammed_pole_shatters_at_once_and_drops_its_wires() -> void:
 	var world := stage()
 	var scenery := world.director.scenery
 	var pole: Scenery.Spec = null
@@ -142,11 +141,34 @@ func test_rammed_pole_snaps_falls_and_drops_its_wires() -> void:
 	var ram := Hit.make(Hit.Kind.RAM, 99999.0, prop.global_position, Vector3.RIGHT)
 	ram.source = world.player
 	prop.take_hit(ram)
-	check(not prop.dead and prop.is_falling(), "the pole snaps and goes over instead of vanishing")
+	check(prop.dead, "the pole breaks the moment the tank hits it")
 	var wires: Array = scenery._wires_of[pole]
 	check(wires.all(func(w: Scenery.Spec) -> bool: return w.has_meta("cut")), "its wires snap")
-	var fell := await wait_until(gone(prop), 90)
-	check(fell, "it breaks up when it hits the ground")
+
+
+func test_shot_pole_still_topples() -> void:
+	var world := stage()
+	var pole := _prop(world, "pole", world.player.global_position + Vector3(0, 0, -40.0), 25.0)
+	pole.falls = true
+	var shot := Hit.make(Hit.Kind.SHELL, 999.0, pole.global_position, Vector3.RIGHT)
+	shot.source = world.player
+	pole.take_hit(shot)
+	check(not pole.dead and pole.is_falling(), "a shell snaps it and it goes over")
+
+
+func test_ramming_a_landmark_takes_what_it_holds_at_once_without_stopping_the_tank() -> void:
+	var world := stage()
+	var tank := world.player
+	await frames(3)
+	var trunk := _prop(world, "zelkova_trunk", tank.global_position + Vector3(0, 0, -1.0), 260.0)
+	var crown := _prop(world, "zelkova_canopy", trunk.global_position + Vector3.UP * 5.0, 150.0)
+	trunk.supports.append(crown)
+	var speed := tank.local_velocity.y
+	await frames(2)
+	check(trunk.dead, "the trunk breaks on contact")
+	check(crown.dead, "the crown goes with it instead of toppling later")
+	check_eq(world._hitstop, 0.0, "no frozen frame")
+	check(tank.local_velocity.y >= speed - 0.01, "no lost speed")
 
 
 func test_kill_chains_escalate_and_break_on_a_gap() -> void:

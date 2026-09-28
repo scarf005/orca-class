@@ -93,7 +93,6 @@ func test_props_block_and_break_under_ram() -> void:
 	var prop := Prop.new()
 	prop.setup("bale", PropKit.mesh("bale", 0), 1.0, 1.6, 12.0)
 	prop.crushable = true
-	prop.solid = false
 	prop.position = tank.global_position
 	world.props.add_child(prop)
 	var crushed := await wait_until(gone(prop), 5)

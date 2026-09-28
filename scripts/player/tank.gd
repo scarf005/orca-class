@@ -30,7 +30,7 @@ const COAX_RANGE := 140.0
 const SOFT_LOCK_RADIUS := 56.0 ## Screen pixels (3D view) around the reticle.
 const RESPAWN_DELAY := 1.8
 const RESPAWN_INVULN := 2.6
-const CRUSH_SPEED := 5.0 ## Ground speed above which buildings and wrecks give way.
+const CRUSH_SPEED := 5.0 ## Ground speed above which the tank runs down ground enemies.
 const RAM_DAMAGE := 150.0
 
 var model := TankModel.new()
@@ -195,7 +195,7 @@ func _update_movement(delta: float) -> void:
 	course_u = clampf(course_u, -limit, limit)
 	course_offset = clampf(course_offset, FORWARD_LIMIT.x, FORWARD_LIMIT.y)
 	lateral_velocity = local_velocity.x
-	_collide_props(delta)
+	_collide_props()
 	_ram_enemies()
 	_place(rail.d)
 	model.animate_tracks(delta, rail.speed + local_velocity.y, rail.speed + local_velocity.y)
@@ -228,7 +228,7 @@ func _move_arena(delta: float, input: Vector2) -> void:
 		var target_yaw := atan2(-current.x, -current.z)
 		hull_yaw = rotate_toward(hull_yaw, target_yaw, 3.2 * delta)
 	_set_pose(Course.ground_at(c.x, c.y), hull_yaw)
-	_collide_props(delta)
+	_collide_props()
 	_ram_enemies()
 	model.animate_tracks(delta, current.length(), current.length())
 
@@ -312,53 +312,27 @@ func _anchor(input: Vector2) -> void:
 			world.fx.scorch(ground, 1.2))
 
 
-func _collide_props(delta: float) -> void:
-	var world := World.current
-	for prop: Prop in world.props.in_radius(global_position, HULL_RADIUS):
+## Sixty tons flatten anything they touch the moment they touch it, landmarks included.
+func _collide_props() -> void:
+	for prop: Prop in World.current.props.in_radius(global_position, HULL_RADIUS):
 		if prop.is_falling():
 			continue
 		if prop.global_position.y > global_position.y + 2.5:
 			continue # Resting up high (a tree crown, a spire): the hull passes under it.
-		# Sixty tons at speed flattens anything that is not a landmark.
-		if prop.crushable or _ground_speed() > CRUSH_SPEED:
-			var ram := Hit.make(Hit.Kind.RAM, 99999.0, prop.global_position, -global_basis.z)
-			ram.source = self
-			prop.take_hit(ram)
-			_ram_jolt(prop.footprint)
-			continue
-		if not prop.solid:
-			continue
-		# Bulldoze: heavy ram damage to the prop while it shoves the tank aside and back.
-		var ram := Hit.make(Hit.Kind.RAM, 260.0 * delta, prop.global_position)
+		var ram := Hit.make(Hit.Kind.RAM, 99999.0, prop.global_position, -global_basis.z)
 		ram.source = self
 		prop.take_hit(ram)
-		if prop.dead:
-			world.shake(0.3)
-			continue
-		var away := global_position - prop.global_position
-		away.y = 0.0
-		var overlap := HULL_RADIUS + prop.footprint - away.length()
-		if overlap > 0.0 and world.rail.mode != Rail.Mode.ARENA:
-			course_u += signf(away.dot(World.current.rail.basis().x) + 0.001) * overlap * 0.5
-			course_offset -= overlap * 0.3
-		elif overlap > 0.0:
-			var push := away.normalized() * overlap
-			global_position += push
-		world.shake(0.04)
+		_ram_jolt(prop.footprint)
 
 
-## Sixty tons at 80 km/h: the camera bucks, the hull rocks back and the frame catches a beat,
-## more for bigger things.
+## The camera bucks and the hull rocks, more for bigger things, but nothing stops the tank: no
+## frozen frame, no lost speed.
 func _ram_jolt(size: float) -> void:
 	var world := World.current
 	var heavy := clampf(size / 4.0, 0.15, 1.0) * clampf(_ground_speed() / Rail.CRUISE, 0.5, 1.5)
 	world.shake(0.1 + heavy * 0.3)
 	world.camera.kick(0.01 + heavy * 0.03)
-	if heavy > 0.4:
-		world.hitstop(0.02 + heavy * 0.03)
 	model.rotation.x = -0.05 - heavy * 0.12
-	if world.rail.mode != Rail.Mode.ARENA:
-		local_velocity.y -= 3.0 + heavy * 6.0
 	Sfx.play("impact", global_position, -6.0 + heavy * 6.0, 0.8)
 
 
