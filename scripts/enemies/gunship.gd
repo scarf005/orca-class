@@ -715,10 +715,13 @@ func _gun(delta: float, tank: Tank) -> void:
 		var from: Vector3 = (live[_shots % live.size()] as Node3D).global_transform * Vector3(0, 0, -2.0)
 		var lead := tank.hit_center() + tank.velocity * (from.distance_to(tank.hit_center()) / 110.0) * 0.7
 		var wild := 1.0 if _live("rotor_l") and _live("rotor_r") else 2.0
-		var shot := fire_at("orb", from, lead + Vector3(randf_range(-1.5, 1.5), randf_range(-0.5, 0.5), randf_range(-1.5, 1.5)) * wild, 110.0, 4.5)
-		shot.hit.caliber = 30
+		# 40 mm high-explosive rounds: each one hits hard and bursts where it lands.
+		var shot := fire_at("orb", from, lead + Vector3(randf_range(-1.5, 1.5), randf_range(-0.5, 0.5), randf_range(-1.5, 1.5)) * wild, 110.0, 9.0)
+		shot.hit.caliber = 40
+		shot.blast_radius = 2.2
+		shot.blast_damage = 5.0
 		world.fx.spawn(Fx.Kind.FLAME, from, Vector3.ZERO, 0.05, 0.4, Palette.CORAL)
-		Sfx.play("enemy_gun", from, 0.0, 0.8)
+		Sfx.play("enemy_gun", from, 4.0, 0.55)
 	elif _shots >= total:
 		_end_attack()
 
@@ -752,10 +755,10 @@ func _rockets(delta: float, tank: Tank) -> void:
 		var rocket := fire_at("rocket", from, target, 55.0, 0.0)
 		rocket.hit = Hit.make(Hit.Kind.SHELL, 0.0, from)
 		rocket.hit.source = self
-		rocket.blast_radius = 2.6
-		rocket.blast_damage = 9.0
+		rocket.blast_radius = 4.0
+		rocket.blast_damage = 20.0
 		rocket.interceptable = true
-		rocket.intercept_hp = 0.55
+		rocket.intercept_hp = 1.1 # Twice the laser's work of an ordinary rocket.
 		rocket.trail = Palette.MIST
 		rocket.life = 4.0
 		world.fx.spawn(Fx.Kind.FLAME, from, Vector3.ZERO, 0.08, 0.6, Palette.BUTTER)
@@ -782,8 +785,8 @@ func _cannon(delta: float, tank: Tank) -> void:
 		var shell := fire_at("shell", muzzle, lead, 75.0, 0.0)
 		shell.hit = Hit.make(Hit.Kind.SHELL, 10.0, muzzle)
 		shell.hit.source = self
-		shell.blast_radius = 3.4
-		shell.blast_damage = 16.0
+		shell.blast_radius = 4.5
+		shell.blast_damage = 30.0
 		shell.interceptable = true
 		shell.intercept_hp = 1.0
 		_velocity -= (lead - muzzle).normalized() * 3.0
@@ -812,12 +815,12 @@ func _bombs(tank: Tank) -> void:
 		bomb.gravity = 20.0
 		bomb.hit = Hit.make(Hit.Kind.BLAST, 0.0, from)
 		bomb.hit.source = self
-		bomb.blast_radius = 3.6
-		bomb.blast_damage = 16.0
+		bomb.blast_radius = 5.0
+		bomb.blast_damage = 30.0
 		bomb.interceptable = true
 		bomb.intercept_hp = 0.8
 		bomb.life = flight + 1.0
-		world.fx.marker(target, 3.6, flight, Palette.RED)
+		world.fx.marker(target, 5.0, flight, Palette.RED)
 	Sfx.play("launch", from, 0.0, 0.7)
 
 
@@ -826,13 +829,13 @@ func _launch_atgm(tank: Tank, index: int) -> void:
 	var missile := fire_at("atgm", from, from + Vector3.UP * 2.0 + model.global_basis.x * (index - 1) * 4.0 + (tank.hit_center() - from).normalized() * 4.0, 30.0, 0.0)
 	missile.hit = Hit.make(Hit.Kind.SHELL, 0.0, from)
 	missile.hit.source = self
-	missile.blast_radius = 3.0
-	missile.blast_damage = 24.0
+	missile.blast_radius = 4.0
+	missile.blast_damage = 40.0
 	missile.hit.warhead = true
 	missile.homing_target = tank
 	missile.turn_rate = 2.0
 	missile.interceptable = true
-	missile.intercept_hp = 1.4
+	missile.intercept_hp = 5.6 # Four times as hard for the laser to burn down as before.
 	missile.life = 7.0
 	missile.trail = Palette.MIST
 	Sfx.play("launch", from, 2.0, 0.8)
