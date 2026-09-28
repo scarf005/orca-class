@@ -136,13 +136,14 @@ func behave(delta: float) -> void:
 	_lane_timer -= delta
 	if _lane_timer <= 0.0:
 		_lane_timer = randf_range(1.2, 2.4)
-		_lane = randf_range(-11.0, 11.0)
+		_lane = randf_range(-1.0, 1.0) * Tank.lateral_limit(here.x) * 0.8
 	var target_d := here.x
 	if age < PACE_TIME and world.rail.mode != Rail.Mode.ARENA:
 		target_d = world.rail.d + tank.course_offset + KEEP_AHEAD
 	var move := Vector2.ZERO
 	if not planted:
-		move = Vector2(clampf(target_d - here.x, -24.0, 24.0), clampf(_lane - here.y, -SKATE_SPEED, SKATE_SPEED) * 0.9)
+		var chase := world.rail.speed + 12.0
+		move = Vector2(clampf(target_d - here.x, -chase, chase), clampf(_lane - here.y, -SKATE_SPEED, SKATE_SPEED) * 0.9)
 	var next := here + move * delta
 	global_position = Course.ground_at(next.x, next.y)
 	# Face the tank; lean into lateral skating.

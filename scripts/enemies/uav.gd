@@ -3,10 +3,15 @@ extends Enemy
 ## Fixed-wing drone making attack runs: a head-on pass, a banked turn overhead, then a pass from
 ## behind. `attack`: "bomb" drops bombs on marked circles; "strafe" walks gunfire down the road.
 
-const SPEED := 42.0
+const SPEED := 42.0 ## Diving speed when its engine is shot out.
+const HEAD_ON_SPEED := 20.0 ## First pass, toward the tank: slow enough to shoot down.
+const OVERTAKE := 8.0 ## Later passes creep past the tank this much faster than the rail.
+const LEAVE := 40.0
 const ALTITUDE := 17.0
 
 var attack := "bomb"
+var from_behind := false ## Arrives from behind the tank on an overtaking pass.
+var _leaving := false
 var _dir := Vector3.BACK
 var _sense := -1.0 ## -1 while flying back down the road toward the tank, +1 after turning.
 var _pass := 0
@@ -63,8 +68,12 @@ func build() -> void:
 	var world := World.current
 	var slot: Vector3 = get_meta("slot", Vector3(0, 0, 0))
 	var d := world.rail.d + 220.0 + slot.z * 0.2
+	if from_behind:
+		d = world.rail.d - 70.0 - slot.z * 0.2
+		_sense = 1.0
+		_pass = 1
 	global_position = Course.to_world(d, slot.x, Course.height(d, slot.x) + ALTITUDE + slot.y)
-	_dir = -Course.forward(d)
+	_dir = Course.forward(d) * _sense
 	_bombs = 5 if Game.difficulty == Game.Difficulty.HARD else 4
 	_sound = Sfx.loop("jet", self, -4.0)
 
@@ -118,13 +127,18 @@ func behave(delta: float) -> void:
 	else:
 		_dir = Course.forward(Course.to_course(global_position).x) * _sense
 		model.rotation.z = lerpf(model.rotation.z, 0.0, 3.0 * delta)
-		if ahead < -35.0:
-			if _pass == 0:
-				_turn = 2.2
-			elif global_position.distance_to(tank.global_position) > 260.0:
-				despawn()
-				return
-	var speed := SPEED + (world.rail.speed if _pass > 0 else 0.0)
+		if ahead < -35.0 and _pass == 0:
+			_turn = 2.2
+		elif ahead < -45.0 and _pass > 0:
+			_leaving = true
+		if _leaving and global_position.distance_to(tank.global_position) > 220.0:
+			despawn()
+			return
+	var speed := HEAD_ON_SPEED
+	if _turn > 0.0:
+		speed = world.rail.speed
+	elif _pass > 0:
+		speed = world.rail.speed + (LEAVE if _leaving else OVERTAKE)
 	global_position += _dir * speed * delta
 	model.look_at(global_position + _dir, Vector3.UP)
 	if attack == "bomb":

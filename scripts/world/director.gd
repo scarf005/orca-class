@@ -7,6 +7,7 @@ signal section_changed(section: Course.Section)
 signal checkpoint_reached(name: String)
 signal storm(duration: float)
 signal hint(key: String)
+signal incoming(from: Vector3) ## A wave is arriving from outside the view; the HUD points to it.
 
 const ENEMY_SCRIPTS := {
 	"fpv": "res://scripts/enemies/fpv_drone.gd",
@@ -148,10 +149,18 @@ func spawn_wave(event: Dictionary) -> Array[Enemy]:
 		var p := Course.to_world(d, slot.x)
 		p.y = Course.height(d, slot.x) + slot.y
 		enemy.position = p
+		if slot.z < 0.0:
+			enemy.despawn_behind = maxf(enemy.despawn_behind, -slot.z + 60.0)
 		world.add_enemy(enemy)
 		if event.has("drop") and i == count - 1:
 			enemy.drop = event.drop
 		spawned.append(enemy)
+	var formation: String = event.get("formation", "line")
+	if formation in ["behind", "flank"] or event.get("props", {}).get("from_behind", false):
+		var center := Vector3.ZERO
+		for enemy in spawned:
+			center += enemy.position
+		incoming.emit(center / maxf(spawned.size(), 1.0))
 	return spawned
 
 
@@ -174,6 +183,10 @@ func _formation(kind: String, i: int, count: int, event: Dictionary) -> Vector3:
 			return Vector3(u + cos(angle) * spacing, height + sin(angle * 2.0), ahead + sin(angle) * spacing)
 		"behind":
 			return Vector3(u + centered * spacing, height, -30.0 - i * 3.0)
+		"flank":
+			# In from the side of the valley, level with the tank.
+			var side := signf(u) if u != 0.0 else 1.0
+			return Vector3(side * (Tank.lateral_limit(World.current.rail.d) + 18.0 + absf(centered) * spacing * 0.5), height, ahead + centered * spacing)
 		"sides":
 			var side := -1.0 if i % 2 == 0 else 1.0
 			return Vector3(u + side * spacing, height, ahead + (i / 2) * 12.0)

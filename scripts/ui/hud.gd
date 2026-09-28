@@ -3,7 +3,7 @@ extends Control
 ## In-game HUD drawn by hand at 960×540: armor, weapons, laser heat, throttle, score and combo,
 ## the reticle with lead marker, radio chatter, boss bar, threat arrows and score popups.
 
-const SCALE := 2.0 ## Screen pixels per 3D-view pixel.
+const SCALE := 960.0 / DitherView.RESOLUTION.x ## Screen pixels per 3D-view pixel.
 const RADIO_TIME := 3.6
 
 var world: World
@@ -12,6 +12,8 @@ var _radio_queue: Array[StringName] = []
 var _radio_line := &""
 var _radio_time := 0.0
 var _popups: Array[Dictionary] = []
+var _incoming: Array[Dictionary] = [] ## {position, time}: waves arriving from outside the view.
+var _intercepts := 0
 var _banner := ""
 var _banner_time := 0.0
 var _shout := ""
@@ -54,6 +56,10 @@ func _ready() -> void:
 	_laser_view.show_mesh(TankModel._rws_mesh(), Palette.MINT)
 	world.radio.connect(_on_radio)
 	world.scored.connect(_on_scored)
+	world.intercepted.connect(_on_intercepted)
+	world.director.incoming.connect(func(from: Vector3) -> void:
+		_incoming.append({"position": from, "time": 0.0})
+		Sfx.ui("warn", 0.0, 1.3))
 	world.player.pickup_collected.connect(_on_pickup)
 	world.director.section_changed.connect(func(section: Course.Section) -> void: banner(tr("SECTION_%d" % section)))
 	world.director.checkpoint_reached.connect(func(_name: String) -> void: banner(tr("CHECKPOINT")))
@@ -96,6 +102,14 @@ func _on_scored(points: int, position: Vector3, combo: int) -> void:
 		Sfx.ui("combo", 0.0, 1.0 + combo / 60.0)
 
 
+## Every laser kill says so where it happened, and the first one explains what the laser does.
+func _on_intercepted(position: Vector3) -> void:
+	_intercepts += 1
+	_popups.append({"text": tr("CALLOUT_INTERCEPT"), "position": position, "time": 0.0, "combo": 0, "color": Palette.MINT})
+	if _intercepts == 1:
+		world.radio.emit(&"AI_CIWS")
+
+
 func _on_pickup(id: String) -> void:
 	var name := tr("PICKUP_" + id.to_upper()) + "!!"
 	if id == "coax":
@@ -119,6 +133,9 @@ func _process(delta: float) -> void:
 	for popup in _popups:
 		popup.time += delta
 	_popups = _popups.filter(func(p: Dictionary) -> bool: return p.time < 0.9)
+	for warning in _incoming:
+		warning.time += delta
+	_incoming = _incoming.filter(func(w: Dictionary) -> bool: return w.time < INCOMING_TIME)
 	var armor := world.player.hp
 	if armor < _last_armor:
 		_armor_shake = 0.3
@@ -281,6 +298,13 @@ func _coax_label() -> String:
 	return " + ".join(parts)
 
 
+## Short codes for the loaded round, as on an ammunition rack.
+const ROUND_CODES := {
+	Armament.Round.APHE: "APHE", Armament.Round.HEAT: "HEAT", Armament.Round.CANISTER: "CAN",
+	Armament.Round.DRAGON: "DRAGON", Armament.Round.APFSDS: "APFSDS", Armament.Round.AIRBURST: "AHEAD",
+}
+
+
 func _draw_weapons() -> void:
 	var p := world.player
 	var origin := Vector2(724, 432)
@@ -292,7 +316,8 @@ func _draw_weapons() -> void:
 		var round_mesh := _round_view.show_mesh(Pickup.mesh_of(Armament.ROUND_IDS[p.current_round]), round_color)
 		round_mesh.rotation.z = -PI * 0.5
 	draw_texture(_round_view.get_texture(), origin + Vector2(4, 6))
-	_text(origin + Vector2(52, 24), "∞" if p.current_round == Armament.Round.APHE else "×%d" % p.round_count, round_color)
+	_text(origin + Vector2(52, 20), ROUND_CODES[p.current_round], round_color, 14)
+	_text(origin + Vector2(52, 32), "∞" if p.current_round == Armament.Round.APHE else "×%d" % p.round_count, Palette.CREAM, 12)
 	var reload := 1.0 - p.reload / (Armament.RELOAD * p.modules.reload_factor())
 	_bar(Rect2(origin + Vector2(120, 14), Vector2(90, 6)), reload, Palette.CREAM if reload >= 1.0 else Palette.STONE, 8)
 	# Coax: the mounted guns themselves, then tier pips.
@@ -311,7 +336,8 @@ func _draw_weapons() -> void:
 	draw_texture(_laser_view.get_texture(), origin + Vector2(6, 68))
 	if p.ciws_target != null and not p.ciws_overheated and fmod(_time, 0.1) < 0.06:
 		draw_line(origin + Vector2(30, 78), origin + Vector2(40, 78), Palette.WHITE, 2.0)
-	_bar(Rect2(origin + Vector2(42, 76), Vector2(168, 8)), p.ciws_heat, heat_color, 13)
+	_bar(Rect2(origin + Vector2(42, 76), Vector2(130, 8)), p.ciws_heat, heat_color, 10)
+	_text(origin + Vector2(178, 86), "×%d" % _intercepts, Palette.MINT, 12)
 
 
 func _chevrons(at: Vector2, direction: float, color: Color) -> void:
@@ -417,37 +443,82 @@ func _draw_banner() -> void:
 		_text(Vector2(480 - w * 0.5, 430), _hint, Color(Palette.BUTTER, clampf(_hint_time, 0.0, 1.0)))
 
 
+const CALLSIGNS := {"FpvDrone": "FPV", "Ugv": "UGV", "Uav": "UAV", "Walker": "WALKER", "QuadMech": "QUAD",
+	"Crawler": "CRAWLER", "Spitter": "SPITTER", "Colossus": "COLOSSUS", "Helicopter": "GUNSHIP", "Flare": "FLARE"}
+var _lock: Entity
+var _lock_time := 0.0
+var _was_ready := true
+var _ready_flash := 0.0
+
+
+## The fire-control sight: a gunner's chevron with stadia ticks and a live range readout, a
+## segmented reload ring that flashes READY, the loaded round's code, where the barrel actually
+## points, and an animated lock on the soft-locked target with its callsign, range and lead point.
 func _draw_reticle() -> void:
 	var p := world.player
 	if p.dead:
 		return
+	var cam := world.camera
 	var c := p.aim_screen * SCALE
 	var ready := p.reload <= 0.0
-	var color := Palette.CREAM if ready else Palette.MIST
-	if is_instance_valid(p.aim_target):
-		color = Palette.CORAL
-	# Crosshair with a gap; the ring fills as the cannon reloads.
-	for dir: Vector2 in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]:
-		draw_line(c + dir * 6, c + dir * 12, color, 2.0)
-	draw_rect(Rect2(c - Vector2(1, 1), Vector2(2, 2)), color)
-	var reload := 1.0 - p.reload / Armament.RELOAD
-	draw_arc(c, 18, -PI * 0.5, -PI * 0.5 + TAU * reload, 24, Armament.ROUND_COLORS[p.current_round] if ready else Palette.STONE, 2.0)
-	var target := p.aim_target
-	if is_instance_valid(target):
-		var cam := world.camera
-		var center := cam.unproject_position(target.hit_center()) * SCALE
-		var s := 14.0
-		for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
-			var at := center + corner * s
-			draw_rect(Rect2(at - Vector2(1, 1), Vector2(2, 2)), Palette.CORAL)
-			draw_line(at, at - Vector2(corner.x * 5, 0), Palette.CORAL, 2.0)
-			draw_line(at, at - Vector2(0, corner.y * 5), Palette.CORAL, 2.0)
-		# Lead marker for the cannon.
+	if ready and not _was_ready:
+		_ready_flash = 0.35
+	_was_ready = ready
+	_ready_flash = maxf(0.0, _ready_flash - get_process_delta_time())
+	var target := p.coax_target
+	var color := Palette.HOSTILE if is_instance_valid(target) else (Palette.CYAN if ready else Palette.MIST)
+	# Chevron and stadia.
+	draw_polyline(PackedVector2Array([c + Vector2(-9, 9), c, c + Vector2(9, 9)]), color, 2.0)
+	for side in [-1.0, 1.0]:
+		draw_line(c + Vector2(side * 16, 0), c + Vector2(side * 44, 0), color, 2.0)
+		for k in 3:
+			var x: float = side * (22.0 + k * 8.0)
+			draw_line(c + Vector2(x, -3), c + Vector2(x, 3), color, 1.0)
+	draw_line(c + Vector2(0, 14), c + Vector2(0, 26), color, 2.0)
+	# Range to whatever the sight rests on.
+	var range_m := p.model.muzzle.global_position.distance_to(p.aim_point)
+	_text(c + Vector2(50, -4), "%04d" % int(range_m), color, 12)
+	_text(c + Vector2(50, 10), ROUND_CODES[p.current_round], Armament.ROUND_COLORS[p.current_round], 12)
+	# Reload ring: twelve segments fill; a READY flash when the gun is loaded.
+	var reload := clampf(1.0 - p.reload / (Armament.RELOAD * p.modules.reload_factor()), 0.0, 1.0)
+	for k in 12:
+		var a0 := -PI * 0.5 + TAU * k / 12.0 + 0.06
+		var filled := float(k) / 12.0 < reload
+		draw_arc(c, 34, a0, a0 + TAU / 12.0 - 0.12, 4, Armament.ROUND_COLORS[p.current_round] if filled else Color(Palette.STONE, 0.5), 3.0 if filled else 1.0)
+	if _ready_flash > 0.0 and fmod(_ready_flash, 0.1) < 0.06:
+		_text(c + Vector2(0, -48), "READY", Palette.WHITE, 12, HORIZONTAL_ALIGNMENT_CENTER, 0)
+	# Where the barrel actually points right now (it lags while the turret traverses).
+	var barrel := p.model.muzzle.global_position - p.model.barrel.global_basis.z * maxf(range_m, 20.0)
+	if not cam.is_position_behind(barrel):
+		var b := cam.unproject_position(barrel) * SCALE
+		if b.distance_to(c) > 6.0:
+			draw_circle(b, 3.0, Palette.WHITE)
+			draw_arc(b, 6.0, 0, TAU, 12, Palette.INK, 1.0)
+	# Lock: brackets snap in from wide when a new target is acquired.
+	if target != _lock:
+		_lock = target
+		_lock_time = 0.0
+	_lock_time += get_process_delta_time()
+	if not is_instance_valid(target) or cam.is_position_behind(target.hit_center()):
+		return
+	var center := cam.unproject_position(target.hit_center()) * SCALE
+	var k := clampf(_lock_time / 0.2, 0.0, 1.0)
+	var s := lerpf(46.0, 18.0 + target.radius * 3.0, ease(k, 0.4))
+	for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+		var at := center + corner * s
+		draw_line(at, at - Vector2(corner.x * 9, 0), Palette.HOSTILE, 2.0)
+		draw_line(at, at - Vector2(0, corner.y * 9), Palette.HOSTILE, 2.0)
+	if k >= 1.0:
+		var name: String = CALLSIGNS.get(String(target.get_script().get_global_name()), "TGT")
+		var distance := int(target.hit_center().distance_to(p.global_position))
+		_text(center + Vector2(0, s + 14), "%s  %dm" % [name, distance], Palette.HOSTILE, 12, HORIZONTAL_ALIGNMENT_CENTER, 0)
+		# Lead diamond for the main gun.
 		var lead := p.lead_point(p.model.muzzle.global_position, Armament.SHELL_SPEED, target)
 		if not cam.is_position_behind(lead):
 			var lp := cam.unproject_position(lead) * SCALE
-			draw_line(center, lp, Color(Palette.CORAL, 0.5), 1.0)
-			draw_colored_polygon(PackedVector2Array([lp + Vector2(0, -5), lp + Vector2(5, 0), lp + Vector2(0, 5), lp + Vector2(-5, 0)]), Palette.BUTTER)
+			draw_line(center, lp, Color(Palette.HOSTILE, 0.5), 1.0)
+			draw_colored_polygon(PackedVector2Array([lp + Vector2(0, -6), lp + Vector2(6, 0), lp + Vector2(0, 6), lp + Vector2(-6, 0)]), Palette.BUTTER)
+			draw_polyline(PackedVector2Array([lp + Vector2(0, -6), lp + Vector2(6, 0), lp + Vector2(0, 6), lp + Vector2(-6, 0), lp + Vector2(0, -6)]), Palette.INK, 1.0)
 
 
 func _draw_threats() -> void:
@@ -458,27 +529,85 @@ func _draw_threats() -> void:
 			continue
 		_edge_arrow(cam, projectile.global_position, Palette.CORAL, center)
 	for enemy in world.enemies:
+		if enemy is Flare:
+			continue
 		if enemy is FpvDrone and (enemy as FpvDrone).state != FpvDrone.State.APPROACH:
-			_edge_arrow(cam, enemy.hit_center(), Palette.RED, center)
+			_edge_arrow(cam, enemy.hit_center(), Palette.RED, center, 1.4)
 		elif enemy.has_meta("locking") and enemy.get_meta("locking"):
-			_edge_arrow(cam, enemy.hit_center(), Palette.BUTTER, center)
+			_edge_arrow(cam, enemy.hit_center(), Palette.BUTTER, center, 1.4)
+		elif enemy.hit_center().distance_to(world.player.global_position) < THREAT_RANGE:
+			# Anything close but out of view gets a marker, sized by how near it is.
+			var near := 1.0 - enemy.hit_center().distance_to(world.player.global_position) / THREAT_RANGE
+			_edge_arrow(cam, enemy.hit_center(), Palette.HOSTILE, center, 0.7 + near * 0.6, true)
+	for warning in _incoming:
+		_draw_incoming(cam, warning, center)
+	_draw_ciws_lock(cam)
 
 
-func _edge_arrow(cam: Camera3D, point: Vector3, color: Color, center: Vector2) -> void:
+const THREAT_RANGE := 140.0
+const INCOMING_TIME := 1.8
+
+
+## Direction on screen toward a world point, and whether it is out of view.
+func _screen_direction(cam: Camera3D, point: Vector3, center: Vector2) -> Array:
 	var behind := cam.is_position_behind(point)
 	var screen := cam.unproject_position(point) * SCALE
 	var inside := Rect2(Vector2(24, 24), size - Vector2(48, 48)).has_point(screen)
-	if inside and not behind:
-		return
 	var dir := (screen - center).normalized()
 	if behind:
 		dir = -dir
 		if dir.y < 0.3:
 			dir = (dir + Vector2(0, 1)).normalized()
-	var at := center + dir * minf(size.x * 0.45 / maxf(absf(dir.x), 0.01), size.y * 0.45 / maxf(absf(dir.y), 0.01))
+	return [dir, inside and not behind]
+
+
+func _edge_point(center: Vector2, dir: Vector2, inset := 0.45) -> Vector2:
+	return center + dir * minf(size.x * inset / maxf(absf(dir.x), 0.01), size.y * inset / maxf(absf(dir.y), 0.01))
+
+
+func _edge_arrow(cam: Camera3D, point: Vector3, color: Color, center: Vector2, scale := 1.0, steady := false) -> void:
+	var found := _screen_direction(cam, point, center)
+	if found[1]:
+		return
+	var dir: Vector2 = found[0]
+	var at := _edge_point(center, dir)
 	var side := Vector2(-dir.y, dir.x)
-	if fmod(_time, 0.25) < 0.17:
-		draw_colored_polygon(PackedVector2Array([at + dir * 10, at - dir * 4 + side * 7, at - dir * 4 - side * 7]), color)
+	if steady or fmod(_time, 0.25) < 0.17:
+		var tip := PackedVector2Array([at + dir * 10 * scale, at - dir * 4 * scale + side * 7 * scale, at - dir * 4 * scale - side * 7 * scale])
+		var ink := PackedVector2Array()
+		for p in tip:
+			ink.append(p + (p - at).normalized() * 2.0)
+		draw_colored_polygon(ink, Palette.INK)
+		draw_colored_polygon(tip, color)
+
+
+## A big flashing double chevron and callout at the edge a wave is coming from, before it shows.
+func _draw_incoming(cam: Camera3D, warning: Dictionary, center: Vector2) -> void:
+	if fmod(warning.time, 0.3) > 0.2:
+		return
+	var dir: Vector2 = _screen_direction(cam, warning.position, center)[0]
+	var at := _edge_point(center, dir, 0.4)
+	var side := Vector2(-dir.y, dir.x)
+	for k in 2:
+		var o := at + dir * (k * 16.0 - 8.0)
+		draw_colored_polygon(PackedVector2Array([o + dir * 14, o - dir * 4 + side * 18, o - dir * 4 + side * 10, o + dir * 6, o - dir * 4 - side * 10, o - dir * 4 - side * 18]), Palette.HOSTILE)
+	_text(at - dir * 34 + Vector2(0, 4), tr("CALLOUT_INCOMING"), Palette.HOSTILE, 14, HORIZONTAL_ALIGNMENT_CENTER, 0)
+
+
+## Brackets on whatever the laser is burning, so its work is visible.
+func _draw_ciws_lock(cam: Camera3D) -> void:
+	var target: Object = world.player.ciws_target
+	if not is_instance_valid(target) or not target is Node3D:
+		return
+	var point := (target as Node3D).global_position
+	if cam.is_position_behind(point):
+		return
+	var at := cam.unproject_position(point) * SCALE
+	var r := 9.0
+	for corner in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+		var c: Vector2 = at + corner * r
+		draw_line(c, c - Vector2(corner.x * 5, 0), Palette.MINT, 2.0)
+		draw_line(c, c - Vector2(0, corner.y * 5), Palette.MINT, 2.0)
 
 
 func _draw_popups() -> void:
@@ -488,7 +617,8 @@ func _draw_popups() -> void:
 		if cam.is_position_behind(pos):
 			continue
 		var screen := cam.unproject_position(pos) * SCALE - Vector2(0, popup.time * 30.0)
-		_text(screen, popup.text, Palette.BUTTER if popup.combo < 12 else Palette.FUNGUS, 12, HORIZONTAL_ALIGNMENT_CENTER, 0)
+		var color: Color = popup.get("color", Palette.BUTTER if popup.combo < 12 else Palette.FUNGUS)
+		_text(screen, popup.text, color, 12, HORIZONTAL_ALIGNMENT_CENTER, 0)
 
 
 func _draw_storm() -> void:

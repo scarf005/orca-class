@@ -109,11 +109,12 @@ func behave(delta: float) -> void:
 	_lane_timer -= delta
 	if _lane_timer <= 0.0:
 		_lane_timer = randf_range(2.0, 3.5)
-		_lane = randf_range(-11.0, 11.0)
+		_lane = randf_range(-1.0, 1.0) * Tank.lateral_limit(here.x) * 0.8
 	var target_d := here.x
 	if age < PACE_TIME and world.rail.mode != Rail.Mode.ARENA:
 		target_d = world.rail.d + tank.course_offset + KEEP_AHEAD * (1.2 if weapon == "supply" else 1.0)
-	var speed := 0.0 if is_staggered() or immobile else 22.0
+	# Faster than the rail, so a UGV dropped in behind the tank overtakes it and pulls ahead.
+	var speed := 0.0 if is_staggered() or immobile else world.rail.speed + 14.0
 	var move := Vector2(clampf(target_d - here.x, -speed, speed), clampf(_lane - here.y, -6.0, 6.0) if not immobile else 0.0)
 	var next := here + move * delta
 	var p := Course.ground_at(next.x, next.y)
