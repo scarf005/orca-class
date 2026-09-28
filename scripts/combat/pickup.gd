@@ -35,13 +35,17 @@ func _exit_tree() -> void:
 
 
 func color() -> Color:
-	match id:
+	return color_of(id)
+
+
+static func color_of(kind: String) -> Color:
+	match kind:
 		"coax": return Palette.BUTTER
 		"repair": return Palette.MINT
 		"life": return Palette.FUNGUS
 		"era": return Palette.SKY
 		"tail": return Palette.BLUSH
-	return Armament.ROUND_COLORS[Armament.round_from_id(id)]
+	return Armament.ROUND_COLORS[Armament.round_from_id(kind)]
 
 
 ## Carried by the tail; stops bobbing and despawn checks.
@@ -70,9 +74,13 @@ static var _meshes := {}
 
 
 func _mesh_for(kind: String) -> Mesh:
+	return mesh_of(kind)
+
+
+static func mesh_of(kind: String) -> Mesh:
 	if not _meshes.has(kind):
 		var b := LowPoly.new()
-		var c := color()
+		var c := color_of(kind)
 		match kind:
 			"coax":
 				_ammo_box(b, c)

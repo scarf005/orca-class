@@ -215,7 +215,7 @@ func _barrel_mesh() -> Mesh:
 	return b.mesh()
 
 
-func _coax_mesh(caliber: int, length: float) -> Mesh:
+static func _coax_mesh(caliber: int, length: float) -> Mesh:
 	var b := LowPoly.new()
 	var body := {8: Vector3(0.18, 0.2, 0.6), 15: Vector3(0.26, 0.28, 0.8), 20: Vector3(0.34, 0.36, 1.0)}[caliber] as Vector3
 	var color := {8: Palette.SLATE, 15: Palette.DUSK, 20: Palette.INK}[caliber] as Color
@@ -228,7 +228,7 @@ func _coax_mesh(caliber: int, length: float) -> Mesh:
 	return b.mesh()
 
 
-func _rws_mesh() -> Mesh:
+static func _rws_mesh() -> Mesh:
 	var b := LowPoly.new()
 	b.prism(Transform3D(), 0.3, 0.3, 6, Palette.HULL)
 	b.box(Transform3D(Basis(), Vector3(0, 0.45, 0)), Vector3(0.55, 0.35, 0.8), Palette.HULL_LIGHT)

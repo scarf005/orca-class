@@ -49,6 +49,8 @@ var bests := {}
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	# The HUD draws real models as wireframes; meshes only get wireframe data if this is on first.
+	RenderingServer.set_debug_generate_wireframes(true)
 	load_settings()
 	_load_bests()
 
