@@ -145,15 +145,13 @@ func take_hit(hit: Hit) -> void:
 			best = part
 	if hit.stagger >= 1.0 and _attack == Attack.SWEEP and _attack_time < 1.2:
 		_cancel_attack()
+	_flesh_hit(hit)
 	if best == null or best_distance > (2.5 if hit.kind != Hit.Kind.BLAST else 5.0):
-		world.fx.sparks(hit.position, -hit.direction, 3, Palette.LILAC, 5.0)
 		if hit.incendiary:
 			world.fx.spawn(Fx.Kind.FLAME, hit.position, Vector3.UP * 2.0, 0.4, 0.6, Palette.PEACH)
 		return
 	var amount := hit.damage
 	var health_before := _total_hp()
-	if hit.kind == Hit.Kind.SHELL and hit.caliber >= 100:
-		world.hitstop(0.05)
 	if best.cap > 0.0:
 		# Fire still burns caps four times faster; only the damage spent on the cap is absorbed.
 		var multiplier := 4.0 if hit.kind == Hit.Kind.FIRE or hit.incendiary else 1.0
@@ -187,6 +185,29 @@ func take_hit(hit: Hit) -> void:
 			stagger = 2.0
 	if core.hp <= 0.0:
 		_begin_death()
+
+
+## Every hit on the mass shows, weak point or not: it flinches away from the blow and flesh and
+## spores burst out of the wound. A shell blows a crater in it and the whole mass rocks back.
+func _flesh_hit(hit: Hit) -> void:
+	var world := World.current
+	var heavy := hit.kind in [Hit.Kind.SHELL, Hit.Kind.BLAST, Hit.Kind.RAM, Hit.Kind.TAIL, Hit.Kind.THROWN]
+	flash()
+	_shudder = maxf(_shudder, 0.25 if heavy else 0.1)
+	model.position += global_basis.inverse() * hit.direction.normalized() * (1.4 if heavy else 0.3)
+	var out := (-hit.direction.normalized() * 0.5 + Vector3.UP).normalized()
+	world.fx.debris(hit.position, 10 if heavy else 3, debris, 12.0 if heavy else 7.0, 0.5 if heavy else 0.3, out)
+	world.fx.spores(hit.position, 12 if heavy else 3, 1.5 if heavy else 0.5)
+	Sfx.play("squelch", hit.position, 4.0 if heavy else -6.0, randf_range(0.7, 1.1))
+	if hit.by_player():
+		world.hit_confirmed.emit(false)
+		Sfx.confirm_hit(false)
+	if hit.kind == Hit.Kind.SHELL and hit.caliber >= 100:
+		world.fx.explosion(hit.position, 2.5, [Palette.WHITE, Palette.BLUSH, Palette.FUNGUS, Palette.LILAC], hit.direction)
+		world.hitstop(0.07)
+		world.shake(0.45, hit.position)
+		world.camera.kick(0.03)
+		Sfx.play("roar", global_position, -6.0, 1.2)
 
 
 func _total_hp() -> float:
