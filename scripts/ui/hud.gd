@@ -34,6 +34,7 @@ var _laser_view := WireView.new(Vector2i(30, 26), Vector3(1.6, 1.6, -1.8), Vecto
 var _xray := TankModel.new()
 var _xray_tail := Tail.new()
 var _shown_round := -1
+var _tail_posed := false
 var _shown_tier := -1
 var _painted := {} ## Node -> color it was last painted, so materials change only when states do.
 
@@ -172,7 +173,7 @@ func _draw_status() -> void:
 	var shake := Vector2(randf_range(-2, 2), randf_range(-2, 2)) * (_armor_shake / 0.3) * 3.0
 	var origin := Vector2(16, 416) + shake
 	_panel(Rect2(origin, Vector2(210, 112)), Palette.MINT)
-	_update_xray(delta_time())
+	_update_xray()
 	draw_texture(_tank_view.get_texture(), origin + Vector2(8, 2))
 	var armor := p.hp / p.max_hp
 	_bar(Rect2(origin + Vector2(104, 12), Vector2(96, 8)), armor, _armor_color(armor), 10)
@@ -193,16 +194,6 @@ func _draw_status() -> void:
 	_chevrons(m + Vector2(8, 1), -1.0, Palette.PERIWINKLE if rail.throttle == -1 else Palette.STONE)
 	_bar(Rect2(m + Vector2(22, -3), Vector2(132, 8)), rail.meter, meter_color, 12)
 	_chevrons(m + Vector2(166, 1), 1.0, Palette.BUTTER if rail.throttle == 1 else Palette.STONE)
-
-
-var _last_draw := 0
-
-
-func delta_time() -> float:
-	var now := Time.get_ticks_msec()
-	var delta := clampf((now - _last_draw) / 1000.0, 0.0, 0.1)
-	_last_draw = now
-	return delta
 
 
 func _armor_color(armor: float) -> Color:
@@ -234,9 +225,9 @@ func _paint(node: Node, color: Color) -> void:
 		WireView.paint(node, color)
 
 
-## Mirrors the player's tank onto the x-ray: turret and gun aim, coax fit, ERA left, tail pose,
-## and every module in its state color. Hull color follows armor; the engine flashes it when hurt.
-func _update_xray(delta: float) -> void:
+## A static schematic of the player's tank: coax fit, ERA left and every module in its state
+## color. Nothing on it moves. Hull color follows armor; the engine flashes it when hurt.
+func _update_xray() -> void:
 	var p := world.player
 	var m := p.modules
 	if p.coax_tier != _shown_tier:
@@ -244,10 +235,12 @@ func _update_xray(delta: float) -> void:
 		_xray.set_coax_guns(Armament.tier_calibers(p.coax_tier))
 		_painted.erase(_xray.coax_root)
 		_rebuild_coax_view(Armament.tier_calibers(p.coax_tier))
-	_xray.turret.rotation.y = p.model.turret.rotation.y
-	_xray.gun_pivot.rotation.x = p.model.gun_pivot.rotation.x
 	_xray.set_era(m.era)
-	_xray_tail.update(delta, _xray.global_basis, 0.0)
+	if not _tail_posed:
+		# Settle the tail into its resting curl once; after that the drawing stays still.
+		_tail_posed = true
+		for _i in 60:
+			_xray_tail.update(1.0 / 60.0, _xray.global_basis, 0.0)
 	_xray_tail.visible = not p.tail.destroyed or fmod(_time, 0.5) < 0.3
 	var hull := _armor_color(p.hp / p.max_hp)
 	if m.state("engine") != TankModules.State.OK and fmod(_time, 0.6) < 0.3:
@@ -298,7 +291,6 @@ func _draw_weapons() -> void:
 		_shown_round = p.current_round
 		var round_mesh := _round_view.show_mesh(Pickup.mesh_of(Armament.ROUND_IDS[p.current_round]), round_color)
 		round_mesh.rotation.z = -PI * 0.5
-	(_round_view.root.get_child(-1) as Node3D).rotation.x += 0.02
 	draw_texture(_round_view.get_texture(), origin + Vector2(4, 6))
 	_text(origin + Vector2(52, 24), "∞" if p.current_round == Armament.Round.APHE else "×%d" % p.round_count, round_color)
 	var reload := 1.0 - p.reload / (Armament.RELOAD * p.modules.reload_factor())
