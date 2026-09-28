@@ -172,7 +172,7 @@ func _fire(tank: Tank) -> void:
 		shot.blast_damage = 9.0
 		shot.interceptable = true
 		shot.intercept_hp = 0.55
-		shot.trail = Palette.MIST
+		shot.trail = Projectile.ROCKET_SMOKE
 		shot.life = 4.0
 	World.current.fx.spawn(Fx.Kind.FLAME, from, Vector3.ZERO, 0.08, 0.5, Palette.CORAL)
 	Sfx.play("launch" if _rockets else "enemy_gun", from, -4.0)

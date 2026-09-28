@@ -21,7 +21,9 @@ var turn_rate := 0.0 ## Radians per second toward the homing target.
 var interceptable := false
 var intercept_hp := 1.0 ## Laser dwell damage needed to destroy it.
 var radius := 0.0 ## Sweep radius; small for bullets, larger for thrown wrecks.
-var trail := Color(0, 0, 0, 0) ## Smoke trail color; transparent disables.
+const ROCKET_SMOKE := Color("8c4a34") ## Reddish-brown motor smoke, readable against the pastel sky.
+
+var trail := Color(0, 0, 0, 0) ## Smoke trail color; transparent disables. A trail also means a lit motor.
 var color := Palette.FRIENDLY ## Body color, set from the team when spawned.
 var terrain_only_after := 0.0 ## Ignores entities until this distance (avoids hitting the shooter).
 var ricochet := false ## Small-caliber rounds glance off the ground with sparks.
@@ -30,6 +32,7 @@ var impact_sound := ""
 var _traveled := 0.0
 var _hit_entities: Array[Entity] = []
 var _trail_timer := 0.0
+var _motor_light: OmniLight3D
 
 
 func _ready() -> void:
@@ -69,10 +72,27 @@ func step(delta: float) -> void:
 	if velocity.length_squared() > 0.01:
 		look_at(to + velocity, Vector3.UP if absf(velocity.normalized().y) < 0.99 else Vector3.RIGHT)
 	if trail.a > 0.0:
-		_trail_timer -= delta
-		if _trail_timer <= 0.0:
-			_trail_timer = 0.03
-			World.current.fx.spawn(Fx.Kind.GLOW, to, Vector3(randf_range(-0.3, 0.3), 0.6, randf_range(-0.3, 0.3)), 0.7, 0.35, trail, {"end_size": 1.1, "drag": 2.0, "fade": 0.2})
+		_burn_motor(delta, to)
+
+
+## A rocket motor: a flickering light that washes over the ground below, a jet of flame out the
+## back and a thick billow of smoke left hanging along the flight path.
+func _burn_motor(delta: float, at: Vector3) -> void:
+	if _motor_light == null:
+		_motor_light = OmniLight3D.new()
+		_motor_light.light_color = Palette.AMBER
+		_motor_light.omni_range = 12.0
+		_motor_light.shadow_enabled = false
+		add_child(_motor_light)
+	_motor_light.light_energy = randf_range(3.0, 5.0)
+	_trail_timer -= delta
+	if _trail_timer > 0.0:
+		return
+	_trail_timer = 0.025
+	var fx := World.current.fx
+	var back := -velocity.normalized()
+	fx.spawn(Fx.Kind.FLAME, at + back * 0.4, back * 6.0, 0.1, randf_range(0.5, 0.8), [Palette.WHITE, Palette.BUTTER, Palette.AMBER][randi() % 3], {"drag": 6.0})
+	fx.spawn(Fx.Kind.GLOW, at + back * 0.8, Vector3(randf_range(-0.4, 0.4), 0.7, randf_range(-0.4, 0.4)), randf_range(1.4, 2.0), 0.7, trail.lerp(Palette.INK, randf() * 0.3), {"end_size": 2.6, "drag": 1.6, "fade": 0.3})
 
 
 ## Hitscan: flies the whole path this frame in short sweeps, so the round lands the instant it is

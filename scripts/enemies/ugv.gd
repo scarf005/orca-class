@@ -201,7 +201,7 @@ func _attack() -> void:
 	missile.interceptable = true
 	missile.intercept_hp = 1.6
 	missile.life = 6.0
-	missile.trail = Palette.MIST
+	missile.trail = Projectile.ROCKET_SMOKE
 	Sfx.play("launch", from)
 
 

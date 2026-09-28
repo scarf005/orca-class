@@ -194,7 +194,7 @@ func _attack(tank: Tank) -> void:
 		missile.turn_rate = 1.3
 		missile.interceptable = true
 		missile.intercept_hp = 0.7
-		missile.trail = Palette.MIST
+		missile.trail = Projectile.ROCKET_SMOKE
 		missile.life = 5.0
 	Sfx.play("launch", _pod.global_position, 0.0, 1.3)
 

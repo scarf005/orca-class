@@ -759,7 +759,7 @@ func _rockets(delta: float, tank: Tank) -> void:
 		rocket.blast_damage = 20.0
 		rocket.interceptable = true
 		rocket.intercept_hp = 1.1 # Twice the laser's work of an ordinary rocket.
-		rocket.trail = Palette.MIST
+		rocket.trail = Projectile.ROCKET_SMOKE
 		rocket.life = 4.0
 		world.fx.spawn(Fx.Kind.FLAME, from, Vector3.ZERO, 0.08, 0.6, Palette.BUTTER)
 		Sfx.play("launch", from, -2.0, randf_range(1.1, 1.3))
@@ -837,7 +837,7 @@ func _launch_atgm(tank: Tank, index: int) -> void:
 	missile.interceptable = true
 	missile.intercept_hp = 5.6 # Four times as hard for the laser to burn down as before.
 	missile.life = 7.0
-	missile.trail = Palette.MIST
+	missile.trail = Projectile.ROCKET_SMOKE
 	Sfx.play("launch", from, 2.0, 0.8)
 
 
