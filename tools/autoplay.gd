@@ -38,6 +38,9 @@ func run() -> int:
 			worst = maxf(worst, frame_ms)
 			if frame_ms > 20.0:
 				slow_frames += 1
+				if args.has("spikes") and frame_ms > 30.0:
+					print("SPIKE %.1fms t=%.1f d=%.0f particles=%d enemies=%d props=%d projectiles=%d" % [frame_ms, elapsed, world.rail.d,
+						world.fx._pools[Fx.Kind.SOLID].size() + world.fx._pools[Fx.Kind.GLOW].size(), world.enemies.size(), world.props.get_child_count(), world.projectiles.size()])
 		_drive(world, elapsed)
 		if args.has("profile") and frames % 60 == 0:
 			print("t=%.1f frame=%.1fms process=%.1fms draw_calls=%d objects=%d particles=%d enemies=%d props=%d" % [elapsed, frame_ms,

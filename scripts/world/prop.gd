@@ -125,8 +125,8 @@ func on_death(hit: Hit) -> void:
 			world.fx.debris(center + Vector3.UP * height * 0.3, 18, debris_colors, 12.0, 0.5)
 			world.hitstop(0.03)
 	if fungal:
-		world.fx.spores(center, int(8 + footprint * 6), footprint)
-		world.fx.debris(center, int(4 + footprint * 3), [Palette.FUNGUS, Palette.MAUVE, Palette.BLUSH], 7.0, 0.3)
+		world.fx.spores(center, int(5 + footprint * 3), footprint)
+		world.fx.debris(center, int(3 + footprint * 2), [Palette.FUNGUS, Palette.MAUVE, Palette.BLUSH], 7.0, 0.3)
 		Sfx.play("squelch", global_position, 0.0, randf_range(0.7, 1.0))
 	elif burnable and hit and hit.incendiary:
 		world.fx.spores(center, 10, footprint)

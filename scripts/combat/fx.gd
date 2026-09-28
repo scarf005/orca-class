@@ -22,6 +22,7 @@ class Particle:
 	var bounce := false
 	var fade_start := 0.55 ## Fraction of life after which it dithers away.
 	var trail := Color(0, 0, 0, 0) ## Leaves smoke puffs behind while alive (burning debris).
+	var ground := -INF ## Ground height for bouncing, sampled once: debris lands near where it starts.
 	var trail_timer := 0.0
 
 static var _solid_material := _fade_material(false)
@@ -100,6 +101,8 @@ func spawn(kind: Kind, position: Vector3, velocity: Vector3, life: float, size: 
 	p.bounce = options.get("bounce", false)
 	p.fade_start = options.get("fade", 0.55)
 	p.trail = options.get("trail", Color(0, 0, 0, 0))
+	if p.bounce:
+		p.ground = Course.height_at(position)
 	p.spin = Vector3(randf_range(-8, 8), randf_range(-8, 8), randf_range(-8, 8)) * options.get("spin", 0.0)
 	pool.append(p)
 
@@ -119,27 +122,36 @@ func _process(delta: float) -> void:
 			p.velocity.y -= p.gravity * delta
 			p.velocity *= maxf(0.0, 1.0 - p.drag * delta)
 			p.position += p.velocity * delta
-			if p.bounce:
-				var ground := Course.height_at(p.position)
-				if p.position.y < ground:
-					p.position.y = ground
+			if p.bounce and p.position.y < p.ground:
+					p.position.y = p.ground
 					p.velocity = Vector3(p.velocity.x * 0.5, absf(p.velocity.y) * 0.3, p.velocity.z * 0.5)
 			var t := p.life / p.max_life
 			var s := lerpf(p.size, p.end_size, t)
-			var basis := Basis.from_euler(p.spin * p.life).scaled(Vector3.ONE * s) if p.spin != Vector3.ZERO else Basis.from_scale(Vector3.ONE * s)
 			# Row-major 3x4 transform followed by the color, as the MultiMesh buffer expects.
 			var o := index * 16
-			buffer[o] = basis.x.x
-			buffer[o + 1] = basis.y.x
-			buffer[o + 2] = basis.z.x
+			if p.spin != Vector3.ZERO:
+				var basis := Basis.from_euler(p.spin * p.life).scaled(Vector3.ONE * s)
+				buffer[o] = basis.x.x
+				buffer[o + 1] = basis.y.x
+				buffer[o + 2] = basis.z.x
+				buffer[o + 4] = basis.x.y
+				buffer[o + 5] = basis.y.y
+				buffer[o + 6] = basis.z.y
+				buffer[o + 8] = basis.x.z
+				buffer[o + 9] = basis.y.z
+				buffer[o + 10] = basis.z.z
+			else:
+				buffer[o] = s
+				buffer[o + 1] = 0.0
+				buffer[o + 2] = 0.0
+				buffer[o + 4] = 0.0
+				buffer[o + 5] = s
+				buffer[o + 6] = 0.0
+				buffer[o + 8] = 0.0
+				buffer[o + 9] = 0.0
+				buffer[o + 10] = s
 			buffer[o + 3] = p.position.x
-			buffer[o + 4] = basis.x.y
-			buffer[o + 5] = basis.y.y
-			buffer[o + 6] = basis.z.y
 			buffer[o + 7] = p.position.y
-			buffer[o + 8] = basis.x.z
-			buffer[o + 9] = basis.y.z
-			buffer[o + 10] = basis.z.z
 			buffer[o + 11] = p.position.z
 			buffer[o + 12] = p.color.r
 			buffer[o + 13] = p.color.g
@@ -282,7 +294,7 @@ func _update_emitters(delta: float) -> void:
 		e.time -= delta
 		e.tick -= delta
 		if e.tick <= 0.0:
-			e.tick = 0.07
+			e.tick = 0.1
 			var s: float = e.size
 			var p: Vector3 = e.position + Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)) * s * 0.6
 			spawn(Kind.GLOW, p, Vector3(0, randf_range(2, 4), 0), randf_range(0.3, 0.6), randf_range(0.4, 0.8) * s, [Palette.BUTTER, Palette.PEACH, Palette.CORAL, Palette.FUNGUS][randi() % 4], {"drag": 1.0})

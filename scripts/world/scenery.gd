@@ -71,6 +71,16 @@ func build() -> void:
 	_wires()
 	_spires()
 	specs.sort_custom(func(a: Spec, b: Spec) -> bool: return a.d < b.d)
+	_prewarm()
+
+
+## Builds every prop mesh the plan uses up front, so streaming never stalls on a first build.
+func _prewarm() -> void:
+	for spec in specs:
+		if not spec.decor:
+			PropKit.mesh(spec.kind, spec.variant)
+			if PROPS[spec.kind][8]:
+				PropKit.mesh("rubble", spec.variant)
 
 
 func add(kind: String, d: float, u: float, yaw := INF, variant := -1, drop := "") -> Spec:

@@ -166,7 +166,7 @@ func on_damaged(hit: Hit, amount: float) -> void:
 		if tracks_hp <= 0.0:
 			immobile = true
 			world.fx.debris(global_position + Vector3.UP * 0.4, 8, [Palette.INK, Palette.STONE], 7.0, 0.3)
-			world.fx.burn(global_position + Vector3.UP * 0.6, 30.0, 0.6)
+			world.fx.burn(global_position + Vector3.UP * 0.6, 10.0, 0.6)
 			world.award(100, global_position, false)
 	elif not disarmed and weapon != "supply" and local.y > 1.3:
 		weapon_hp -= amount

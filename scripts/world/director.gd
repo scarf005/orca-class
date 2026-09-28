@@ -39,6 +39,11 @@ func begin(checkpoint: String) -> void:
 	# A checkpoint start skips everything before it.
 	while _next_event < events.size() and events[_next_event].d < world.rail.d:
 		_next_event += 1
+	# Load every enemy script and music track now so first appearances do not hitch.
+	for path: String in ENEMY_SCRIPTS.values():
+		load(path)
+	for track in ["stage_a", "stage_b", "boss"]:
+		load("res://assets/music/%s.ogg" % track)
 	world.add_child(scenery)
 	scenery.build()
 	scenery.stream(world.rail.d, 100000)
