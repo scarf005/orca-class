@@ -275,9 +275,10 @@ func blast(point: Vector3, radius: float, damage: float, team: Entity.Team, temp
 		entity.take_hit(applied)
 
 
+## Spawns a pickup, swapped for something the tank can use if it would be wasted.
 func spawn_pickup(id: String, position: Vector3) -> Pickup:
 	var pickup := Pickup.new()
-	pickup.id = id
+	pickup.id = player.useful_pickup(id) if player else id
 	add_child(pickup)
 	pickup.global_position = position
 	return pickup

@@ -902,6 +902,32 @@ func _update_pickups() -> void:
 			collect(pickup)
 
 
+## Whether a pickup would do anything right now. Rounds and lives are never wasted.
+func needs(id: String) -> bool:
+	match id:
+		"repair":
+			return hp < max_hp or TankModules.MAX.keys().any(func(name: String) -> bool: return modules.state(name) != TankModules.State.OK)
+		"era":
+			return modules.era != TankModules.ERA
+		"tail":
+			return tail.destroyed or tail.hp < Tail.MAX_HP
+		"coax":
+			return coax_tier < Armament.COAX_TIERS.size() - 1
+	return true
+
+
+## What a pickup should turn into so it is never wasted: what the tank needs most, else a special
+## round other than the one loaded.
+func useful_pickup(id: String) -> String:
+	if needs(id):
+		return id
+	for want in ["repair", "era", "tail", "coax"]:
+		if needs(want):
+			return want
+	var rounds: Array = Armament.ROUND_IDS.keys().filter(func(r: Armament.Round) -> bool: return r != Armament.Round.APHE and r != current_round)
+	return Armament.ROUND_IDS[rounds.pick_random()]
+
+
 func collect(pickup: Pickup) -> void:
 	if pickup.collected:
 		return
