@@ -19,15 +19,14 @@ static func default_bindings() -> Dictionary:
 		"aim_right": [_axis(JOY_AXIS_RIGHT_X, 1.0)],
 		"fire_coax": [_mouse(MOUSE_BUTTON_LEFT), _axis(JOY_AXIS_TRIGGER_RIGHT, 1.0)],
 		"fire_cannon": [_mouse(MOUSE_BUTTON_RIGHT), _button(JOY_BUTTON_RIGHT_SHOULDER)],
-		"tail": [_key(KEY_SPACE), _button(JOY_BUTTON_LEFT_SHOULDER)],
-		"anchor": [_key(KEY_Q), _button(JOY_BUTTON_X)],
+		"anchor": [_key(KEY_Q), _key(KEY_SPACE), _button(JOY_BUTTON_X), _button(JOY_BUTTON_LEFT_SHOULDER)],
 		"overdrive": [_key(KEY_SHIFT), _button(JOY_BUTTON_A)],
 		"brake": [_key(KEY_CTRL), _axis(JOY_AXIS_TRIGGER_LEFT, 1.0)],
 		"pause": [_key(KEY_ESCAPE), _button(JOY_BUTTON_START)],
 	}
 
 const REBINDABLE: Array[StringName] = [
-	&"move_forward", &"move_back", &"move_left", &"move_right", &"fire_coax", &"fire_cannon", &"tail", &"anchor",
+	&"move_forward", &"move_back", &"move_left", &"move_right", &"fire_coax", &"fire_cannon", &"anchor",
 	&"overdrive", &"brake", &"pause",
 ]
 

@@ -8,7 +8,7 @@ func test_snatches_pickup_in_reach() -> void:
 	await frames(2)
 	var pickup := world.spawn_pickup("repair", tank.tail.mount.global_position + tank.global_basis.x * 6.0)
 	tank.hp = 50.0
-	tank.tail_action()
+	tank.auto_tail()
 	check_eq(tank.tail.state, Tail.State.REACH, "claw reaches for the pickup")
 	var ok := await wait_until(gone(pickup), 240)
 	check(ok, "pickup arrives and is used")
@@ -24,14 +24,14 @@ func test_grab_and_throw_enemy() -> void:
 	world.add_enemy(crawler)
 	crawler.stagger = 10.0
 	var crawler_ref: WeakRef = weakref(crawler)
-	tank.tail_action()
+	tank.auto_tail()
 	var held := await wait_until(func() -> bool: return is_instance_valid(tank.tail.held), 240)
 	check(held, "claw holds the crawler")
 	check(crawler_ref.get_ref() == null or not world.enemies.has(crawler_ref.get_ref()), "grabbed enemy leaves the fight")
-	await wait_until(func() -> bool: return tank.tail.is_ready(), 120)
+	await wait_until(func() -> bool: return tank.tail.is_ready() and tank.tail.state_time() >= Tank.HOLD_TIME, 120)
 	tank.aim_point = tank.global_position + (-tank.global_basis.z) * 40.0
 	var before := world.projectiles.size()
-	tank.tail_action()
+	tank.auto_tail()
 	check(not is_instance_valid(tank.tail.held), "throw releases it")
 	check(world.projectiles.size() > before, "thrown wreck becomes a projectile")
 
@@ -42,11 +42,31 @@ func test_swat_hits_nearby_drone() -> void:
 	await frames(2)
 	var drone := FpvDrone.new()
 	drone.position = tank.global_position + Vector3(4, 3, 0)
-	drone.grabbable = false
 	world.add_enemy(drone)
-	tank.tail_action()
-	check_eq(tank.tail.state, Tail.State.SWAT, "nothing grabbable in reach: swat")
+	drone.state = FpvDrone.State.DIVE
+	tank.auto_tail()
+	check_eq(tank.tail.state, Tail.State.SWAT, "a diving drone next to the hull gets swatted first")
 	check(drone.dead, "swat kills the drone")
+
+
+func test_tail_idles_when_nothing_is_near() -> void:
+	var world := stage()
+	var tank := world.player
+	await frames(2)
+	tank.auto_tail()
+	check_eq(tank.tail.state, Tail.State.IDLE, "no target, no action")
+
+
+func test_drift_lashes_nearby_enemies() -> void:
+	var world := stage()
+	var tank := world.player
+	await frames(2)
+	var crawler := Crawler.new()
+	crawler.position = tank.global_position + tank.global_basis.x * 5.0
+	world.add_enemy(crawler)
+	crawler.stagger = 10.0
+	tank._anchor(Vector2(1, 0))
+	check(crawler.dead, "the drift's tail spin kills a crawler beside the tank")
 
 
 func test_anchor_drift_dodges() -> void:

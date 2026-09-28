@@ -68,6 +68,10 @@ func is_ready() -> bool:
 	return cooldown <= 0.0 and state in [State.IDLE, State.HOLD]
 
 
+func state_time() -> float:
+	return _state_time
+
+
 func is_hurt() -> bool:
 	return hp < MAX_HP * 0.5
 

@@ -23,6 +23,7 @@ const CIWS_ENTITY_DPS := 55.0
 const ANCHOR_COOLDOWN := 1.1
 const RESPAWN_DELAY := 1.8
 const RESPAWN_INVULN := 2.6
+const HOLD_TIME := 0.35 ## A grabbed enemy dangles this long before it is thrown.
 
 var model := TankModel.new()
 var tail := Tail.new()
@@ -126,6 +127,8 @@ func tick(delta: float) -> void:
 	_update_weapons(delta)
 	_update_ciws(delta)
 	tail.update(delta, global_basis, lateral_velocity)
+	if input_enabled:
+		auto_tail()
 	_update_pickups()
 	velocity = (global_position - _last_position) / maxf(delta, 0.0001)
 	_last_position = global_position
@@ -211,6 +214,7 @@ func _anchor(input: Vector2) -> void:
 		# Pivot drift: the claw bites the ground and the hull whips sideways around it.
 		_drift = 0.3
 		_drift_dir = signf(input.x)
+		swat(false)
 		ground = global_position + global_basis.x * -_drift_dir * 2.5 + global_basis.z * 3.0
 		Sfx.play("skid", global_position)
 	else:
@@ -400,8 +404,6 @@ func _update_weapons(delta: float) -> void:
 			_coax_timers[i] = maxf(_coax_timers[i] - delta, 0.0)
 	if Input.is_action_pressed("fire_cannon") and reload <= 0.0:
 		fire_cannon()
-	if Input.is_action_just_pressed("tail"):
-		tail_action()
 
 
 func _fire_coax(muzzle: Node3D, caliber: int, spec: Dictionary) -> void:
@@ -597,14 +599,21 @@ func _update_ciws(delta: float) -> void:
 
 
 ## Tail button: throw what is held, else snatch a pickup, grab or stab an enemy, or swat around.
-func tail_action() -> void:
+## The tail acts on its own so the driver only drives and shoots. Priorities: throw what it
+## holds, swat anything about to hit the hull, snatch pickups, grab small enemies, stab big ones.
+func auto_tail() -> void:
 	if not tail.is_ready():
 		return
 	var world := World.current
 	var mount := tail.mount.global_position
 	if is_instance_valid(tail.held):
-		_throw_held()
+		if tail.state == Tail.State.HOLD and tail.state_time() >= HOLD_TIME:
+			_throw_held()
 		return
+	for entity in world.enemies:
+		if _is_imminent(entity):
+			swat()
+			return
 	var best_pickup: Pickup = null
 	var best_distance := Tail.REACH
 	for pickup in world.pickups:
@@ -631,24 +640,39 @@ func tail_action() -> void:
 		var state := Tail.State.REACH if best_enemy.grabbable else Tail.State.STAB
 		tail.set_state(state, best_enemy.hit_center(), best_enemy, 260.0)
 		Sfx.play("whip", mount)
-		return
-	# Nothing in reach: a full-circle swat that bats away drones and crawlers.
-	tail.set_state(Tail.State.SWAT, mount, null, 300.0)
-	tail.start_cooldown(1.2)
+
+
+## Diving drones and bursting crawlers close to the hull.
+func _is_imminent(entity: Entity) -> bool:
+	var distance := entity.hit_center().distance_to(hit_center())
+	if entity is FpvDrone:
+		return (entity as FpvDrone).state != FpvDrone.State.APPROACH and distance < 9.0
+	if entity is Crawler:
+		return (entity as Crawler).state != Crawler.State.RUN and distance < 7.0
+	return false
+
+
+## A full-circle lash that bats away drones and crawlers and flattens small props.
+func swat(start_state := true) -> void:
+	var world := World.current
+	var mount := tail.mount.global_position
+	if start_state:
+		tail.set_state(Tail.State.SWAT, mount, null, 300.0)
+		tail.start_cooldown(1.2)
+		get_tree().create_timer(0.3).timeout.connect(func() -> void:
+			if tail.state == Tail.State.SWAT:
+				tail.set_state(Tail.State.IDLE))
 	Sfx.play("whip", mount, 0.0, 0.8)
 	for entity in world.enemies.duplicate():
 		if entity.hit_center().distance_to(global_position) < 7.5 + entity.radius:
-			var swat := Hit.make(Hit.Kind.TAIL, 30.0, entity.hit_center(), (entity.hit_center() - global_position).normalized())
-			swat.stagger = 0.6
-			swat.source = self
-			entity.take_hit(swat)
-			world.fx.sparks(entity.hit_center(), swat.direction, 8, Palette.FUNGUS)
+			var hit := Hit.make(Hit.Kind.TAIL, 30.0, entity.hit_center(), (entity.hit_center() - global_position).normalized())
+			hit.stagger = 0.6
+			hit.source = self
+			entity.take_hit(hit)
+			world.fx.sparks(entity.hit_center(), hit.direction, 8, Palette.FUNGUS)
 	for prop: Prop in world.props.in_radius(global_position, 7.0):
 		if prop.crushable:
 			prop.take_hit(Hit.make(Hit.Kind.TAIL, 999.0, prop.global_position))
-	get_tree().create_timer(0.3).timeout.connect(func() -> void:
-		if tail.state == Tail.State.SWAT:
-			tail.set_state(Tail.State.IDLE))
 
 
 func _on_tail_arrived() -> void:
@@ -703,7 +727,7 @@ func _throw_held() -> void:
 	var held := tail.held
 	tail.held = null
 	var from := tail.claw_position()
-	var target := aim_point
+	var target := _throw_target()
 	# Lob with a slight arc so thrown wrecks read as heavy.
 	var flat := Vector3(target.x - from.x, 0, target.z - from.z)
 	var speed := 48.0
@@ -733,6 +757,20 @@ func _throw_held() -> void:
 			tail.set_state(Tail.State.IDLE))
 	Sfx.play("whip", from, 2.0, 0.7)
 	world.shake(0.15)
+
+
+func _throw_target() -> Vector3:
+	if is_instance_valid(aim_target):
+		return aim_target.hit_center()
+	var best := aim_point
+	var best_distance := 70.0
+	var forward := -global_basis.z
+	for enemy in World.current.enemies:
+		var offset := enemy.hit_center() - global_position
+		if offset.dot(forward) > 0.0 and offset.length() < best_distance:
+			best_distance = offset.length()
+			best = enemy.hit_center()
+	return best
 
 
 func _update_pickups() -> void:

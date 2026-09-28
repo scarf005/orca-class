@@ -93,7 +93,7 @@ func _drive(world: World, t: float) -> void:
 	else:
 		Input.action_release("move_left")
 		Input.action_release("move_right")
-	if int(t * 10) % 37 == 0:
-		Input.action_press("tail")
+	if int(t * 10) % 53 == 0:
+		Input.action_press("anchor")
 	else:
-		Input.action_release("tail")
+		Input.action_release("anchor")

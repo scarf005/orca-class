@@ -33,6 +33,8 @@ func run() -> int:
 	match scene:
 		"vfx":
 			_stage_vfx(world)
+		"tail":
+			_stage_tail(world)
 		"boss":
 			world.rail.d = Course.ARENA_CENTER_D - 60.0
 			world.director._start_boss({"kind": "helicopter"})
@@ -43,6 +45,8 @@ func run() -> int:
 		elapsed += get_process_delta_time()
 		if scene == "vfx":
 			_drive(world, elapsed)
+		elif scene == "tail":
+			world.player.auto_tail()
 		if elapsed >= shots[0]:
 			shots.pop_front()
 			get_viewport().get_texture().get_image().save_png("%s/%s_%d.png" % [out, scene, index])
@@ -67,6 +71,19 @@ func _stage_vfx(world: World) -> void:
 	world.radio.emit(&"AI_REAR")
 	world.player.load_round(Armament.Round.HEAT)
 	world.player.set_coax_tier(4)
+
+
+func _stage_tail(world: World) -> void:
+	var tank := world.player
+	for i in 3:
+		var crawler := Crawler.new()
+		crawler.position = tank.global_position + tank.global_basis.x * (5.0 + i * 2.0) - tank.global_basis.z * (4.0 + i * 3.0)
+		world.add_enemy(crawler)
+		crawler.stagger = 3.0
+	var ugv: Ugv = load("res://scripts/enemies/ugv.gd").new()
+	ugv.position = Course.ground_at(world.rail.d + tank.course_offset + 32.0, -3.0)
+	world.add_enemy(ugv)
+	world.spawn_pickup("heat", tank.tail.mount.global_position - tank.global_basis.x * 6.0)
 
 
 func _drive(world: World, t: float) -> void:
