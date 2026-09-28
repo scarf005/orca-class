@@ -408,8 +408,10 @@ func _update_aim(delta: float) -> void:
 	var dir := cam.project_ray_normal(aim_screen)
 	var best := 320.0
 	aim_target = null
+	# Against each enemy's real hit shape, so the sight rests on the exact part under the cursor
+	# (a boss's rotor or rocket rack, not just its middle).
 	for enemy in world.enemies:
-		var t := Entity.segment_sphere(origin, origin + dir * best, enemy.hit_center(), enemy.radius + 0.6)
+		var t := enemy.hit_test(origin, origin + dir * best, 0.6)
 		if t >= 0.0 and t < best:
 			best = t
 			aim_target = enemy
@@ -479,14 +481,15 @@ func _fire_direction(from: Vector3, speed: float) -> Vector3:
 	var target := aim_point
 	var lock := _pick_coax_target()
 	if is_instance_valid(lock) and lock is Enemy:
-		target = lead_point(from, speed, lock)
+		target = lead_point(from, speed, lock, _aimed_spot(lock))
 	return along_barrel(-model.barrel.global_basis.z, (target - from).normalized())
 
 
 ## Where to aim so a round at `speed` meets `target`: a few passes settle the flight time.
-func lead_point(from: Vector3, speed: float, target: Entity) -> Vector3:
+## Where to shoot to hit `target` (at `spot` on it, or its middle) as it moves.
+func lead_point(from: Vector3, speed: float, target: Entity, spot := Vector3.INF) -> Vector3:
 	var enemy_velocity := (target as Enemy).velocity if target is Enemy else Vector3.ZERO
-	var p := target.hit_center()
+	var p := target.hit_center() if spot == Vector3.INF else spot
 	var aim := p
 	for i in 3:
 		aim = p + enemy_velocity * (from.distance_to(aim) / speed)
@@ -512,6 +515,12 @@ func _update_weapons(delta: float) -> void:
 
 ## The fire-control system's soft lock: the enemy under the reticle, else the one nearest it on
 ## screen within a small radius. The coax leads it automatically.
+## The point to lead on a locked target: exactly where the sight rests when it is on the target,
+## otherwise its middle (a soft lock only pulls toward the center).
+func _aimed_spot(target: Entity) -> Vector3:
+	return aim_point if target == aim_target else Vector3.INF
+
+
 func _pick_coax_target() -> Entity:
 	if is_instance_valid(aim_target) and not aim_target.dead:
 		return aim_target
@@ -542,7 +551,7 @@ static func along_barrel(barrel: Vector3, wanted: Vector3, max_degrees := 6.0) -
 func _fire_coax(muzzle: Node3D, caliber: int, spec: Dictionary, target: Entity) -> void:
 	var world := World.current
 	var from := muzzle.global_position
-	var aim := lead_point(from, spec.speed, target) if is_instance_valid(target) else aim_point
+	var aim := lead_point(from, spec.speed, target, _aimed_spot(target)) if is_instance_valid(target) else aim_point
 	var dir := along_barrel(-model.barrel.global_basis.z, (aim - from).normalized())
 	dir = (dir + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * spec.spread).normalized()
 	var bullet := world.spawn_projectile(Team.PLAYER, from, dir * spec.speed, "bullet", spec.color)
