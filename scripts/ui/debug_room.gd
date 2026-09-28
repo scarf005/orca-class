@@ -8,7 +8,7 @@ extends Control
 const START_D := 120.0
 const ROWS := ["TANK", "ENEMIES", "BOSSES", "PICKUPS", "PROPS", "BUILDINGS", "FUNGUS", "PROJECTILES", "VFX"]
 ## Per row: distance ahead of the previous row, camera distance back, camera height.
-const LAYOUT := [[0.0, 16.0, 6.0], [34.0, 24.0, 9.0], [44.0, 48.0, 20.0], [44.0, 18.0, 6.0], [30.0, 30.0, 11.0], [40.0, 46.0, 18.0], [52.0, 42.0, 16.0], [44.0, 20.0, 6.0], [30.0, 62.0, 22.0]]
+const LAYOUT := [[0.0, 16.0, 6.0], [34.0, 24.0, 9.0], [44.0, 48.0, 20.0], [44.0, 16.0, 3.5], [30.0, 30.0, 11.0], [40.0, 46.0, 18.0], [52.0, 42.0, 16.0], [44.0, 20.0, 6.0], [30.0, 62.0, 22.0]]
 
 var view := DitherView.new()
 var world: World
@@ -58,7 +58,7 @@ func jump_to(row: int) -> void:
 	var spec: Array = LAYOUT[row]
 	var d := _row_d[row]
 	world.camera.global_position = Course.to_world(d - spec[1], 0.0, spec[2])
-	world.camera.look_at(Course.to_world(d + 4.0, 0.0, spec[2] * 0.25), Vector3.UP)
+	world.camera.look_at(Course.to_world(d + 4.0, 0.0, maxf(1.8, spec[2] * 0.25)), Vector3.UP)
 	_yaw = world.camera.rotation.y
 	_pitch = world.camera.rotation.x
 
@@ -85,7 +85,7 @@ func _slot(d: float, i: int, count: int, spacing: float) -> Vector3:
 
 
 func _row_title(row: int) -> void:
-	_label("%d  %s" % [row + 1, ROWS[row]], Course.ground_at(_row_d[row] - 6.0, 0.0) + Vector3.UP * 0.4, Palette.FUNGUS, 1.4)
+	_label("%d  %s" % [row + 1, ROWS[row]], Course.ground_at(_row_d[row] + 10.0, 0.0) + Vector3.UP * 10.0, Palette.FUNGUS, 1.4)
 
 
 func _build_tanks(d: float) -> void:
@@ -140,7 +140,7 @@ func _build_pickups(d: float) -> void:
 	_row_title(3)
 	for i in Pickup.IDS.size():
 		var id: String = Pickup.IDS[i]
-		var pickup := world.spawn_pickup(id, _slot(d, i, Pickup.IDS.size(), 4.0) + Vector3.UP * 1.6)
+		var pickup := world.spawn_pickup(id, _slot(d, i, Pickup.IDS.size(), 3.2) + Vector3.UP * 1.6)
 		_label(id.to_upper(), pickup.global_position + Vector3.UP * 2.4, pickup.color(), 0.7)
 
 
