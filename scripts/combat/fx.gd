@@ -4,6 +4,7 @@ extends Node3D
 ## meshes for blasts, rings, beams and ground scorch marks. Everything fades by dithering.
 
 const MAX_PARTICLES := 4000
+const SOFT_CAP := 1200
 const MAX_SCORCH := 60
 
 enum Kind { SOLID, GLOW }
@@ -87,6 +88,9 @@ static func _particle_mesh(kind: Kind) -> Mesh:
 
 func spawn(kind: Kind, position: Vector3, velocity: Vector3, life: float, size: float, color: Color, options := {}) -> void:
 	var pool: Array = _pools[kind]
+	# Past the soft cap, big chain explosions thin out instead of stalling the frame.
+	if pool.size() > SOFT_CAP and randf() < 0.5:
+		return
 	if pool.size() >= MAX_PARTICLES:
 		pool.pop_front()
 	var p := Particle.new()

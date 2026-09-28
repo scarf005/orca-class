@@ -29,6 +29,7 @@ var _hard := false
 
 func _init() -> void:
 	super()
+	wreck_on_death = true
 	max_hp = 70.0
 	hp = 70.0
 	radius = 1.6

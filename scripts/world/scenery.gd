@@ -40,6 +40,9 @@ const PROPS := {
 	"cordyceps": [1.2, 5.0, 30.0, false, true, true, 30, false, false],
 	"husk_cow": [1.4, 2.2, 25.0, false, true, true, 40, false, false],
 	"egg_sacs": [1.4, 2.0, 15.0, false, true, true, 40, false, false],
+	"barrel": [0.5, 1.0, 10.0, false, false, false, 20, true, false],
+	"gas_pump": [0.7, 1.8, 20.0, false, false, false, 60, true, false],
+	"gas_station": [4.5, 6.0, 200.0, true, false, false, 150, false, true],
 	"fungal_spire": [4.0, 14.0, 700.0, true, false, true, 400, false, false],
 	"plane_tree": [0.9, 9.0, 45.0, false, true, true, 10, false, false],
 }
@@ -87,6 +90,7 @@ func build() -> void:
 	_arena()
 	_wires()
 	_spires()
+	_boom()
 	specs.sort_custom(func(a: Spec, b: Spec) -> bool: return a.d < b.d)
 	_prewarm()
 
@@ -295,6 +299,23 @@ func _arena() -> void:
 	_fungus(3420.0, 3620.0, 1.2)
 
 
+## Explosive barrels in clusters along the road, and a gas station whose pumps go up like bombs.
+func _boom() -> void:
+	var d := 180.0
+	while d < Course.SECTION_STARTS[Course.Section.ARENA]:
+		if Course.section_at(d) != Course.Section.SCHOOL:
+			var u := _rng.randf_range(4.0, 11.0) * (1.0 if _rng.randf() < 0.5 else -1.0)
+			for i in _rng.randi_range(3, 6):
+				add("barrel", d + _rng.randf_range(-2.0, 2.0), u + _rng.randf_range(-2.0, 2.0), _rng.randf() * TAU)
+		d += _rng.randf_range(70.0, 120.0)
+	for station in [[980.0, -14.0], [2880.0, 10.0]]:
+		add("gas_station", station[0], station[1], PI * 0.5)
+		for k in 3:
+			add("gas_pump", station[0] - 2.0 + k * 2.0, station[1], PI * 0.5, k)
+		for k in 4:
+			add("barrel", station[0] + 5.0 + k * 0.8, station[1] + signf(station[1]) * 3.0, 0.0, k)
+
+
 ## Giant fungal spires rising from the fields, more often as the stage goes on.
 func _spires() -> void:
 	var d := 300.0
@@ -443,6 +464,7 @@ func _instantiate(spec: Spec) -> void:
 		prop.burnable = cfg[5]
 		prop.score = cfg[6]
 		prop.explosive = cfg[7]
+		prop.blast_size = {"barrel": 4.0, "gas_pump": 8.0}.get(spec.kind, 4.5)
 		if cfg[8]:
 			prop.rubble_mesh = PropKit.mesh("rubble", spec.variant)
 		prop.drop = spec.drop
@@ -485,6 +507,10 @@ func _debris_colors(kind: String, variant: int) -> Array:
 			return [PropKit.CAR_COLORS[variant % PropKit.CAR_COLORS.size()], Palette.INK, Palette.DUSK]
 		"persimmon", "plane_tree", "reeds", "zelkova_trunk", "zelkova_canopy":
 			return [Palette.PINE, Palette.WOOD, Palette.PEACH]
+		"barrel", "gas_pump":
+			return [Palette.HOT, Palette.AMBER, Palette.INK]
+		"gas_station":
+			return [Palette.WHITE, Palette.HOT, Palette.CONCRETE]
 		"crate":
 			return [Palette.PINE, Palette.OCHRE, Palette.BUTTER]
 	return [Palette.CONCRETE, Palette.STONE, Palette.WOOD]

@@ -20,6 +20,9 @@ const ENEMY_SCRIPTS := {
 	"helicopter": "res://scripts/enemies/helicopter.gd",
 }
 
+## Swarm enemies come in bigger numbers than the stage script lists: mayhem needs fodder.
+const FODDER := {"fpv": 1.5, "crawler": 1.6}
+
 ## Checkpoint name -> rail distance to start from.
 const CHECKPOINTS := {"": 0.0, "midboss": Course.MIDBOSS_D - 110.0, "boss": Course.SECTION_STARTS[Course.Section.ARENA] - 40.0}
 
@@ -126,7 +129,7 @@ func _fire(event: Dictionary) -> void:
 func spawn_wave(event: Dictionary) -> Array[Enemy]:
 	var world := World.current
 	var spawned: Array[Enemy] = []
-	var count: int = event.get("count", 1)
+	var count: int = ceili(event.get("count", 1) * FODDER.get(event.kind, 1.0))
 	if _hard:
 		count = int(ceil(count * event.get("hard_scale", 1.4)))
 	var kind: String = event.kind

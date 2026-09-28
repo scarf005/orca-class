@@ -39,6 +39,7 @@ func _ready() -> void:
 	world.stage_cleared.connect(_on_cleared)
 	if checkpoint.is_empty():
 		hud.hint(tr("HINT_CONTROLS"), 8.0)
+	hud.shout(tr("SHOUT_MISSION_START"), Palette.AMBER, 2.0)
 	Input.mouse_mode = Input.MOUSE_MODE_CONFINED_HIDDEN
 
 
@@ -122,6 +123,8 @@ func _on_game_over() -> void:
 
 func _on_cleared() -> void:
 	_finished = true
+	hud.shout(tr("SHOUT_MISSION_COMPLETE"), Palette.FUNGUS, 2.5)
+	await get_tree().create_timer(2.2).timeout
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	world.player.input_enabled = false
 	_results = Results.new()

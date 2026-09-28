@@ -37,6 +37,7 @@ const SOUNDS := {
 	"lock": ["res://assets/audio/synth/lock.wav", -4.0],
 	"ui_move": ["res://assets/audio/synth/ui_move.wav", -8.0],
 	"ui_select": ["res://assets/audio/synth/ui_select.wav", -4.0],
+	"shout": ["res://assets/audio/synth/shout.wav", -2.0],
 	"ai": ["res://assets/audio/synth/ai.wav", -6.0],
 	"combo": ["res://assets/audio/synth/combo.wav", -8.0],
 	"roar": ["res://assets/audio/synth/roar.wav", 0.0],

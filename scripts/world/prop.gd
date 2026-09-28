@@ -12,6 +12,7 @@ var debris_colors: Array = [Palette.WOOD, Palette.CONCRETE]
 var drop := "" ## Pickup id dropped when destroyed.
 var burnable := false
 var explosive := false
+var blast_size := 4.5 ## Radius of the explosion when an explosive prop goes up.
 var fungal := false ## Bursts into spores and splatter when destroyed.
 var supports: Array[Prop] = [] ## Pieces resting on this one; they topple when it breaks.
 var _topple := -1.0
@@ -151,7 +152,9 @@ func on_death(hit: Hit) -> void:
 		# Chain blasts carry this prop as their source so kills count as collateral.
 		var chain := Hit.new()
 		chain.source = self if by_player else null
-		world.blast(center, 4.5, 45.0, Team.PLAYER if by_player else Team.NEUTRAL, chain, self, [Palette.WHITE, Palette.BUTTER, Palette.CORAL, Palette.INK])
+		world.blast(center, blast_size, 45.0 + blast_size * 4.0, Team.PLAYER if by_player else Team.NEUTRAL, chain, self, [Palette.WHITE, Palette.AMBER, Palette.HOT, Palette.INK])
+		world.fx.smoke_column(center, blast_size * 0.6, [Palette.DUSK, Palette.INK, Palette.SLATE])
+		world.fx.burn(global_position, 4.0 + blast_size, 0.8)
 	if score > 0:
 		world.award(score, global_position, false)
 	if hit != null and hit.by_player():

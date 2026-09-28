@@ -614,3 +614,39 @@ static func school_center(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
 	b.box(_xf(Vector3(0, 8.8, 5.72)), Vector3(0.1, 0.8, 0.05), Palette.INK)
 	b.box(_xf(Vector3(0, 1.6, 5.61)), Vector3(3.0, 3.2, 0.1), Palette.PEACH)
 	return b.mesh()
+
+
+# --- Things that go boom ------------------------------------------------------------------------
+
+## A 200 L oil drum, hazard-striped.
+static func barrel(variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	var body := [Palette.HOT, Palette.AMBER, Palette.CORAL][variant % 3] as Color
+	b.prism(Transform3D(), 0.38, 1.0, 10, body, -1.0, Palette.INK)
+	for y in [0.2, 0.75]:
+		b.prism(_xf(Vector3(0, y, 0)), 0.395, 0.06, 10, Palette.INK)
+	b.box(_xf(Vector3(0, 0.5, 0.38)), Vector3(0.3, 0.25, 0.02), Palette.BUTTER)
+	return b.mesh()
+
+
+static func gas_station(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	for x in [-3.5, 3.5]:
+		b.box(_xf(Vector3(x, 2.5, 0)), Vector3(0.4, 5.0, 0.4), Palette.CONCRETE)
+	b.box(_xf(Vector3(0, 5.2, 0)), Vector3(10.0, 0.6, 6.0), Palette.WHITE)
+	b.box(_xf(Vector3(0, 5.2, 3.02)), Vector3(10.0, 0.4, 0.05), Palette.HOT)
+	b.box(_xf(Vector3(0, 0.1, 0)), Vector3(9.0, 0.2, 4.0), Palette.STONE)
+	b.box(_xf(Vector3(6.5, 3.5, 2.5)), Vector3(0.3, 7.0, 0.3), Palette.STONE)
+	b.box(_xf(Vector3(6.5, 6.8, 2.5)), Vector3(2.2, 1.6, 0.2), Palette.HOT)
+	b.glow = true
+	b.box(_xf(Vector3(6.5, 6.8, 2.62)), Vector3(1.6, 0.4, 0.02), Palette.WHITE)
+	return b.mesh()
+
+
+static func gas_pump(variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.box(_xf(Vector3(0, 0.9, 0)), Vector3(0.8, 1.8, 0.5), Palette.WHITE)
+	b.box(_xf(Vector3(0, 1.5, 0.26)), Vector3(0.5, 0.4, 0.02), Palette.DUSK)
+	b.box(_xf(Vector3(0, 0.6, 0.26)), Vector3(0.8, 0.3, 0.02), [Palette.HOT, Palette.AMBER][variant % 2])
+	b.box(_xf(Vector3(0.45, 1.0, 0)), Vector3(0.1, 0.5, 0.1), Palette.INK)
+	return b.mesh()

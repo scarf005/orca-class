@@ -82,6 +82,13 @@ func _stage_vfx(world: World) -> void:
 		drone.approach_time = 99.0
 		world.add_enemy(drone)
 	world.fx.explosion(Course.ground_at(base + 22.0, 5.0) + Vector3.UP, 4.5)
+	for i in 5:
+		var barrel := Prop.new()
+		barrel.setup("barrel", PropKit.mesh("barrel", i), 0.5, 1.0, 10.0)
+		barrel.explosive = true
+		barrel.blast_size = 4.0
+		barrel.position = Course.ground_at(base + 30.0 + i * 1.2, -4.0 + (i % 2) * 1.5)
+		world.props.add_child(barrel)
 	world.fx.burn(Course.ground_at(base + 26.0, -9.0), 20.0, 1.3)
 	world.radio.emit(&"AI_REAR")
 	world.player.load_round(Armament.Round.HEAT)

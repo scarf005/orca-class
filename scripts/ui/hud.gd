@@ -14,6 +14,10 @@ var _radio_time := 0.0
 var _popups: Array[Dictionary] = []
 var _banner := ""
 var _banner_time := 0.0
+var _shout := ""
+var _shout_time := 0.0
+var _shout_total := 1.0
+var _shout_color := Palette.AMBER
 var _hint := ""
 var _hint_time := 0.0
 var _armor_shake := 0.0
@@ -36,6 +40,15 @@ func _ready() -> void:
 func banner(text: String, time := 2.6) -> void:
 	_banner = text
 	_banner_time = time
+
+
+## A huge arcade call-out that slams onto the screen (weapon pickups, mission start and clear).
+func shout(text: String, color := Palette.AMBER, time := 1.4) -> void:
+	_shout = text
+	_shout_color = color
+	_shout_time = time
+	_shout_total = time
+	Sfx.ui("shout")
 
 
 func hint(text: String, time := 4.0) -> void:
@@ -62,17 +75,19 @@ func _on_scored(points: int, position: Vector3, combo: int) -> void:
 
 
 func _on_pickup(id: String) -> void:
-	var name := tr("PICKUP_" + id.to_upper())
+	var name := tr("PICKUP_" + id.to_upper()) + "!!"
+	if id == "coax":
+		name = _coax_label() + "!!"
+	var color := Palette.AMBER
 	if Armament.round_from_id(id) != Armament.Round.APHE:
-		name += " ×%d" % world.player.round_count
-	elif id == "coax":
-		name = tr("PICKUP_COAX") + " " + _coax_label()
-	banner(name, 1.6)
+		color = Armament.ROUND_COLORS[Armament.round_from_id(id)]
+	shout(name, color)
 
 
 func _process(delta: float) -> void:
 	_time += delta
 	_banner_time -= delta
+	_shout_time -= delta
 	_hint_time -= delta
 	_radio_time -= delta
 	if _radio_time <= 0.0 and not _radio_queue.is_empty():
@@ -106,6 +121,7 @@ func _draw() -> void:
 	_draw_boss()
 	_draw_radio()
 	_draw_banner()
+	_draw_shout()
 
 
 func _text(pos: Vector2, text: String, color: Color, size := 12, align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0) -> void:
@@ -351,6 +367,20 @@ func _draw_radio() -> void:
 		draw_rect(Rect2(origin + Vector2(8 + i * 3, 19 - h * 0.5), Vector2(2, h)), accent)
 	var caret := "_" if fmod(_time, 0.5) < 0.25 else ""
 	_text(origin + Vector2(40, 23), text.substr(0, shown) + caret, Palette.PEACH if warning else Palette.CREAM, 12, HORIZONTAL_ALIGNMENT_LEFT, 322)
+
+
+func _draw_shout() -> void:
+	if _shout_time <= 0.0:
+		return
+	var age := _shout_total - _shout_time
+	var punch := 1.0 + maxf(0.0, 0.15 - age) * 8.0
+	var size := int(48 * punch)
+	var w := font.get_string_size(_shout, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	var at := Vector2(480 - w * 0.5, 210) + Vector2(randf_range(-3, 3), randf_range(-3, 3)) * clampf(1.0 - age * 3.0, 0.0, 1.0)
+	var color := _shout_color if fmod(_time, 0.12) < 0.08 else Palette.WHITE
+	for offset: Vector2 in [Vector2(-3, 0), Vector2(3, 0), Vector2(0, -3), Vector2(0, 4), Vector2(3, 4)]:
+		draw_string(font, at + offset, _shout, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Palette.INK)
+	draw_string(font, at, _shout, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(color, clampf(_shout_time * 4.0, 0.0, 1.0)))
 
 
 func _draw_banner() -> void:

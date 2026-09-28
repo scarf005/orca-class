@@ -28,6 +28,7 @@ var disarmed := false
 
 func _init() -> void:
 	super()
+	wreck_on_death = true
 	max_hp = 90.0
 	hp = 90.0
 	radius = 1.8

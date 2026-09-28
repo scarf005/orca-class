@@ -14,6 +14,7 @@ var stagger := 0.0
 var burning := 0.0
 var can_stagger := true
 var despawn_behind := 30.0 ## Removed once this far behind the rail; 0 keeps it.
+var wreck_on_death := false ## Vehicles: the hull is blown into the air and blows up again on landing.
 var model := Node3D.new()
 var age := 0.0
 var _last_position := Vector3.ZERO
@@ -127,8 +128,16 @@ func despawn() -> void:
 func on_death(hit: Hit) -> void:
 	var world := World.current
 	var center := hit_center()
-	world.fx.explosion(center, death_radius)
+	var by_player := hit != null and hit.by_player()
+	# The death blast hurts whatever is close, so packed enemies go up in chains.
+	var chain := Hit.new()
+	chain.source = world.player if by_player else null
+	world.blast(center, death_radius * 1.4, 35.0, Team.PLAYER if by_player else Team.NEUTRAL, chain, self, [Palette.WHITE, Palette.AMBER, Palette.HOT, Palette.CORAL])
 	world.fx.debris(center, int(4 + death_radius * 3), debris_colors, 6.0 + death_radius * 2.0, 0.25 + death_radius * 0.08)
+	world.fx.smoke_column(center, death_radius, [Palette.DUSK, Palette.INK, Palette.ASH])
+	if wreck_on_death:
+		Wreck.launch(model, center, death_radius, by_player)
+		model = Node3D.new()
 	world.award(score, center, true)
 	world.kill_style(hit, self)
 	if death_radius >= 3.0:

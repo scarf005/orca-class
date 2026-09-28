@@ -24,6 +24,7 @@ var _falling := false
 
 func _init() -> void:
 	super()
+	wreck_on_death = true
 	max_hp = 40.0
 	hp = 40.0
 	radius = 2.4
