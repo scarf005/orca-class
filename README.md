@@ -1,25 +1,20 @@
-# Hypha (균사)
+# Orca Class
 
-A Star Fox-style tank shooter in pastel ditherpunk. Drive the Orca-class, with Ha Yoon at the controls,
-through a fungus-infested, abandoned Korean farming village. Stage 1 runs from the farm road, through the village,
-branch school, reservoir and overpass, to a gunship fight below the dam. See [`GOAL.md`](GOAL.md) for the design.
+![](image.webp)
+
+1. Yet another tank shooter
+2. Yes, this is entirely vibe coded in opus 5.5
 
 ## Play
 
-Requires Godot 4.7.2 (stable).
+Needs Godot 4.7.2+ (stable)
 
 ```sh
 godot --path .
+godot --path . -- --play # skip title screen
 ```
 
-`godot --path . -- --play` skips the title screen.
-
-FPS is displayed below the score in the upper-left corner, including in menus and while paused.
-
 ### Web
-
-Install the Godot 4.7.2 export templates through **Editor → Manage Export Templates**, then export the
-[`Web` preset](export_presets.cfg) and serve it locally:
 
 ```sh
 mkdir -p builds/web
@@ -28,37 +23,11 @@ godot --headless --path . --export-release Web builds/web/index.html
 python3 tools/serve_web.py
 ```
 
-Open [the local game](http://127.0.0.1:8000) in a desktop browser with WebGL 2 and WebAssembly. Click the game
-to focus it and enable audio; keyboard, mouse and gamepad controls are the same as on desktop.
-
-The local server sends the cross-origin isolation headers required by the game's terrain worker threads.
-Use `--port 8001` to choose a different port. If a previous visit stopped at a service worker error, force-reload
-the page after starting this server.
-
-To publish, serve the entire `builds/web/` directory from an HTTPS static host, keeping the generated filenames.
-Configure `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp` on its responses,
-and serve `.wasm` files as `application/wasm`. The Web build uses the Compatibility renderer; its generated PWA
-service worker provides offline caching and a fallback for hosts without isolation headers. See
-[Godot's Web export guide](https://docs.godotengine.org/en/stable/tutorials/export/exporting_for_web.html#serving-the-files).
-
-### Controls
-
-| Action | Keyboard / mouse | Gamepad |
-| --- | --- | --- |
-| Move within the corridor | WASD | Left stick |
-| Aim turret | Mouse | Right stick (with light aim assist) |
-| Coaxial gun (hold; leads the soft-locked target) | Left mouse | RT |
-| 100 mm main gun | Right mouse | LT |
-| Boost / brake (shared meter) | Hold W / S | Left stick |
-| Dash (the tail kicks the hull that way) | Double-tap a direction | LB / RB (sideways) |
-| Pause | Esc | Start |
-
-The tail acts on its own: it snatches pickups, grabs and throws small enemies, stabs large ones and swats diving
-drones. Keyboard and mouse bindings can be changed in Settings → Controls.
+Open [the local game](http://127.0.0.1:8000) in a desktop browser with WebGL 2 and WebAssembly.
 
 ## Develop
 
-Tests (headless, deterministic frame time):
+### Run Test
 
 ```sh
 godot --headless --path . --import   # refresh the class cache after adding class_name scripts
@@ -66,9 +35,6 @@ godot --headless --fixed-fps 60 --path . -- --run=res://tests/run.gd [--only=tai
 ```
 
 The exit code is the number of failed checks.
-
-Debug room (also on the title menu), a gallery of every model and effect on a flat checkered floor (10 m squares): WASD to fly, Q/E
-down/up, Shift for speed, right-drag to look, 1–9 to jump between rows.
 
 ```sh
 godot --path . -- --debug-room
