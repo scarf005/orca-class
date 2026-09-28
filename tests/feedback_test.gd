@@ -82,3 +82,20 @@ func test_detached_wreck_does_not_keep_hit_flash() -> void:
 	enemy.take_hit(_shot(world, enemy, enemy.hp + 1.0))
 	for mesh: GeometryInstance3D in meshes:
 		check(mesh.material_overlay != Entity._flash_material, "detached wreck restores its material before the enemy stops ticking")
+
+
+func test_dash_afterimage_skips_torn_off_meshes() -> void:
+	var world := stage()
+	var tank := world.player
+	var ghosts := func() -> int:
+		var before: int = world.fx._transients.size()
+		world.fx.afterimage(tank._meshes, Color.RED)
+		return world.fx._transients.size() - before
+	var intact: int = ghosts.call()
+	check(intact > 0, "the hull leaves ghosts")
+	var torn := MeshInstance3D.new()
+	torn.mesh = BoxMesh.new()
+	tank.model.add_child(torn)
+	tank._meshes.append(torn)
+	torn.free()
+	check_eq(ghosts.call(), intact, "a freed mesh in the list is skipped, the rest still ghost")

@@ -408,8 +408,8 @@ func explosion(position: Vector3, damage_radius: float, palette := [Palette.BUTT
 
 ## A see-through copy of `meshes` where they stand now, washed in `color`, that dithers away.
 func afterimage(meshes: Array, color: Color, life := 0.45) -> void:
-	for node: Object in meshes:
-		var source := node as MeshInstance3D
+	for node in meshes:
+		var source := node as MeshInstance3D if is_instance_valid(node) else null
 		if source == null or not source.is_visible_in_tree() or source.mesh == null:
 			continue
 		var ghost := _transient(source.mesh, source.global_transform, life, true, Vector2.ONE, 0.0)
