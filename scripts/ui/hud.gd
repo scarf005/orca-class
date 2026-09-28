@@ -31,7 +31,6 @@ var _kill_marker := 0.0
 var _style_rank := 0 ## Last rank drawn, to catch rank changes.
 var _style_pop := 0.0 ## Punch on the meter after a rank up.
 var _style_drop := 0.0 ## Shudder on the meter after a rank down.
-var _rank_shout_cooldown := 0.0
 # Wireframe x-ray views of the real models.
 # Straight down, front of the tank at the top of the view.
 var _tank_view := WireView.new(Vector2i(84, 108), Vector3(0.6, 20.0, -0.6), Vector3(0.6, 0.0, -0.6), 16.0, Vector3.FORWARD)
@@ -124,19 +123,14 @@ func _on_hit_confirmed(killed: bool) -> void:
 	queue_redraw()
 
 
-## Climbing a rank punches the meter with a rising sting; S and up are shouted, but not every time
-## the meter bounces back over the line.
+## Climbing a rank punches the meter with a rising sting; the meter itself is the only call-out.
 func _update_style_rank(delta: float) -> void:
 	_style_pop = maxf(0.0, _style_pop - delta)
 	_style_drop = maxf(0.0, _style_drop - delta)
-	_rank_shout_cooldown -= delta
 	var rank := world.stats.style_rank()
 	if rank > _style_rank:
 		_style_pop = 0.35
 		Sfx.ui("combo", 4.0, 1.0 + rank * 0.12)
-		if rank >= 4 and _rank_shout_cooldown <= 0.0 and _shout_time <= 0.0:
-			shout(RunStats.STYLE_WORDS[rank] + "!!", STYLE_COLORS[rank], 1.2)
-			_rank_shout_cooldown = 8.0
 	elif rank < _style_rank:
 		_style_drop = 0.3
 	_style_rank = rank
