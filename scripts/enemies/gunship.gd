@@ -26,8 +26,9 @@ const GUN_SPEED := 180.0
 const ROCKET_SPEED := 85.0
 const ATGM_SPEED := 45.0
 const BOMB_FLIGHT := 0.9 ## Seconds from the bay to the ground for the first bomb.
-const CANNON_SPEED := 1500.0 ## The nose cannon's shells arrive almost at once, so each shot is warned first.
+const CANNON_SPEED := 450.0 ## The nose cannon's shells arrive almost at once, so each shot is warned first.
 const CANNON_AIM := 0.7 ## Seconds of warning before each cannon shot.
+const CANNON_LOCK := 0.35 ## For the last of the warning the aim holds still: move now and it misses.
 const PART_PRIORITY := 3.0 ## A module this close behind the airframe skin still takes the hit.
 const ROTORS := ["rotor_l", "rotor_r"]
 const ROTOR_RADIUS := 8.5
@@ -63,6 +64,7 @@ var _flare_cooldown := 0.0
 var _spore_timer := 0.0
 var _crash := 0.0
 var _crash_from := Vector3.ZERO
+var _cannon_aim := Vector3.ZERO ## Where the nose cannon's next shell is locked to go.
 var _hard := false
 var _rotor_sound: AudioStreamPlayer3D
 var _jitter := Vector3.ZERO
@@ -160,7 +162,7 @@ func build() -> void:
 	# Shoulder gatling turrets: four barrels each on a ball mount.
 	for side in [-1.0, 1.0]:
 		var turret := Node3D.new()
-		turret.position = Vector3(side * 2.2, 1.9, -3.4)
+		turret.position = Vector3(side * 6.4, -2.4, -0.6) # Slung under the rocket rack.
 		model.add_child(turret)
 		var t := LowPoly.new()
 		t.blob(Transform3D(), 0.75, Palette.STONE, 1, 0.0, 3)
@@ -788,14 +790,22 @@ func _cannon(delta: float, tank: Tank) -> void:
 	if _shots > index:
 		return
 	var aiming := _attack_time - index * cycle
-	var lead := tank.hit_center() + tank.velocity * (muzzle.distance_to(tank.hit_center()) / CANNON_SPEED)
-	if aiming < CANNON_AIM:
+	if aiming < CANNON_AIM - CANNON_LOCK:
+		# Tracking: a flickering sight line follows the tank.
+		_cannon_aim = tank.hit_center() + tank.velocity * (muzzle.distance_to(tank.hit_center()) / CANNON_SPEED)
 		if aiming < delta:
 			Sfx.play("lock", muzzle, 4.0, 1.3)
 		if fmod(aiming, 0.1) < 0.06:
-			world.fx.beam(muzzle, lead, Palette.HOT, 0.06 + aiming * 0.15, 0.05)
+			world.fx.beam(muzzle, _cannon_aim, Palette.HOT, 0.06 + aiming * 0.15, 0.05)
+	if aiming < CANNON_AIM:
+		if aiming >= CANNON_AIM - CANNON_LOCK:
+			# Locked: the line goes solid and stops following. This is the moment to dash.
+			if aiming - delta < CANNON_AIM - CANNON_LOCK:
+				Sfx.play("warn", muzzle, 4.0, 1.6)
+			world.fx.beam(muzzle, _cannon_aim, Palette.HOT, 0.2, 0.03)
 		world.fx.spawn(Fx.Kind.FLAME, muzzle, Vector3.ZERO, 0.06, 0.3 + aiming * 1.2, Palette.HOT)
 		return
+	var lead := _cannon_aim
 	_shots += 1
 	var shell := fire_at("shell", muzzle, lead, CANNON_SPEED, 0.0)
 	shell.hit = Hit.make(Hit.Kind.SHELL, 10.0, muzzle)
