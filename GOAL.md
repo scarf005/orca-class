@@ -18,8 +18,10 @@ The bar: intense, fun, readable, and "one more run" addictive. It must feel hand
 
 ## Core loop and camera
 
-- Star Fox-style **on-rails stage**: the stage scrolls forward along a hand-authored path. The camera sits behind and
-  above the tank; the tank moves freely within the corridor, left/right and forward/back relative to the rail.
+- Star Fox-style **on-rails stage**: the stage scrolls forward at 80 km/h along a hand-authored road that winds
+  through real bends (straights and arcs laid out by arc length). The camera sits high behind the tank so the
+  whole corridor reads; the tank strafes fast enough to dodge boss fire, left/right and forward/back relative to
+  the rail.
 - Throttle control, like Star Fox boost and brake: **overdrive** (surge forward, dodge through danger) and
   **brake** (hold ground, let enemies cross the sights). Both share a heat/capacitor meter.
 - The turret aims independently of the hull. A 3D reticle follows the mouse or right stick, ranging to terrain and
@@ -156,11 +158,16 @@ Each enemy has a distinct silhouette, a clear telegraph before it attacks, a sat
 ### Boss: attack helicopter
 
 A tandem-seat gunship that has been partly overtaken by mycelium, with a chin cannon, rocket pods, ATGMs and
-flares. It fights in three phases, each with new patterns and visible damage:
+flares. It is modular, like the tank: ERA plates on the nose and both flanks pop when a shell hits them; a shell
+on bare airframe (a stripped facing, the top, the belly, the tail boom) takes a quarter of its hull, so four clean
+cannon hits bring it down. Its engines, tail rotor, chin gun and rocket pods can each be shot out: that silences
+the attack, sends it spinning without anti-torque, or drops it with both engines gone. The mid-boss follows the
+same rule: one shell pops a cap or a node, four take the core. It fights in three phases, each with new patterns
+and visible damage:
 
 1. **Hunter:** circles at range, strafes with its chin gun, and fires rocket volleys that test the CIWS heat limit.
-2. **Stripped:** once its armor panels and pods are shot off (HEAT, airburst), it closes in, pops flares to spoof,
-   fires ATGMs, and calls in FPV drones.
+2. **Stripped:** at half hull (or once every plate is gone) it closes in, pops flares to spoof, fires ATGMs, and
+   calls in FPV drones.
 3. **Infected:** the fungus takes over. The rotor sheds spores and the attacks become erratic and desperate. It
    finishes with a burning crash into the dam.
 
@@ -196,8 +203,10 @@ smoke, lingering smoke columns and burning wrecks.
 Destruction is the point, as in ULTRAKILL and Metal Slug: destroyed vehicles are blown into the air spinning and
 blow up again where they land; every death blast hurts what is packed around it, so kills chain; explosive drums
 and gas stations line the road; swarm enemies come in large numbers; weapon pickups and mission start and clear
-are announced with huge arcade call-outs. Projectiles use saturated accent colors with ink outlines so they cut
-through the pastel scene. A style meter ranks play from D to SSS and multiplies score:
+are announced with huge arcade call-outs. Blasts, debris and wrecks carry on along the attack that caused them;
+turrets blow off and cartwheel away. A strict color language makes sides readable at a glance: the tank's fire
+is warm yellow, every enemy shot and the rim on every enemy is hot pink-red, and loot is cyan (a beacon pillar and
+ring). Projectiles use these saturated accents with ink outlines so they cut through the pastel scene. A style meter ranks play from D to SSS and multiplies score:
 
 - Kills are named by how they happened (crushed, tail whip, thrown, burned, airburst, sky shot, collateral from a
   wreck the tank set off, multikill, deflect, demolition, close call). Repeating the same trick earns less.
