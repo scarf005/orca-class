@@ -6,10 +6,10 @@ extends Enemy
 
 const KEEP_AHEAD := 55.0
 const PACE_TIME := 16.0
-const LEG_HP := 45.0
+const LEG_HP := 8.0
 
 var weapon := "flak" ## "flak" or "mortar".
-var turret_hp := 60.0
+var turret_hp := 10.0
 var disarmed := false
 var _lane := 0.0
 var _lane_timer := 0.0
@@ -29,11 +29,11 @@ var _hard := false
 func _init() -> void:
 	super()
 	wreck_on_death = true
-	max_hp = 200.0
-	hp = 200.0
+	max_hp = 24.0
+	hp = 24.0
 	radius = 2.6
 	center_height = 2.6
-	armor = 0.8
+	armor = 0.0
 	stabbable = true
 	score = 900
 	death_radius = 4.0

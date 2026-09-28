@@ -23,8 +23,8 @@ var _phase := randf() * TAU
 
 func _init() -> void:
 	super()
-	max_hp = 6.0
-	hp = 6.0
+	max_hp = 4.0
+	hp = 4.0
 	radius = 0.9
 	flying = true
 	interceptable = true

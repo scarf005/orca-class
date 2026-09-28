@@ -20,8 +20,8 @@ var _eye: MeshInstance3D
 var _eye_material := StandardMaterial3D.new()
 var _hard := false
 ## Modules: a tracked hit immobilizes it, a turret hit disarms it; the hull still has to die.
-var tracks_hp := 30.0
-var weapon_hp := 25.0
+var tracks_hp := 6.0
+var weapon_hp := 5.0
 var immobile := false
 var disarmed := false
 
@@ -29,11 +29,11 @@ var disarmed := false
 func _init() -> void:
 	super()
 	wreck_on_death = true
-	max_hp = 90.0
-	hp = 90.0
+	max_hp = 16.0
+	hp = 16.0
 	radius = 1.8
 	center_height = 1.0
-	armor = 0.75
+	armor = 0.0
 	grabbable = true
 	score = 400
 	death_radius = 3.0
@@ -45,9 +45,9 @@ func build() -> void:
 	pop_parts = [_turret]
 	_hard = Game.difficulty == Game.Difficulty.HARD
 	if weapon == "atgm":
-		max_hp = 80.0
+		max_hp = 16.0
 	elif weapon == "supply":
-		max_hp = 60.0
+		max_hp = 12.0
 		score = 300
 	hp = max_hp
 	var b := LowPoly.new()

@@ -14,8 +14,8 @@ var _hard := false
 
 func _init() -> void:
 	super()
-	max_hp = 60.0
-	hp = 60.0
+	max_hp = 14.0
+	hp = 14.0
 	radius = 1.6
 	center_height = 2.4
 	stabbable = true

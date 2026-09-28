@@ -24,15 +24,15 @@ var _strafe_point := Vector3.ZERO
 var _strafe_step := Vector3.ZERO
 var _prop: Node3D
 var _sound: AudioStreamPlayer3D
-var engine_hp := 18.0 ## A hit on the pusher engine sends it gliding into the ground.
+var engine_hp := 5.0 ## A hit on the pusher engine sends it gliding into the ground.
 var _falling := false
 
 
 func _init() -> void:
 	super()
 	wreck_on_death = true
-	max_hp = 40.0
-	hp = 40.0
+	max_hp = 12.0
+	hp = 12.0
 	radius = 2.4
 	flying = true
 	score = 500

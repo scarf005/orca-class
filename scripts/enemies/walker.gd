@@ -9,7 +9,7 @@ const PACE_TIME := 14.0
 const SKATE_SPEED := 18.0
 
 var weapon := "gun" ## "gun" or "missile".
-var legs_hp := 30.0
+var legs_hp := 8.0
 var crippled := false
 var _lane := 0.0
 var _lane_timer := 0.0
@@ -30,11 +30,11 @@ var _hard := false
 func _init() -> void:
 	super()
 	wreck_on_death = true
-	max_hp = 70.0
-	hp = 70.0
+	max_hp = 16.0
+	hp = 16.0
 	radius = 1.6
 	center_height = 2.6
-	armor = 0.5
+	armor = 0.0
 	grabbable = true
 	score = 450
 	death_radius = 2.6

@@ -18,8 +18,8 @@ var _phase := randf() * TAU
 
 func _init() -> void:
 	super()
-	max_hp = 14.0
-	hp = 14.0
+	max_hp = 8.0
+	hp = 8.0
 	radius = 1.0
 	center_height = 0.8
 	grabbable = true
