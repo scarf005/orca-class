@@ -175,6 +175,9 @@ func on_death(hit: Hit) -> void:
 	var remains := rubble_mesh != null and not overkilled
 	world.fx.shatter(visual_bounds(), debris, push * (2.0 if rammed else 1.0), 0.35 if remains else 1.0)
 	world.fx.dust(global_position, int(clampf(footprint * 3.0, 3, 14)), footprint, Palette.MIST)
+	# Whatever breaks catches fire and smokes, a big building for longer and thicker.
+	world.fx.smoke_column(center, footprint * 0.8, [Palette.ASH, Palette.STONE, Palette.DUSK])
+	world.fx.burn(global_position, 2.0 + footprint * 1.5, clampf(footprint * 0.45, 0.4, 2.0))
 	Sfx.play("rubble" if footprint > 1.5 else "wood", global_position)
 	if footprint > 2.5:
 		world.shake(0.25, global_position)

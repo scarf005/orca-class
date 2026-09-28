@@ -20,6 +20,7 @@ var model := Node3D.new()
 var age := 0.0
 var _last_position := Vector3.ZERO
 var _burn_tick := 0.0
+var _smoke_tick := 0.0
 
 
 func _init() -> void:
@@ -56,12 +57,30 @@ func tick(delta: float) -> void:
 	var jitter := Vector3(randf_range(-1, 1), randf_range(-0.5, 1), randf_range(-1, 1)) * _shudder * 1.6
 	model.position = model.position.lerp(Vector3.ZERO, 1.0 - exp(-22.0 * delta)) + jitter
 	behave(delta)
+	_show_damage(delta)
 	velocity = (global_position - _last_position) / maxf(delta, 0.0001)
 	_last_position = global_position
 	if despawn_behind > 0.0:
 		var world := World.current
 		if world.rail.mode != Rail.Mode.ARENA and Course.to_course(global_position).x < world.rail.d - despawn_behind:
 			despawn()
+
+
+## A hurt machine smokes, and a badly hurt one burns: the worse the damage, the thicker it gets.
+func _show_damage(delta: float) -> void:
+	var hurt := 1.0 - hp / maxf(max_hp, 0.001)
+	if hurt < 0.2:
+		return
+	_smoke_tick -= delta
+	if _smoke_tick > 0.0:
+		return
+	_smoke_tick = lerpf(0.2, 0.05, hurt)
+	var fx := World.current.fx
+	var at := hit_center() + Vector3(randf_range(-1, 1), randf_range(0, 0.6), randf_range(-1, 1)) * radius * 0.5
+	var size := 0.4 + radius * 0.3
+	fx.spawn(Fx.Kind.GLOW, at, Vector3(randf_range(-0.5, 0.5), randf_range(2.0, 3.5), randf_range(-0.5, 0.5)), randf_range(1.0, 1.8), size, [Palette.ASH, Palette.STONE, Palette.DUSK][randi() % 3], {"end_size": size * 3.0, "drag": 0.8, "fade": 0.3})
+	if hurt > 0.5:
+		fx.spawn(Fx.Kind.FLAME, at, Vector3(0, randf_range(2.0, 4.0), 0), randf_range(0.25, 0.5), size * 0.8, [Palette.BUTTER, Palette.AMBER, Palette.CORAL][randi() % 3], {"drag": 1.0})
 
 
 ## Per-frame AI for subclasses. Not called while dead.
