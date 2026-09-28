@@ -70,7 +70,8 @@ Generated content:
 - `scripts/core`: palette, flat-shaded mesh builder, dither view, settings and audio autoloads.
 - `scripts/world`: course geography, terrain streaming, scenery, stage script and director, rail and camera.
 - `scripts/player`: the tank, its model, weapons data and tail.
-- `scripts/enemies`: FPV drones, UGVs, UAVs, crawlers, spitters, the colossus mid-boss and the helicopter boss.
+- `scripts/enemies`: FPV drones, UGVs, UAVs, attack helicopters, crawlers, spitters, the colossus mid-boss and the
+  twin-rotor gunship boss.
 - `scripts/combat`: hits, entities, projectiles, pickups, hazards and effects.
 - `scripts/ui`: HUD, menus, title, results.
 

@@ -88,7 +88,7 @@ CALLOUT_INTERCEPT,요격!,INTERCEPT!
 CALLOUT_INCOMING,접근!,INCOMING!
 SPEAKER_AI,범고래급 전투 보조,ORCA COMBAT ASSIST
 BOSS_COLOSSUS,균사 거인,HYPHAL COLOSSUS
-BOSS_HELICOPTER,감염된 공격헬기,INFECTED GUNSHIP
+BOSS_GUNSHIP,감염된 대형 건십,INFECTED HEAVY GUNSHIP
 HINT_CONTROLS,"WASD 이동 (W/S 가속·감속, 두 번: 대시) · 좌클릭 기관총 · 우클릭 주포","WASD MOVE (W/S BOOST, BRAKE, DOUBLE-TAP: DASH) · LMB COAX · RMB MAIN GUN"
 HINT_TAIL,"꼬리는 알아서 아이템을 낚아채고, 가까운 적을 찌르고 쳐냅니다",THE TAIL SNATCHES PICKUPS AND STABS AND SWATS NEARBY ENEMIES ON ITS OWN
 HINT_ANCHOR,방향키 두 번: 꼬리로 땅을 차고 그 방향으로 급가속,DOUBLE-TAP A DIRECTION: THE TAIL KICKS OFF AND THE HULL DASHES THAT WAY
@@ -120,8 +120,8 @@ AI_BIO_DOWN,생체 반응 소멸.,Biosignature terminated.
 AI_REEDS,갈대 지대에 열원 다수.,Multiple heat sources in the reeds.
 AI_STORM,포자 폭풍. 광학 효율 저하.,Spore storm. Optical efficiency degraded.
 AI_AREA_CLEAR,주변 위협 없음.,No threats in range.
-AI_ROTOR,경고: 회전익 공격기 접근.,Warning: rotary-wing gunship inbound.
-AI_BOSS,대상: 감염 공격헬기. 무장 식별 중.,Target: infected gunship. Identifying armament.
+AI_ROTOR,경고: 쌍로터 대형 건십 접근.,Warning: heavy twin-rotor gunship inbound.
+AI_BOSS,대상: 감염 건십. 양 날개 로터를 노리십시오.,Target: infected gunship. Aim for the wing rotors.
 AI_BOSS_PHASE2,대상 장갑판 이탈. 근접 기동.,Target armor shed. Closing distance.
 AI_BOSS_PHASE3,대상 생체 전환 감지. 거동 예측 불가.,Target bio-conversion detected. Behavior unpredictable.
 AI_CLEAR,위협 소멸. 작전 구역 확보.,Threats neutralized. Area secured.

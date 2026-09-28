@@ -64,3 +64,58 @@ func test_laser_kills_are_announced() -> void:
 
 func test_full_screen_scales_without_whole_number_letterboxing() -> void:
 	check(ProjectSettings.get_setting("display/window/stretch/scale_mode") == "fractional", "the canvas scales to fill the screen")
+
+
+func test_helicopter_waves_and_gunship_boss_on_both_difficulties() -> void:
+	for hard in [false, true]:
+		var events := Stage1.events(hard)
+		var waves := events.filter(func(e: Dictionary) -> bool: return e.type == "wave" and e.kind == "helicopter")
+		for section in [Course.Section.VILLAGE, Course.Section.RESERVOIR, Course.Section.OVERPASS]:
+			check(waves.any(func(e: Dictionary) -> bool: return Course.section_at(e.d) == section), "helicopters patrol section %d" % section)
+		var bosses := events.filter(func(e: Dictionary) -> bool: return e.type == "boss")
+		check_eq(bosses.size(), 1, "stage has one final boss")
+		check_eq(bosses[0].kind, "gunship", "stage ends with the new gunship")
+
+
+func test_ordinary_helicopter_dies_to_five_basic_coax_hits() -> void:
+	var world := stage()
+	var spawned := world.director.spawn_wave({"d": 0.0, "kind": "helicopter", "height": 14.0, "ahead": 100.0})
+	var heli := spawned[0] as Helicopter
+	check(world.boss == null, "helicopter wave does not claim the boss bar")
+	check_eq(world.rail.mode, Rail.Mode.RAIL, "ordinary helicopter does not start the arena")
+	var tail := heli.model.to_global(Vector3(0, 1.4, 7.6))
+	check(heli.hit_test(tail + Vector3.LEFT * 3.0, tail + Vector3.RIGHT * 3.0) >= 0.0, "the long tail remains hittable")
+	var hit := Hit.make(Hit.Kind.BULLET, Armament.GUNS[8].damage, heli.hit_center())
+	hit.caliber = 8
+	hit.source = world.player
+	for i in 4:
+		heli.take_hit(hit)
+	check(not heli.dead, "helicopter survives four basic bullets")
+	heli.take_hit(hit)
+	check(heli.dead, "fifth basic bullet destroys it")
+	check_eq(world.stats.kills, 1, "ordinary helicopter counts as a normal kill")
+	check_eq(world.rail.mode, Rail.Mode.RAIL, "ordinary kill keeps the stage scrolling")
+
+
+func test_helicopter_telegraphs_bursts_and_cleans_up() -> void:
+	var world := stage()
+	var heli := Helicopter.new()
+	heli.position = Course.ground_at(55.0, 0.0) + Vector3.UP * 13.0
+	world.add_enemy(heli)
+	heli._attack_timer = 0.0
+	heli.behave(0.01)
+	check(heli._telegraph > 0.0, "attack starts with a telegraph")
+	check_eq(world.projectiles.size(), 0, "telegraph does not deal damage")
+	heli.behave(0.81)
+	heli.behave(0.01)
+	check_eq(world.projectiles.size(), 1, "telegraphed gun burst fires")
+	heli._rockets = true
+	heli._fire(world.player)
+	var rocket := world.projectiles.back() as Projectile
+	check(rocket.interceptable and rocket.blast_damage > 0.0, "rocket can be intercepted and has a warhead")
+	heli.interrupt()
+	check_eq(heli._burst, 0, "interrupt cancels the burst")
+	heli.age = Helicopter.PACE_TIME + 13.0
+	heli.behave(0.01)
+	check(heli.dead and heli not in world.enemies, "surviving helicopter eventually leaves and unregisters")
+	check_eq(world.stats.kills, 0, "leaving is not a player kill")

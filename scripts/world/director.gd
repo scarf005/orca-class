@@ -19,6 +19,7 @@ const ENEMY_SCRIPTS := {
 	"quad": "res://scripts/enemies/quad_mech.gd",
 	"colossus": "res://scripts/enemies/colossus.gd",
 	"helicopter": "res://scripts/enemies/helicopter.gd",
+	"gunship": "res://scripts/enemies/gunship.gd",
 }
 
 ## Swarm enemies come in bigger numbers than the stage script lists: mayhem needs fodder.

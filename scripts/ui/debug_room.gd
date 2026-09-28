@@ -106,12 +106,12 @@ func _build_tanks(d: float) -> void:
 
 func _build_enemies(d: float) -> void:
 	_row_title(1)
-	var kinds := [["FPV", "fpv", {}], ["UGV GUN", "ugv", {"weapon": "gun"}], ["UGV ATGM", "ugv", {"weapon": "atgm"}], ["UGV SUPPLY", "ugv", {"weapon": "supply"}], ["UAV", "uav", {}], ["CRAWLER", "crawler", {}], ["SPITTER", "spitter", {}], ["WALKER GUN", "walker", {"weapon": "gun"}], ["WALKER MISSILE", "walker", {"weapon": "missile"}], ["QUAD FLAK", "quad", {"weapon": "flak"}], ["QUAD MORTAR", "quad", {"weapon": "mortar"}]]
+	var kinds := [["FPV", "fpv", {}], ["UGV GUN", "ugv", {"weapon": "gun"}], ["UGV ATGM", "ugv", {"weapon": "atgm"}], ["UGV SUPPLY", "ugv", {"weapon": "supply"}], ["UAV", "uav", {}], ["HELICOPTER", "helicopter", {}], ["CRAWLER", "crawler", {}], ["SPITTER", "spitter", {}], ["WALKER GUN", "walker", {"weapon": "gun"}], ["WALKER MISSILE", "walker", {"weapon": "missile"}], ["QUAD FLAK", "quad", {"weapon": "flak"}], ["QUAD MORTAR", "quad", {"weapon": "mortar"}]]
 	for i in kinds.size():
 		var enemy: Enemy = load(Director.ENEMY_SCRIPTS[kinds[i][1]]).new()
 		for key in kinds[i][2]:
 			enemy.set(key, kinds[i][2][key])
-		var at := _slot(d, i, kinds.size(), 8.5)
+		var at := _slot(d, i, kinds.size(), 12.0)
 		_pose(enemy, at + (Vector3.UP * 3.0 if enemy.flying else Vector3.ZERO))
 		_label(kinds[i][0], at + Vector3.UP * 6.0)
 
@@ -121,9 +121,9 @@ func _build_bosses(d: float) -> void:
 	var colossus: Enemy = load(Director.ENEMY_SCRIPTS["colossus"]).new()
 	_pose(colossus, _slot(d, 0, 2, 40.0))
 	_label("COLOSSUS", colossus.global_position + Vector3.UP * 16.0)
-	var heli: Enemy = load(Director.ENEMY_SCRIPTS["helicopter"]).new()
-	_pose(heli, _slot(d, 1, 2, 40.0) + Vector3.UP * 5.0)
-	_label("GUNSHIP", heli.global_position + Vector3.UP * 6.0)
+	var gunship: Enemy = load(Director.ENEMY_SCRIPTS["gunship"]).new()
+	_pose(gunship, _slot(d, 1, 2, 40.0) + Vector3.UP * 5.0)
+	_label("GUNSHIP", gunship.global_position + Vector3.UP * 7.0)
 
 
 ## Enemies are posed, not run: no AI, movement or attacks.

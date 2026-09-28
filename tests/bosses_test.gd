@@ -1,5 +1,5 @@
 extends TestCase
-## Mid-boss caps/core and the helicopter's phases and crash.
+## Mid-boss caps/core and the gunship's phases and crash.
 
 
 func _colossus(world: World) -> Colossus:
@@ -66,9 +66,9 @@ func test_colossus_heat_interrupts_sweep() -> void:
 	check_eq(boss._attack, Colossus.Attack.NONE, "heavy stagger cancels a telegraphed sweep")
 
 
-func _helicopter(world: World) -> Helicopter:
-	world.director._start_boss({"kind": "helicopter"})
-	var boss := world.boss as Helicopter
+func _gunship(world: World) -> Gunship:
+	world.director._start_boss({"kind": "gunship"})
+	var boss := world.boss as Gunship
 	boss._next_attack = 1000.0
 	return boss
 
@@ -80,68 +80,126 @@ func _shell(at: Vector3, direction := Vector3.FORWARD) -> Hit:
 
 
 ## A world point on the airframe at a model-local spot.
-func _on(boss: Helicopter, local: Vector3) -> Vector3:
+func _on(boss: Gunship, local: Vector3) -> Vector3:
 	return boss.model.global_transform * local
 
 
-func test_helicopter_era_eats_a_shell_then_bare_hull_takes_a_quarter() -> void:
+func test_gunship_era_eats_a_shell_then_bare_hull_takes_a_third() -> void:
 	var world := stage("boss")
-	var boss := _helicopter(world)
-	var flank := Vector3(-0.8, 0.0, 0.8)
+	var boss := _gunship(world)
+	var flank := Vector3(-2.8, 0.0, 0.8)
 	boss.take_hit(_shell(_on(boss, flank)))
-	check_near(boss.hp, boss.max_hp * (1.0 - Helicopter.PLATED_SHARE), 0.5, "a plated flank only loses the plate")
+	check_near(boss.hp, boss.max_hp * (1.0 - Gunship.PLATED_SHARE), 0.5, "a plated flank only loses the plate")
 	check(not boss._live("era_left"), "the shell pops the left plate")
 	check(boss._live("era_right") and boss._live("era_front"), "other plates hold")
 	boss.take_hit(_shell(_on(boss, flank)))
-	check_near(boss.hp, boss.max_hp * (1.0 - Helicopter.PLATED_SHARE - Helicopter.CANNON_SHARE), 0.5, "the bared flank takes a quarter")
+	check_near(boss.hp, boss.max_hp * (1.0 - Gunship.PLATED_SHARE - Gunship.CANNON_SHARE), 0.5, "the bared flank takes a third")
 	var hp := boss.hp
-	boss.take_hit(_shell(_on(boss, Vector3(0, 0.3, 4.5))))
-	check_near(hp - boss.hp, boss.max_hp * Helicopter.CANNON_SHARE, 0.5, "the tail boom was never plated")
-	var coax := Hit.make(Hit.Kind.BULLET, 10.0, _on(boss, Vector3(0, 0.3, 4.5)))
+	boss.take_hit(_shell(_on(boss, Vector3(0, 0.3, 7.0))))
+	check_near(hp - boss.hp, boss.max_hp * Gunship.CANNON_SHARE, 0.5, "the tail boom was never plated")
+	var coax := Hit.make(Hit.Kind.BULLET, 10.0, _on(boss, Vector3(0, 0.3, 7.0)))
 	coax.caliber = 20
 	hp = boss.hp
 	boss.take_hit(coax)
 	check(hp - boss.hp < boss.max_hp * 0.01, "machine guns only scratch it")
 
 
-func test_helicopter_three_bare_shells_bring_it_down() -> void:
+func test_gunship_three_bare_shells_bring_it_down() -> void:
 	var world := stage("boss")
-	var boss := _helicopter(world)
+	var boss := _gunship(world)
 	for i in 3:
 		check(boss._crash <= 0.0, "still flying before shell %d" % (i + 1))
-		boss.take_hit(_shell(_on(boss, Vector3(0, 0.3, 4.5))))
+		boss.take_hit(_shell(_on(boss, Vector3(0, 0.3, 7.0))))
 	check(boss._crash > 0.0, "three shells on bare airframe start the crash")
 
 
-func test_helicopter_phases_follow_hull() -> void:
+func test_gunship_phases_follow_hull() -> void:
 	var world := stage("boss")
-	var boss := _helicopter(world)
-	boss.take_hit(_shell(_on(boss, Vector3(0, 0.3, 4.5))))
-	check_eq(boss.phase, Helicopter.Phase.STRIPPED, "a third of its hull gone: it closes in")
-	boss.take_hit(_shell(_on(boss, Vector3(0, 0.3, 4.5))))
-	check_eq(boss.phase, Helicopter.Phase.INFECTED, "one shell from death: it turns")
+	var boss := _gunship(world)
+	boss.take_hit(_shell(_on(boss, Vector3(0, 0.3, 7.0))))
+	check_eq(boss.phase, Gunship.Phase.STRIPPED, "a third of its hull gone: it closes in")
+	boss.take_hit(_shell(_on(boss, Vector3(0, 0.3, 7.0))))
+	check_eq(boss.phase, Gunship.Phase.INFECTED, "one shell from death: it turns")
 
 
-func test_helicopter_modules_change_the_fight() -> void:
+func test_gunship_modules_change_the_fight() -> void:
 	var world := stage("boss")
-	var boss := _helicopter(world)
+	var boss := _gunship(world)
 	boss.take_hit(_shell(_on(boss, boss.parts.chin.offset)))
 	check(not boss._live("chin"), "a shell wrecks the chin gun")
 	for i in 30:
 		boss._choose_attack()
-		check(boss._attack != Helicopter.Attack.GUN, "no gun runs without the chin gun")
+		check(boss._attack != Gunship.Attack.GUN, "no gun runs without the chin gun")
 		boss._end_attack()
-	boss.take_hit(_shell(_on(boss, boss.parts.tail_rotor.offset)))
-	check(not boss._live("tail_rotor"), "a shell wrecks the tail rotor")
-	var yaw := boss.model.rotation.y
+	boss._attack = Gunship.Attack.ROCKETS
+	boss._lose_part(boss.parts.pod_l)
+	boss._lose_part(boss.parts.pod_r)
+	check_eq(boss._attack, Gunship.Attack.NONE, "losing both racks stops an active rocket volley")
+	var shots := world.projectiles.size()
+	boss._rockets(1.0, world.player)
+	check_eq(world.projectiles.size(), shots, "destroyed racks cannot fire")
+	boss.phase = Gunship.Phase.INFECTED
+	for i in 30:
+		boss._choose_attack()
+		check(boss._attack not in [Gunship.Attack.GUN, Gunship.Attack.ROCKETS], "infected attack choices also respect destroyed weapons")
+		boss._end_attack()
+
+
+func test_gunship_rotors_are_independent_and_both_lost_crash() -> void:
+	var world := stage("boss")
+	var boss := _gunship(world)
+	var events: Array[bool] = []
+	world.hit_confirmed.connect(func(killed: bool) -> void: events.append(killed))
+	var hit := _shell(_on(boss, boss.parts.rotor_l.offset))
+	hit.source = world.player
+	boss.take_hit(hit)
+	check(not boss._live("rotor_l") and boss._live("rotor_r"), "the left rotor can be destroyed independently")
+	check(boss._crash <= 0.0, "one rotor keeps it flying")
+	check_eq(events, [false], "one lost rotor confirms a hit, not a kill")
 	boss.stagger = 0.0
+	boss._velocity = Vector3.ZERO
 	boss.behave(0.1)
-	check(absf(boss.model.rotation.y - yaw) > 0.2, "without a tail rotor it spins")
-	boss.hp = boss.max_hp
-	boss.take_hit(_shell(_on(boss, boss.parts.engine_l.offset)))
-	check(boss._crash <= 0.0, "one engine keeps it up")
-	boss.take_hit(_shell(_on(boss, boss.parts.engine_r.offset)))
-	check(boss._crash > 0.0, "losing both engines drops it")
+	check(boss.model.rotation.z > 0.0, "the gunship banks toward its lost left rotor")
+	hit = _shell(_on(boss, boss.parts.rotor_r.offset))
+	hit.source = world.player
+	boss.take_hit(hit)
+	check(boss._crash > 0.0, "losing both rotors starts the crash while hull would survive")
+	check_eq(events, [false, true], "the second rotor confirms the kill immediately")
+	boss.take_hit(hit)
+	check_eq(events.size(), 2, "crashing wreck does not confirm further hits")
+
+
+func test_gunship_rotor_blades_can_be_shot_and_destroyed_blades_do_not_block() -> void:
+	var world := stage("boss")
+	var boss := _gunship(world)
+	# Outboard blade tip is beyond the nacelle and missile rack hit spheres.
+	var tip: Vector3 = boss.parts.rotor_l.offset + Vector3(-4.5, Gunship.ROTOR_HEIGHT, 0)
+	var from := _on(boss, tip + Vector3.UP * 5.0)
+	var to := _on(boss, tip + Vector3.DOWN * 5.0)
+	var distance := boss.hit_test(from, to)
+	check(distance >= 0.0, "shots can hit the thin swept rotor disc")
+	var point := from + (to - from).normalized() * distance
+	check_eq(boss._struck_part(point), boss.parts.rotor_l, "blade impact damages its rotor module")
+	boss.take_hit(_shell(point, Vector3.DOWN))
+	from = _on(boss, tip + Vector3.UP * 5.0)
+	to = _on(boss, tip + Vector3.DOWN * 5.0)
+	check_eq(boss.hit_test(from, to), -1.0, "destroyed outboard rotor no longer blocks shots")
+	check(boss._live("rotor_r"), "opposite rotor is unaffected")
+
+
+func test_gunship_ignores_zero_damage_and_invulnerable_hits() -> void:
+	var world := stage("boss")
+	var boss := _gunship(world)
+	var hit := _shell(_on(boss, boss.parts.rotor_l.offset))
+	hit.damage = 0.0
+	boss.take_hit(hit)
+	check_eq(boss.hp, boss.max_hp, "zero-damage rocket contact does not become cannon damage")
+	check(boss._live("rotor_l"), "zero damage does not destroy a rotor")
+	hit.damage = 110.0
+	boss.invulnerable = true
+	boss.take_hit(hit)
+	check_eq(boss.hp, boss.max_hp, "invulnerability also protects boss hull")
+	check(boss._live("rotor_l"), "invulnerability protects modules")
 
 
 func test_colossus_cannon_sized() -> void:
@@ -165,9 +223,9 @@ func _hit_part_with(boss: Colossus, part: Colossus.Part, hit: Hit) -> void:
 	boss.take_hit(hit)
 
 
-func test_helicopter_crash_clears_stage() -> void:
+func test_gunship_crash_clears_stage() -> void:
 	var world := stage("boss")
-	var boss := _helicopter(world)
+	var boss := _gunship(world)
 	var cleared := [false]
 	world.stage_cleared.connect(func() -> void: cleared[0] = true)
 	boss.hp = 1.0
@@ -181,8 +239,8 @@ func test_helicopter_crash_clears_stage() -> void:
 
 func test_flares_catch_shells() -> void:
 	var world := stage("boss")
-	var boss := _helicopter(world)
-	boss.phase = Helicopter.Phase.STRIPPED
+	var boss := _gunship(world)
+	boss.phase = Gunship.Phase.STRIPPED
 	boss._pop_flares()
 	var flares := world.enemies.filter(func(e: Entity) -> bool: return e is Flare)
 	check(flares.size() >= 4, "pops a spread of flares")
@@ -191,7 +249,7 @@ func test_flares_catch_shells() -> void:
 
 func test_bosses_shrug_off_machine_guns() -> void:
 	var world := stage("boss")
-	var boss := _helicopter(world)
+	var boss := _gunship(world)
 	var coax := Hit.make(Hit.Kind.BULLET, 10.0, boss.global_position)
 	coax.caliber = 20
 	var fragment := Hit.make(Hit.Kind.FRAGMENT, 10.0, boss.global_position)

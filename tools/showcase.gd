@@ -51,7 +51,7 @@ func run() -> int:
 			_stage_church(world)
 		"boss":
 			world.rail.d = Course.ARENA_CENTER_D - 60.0
-			world.director._start_boss({"kind": "helicopter"})
+			world.director._start_boss({"kind": "gunship"})
 	var elapsed := 0.0
 	var index := 0
 	while not shots.is_empty():

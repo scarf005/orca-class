@@ -1,75 +1,41 @@
 class_name Helicopter
 extends Enemy
-## Final boss: an attack helicopter overtaken by mycelium, fought in the arena below the dam.
-## It is built from modules like the tank. ERA plates cover the nose and flanks: a cannon shell
-## there only pops the plate. A shell on bare airframe (a stripped facing, the top, the belly or
-## the tail boom) takes a third of its hull. Knocking out modules changes the fight: the chin gun
-## and rocket pods silence their attacks, a lost tail rotor sends it spinning and wild, and losing
-## both engines drops it out of the sky.
-## Phase 1 (Hunter) orbits wide with chin-gun strafes and rocket ripples that saturate the laser.
-## Phase 2 (Stripped) closes in: flares, ATGMs and FPV calls.
-## Phase 3 (Infected) turns erratic, sheds spores and dives. It dies crashing into the dam.
+## Ordinary attack helicopter: paces the rail, telegraphs gun bursts and rocket pairs, then leaves.
 
-enum Phase { HUNTER, STRIPPED, INFECTED }
-enum Attack { NONE, GUN, ROCKETS, ATGM, DRONES, DIVE }
+const KEEP_AHEAD := 55.0
+const PACE_TIME := 12.0
 
-const BODY_HP := 1600.0
-const CANNON_SHARE := 0.34 ## Hull taken by one main-gun shell on bare airframe: three clean hits.
-const PLATED_SHARE := 0.03 ## Hull taken when an ERA plate eats the shell.
-const ERA_HP := 100.0 ## One shell pops a plate; machine guns chew through it slowly.
-const MODULE_HP := {"engine_l": 150.0, "engine_r": 150.0, "tail_rotor": 110.0, "chin": 90.0, "pod_l": 140.0, "pod_r": 140.0}
-const PLATES := ["era_front", "era_left", "era_right"]
-
-class Part:
-	var name := ""
-	var offset := Vector3.ZERO
-	var radius := 1.0
-	var hp := 0.0
-	var node: Node3D
-	var module := false ## A working component; plates and the mast are not.
-
-var phase := Phase.HUNTER
-var parts := {}
-var _attack := Attack.NONE
-var _attack_time := 0.0
-var _next_attack := 2.5
-var _orbit_angle := 0.0
-var _orbit_dir := 1.0
-var _velocity := Vector3.ZERO
 var _rotor := Node3D.new()
 var _tail_rotor := Node3D.new()
 var _chin := Node3D.new()
-var _fungus := Node3D.new()
-var _shots := 0
+var _lane := 0.0
+var _height := 13.0
+var _attack_timer := 1.8
+var _telegraph := 0.0
+var _burst := 0
 var _shot_timer := 0.0
-var _flare_cooldown := 0.0
-var _spore_timer := 0.0
-var _crash := 0.0
-var _crash_from := Vector3.ZERO
+var _rockets := false
 var _hard := false
-var _rotor_sound: AudioStreamPlayer3D
-var _jitter := Vector3.ZERO
 
 
 func _init() -> void:
 	super()
-	radius = 3.2
-	armor = 0.6
-	center_height = 0.0
+	max_hp = 16.0
+	hp = max_hp
+	radius = 2.5
 	flying = true
-	can_stagger = true
-	score = 50000
-	death_radius = 7.0
-	despawn_behind = 0.0
-	debris_colors = [Palette.SLATE, Palette.DUSK, Palette.FUNGUS, Palette.INK]
-	set_meta("title", "BOSS_HELICOPTER")
-	set_meta("phase_marks", [0.7, 0.34])
+	score = 650
+	death_radius = 3.2
+	wreck_on_death = true
+	weakness = {Hit.Kind.FRAGMENT: 1.5, Hit.Kind.BLAST: 1.4}
+	debris_colors = [Palette.SLATE, Palette.STONE, Palette.INK]
 
 
 func build() -> void:
 	_hard = Game.difficulty == Game.Difficulty.HARD
-	max_hp = BODY_HP * (1.35 if _hard else 1.0)
-	hp = max_hp
+	var slot: Vector3 = get_meta("slot", Vector3(0, 13, 55))
+	_lane = slot.x
+	_height = maxf(slot.y, 10.0)
 	var b := LowPoly.new()
 	# Narrow tandem fuselage, stepped canopies, tail boom and fin.
 	b.box(Transform3D(Basis(), Vector3(0, 0, 0.2)), Vector3(1.5, 1.7, 5.4), Palette.SLATE)
@@ -117,51 +83,13 @@ func build() -> void:
 	var chin_mesh := MeshInstance3D.new()
 	chin_mesh.mesh = c.mesh()
 	_chin.add_child(chin_mesh)
-	_add_part("era_left", Vector3(-0.85, 0.1, -0.2), 1.2, ERA_HP, _panel_mesh(-1.0))
-	_add_part("era_right", Vector3(0.85, 0.1, -0.2), 1.2, ERA_HP, _panel_mesh(1.0))
-	_add_part("era_front", Vector3(0, -0.1, -3.3), 0.9, ERA_HP, _nose_mesh())
-	_add_part("pod_l", Vector3(-2.6, -0.4, 0.2), 0.8, MODULE_HP.pod_l, _pod_mesh())
-	_add_part("pod_r", Vector3(2.6, -0.4, 0.2), 0.8, MODULE_HP.pod_r, _pod_mesh())
-	_add_part("engine_l", Vector3(-0.95, 1.1, 0.4), 0.75, MODULE_HP.engine_l, null)
-	_add_part("engine_r", Vector3(0.95, 1.1, 0.4), 0.75, MODULE_HP.engine_r, null)
-	_add_part("tail_rotor", _tail_rotor.position, 0.9, MODULE_HP.tail_rotor, null)
-	_add_part("chin", _chin.position, 0.6, MODULE_HP.chin, null)
-	_add_part("mast", Vector3(0, 1.9, 0.2), 0.7, INF, null)
-	for part: Part in parts.values():
-		part.module = MODULE_HP.has(part.name)
-	model.add_child(_fungus)
-	_grow_fungus(4)
-	_rotor_sound = Sfx.loop("rotor", self, 2.0)
-
-
-func _add_part(part_name: String, offset: Vector3, r: float, part_hp: float, mesh: Mesh) -> void:
-	var part := Part.new()
-	part.name = part_name
-	part.offset = offset
-	part.radius = r
-	part.hp = part_hp
-	if mesh:
-		var node := MeshInstance3D.new()
-		node.mesh = mesh
-		node.position = offset
-		model.add_child(node)
-		part.node = node
-	parts[part_name] = part
-
-
-func _panel_mesh(side: float) -> Mesh:
-	var b := LowPoly.new()
-	b.box(Transform3D(Basis(Vector3.BACK, side * 0.12), Vector3(side * 0.1, 0, 0)), Vector3(0.12, 1.3, 3.0), Palette.STONE)
-	b.box(Transform3D(Basis(), Vector3(side * 0.18, 0.3, 0)), Vector3(0.02, 0.1, 2.4), Palette.CORAL)
-	return b.mesh()
-
-
-func _nose_mesh() -> Mesh:
-	var b := LowPoly.new()
-	for i in 3:
-		b.box(Transform3D(Basis(Vector3.RIGHT, 0.3), Vector3(0, 0.25 - i * 0.32, -0.1 * i)), Vector3(1.35, 0.26, 0.14), Palette.STONE)
-	b.box(Transform3D(Basis(), Vector3(0, -0.6, 0.1)), Vector3(1.2, 0.04, 0.3), Palette.CORAL)
-	return b.mesh()
+	for side in [-1.0, 1.0]:
+		var pod := MeshInstance3D.new()
+		pod.mesh = _pod_mesh()
+		pod.position = Vector3(side * 2.6, -0.4, 0.2)
+		model.add_child(pod)
+	pop_parts = [_rotor, _tail_rotor]
+	Sfx.loop("rotor", self, -5.0)
 
 
 func _pod_mesh() -> Mesh:
@@ -174,458 +102,85 @@ func _pod_mesh() -> Mesh:
 	return b.mesh()
 
 
-func _grow_fungus(count: int) -> void:
-	for i in count:
-		var blob := MeshInstance3D.new()
-		var p := Vector3(randf_range(-0.8, 0.8), randf_range(-0.5, 1.2), randf_range(-2.0, 5.0))
-		blob.mesh = LowPoly.new().blob(Transform3D(), randf_range(0.3, 0.8), [Palette.FUNGUS, Palette.LILAC, Palette.BLUSH][i % 3], 0, 0.35, randi()).mesh()
-		blob.position = p
-		_fungus.add_child(blob)
-		_meshes.append(blob)
-
-
-func _live(part_name: String) -> bool:
-	return parts[part_name].hp > 0.0
-
-
 func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
-	if _crash > 0.0:
-		return -1.0
 	var best := -1.0
-	for center: Vector3 in [Vector3(0, 0.2, -1.2), Vector3(0, 0.2, 1.4), Vector3(0, 0.3, 4.5)]:
-		var t := Entity.segment_sphere(from, to, model.global_transform * center, (1.6 if center.z < 3.0 else 0.9) + extra_radius)
-		if t >= 0.0 and (best < 0.0 or t < best):
-			best = t
-	for part: Part in parts.values():
-		if part.hp <= 0.0:
-			continue
-		var t := Entity.segment_sphere(from, to, model.global_transform * part.offset, part.radius + extra_radius)
+	# Preserve the original airframe's long tail and outboard rocket-pod hit areas.
+	for sphere: Vector4 in [Vector4(0, 0.2, -1.2, 1.6), Vector4(0, 0.2, 1.4, 1.6), Vector4(0, 0.3, 4.5, 0.9), Vector4(0, 1.4, 7.6, 0.9), Vector4(-2.6, -0.4, 0.2, 0.8), Vector4(2.6, -0.4, 0.2, 0.8), Vector4(0, 1.9, 0.2, 0.7)]:
+		var center := model.to_global(Vector3(sphere.x, sphere.y, sphere.z))
+		var t := Entity.segment_sphere(from, to, center, sphere.w + extra_radius)
 		if t >= 0.0 and (best < 0.0 or t < best):
 			best = t
 	return best
 
 
-func take_hit(hit: Hit) -> void:
-	if dead or invulnerable or _crash > 0.0 or hit.damage <= 0.0:
-		return
-	var world := World.current
-	var cannon := hit.kind == Hit.Kind.SHELL and hit.caliber >= 100
-	var amount := hit.damage * damage_multiplier(hit)
-	var hull := max_hp * CANNON_SHARE if cannon else amount
-	var local := model.global_transform.affine_inverse() * hit.position
-	var struck := _struck_part(hit.position)
-	var plate := _plate_facing(local)
-	if struck and struck.module:
-		# A module takes the hit; a shell wrecks it outright and still tears the airframe.
-		struck.hp -= INF if cannon else amount
-		world.fx.sparks(hit.position, -hit.direction, 6, Palette.BUTTER)
-		if struck.hp <= 0.0:
-			_lose_part(struck, hit.direction)
-		if not cannon:
-			hull = amount * 0.3
-	elif struck and struck.name == "mast":
-		hull *= 1.3
-		if hit.stagger > 0.3:
-			stagger = maxf(stagger, 1.2)
-			world.fx.sparks(hit.position, Vector3.UP, 16, Palette.WHITE, 12.0)
-	elif plate != "" and _live(plate) and hit.kind != Hit.Kind.FIRE:
-		# ERA on the struck facing detonates outward and eats the shell.
-		var era: Part = parts[plate]
-		era.hp -= amount
-		world.fx.sparks(hit.position, -hit.direction, 8, Palette.WHITE, 9.0)
-		if era.hp <= 0.0:
-			_lose_part(era, hit.direction)
-		hull = max_hp * PLATED_SHARE if cannon else amount * 0.1
-	hp -= hull
-	impact_feedback(hit, hull, hp <= 0.0 or not (_live("engine_l") or _live("engine_r")))
-	if cannon:
-		world.hitstop(0.05)
-		world.shake(0.3, hit.position)
-	if hit.stagger >= 1.0:
-		stagger = maxf(stagger, 0.6)
-		if _attack in [Attack.GUN, Attack.ATGM] and _attack_time < 0.8:
-			_end_attack()
-	if hp <= 0.0 or not (_live("engine_l") or _live("engine_r")):
-		_begin_crash()
-		return
-	_update_phase()
-
-
-## The live part whose shell the impact landed in, if any.
-func _struck_part(at: Vector3) -> Part:
-	var nearest: Part = null
-	var nearest_distance := 0.35
-	for part: Part in parts.values():
-		if part.hp <= 0.0 or part.name in PLATES:
-			continue
-		var distance := at.distance_to(model.global_transform * part.offset) - part.radius
-		if distance < nearest_distance:
-			nearest_distance = distance
-			nearest = part
-	return nearest
-
-
-## Which ERA plate covers the airframe at a local impact point: the nose, a flank below the
-## engines, or none (top, belly, tail boom).
-static func _plate_facing(local: Vector3) -> String:
-	if local.z < -1.7 and absf(local.x) < 1.0:
-		return "era_front"
-	if local.z < 3.0 and local.y < 0.9 and absf(local.x) > 0.45:
-		return "era_left" if local.x < 0.0 else "era_right"
-	return ""
-
-
-func damage_multiplier(hit: Hit) -> float:
-	var multiplier := super(hit)
-	match hit.kind:
-		Hit.Kind.FRAGMENT:
-			multiplier *= 1.5 # Airburst fragments shred rotorcraft.
-		Hit.Kind.BULLET:
-			multiplier *= 0.4 # Machine guns only scratch it; the main gun does the work.
-	return multiplier
-
-
-func _lose_part(part: Part, direction := Vector3.ZERO) -> void:
-	var world := World.current
-	var at: Vector3 = model.global_transform * part.offset
-	part.hp = 0.0
-	var push := (at - global_position).normalized() if direction == Vector3.ZERO else direction.normalized()
-	world.fx.explosion(at, 2.5 if part.module else 1.6)
-	world.fx.debris(at, 14, [Palette.STONE, Palette.CORAL, Palette.INK], 14.0, 0.4, push)
-	world.shake(0.4)
-	world.hitstop(0.06)
-	world.award(1500, at, false)
-	Sfx.play("blast", at)
-	if part.node:
-		part.node.queue_free()
-	match part.name:
-		"tail_rotor":
-			_tail_rotor.visible = false
-		"chin":
-			_chin.visible = false
-			if _attack == Attack.GUN:
-				_end_attack()
-		"pod_l", "pod_r":
-			# Cooking off the remaining rockets.
-			hp -= max_hp * 0.05
-	_update_phase()
-
-
-func _update_phase() -> void:
-	var world := World.current
-	var ratio := hp / max_hp
-	if phase == Phase.HUNTER and (ratio < 0.7 or PLATES.all(func(plate: String) -> bool: return not _live(plate))):
-		phase = Phase.STRIPPED
-		world.radio.emit(&"AI_BOSS_PHASE2")
-		_resupply()
-		_grow_fungus(6)
-		_next_attack = 1.0
-	elif phase == Phase.STRIPPED and ratio < 0.34:
-		phase = Phase.INFECTED
-		world.radio.emit(&"AI_BOSS_PHASE3")
-		_resupply()
-		_grow_fungus(14)
-		world.screen_flash(Palette.FUNGUS, 0.4)
-		Sfx.play("roar", global_position, 6.0, 0.7)
-		_next_attack = 0.8
-
-
-## Drops fresh ERA and a regrowth pod near the tank at each phase change.
-func _resupply() -> void:
-	var world := World.current
-	var tank := player()
-	if tank == null:
-		return
-	world.spawn_pickup("era", tank.global_position + tank.global_basis.x * 8.0 + Vector3.UP * 1.5)
-	world.spawn_pickup("tail", tank.global_position - tank.global_basis.x * 8.0 + Vector3.UP * 1.5)
-
-
 func behave(delta: float) -> void:
+	_rotor.rotation.y += delta * 28.0
+	_tail_rotor.rotation.x += delta * 50.0
 	var world := World.current
 	var tank := player()
-	_rotor.rotation.y += delta * (28.0 if _crash <= 0.0 else 40.0)
-	_tail_rotor.rotation.x += delta * 50.0
-	if _crash > 0.0:
-		_update_crash(delta)
+	if tank == null or tank.dead:
 		return
-	if tank == null:
-		return
-	_flare_cooldown -= delta
-	_watch_for_shells()
-	# Orbit the arena center, keeping the tank in front.
-	var center := Course.to_world(Course.ARENA_CENTER_D, 0.0)
-	var orbit_radius := [55.0, 34.0, 28.0][phase] as float
-	var altitude := [19.0, 13.0, 11.0][phase] as float
-	var speed := [0.18, 0.3, 0.42][phase] as float
-	if not (_live("engine_l") and _live("engine_r")):
-		speed *= 0.6
-		altitude *= 0.7
-	_smoke_modules(delta)
-	if randf() < delta * 0.15:
-		_orbit_dir = -_orbit_dir
-	_orbit_angle += _orbit_dir * speed * delta * (0.3 if is_staggered() else 1.0)
-	var focus := tank.global_position.lerp(center, 0.5)
-	var goal := focus + Vector3(cos(_orbit_angle), 0, sin(_orbit_angle)) * orbit_radius
-	goal.y = Course.height_at(goal) + altitude
-	if phase == Phase.INFECTED:
-		_jitter = _jitter.lerp(Vector3(randf_range(-6, 6), randf_range(-3, 3), randf_range(-6, 6)), delta * 2.0)
-		goal += _jitter
-		_spore_timer -= delta
-		if _spore_timer <= 0.0:
-			_spore_timer = 0.7
-			var drop := global_position
-			drop.y = Course.height_at(drop)
-			Hazard.spawn(drop + Vector3.UP, 3.0, 3.0, 6.0)
-			world.fx.spores(global_position, 16, 3.0)
-	if _attack == Attack.DIVE:
-		goal = tank.global_position + Vector3.UP * 5.0
-	if is_staggered():
-		goal.y -= 5.0
-	var accel := (goal - global_position) * 1.6 - _velocity * 1.4
-	_velocity += accel * delta
-	global_position += _velocity * delta
-	# Nose at the tank, bank into the turn.
-	var to_tank := tank.global_position - global_position
-	var yaw := atan2(-to_tank.x, -to_tank.z)
-	if _live("tail_rotor"):
-		model.rotation.y = lerp_angle(model.rotation.y, yaw, 2.5 * delta)
-	else:
-		# No anti-torque: it slews around, only now and then facing the tank.
-		model.rotation.y += delta * 2.4
-	var lateral := _velocity.dot(model.global_basis.x)
-	model.rotation.z = lerpf(model.rotation.z, -lateral * 0.04, 3.0 * delta)
-	model.rotation.x = lerpf(model.rotation.x, -_velocity.dot(-model.global_basis.z) * 0.02 - 0.08, 3.0 * delta)
+	var course := Course.to_course(global_position)
+	if world.rail.mode != Rail.Mode.ARENA:
+		var target_d := world.rail.d + tank.course_offset + KEEP_AHEAD
+		var speed := clampf(world.rail.speed + (target_d - course.x) * 1.2, 0.0, world.rail.speed + 20.0) if age < PACE_TIME else 4.0
+		course.x += speed * delta
+		course.y = lerpf(course.y, _lane + sin(age * 0.8) * 4.0, delta * 1.8)
+		global_position = Course.to_world(course.x, course.y, global_position.y)
+	var altitude := Course.height_at(global_position) + _height + sin(age * 1.7) * 0.8
+	global_position.y = lerpf(global_position.y, altitude - (2.0 if is_staggered() else 0.0), delta * 2.0)
+	var to_tank := tank.hit_center() - global_position
+	model.rotation.y = lerp_angle(model.rotation.y, atan2(-to_tank.x, -to_tank.z), delta * 3.0)
+	model.rotation.z = sin(age * 0.8) * 0.12
 	_chin.look_at(tank.hit_center(), Vector3.UP)
-	_update_attack(delta, tank)
-
-
-## Fire and smoke from wrecked modules.
-func _smoke_modules(delta: float) -> void:
-	var world := World.current
-	for name in ["engine_l", "engine_r", "tail_rotor"]:
-		if not _live(name) and randf() < delta * 14.0:
-			var at: Vector3 = model.global_transform * parts[name].offset
-			world.fx.spawn(Fx.Kind.FLAME, at, Vector3.UP * 2.0, 0.35, 0.9, [Palette.AMBER, Palette.BUTTER][randi() % 2])
-			world.fx.smoke(at, 1, 1.6, [Palette.INK, Palette.DUSK, Palette.SLATE])
-
-
-func _watch_for_shells() -> void:
-	if phase == Phase.HUNTER or _flare_cooldown > 0.0:
+	if age > PACE_TIME + 12.0:
+		despawn()
 		return
-	var world := World.current
-	for projectile in world.projectiles:
-		if projectile.team != Team.PLAYER or projectile.hit.caliber < 100:
-			continue
-		if projectile.global_position.distance_to(global_position) < 45.0 and projectile.velocity.dot(global_position - projectile.global_position) > 0.0:
-			_pop_flares()
-			return
-
-
-func _pop_flares() -> void:
-	var world := World.current
-	_flare_cooldown = 5.0 if not _hard else 3.5
-	Sfx.play("launch", global_position, 0.0, 1.5)
-	for i in 6:
-		var flare: Flare = Flare.new()
-		var side := -1.0 if i % 2 == 0 else 1.0
-		flare.drift = model.global_basis.x * side * randf_range(8, 14) + Vector3.UP * randf_range(2, 6) - model.global_basis.z * randf_range(-4, 4)
-		flare.position = global_position + model.global_basis.x * side
-		world.add_enemy(flare)
-
-
-func _update_attack(delta: float, tank: Tank) -> void:
-	if _attack == Attack.NONE:
-		_next_attack -= delta
-		if _next_attack <= 0.0 and not is_staggered():
-			_choose_attack()
+	if is_staggered():
 		return
-	_attack_time += delta
-	match _attack:
-		Attack.GUN:
-			_gun(delta, tank)
-		Attack.ROCKETS:
-			_rockets(delta, tank)
-		Attack.ATGM:
-			if _attack_time < 1.3:
-				set_meta("locking", true)
-				if fmod(_attack_time, 0.1) < 0.05:
-					World.current.fx.beam(_chin.global_position, tank.hit_center(), Palette.RED, 0.05, 0.05)
-			else:
-				set_meta("locking", false)
-				for i in (2 if phase == Phase.STRIPPED else 3):
-					_launch_atgm(tank, i)
-				_end_attack()
-		Attack.DRONES:
-			if _attack_time > 0.6:
-				var wave := {"d": 0.0, "kind": "fpv", "count": 3 if not _hard else 5, "formation": "ring", "height": 0.0, "spacing": 5.0, "ahead": 0.0, "hover": 18.0, "approach": 1.0}
-				var spawned: Array[Enemy] = World.current.director.spawn_wave(wave)
-				for drone in spawned:
-					drone.global_position = global_position + Vector3(randf_range(-4, 4), -1.0, randf_range(-4, 4))
-				_end_attack()
-		Attack.DIVE:
-			if _attack_time > 2.2:
-				_end_attack()
-			elif tank.global_position.distance_to(global_position) < 9.0:
-				var hit := Hit.make(Hit.Kind.RAM, 20.0, global_position, (tank.global_position - global_position).normalized())
-				hit.source = self
-				tank.take_hit(hit)
-				_end_attack()
+	if _telegraph > 0.0:
+		_telegraph -= delta
+		world.fx.beam(_chin.global_position, tank.hit_center(), Palette.CORAL, 0.035, 0.05)
+		if _telegraph <= 0.0:
+			_burst = 2 if _rockets else 6
+			_shot_timer = 0.0
+	elif _burst > 0:
+		_shot_timer -= delta
+		if _shot_timer <= 0.0:
+			_fire(tank)
+			_burst -= 1
+			_shot_timer = 0.22 if _rockets else 0.12
+			if _burst == 0:
+				_rockets = not _rockets
+				_attack_timer = 2.4 if _hard else 3.2
+	else:
+		_attack_timer -= delta
+		if _attack_timer <= 0.0 and to_tank.length() < 130.0:
+			_telegraph = 0.8
+			Sfx.play("warn", global_position, -4.0)
 
 
-func _choose_attack() -> void:
-	var options: Array[Attack] = [Attack.GUN, Attack.ROCKETS]
-	match phase:
-		Phase.STRIPPED:
-			options = [Attack.GUN, Attack.ROCKETS, Attack.ATGM, Attack.DRONES]
-		Phase.INFECTED:
-			options = [Attack.GUN, Attack.ROCKETS, Attack.ATGM, Attack.DIVE, Attack.ROCKETS]
-	if not (_live("pod_l") or _live("pod_r")):
-		options.erase(Attack.ROCKETS)
-	if not _live("chin"):
-		options.erase(Attack.GUN)
-	if options.is_empty():
-		options = [Attack.DIVE]
-	_attack = options.pick_random()
-	_attack_time = 0.0
-	_shots = 0
-	match _attack:
-		Attack.GUN:
-			Sfx.play("warn", global_position, 0.0, 1.2)
-		Attack.ROCKETS:
-			Sfx.play("warn", global_position, 2.0, 0.8)
-		Attack.ATGM:
-			Sfx.play("lock", global_position)
-		Attack.DIVE:
-			Sfx.play("roar", global_position, 0.0, 1.4)
+func _fire(tank: Tank) -> void:
+	var from := _chin.global_position
+	if _rockets:
+		from = model.to_global(Vector3(-2.6 if _burst % 2 == 0 else 2.6, -0.4, -0.8))
+	var target := tank.hit_center() + tank.velocity * (from.distance_to(tank.hit_center()) / (55.0 if _rockets else 100.0)) * 0.6
+	var shot := fire_at("rocket" if _rockets else "orb", from, target, 55.0 if _rockets else 100.0, 0.0 if _rockets else 4.0)
+	shot.hit.caliber = 30
+	if _rockets:
+		shot.hit.kind = Hit.Kind.SHELL
+		shot.blast_radius = 2.6
+		shot.blast_damage = 9.0
+		shot.interceptable = true
+		shot.intercept_hp = 0.55
+		shot.trail = Palette.MIST
+		shot.life = 4.0
+	World.current.fx.spawn(Fx.Kind.FLAME, from, Vector3.ZERO, 0.08, 0.5, Palette.CORAL)
+	Sfx.play("launch" if _rockets else "enemy_gun", from, -4.0)
 
 
-func _end_attack() -> void:
-	_attack = Attack.NONE
-	set_meta("locking", false)
-	var pause := [2.2, 1.6, 1.1][phase] as float
-	_next_attack = pause * (0.8 if _hard else 1.0) + randf() * 0.6
-
-
-func _gun(delta: float, tank: Tank) -> void:
-	var world := World.current
-	if _attack_time < 0.6:
-		# Telegraph: sight beam sweeping onto the tank.
-		if fmod(_attack_time, 0.12) < 0.06:
-			world.fx.beam(_chin.global_position, tank.hit_center() + Vector3(0, 0, 0), Palette.CORAL, 0.04, 0.05)
-		return
-	_shot_timer -= delta
-	var total := [14, 18, 24][phase] as int
-	if _shot_timer <= 0.0 and _shots < total:
-		_shots += 1
-		_shot_timer = 0.07
-		var from := _chin.global_position
-		var lead := tank.hit_center() + tank.velocity * (from.distance_to(tank.hit_center()) / 110.0) * 0.7
-		var wild := 1.0 if _live("tail_rotor") else 3.0
-		var shot := fire_at("orb", from, lead + Vector3(randf_range(-1.5, 1.5), randf_range(-0.5, 0.5), randf_range(-1.5, 1.5)) * wild, 110.0, 4.5)
-		shot.hit.caliber = 30
-		world.fx.spawn(Fx.Kind.FLAME, from, Vector3.ZERO, 0.05, 0.4, Palette.CORAL)
-		Sfx.play("enemy_gun", from, 0.0, 0.8)
-	elif _shots >= total:
-		_end_attack()
-
-
-func _rockets(delta: float, tank: Tank) -> void:
-	var world := World.current
-	if _attack_time < 0.8:
-		for side in ["pod_l", "pod_r"]:
-			var part: Part = parts[side]
-			if part.hp > 0.0 and fmod(_attack_time, 0.16) < 0.08:
-				flash()
-		return
-	_shot_timer -= delta
-	var total := [12, 14, 20][phase] as int
-	if _shot_timer <= 0.0 and _shots < total:
-		var side: String = "pod_l" if _shots % 2 == 0 else "pod_r"
-		if not _live(side):
-			side = "pod_r" if side == "pod_l" else "pod_l"
-		_shots += 1
-		_shot_timer = 0.09 if phase != Phase.INFECTED else 0.06
-		var from: Vector3 = model.global_transform * (parts[side].offset + Vector3(0, 0, -1.0))
-		var spread := 7.0 if phase != Phase.INFECTED else 11.0
-		var target := tank.global_position + tank.velocity * 0.8 + Vector3(randf_range(-spread, spread), 0, randf_range(-spread, spread))
-		if phase == Phase.INFECTED:
-			var angle := _shots * 0.7
-			target = tank.global_position + Vector3(cos(angle), 0, sin(angle)) * (4.0 + _shots * 0.4)
-		target.y = Course.height_at(target)
-		var rocket := fire_at("rocket", from, target, 55.0, 0.0)
-		rocket.hit = Hit.make(Hit.Kind.SHELL, 0.0, from)
-		rocket.hit.source = self
-		rocket.blast_radius = 2.6
-		rocket.blast_damage = 9.0
-		rocket.interceptable = true
-		rocket.intercept_hp = 0.55
-		rocket.trail = Palette.MIST
-		rocket.life = 4.0
-		world.fx.spawn(Fx.Kind.FLAME, from, Vector3.ZERO, 0.08, 0.6, Palette.BUTTER)
-		Sfx.play("launch", from, -2.0, randf_range(1.1, 1.3))
-	elif _shots >= total:
-		_end_attack()
-
-
-func _launch_atgm(tank: Tank, index: int) -> void:
-	var from := global_position + model.global_basis.x * (index - 1) * 1.5 + Vector3.DOWN
-	var missile := fire_at("atgm", from, from + Vector3.UP * 2.0 + model.global_basis.x * (index - 1) * 4.0 + (tank.hit_center() - from).normalized() * 4.0, 30.0, 0.0)
-	missile.hit = Hit.make(Hit.Kind.SHELL, 0.0, from)
-	missile.hit.source = self
-	missile.blast_radius = 3.0
-	missile.blast_damage = 24.0
-	missile.hit.warhead = true
-	missile.homing_target = tank
-	missile.turn_rate = 2.0
-	missile.interceptable = true
-	missile.intercept_hp = 1.4
-	missile.life = 7.0
-	missile.trail = Palette.MIST
-	Sfx.play("launch", from, 2.0, 0.8)
-
-
-func _begin_crash() -> void:
-	var world := World.current
-	_crash = 3.2
-	_crash_from = global_position
-	hp = 0.0
-	world.boss_changed.emit(null)
-	world.shake(0.7)
-	world.hitstop(0.25)
-	world.screen_flash(Palette.WHITE, 0.7)
-	world.radio.emit(&"AI_CLEAR")
-	Sfx.play("blast", global_position)
-	for side in ["pod_l", "pod_r"]:
-		if _live(side):
-			_lose_part(parts[side])
-
-
-## Engine on fire, spinning, it arcs into the dam face and explodes against it.
-func _update_crash(delta: float) -> void:
-	var world := World.current
-	_crash -= delta
-	var dam := Course.to_world(Course.DAM_D - 3.0, Course.to_course(_crash_from).y, 12.0)
-	var k := 1.0 - _crash / 3.2
-	global_position = _crash_from.lerp(dam, k * k) + Vector3.UP * sin(k * PI) * 6.0
-	model.rotation.y += delta * (4.0 + k * 10.0)
-	model.rotation.z = lerpf(model.rotation.z, 0.6, delta)
-	if randf() < delta * 20.0:
-		world.fx.spawn(Fx.Kind.FLAME, global_position + Vector3(randf_range(-1, 1), 1, randf_range(-1, 1)), Vector3(0, 3, 0), 0.5, 1.2, [Palette.PEACH, Palette.CORAL, Palette.BUTTER][randi() % 3])
-		world.fx.smoke(global_position, 1, 2.0, [Palette.STONE, Palette.ASH, Palette.DUSK])
-	if _crash <= 0.0:
-		for i in 5:
-			world.fx.explosion(global_position + Vector3(randf_range(-5, 5), randf_range(-2, 6), randf_range(-3, 3)), 6.0 + i)
-		world.fx.shockwave(global_position, 40.0, Palette.BUTTER)
-		world.shake(1.0)
-		world.hitstop(0.3)
-		world.screen_flash(Palette.WHITE, 0.9)
-		die(Hit.make(Hit.Kind.BLAST, 9999.0, global_position))
-
-
-func on_death(_hit: Hit) -> void:
-	var world := World.current
-	world.fx.debris(global_position, 30, debris_colors, 18.0, 0.7)
-	world.fx.spores(global_position, 60, 8.0)
-	world.award(score, global_position, true)
-	world.style_event("GIANT", 400.0)
-	Sfx.play("blast", global_position, 6.0, 0.7)
+func interrupt() -> void:
+	super()
+	_telegraph = 0.0
+	_burst = 0
+	_attack_timer = 2.0

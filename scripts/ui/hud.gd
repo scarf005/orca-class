@@ -453,7 +453,7 @@ func _draw_banner() -> void:
 
 
 const CALLSIGNS := {"FpvDrone": "FPV", "Ugv": "UGV", "Uav": "UAV", "Walker": "WALKER", "QuadMech": "QUAD",
-	"Crawler": "CRAWLER", "Spitter": "SPITTER", "Colossus": "COLOSSUS", "Helicopter": "GUNSHIP", "Flare": "FLARE"}
+	"Crawler": "CRAWLER", "Spitter": "SPITTER", "Colossus": "COLOSSUS", "Helicopter": "HELICOPTER", "Gunship": "GUNSHIP", "Flare": "FLARE"}
 var _lock: Entity
 var _lock_time := 0.0
 var _was_ready := true

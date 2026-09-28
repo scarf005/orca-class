@@ -141,7 +141,7 @@ Target length is 8–12 minutes for a first clear. Sections:
 4. **Reservoir and dam:** UAVs make bombing and strafing runs over the water; FPV swarms rise from the reeds;
    spore storms reduce visibility.
 5. **Overpass:** the heaviest mixed wave, a gauntlet under and over the highway. A brief calm, then rotor noise.
-6. **Boss: attack helicopter**, in an all-range arena over the reservoir valley (below).
+6. **Boss: twin-rotor gunship**, in an all-range arena over the reservoir valley (below).
 7. **Results:** score, kill %, accuracy, damage taken, time, rank (S/A/B/C), personal bests.
 
 ### Enemies
@@ -153,24 +153,23 @@ Each enemy has a distinct silhouette, a clear telegraph before it attacks, a sat
 | FPV drone | Fast kamikaze swarm; weaves, then dives | Buzzing rises in pitch; its camera light turns red before the dive | Coax, canister, CIWS |
 | UGV (tracked) | Armored gun or ATGM carrier; strafes from cover | ATGM: laser designator line, then launch | HEAT, APFSDS; CIWS catches ATGMs |
 | UAV (fixed-wing) | Makes bombing and strafing passes; drops loitering munitions | Shadow and dither sweep across the ground before the pass | Airburst, coax |
+| Attack helicopter | Paces the tank through the village, reservoir and overpass; alternates gun bursts and rocket pairs | Chin-gun sight beam before firing | A few coax hits, any cannon round; CIWS catches rockets |
 | Fungal crawler | Swarms over terrain; bursts into spores | Swells and brightens before bursting | Dragon's breath, ramming |
 | Spore spitter | Rooted; lobs arcing spore mortars | Glowing sac inflates | Any cannon round |
 | Bipedal walker | Reverse-jointed legs with wheeled feet; skates between lanes, then plants and fires a 15 mm burst or a missile pair | Crouches, eye flashes | Shoot the legs to topple it; grab and throw |
 | Quad mech | Heavy four-legged walker with a quad 20 mm flak turret or a mortar | Barrels spin up / impact circles | Shoot legs off (two lost: it collapses) or the turret |
 | Fungal colossus (mid-boss) | Large rooted mass; tendril sweeps, spore barrages, spawns crawlers | Tendrils rear up; the ground cracks along the sweep line | Burn the weak points, then shoot the core |
 
-### Boss: attack helicopter
+### Boss: twin-rotor gunship
 
-A tandem-seat gunship that has been partly overtaken by mycelium, with a chin cannon, rocket pods, ATGMs and
-flares. It is modular, like the tank: ERA plates on the nose and both flanks pop when a shell hits them; a shell
-on bare airframe (a stripped facing, the top, the belly, the tail boom) takes a quarter of its hull, so four clean
-cannon hits bring it down. Its engines, tail rotor, chin gun and rocket pods can each be shot out: that silences
-the attack, sends it spinning without anti-torque, or drops it with both engines gone. The mid-boss follows the
-same rule: one shell pops a cap or a node, four take the core. It fights in three phases, each with new patterns
-and visible damage:
+A broad, heavily armed gunship partly overtaken by mycelium, with a rotor on each wing, a chin cannon,
+outboard missile racks, ATGMs and flares. Nose and flank plates pop when a shell hits them; three clean cannon
+hits on bare airframe bring it down. Each rotor is a separate module: losing one slows the gunship and leaves
+it banking at lower altitude; losing both starts its crash. Destroying the chin gun or both missile racks stops
+that attack. It fights in three phases, each with new patterns and visible damage:
 
 1. **Hunter:** circles at range, strafes with its chin gun, and fires rocket volleys that test the CIWS heat limit.
-2. **Stripped:** at half hull (or once every plate is gone) it closes in, pops flares to spoof, fires ATGMs, and
+2. **Stripped:** below 70% hull (or once every plate is gone) it closes in, pops flares to spoof, fires ATGMs, and
    calls in FPV drones.
 3. **Infected:** the fungus takes over. The rotor sheds spores and the attacks become erratic and desperate. It
    finishes with a burning crash into the dam.
