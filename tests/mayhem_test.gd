@@ -147,3 +147,26 @@ func test_rammed_pole_snaps_falls_and_drops_its_wires() -> void:
 	check(wires.all(func(w: Scenery.Spec) -> bool: return w.has_meta("cut")), "its wires snap")
 	var fell := await wait_until(gone(prop), 90)
 	check(fell, "it breaks up when it hits the ground")
+
+
+func test_kill_chains_escalate_and_break_on_a_gap() -> void:
+	var world := stage()
+	var chains: Array[String] = []
+	world.kill_chain.connect(func(trick: String, _kills: int) -> void: chains.append(trick))
+	var kill := func() -> void:
+		var crawler := Crawler.new()
+		crawler.position = Course.ground_at(world.rail.d + 60.0, 5.0)
+		world.add_enemy(crawler)
+		var hit := Hit.make(Hit.Kind.SHELL, 999.0, crawler.hit_center())
+		hit.source = world.player
+		crawler.take_hit(hit)
+	for i in 10:
+		kill.call()
+	check_eq(chains, ["MULTIKILL", "MASSACRE", "ANNIHILATION"] as Array[String], "a chain earns each step once")
+	chains.clear()
+	world.stats.time += World.CHAIN_GAP + 0.1
+	for i in 2:
+		kill.call()
+	check(chains.is_empty(), "a gap starts a new chain")
+	kill.call()
+	check_eq(chains, ["MULTIKILL"] as Array[String], "the new chain counts from one")

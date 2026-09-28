@@ -28,6 +28,10 @@ var _time := 0.0
 var _storm := 0.0
 var _hit_marker := 0.0
 var _kill_marker := 0.0
+var _style_rank := 0 ## Last rank drawn, to catch rank changes.
+var _style_pop := 0.0 ## Punch on the meter after a rank up.
+var _style_drop := 0.0 ## Shudder on the meter after a rank down.
+var _rank_shout_cooldown := 0.0
 # Wireframe x-ray views of the real models.
 # Straight down, front of the tank at the top of the view.
 var _tank_view := WireView.new(Vector2i(84, 108), Vector3(0.6, 20.0, -0.6), Vector3(0.6, 0.0, -0.6), 16.0, Vector3.FORWARD)
@@ -60,6 +64,7 @@ func _ready() -> void:
 	world.scored.connect(_on_scored)
 	world.intercepted.connect(_on_intercepted)
 	world.hit_confirmed.connect(_on_hit_confirmed)
+	world.kill_chain.connect(_on_kill_chain)
 	world.director.incoming.connect(func(from: Vector3) -> void:
 		_incoming.append({"position": from, "time": 0.0})
 		Sfx.ui("warn", 0.0, 1.3))
@@ -120,6 +125,30 @@ func _on_hit_confirmed(killed: bool) -> void:
 	queue_redraw()
 
 
+## Big chains get the arcade call-out; the first step only shows in the style feed.
+func _on_kill_chain(trick: String, kills: int) -> void:
+	if kills >= 6:
+		shout(tr("STYLE_" + trick) + "!!", Palette.FUNGUS if kills >= 10 else Palette.CORAL, 1.1)
+
+
+## Climbing a rank punches the meter with a rising sting; S and up are shouted, but not every time
+## the meter bounces back over the line.
+func _update_style_rank(delta: float) -> void:
+	_style_pop = maxf(0.0, _style_pop - delta)
+	_style_drop = maxf(0.0, _style_drop - delta)
+	_rank_shout_cooldown -= delta
+	var rank := world.stats.style_rank()
+	if rank > _style_rank:
+		_style_pop = 0.35
+		Sfx.ui("combo", 4.0, 1.0 + rank * 0.12)
+		if rank >= 4 and _rank_shout_cooldown <= 0.0 and _shout_time <= 0.0:
+			shout(RunStats.STYLE_WORDS[rank] + "!!", STYLE_COLORS[rank], 1.2)
+			_rank_shout_cooldown = 8.0
+	elif rank < _style_rank:
+		_style_drop = 0.3
+	_style_rank = rank
+
+
 func _on_pickup(id: String) -> void:
 	var name := tr("PICKUP_" + id.to_upper()) + "!!"
 	if id == "coax":
@@ -153,6 +182,7 @@ func _process(delta: float) -> void:
 		_armor_shake = 0.3
 	_last_armor = armor
 	_armor_shake = maxf(0.0, _armor_shake - delta)
+	_update_style_rank(delta)
 	queue_redraw()
 
 
@@ -371,10 +401,13 @@ func _draw_style() -> void:
 		return
 	var rank := stats.style_rank()
 	var color := STYLE_COLORS[rank]
-	var origin := Vector2(800, 60)
-	_panel(Rect2(origin, Vector2(144, 58 + stats.style_feed.size() * 14)), color)
+	var origin := Vector2(800, 60) + Vector2(randf_range(-4, 4), 0) * _style_drop / 0.3
+	var panel := Rect2(origin, Vector2(144, 58 + stats.style_feed.size() * 14))
+	_panel(panel, color)
+	if _style_pop > 0.0:
+		draw_rect(panel, Color(Palette.WHITE, _style_pop * 1.6))
 	var jitter := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * rank * 0.5
-	_text(origin + Vector2(8, 34) + jitter, stats.STYLE_LETTERS[rank], color, 36)
+	_text(origin + Vector2(8, 34) + jitter, stats.STYLE_LETTERS[rank], color, int(36 * (1.0 + _style_pop * 1.4)))
 	var word: String = stats.STYLE_WORDS[rank]
 	_text(origin + Vector2(62, 22), word, color, 12 if word.length() <= 10 else 9)
 	_text(origin + Vector2(62, 38), "×%d" % stats.multiplier(), Palette.CREAM)

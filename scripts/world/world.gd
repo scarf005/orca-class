@@ -10,6 +10,11 @@ signal stage_cleared
 signal game_over
 signal intercepted(position: Vector3) ## The laser CIWS burned something out of the air.
 signal hit_confirmed(killed: bool) ## Player damage accepted by an enemy, including boss modules.
+signal kill_chain(trick: String, kills: int) ## A chain of quick kills reached a named size.
+
+const CHAIN_GAP := 0.5 ## Kills closer together than this keep a chain going.
+## Chain size -> [trick, style]. Each is awarded once as the chain grows through it.
+const CHAIN_TRICKS := {3: ["MULTIKILL", 90.0], 6: ["MASSACRE", 160.0], 10: ["ANNIHILATION", 260.0]}
 
 static var current: World
 
@@ -31,7 +36,8 @@ var pickups: Array[Pickup] = []
 var boss: Entity
 
 var _hitstop := 0.0
-var _kill_times: Array[float] = []
+var _chain := 0
+var _last_kill := -INF
 var _enemy_container := Node3D.new()
 var _projectile_container := Node3D.new()
 
@@ -291,7 +297,8 @@ func style_event(trick: String, points: float) -> void:
 		player.hp = minf(player.max_hp, player.hp + gained * 0.03)
 
 
-## Style for a kill, named after how it died; three kills in half a second add a multikill.
+## Style for a kill, named after how it died. Quick kills chain, and a chain that grows through 3,
+## 6 and 10 kills earns a bigger trick at each step.
 func kill_style(hit: Hit, victim: Entity) -> void:
 	if hit == null or not hit.by_player():
 		return
@@ -329,11 +336,12 @@ func kill_style(hit: Hit, victim: Entity) -> void:
 	if hit.incendiary and hit.kind != Hit.Kind.FIRE:
 		trick = "BURNED"
 	style_event(trick, points)
-	_kill_times.append(stats.time)
-	_kill_times = _kill_times.filter(func(t: float) -> bool: return stats.time - t < 0.5)
-	if _kill_times.size() >= 3:
-		_kill_times.clear()
-		style_event("MULTIKILL", 90.0)
+	_chain = _chain + 1 if stats.time - _last_kill < CHAIN_GAP else 1
+	_last_kill = stats.time
+	if CHAIN_TRICKS.has(_chain):
+		var step: Array = CHAIN_TRICKS[_chain]
+		style_event(step[0], step[1])
+		kill_chain.emit(step[0], _chain)
 
 
 func shake(amount: float, source := Vector3.INF) -> void:
