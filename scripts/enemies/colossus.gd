@@ -11,6 +11,7 @@ enum Attack { NONE, SWEEP, BARRAGE, SPAWN }
 const NODE_HP := 100.0
 const CAP_HP := 100.0
 const CORE_HP := 600.0
+const PART_LABELS := {"left": "NODE L", "right": "NODE R", "top": "NODE TOP", "core": "CORE"}
 
 class Part:
 	var name := ""
@@ -114,6 +115,23 @@ func _live_parts() -> Array[Part]:
 	if result.is_empty() and core.hp > 0.0:
 		result.append(core)
 	return result
+
+
+## The weak points the sight can lock one by one: the capped nodes, then the core once they fall.
+func aim_parts() -> Dictionary:
+	var result := {}
+	if _dying > 0.0:
+		return result
+	for part in _live_parts():
+		result[part.name] = [global_transform * part.offset, part.radius, PART_LABELS[part.name]]
+	return result
+
+
+## Each node's cap and flesh together, then the core.
+func module_states() -> Array:
+	var states: Array = parts.map(func(part: Part) -> Array: return [PART_LABELS[part.name], clampf((part.hp + part.cap) / (NODE_HP + CAP_HP), 0.0, 1.0)])
+	states.append([PART_LABELS.core, clampf(core.hp / CORE_HP, 0.0, 1.0)])
+	return states
 
 
 func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
