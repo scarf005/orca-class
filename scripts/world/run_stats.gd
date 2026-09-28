@@ -7,6 +7,8 @@ extends RefCounted
 const COMBO_WINDOW := 2.6
 const STYLE_RANKS: Array[float] = [0.0, 90.0, 200.0, 340.0, 500.0, 680.0, 880.0] ## D C B A S SS SSS
 const STYLE_LETTERS: Array[String] = ["D", "C", "B", "A", "S", "SS", "SSS"]
+## Each rank spelled out, in English whatever the language, as arcade style ranks are.
+const STYLE_WORDS: Array[String] = ["DOPE", "COOL", "BRUTAL", "AWESOME", "SAVAGE", "SICK SKILLS", "SMOKIN' SICK STYLE"]
 const STYLE_MULTIPLIERS: Array[int] = [1, 2, 3, 4, 5, 6, 8]
 const STYLE_MAX := 1000.0
 const STYLE_DECAY := 14.0 ## Per second at rank D; faster at higher ranks.
