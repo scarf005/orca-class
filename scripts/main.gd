@@ -12,6 +12,8 @@ func _ready() -> void:
 		return
 	if OS.get_cmdline_user_args().has("--play"):
 		start_game("")
+	elif OS.get_cmdline_user_args().has("--debug-room"):
+		_swap(DebugRoom.new())
 	else:
 		show_title()
 

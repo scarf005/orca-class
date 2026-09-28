@@ -40,12 +40,21 @@ godot --headless --fixed-fps 60 --path . -- --run=res://tests/run.gd [--only=tai
 
 The exit code is the number of failed checks.
 
+Debug room, a gallery of every model and effect on a flat checkered floor (10 m squares): WASD to fly, Q/E
+down/up, Shift for speed, right-drag to look, 1–9 to jump between rows.
+
+```sh
+godot --path . -- --debug-room
+```
+
 Tools run through the main scene with `--run`:
 
 ```sh
 # Bot playthrough with screenshots and frame timing. A small window keeps xvfb's software presentation cheap.
 xvfb-run -a godot --path . --resolution 480x270 -- --run=res://tools/autoplay.gd \
   --seconds=420 --scale=3 --god --shots=30,60 --out=builds/auto [--checkpoint=boss] [--profile]
+# Screenshots of every debug room row.
+xvfb-run -a godot --path . --resolution 960x540 -- --run=res://tools/debug_room_shots.gd --out=builds/debug_room
 # Course fly-through screenshots.
 xvfb-run -a godot --path . -- --run=res://tools/capture_course.gd --d=100,700,1620 --out=builds/shots
 ```

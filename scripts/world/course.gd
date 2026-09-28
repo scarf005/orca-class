@@ -24,6 +24,9 @@ const CENTER_POINTS: Array[Vector2] = [
 	Vector2(3350, 0), Vector2(3700, 0), Vector2(4000, 0),
 ]
 
+## The debug room swaps the valley for a flat, open floor.
+static var flat := false
+
 static var _noise := _make_noise(7, 0.004)
 static var _detail := _make_noise(11, 0.05)
 static var _fungus := _make_noise(23, 0.018)
@@ -100,6 +103,8 @@ static func is_water(d: float, u: float) -> bool:
 
 
 static func height(d: float, u: float) -> float:
+	if flat:
+		return 0.0
 	var au := absf(u)
 	var half := valley_half_width(d)
 	var h := _noise.get_noise_2d(d, u) * 1.2
@@ -158,6 +163,8 @@ static func fungus_at(d: float, u: float) -> float:
 
 
 static func ground_color(d: float, u: float, h: float, slope: float) -> Color:
+	if flat:
+		return Palette.SAGE if (int(floorf(d / 10.0)) + int(floorf(u / 10.0))) % 2 == 0 else Palette.LEAF
 	var au := absf(u)
 	var rise := smoothstep(valley_half_width(d), valley_half_width(d) + 70.0, au)
 	var color := Palette.SAGE
