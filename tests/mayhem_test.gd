@@ -21,13 +21,19 @@ func test_tank_bulldozes_houses_at_speed() -> void:
 	check(world.stats.style > 0.0, "demolition earns style")
 
 
-func test_landmarks_do_not_budge() -> void:
+func test_landmarks_break_into_pieces_that_topple() -> void:
 	var world := stage()
 	var tank := world.player
-	await frames(3)
-	var tree := _prop(world, "zelkova", tank.global_position + Vector3(0, 0, -1.0), 1e9)
-	await frames(10)
-	check(is_instance_valid(tree) and not tree.dead, "the old zelkova survives")
+	var trunk := _prop(world, "zelkova_trunk", tank.global_position + Vector3(0, 0, -40.0), 260.0)
+	var crown := _prop(world, "zelkova_canopy", trunk.global_position + Vector3.UP * 5.0, 150.0)
+	trunk.supports.append(crown)
+	var shot := Hit.make(Hit.Kind.SHELL, 999.0, trunk.global_position)
+	shot.source = tank
+	trunk.take_hit(shot)
+	check(trunk.dead, "the old tree's trunk can be destroyed")
+	check(crown._topple >= 0.0, "the crown it held starts to fall")
+	var fell := await wait_until(gone(crown), 180)
+	check(fell, "and breaks apart when it lands")
 
 
 func test_ramming_hurts_ground_enemies() -> void:

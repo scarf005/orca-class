@@ -13,6 +13,10 @@ var drop := "" ## Pickup id dropped when destroyed.
 var burnable := false
 var explosive := false
 var fungal := false ## Bursts into spores and splatter when destroyed.
+var supports: Array[Prop] = [] ## Pieces resting on this one; they topple when it breaks.
+var _topple := -1.0
+var _topple_axis := Vector3.RIGHT
+var _topple_by_player := false
 var rubble_mesh: Mesh
 var score := 0
 
@@ -55,6 +59,36 @@ static func _make_see_through() -> ShaderMaterial:
 	material.shader = preload("res://shaders/dither_fade.gdshader")
 	material.set_shader_parameter("alpha_scale", 0.35)
 	return material
+
+
+## Tips over away from `from` and breaks apart when it hits the ground.
+func topple(by_player: bool, from: Vector3) -> void:
+	if _topple >= 0.0:
+		return
+	_topple = 0.0
+	_topple_by_player = by_player
+	var away := global_position - from
+	away.y = 0.0
+	if away.length() < 0.1:
+		away = Vector3(randf_range(-1, 1), 0, randf_range(-1, 1))
+	_topple_axis = Vector3.UP.cross(away.normalized())
+	always_tick = true
+	set_process(true)
+
+
+func tick(delta: float) -> void:
+	if _topple < 0.0:
+		return
+	_topple += delta
+	var k := minf(_topple / 1.1, 1.0)
+	rotate(_topple_axis, delta * (0.5 + k * 2.4))
+	global_position.y -= delta * k * 6.0
+	if k >= 1.0:
+		var crash := Hit.make(Hit.Kind.RAM, 99999.0, global_position)
+		if _topple_by_player:
+			crash.source = World.current.player
+		World.current.shake(0.5, global_position)
+		take_hit(crash)
 
 
 func set_see_through(enabled: bool) -> void:
@@ -108,6 +142,9 @@ func on_death(hit: Hit) -> void:
 		world.shake(0.25, global_position)
 	if not drop.is_empty():
 		world.spawn_pickup(drop, global_position + Vector3.UP)
+	for piece in supports:
+		if is_instance_valid(piece) and not piece.dead:
+			piece.topple(hit != null and hit.by_player(), global_position)
 	if explosive:
 		# Wrecks the player sets off only hurt enemies; stray enemy fire makes them dangerous to everyone.
 		var by_player := hit != null and hit.by_player()

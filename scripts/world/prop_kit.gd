@@ -535,3 +535,82 @@ static func veins(variant: int, rng: RandomNumberGenerator) -> Mesh:
 	b.blob(Transform3D(Basis().scaled(Vector3(1, 0.6, 1)), Vector3(0, 0.3, 0)), 0.8 + (variant % 3) * 0.2, Palette.MAUVE, 1, 0.3, variant)
 	b.flesh = false
 	return b.mesh()
+
+
+# --- Modular landmarks: each piece is its own destructible prop -------------------------------
+
+## Half of the church nave: walls, windows and its half of the roof. Variant 1 is the rear half.
+static func church_nave(variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.box(_xf(Vector3(0, 3.0, 0)), Vector3(9.0, 6.0, 7.4), Palette.WHITE)
+	b.gable(_xf(Vector3(0, 6.0, 0), PI * 0.5), Vector3(7.6, 3.4, 10.0), Palette.CORAL, Palette.WHITE)
+	for z in [-1.8, 1.8]:
+		b.box(_xf(Vector3(4.51, 3.5, z)), Vector3(0.05, 2.5, 1.0), Palette.SKY)
+		b.box(_xf(Vector3(-4.51, 3.5, z)), Vector3(0.05, 2.5, 1.0), Palette.SKY)
+	if variant == 1:
+		b.box(_xf(Vector3(0, 1.4, -3.72)), Vector3(1.8, 2.8, 0.05), Palette.WOOD)
+	return b.mesh()
+
+
+static func church_tower(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.box(_xf(Vector3(0, 6.5, 0)), Vector3(3.2, 13.0, 3.2), Palette.WHITE)
+	b.box(_xf(Vector3(0, 11.0, 1.61)), Vector3(1.0, 1.6, 0.05), Palette.DUSK)
+	b.box(_xf(Vector3(0, 13.1, 0)), Vector3(3.5, 0.3, 3.5), Palette.CONCRETE)
+	return b.mesh()
+
+
+static func church_spire(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.prism(Transform3D(Basis(Vector3.UP, PI * 0.25), Vector3.ZERO), 2.4, 5.0, 4, Palette.CORAL, 0.0)
+	b.glow = true
+	b.box(_xf(Vector3(0, 6.5, 0)), Vector3(0.3, 3.0, 0.3), Palette.RED)
+	b.box(_xf(Vector3(0, 7.2, 0)), Vector3(1.8, 0.3, 0.3), Palette.RED)
+	return b.mesh()
+
+
+static func zelkova_trunk(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.prism(Transform3D(), 1.1, 5.0, 7, Palette.WOOD, 0.7)
+	for i in 4:
+		var angle := i * TAU / 4.0 + 0.4
+		b.prism(Transform3D(Basis(Vector3(cos(angle), 0, sin(angle)).cross(Vector3.UP), 0.7), Vector3(0, 4.0, 0)), 0.45, 3.0, 5, Palette.WOOD, 0.25)
+	b.prism(_xf(Vector3(0, 1.6, 0)), 1.12, 0.15, 7, Palette.STRAW)
+	return b.mesh()
+
+
+## The crown of the old tree; it sits on the trunk and falls with it.
+static func zelkova_canopy(_variant: int, rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	for i in 9:
+		var p := Vector3(rng.randf_range(-6, 6), rng.randf_range(2, 6), rng.randf_range(-6, 6))
+		b.blob(_xf(p), rng.randf_range(2.6, 3.8), [Palette.PINE, Palette.SAGE, Palette.MOSS][i % 3], 1 if i < 2 else 0, 0.25, i)
+	return b.mesh()
+
+
+## One classroom block of the branch school, two floors of windows.
+static func school_wing(variant: int, rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.box(_xf(Vector3(0, 4.0, 0)), Vector3(10.0, 8.0, 10.0), Palette.CREAM)
+	b.box(_xf(Vector3(0, 8.2, 0)), Vector3(10.4, 0.4, 10.6), Palette.BLUSH)
+	b.box(_xf(Vector3(0, 0.3, 0)), Vector3(10.2, 0.6, 10.4), Palette.STONE)
+	for floor_y in [2.0, 5.6]:
+		for x in [-3.2, 0.0, 3.2]:
+			b.box(_xf(Vector3(x, floor_y, 5.01)), Vector3(2.6, 1.8, 0.05), Palette.SKY if rng.randf() < 0.8 else Palette.DUSK)
+	if variant >= 2:
+		# The fungus has taken the east wing.
+		for i in 3:
+			b.flesh = true
+			b.blob(_xf(Vector3(-3.0 + i * 3.0, 2.0 + (i % 2) * 3.0, 5.0)), 1.8, Palette.FUNGUS if i % 2 else Palette.LILAC, 0, 0.35, i + variant)
+			b.flesh = false
+	return b.mesh()
+
+
+static func school_center(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.box(_xf(Vector3(0, 5.0, 0)), Vector3(7.0, 10.0, 11.2), Palette.MIST)
+	b.box(_xf(Vector3(0, 10.2, 0)), Vector3(7.4, 0.4, 11.6), Palette.BLUSH)
+	b.prism(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(0, 8.5, 5.61)), 1.2, 0.1, 10, Palette.WHITE)
+	b.box(_xf(Vector3(0, 8.8, 5.72)), Vector3(0.1, 0.8, 0.05), Palette.INK)
+	b.box(_xf(Vector3(0, 1.6, 5.61)), Vector3(3.0, 3.2, 0.1), Palette.PEACH)
+	return b.mesh()

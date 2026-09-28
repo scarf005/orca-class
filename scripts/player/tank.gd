@@ -25,7 +25,6 @@ const RESPAWN_DELAY := 1.8
 const RESPAWN_INVULN := 2.6
 const HOLD_TIME := 0.35 ## A grabbed enemy dangles this long before it is thrown.
 const CRUSH_SPEED := 5.0 ## Ground speed above which buildings and wrecks give way.
-const INDESTRUCTIBLE := 1e8 ## Landmarks (church, zelkova) have more HP than this.
 const RAM_DAMAGE := 150.0
 
 var model := TankModel.new()
@@ -246,8 +245,10 @@ func _anchor(input: Vector2) -> void:
 func _collide_props(delta: float) -> void:
 	var world := World.current
 	for prop: Prop in world.props.in_radius(global_position, HULL_RADIUS):
+		if prop.global_position.y > global_position.y + 2.5:
+			continue # Resting up high (a tree crown, a spire): the hull passes under it.
 		# Sixty tons at speed flattens anything that is not a landmark.
-		if prop.crushable or (prop.max_hp < INDESTRUCTIBLE and _ground_speed() > CRUSH_SPEED):
+		if prop.crushable or _ground_speed() > CRUSH_SPEED:
 			var ram := Hit.make(Hit.Kind.RAM, 99999.0, prop.global_position)
 			ram.source = self
 			prop.take_hit(ram)

@@ -14,12 +14,17 @@ const PROPS := {
 	"greenhouse": [3.2, 2.8, 40.0, false, true, true, 30, false, false],
 	"pole": [0.5, 10.0, 25.0, false, true, false, 10, false, false],
 	"persimmon": [1.1, 4.5, 30.0, false, true, true, 10, false, false],
-	"zelkova": [2.2, 12.0, 1e9, true, false, false, 0, false, false],
+	"zelkova_trunk": [1.3, 5.0, 260.0, true, false, true, 60, false, false],
+	"zelkova_canopy": [5.0, 7.0, 150.0, false, false, true, 60, false, false],
 	"pavilion": [3.0, 5.0, 220.0, true, false, false, 80, false, true],
 	"bus_stop": [1.8, 3.0, 30.0, false, true, false, 20, false, false],
 	"cultivator": [1.8, 1.6, 30.0, false, true, false, 30, true, false],
 	"bale": [1.0, 1.6, 12.0, false, true, true, 10, false, false],
-	"church": [7.0, 20.0, 1e9, true, false, false, 0, false, false],
+	"church_nave": [4.8, 9.0, 380.0, true, false, false, 150, false, true],
+	"church_tower": [2.2, 13.0, 320.0, true, false, false, 150, false, true],
+	"church_spire": [2.4, 8.0, 120.0, false, false, false, 200, false, false],
+	"school_wing": [5.5, 8.5, 420.0, true, false, false, 120, false, true],
+	"school_center": [5.0, 10.5, 480.0, true, false, false, 200, false, true],
 	"hall": [6.0, 5.0, 420.0, true, false, false, 150, false, true],
 	"car": [2.1, 1.8, 70.0, true, false, false, 40, true, false],
 	"truck": [3.2, 3.5, 160.0, true, false, false, 80, true, false],
@@ -43,6 +48,13 @@ const PROPS := {
 const INFESTED := {"house": "infested_house", "car": "infested_car"}
 const FUNGAL := ["fungal_spire", "infested_house", "infested_car", "flesh_mound", "cordyceps", "husk_cow", "egg_sacs", "mushroom", "spore_tower"]
 
+## Multi-piece landmarks: [kind, along the building's local x, local z, height lift, index it rests on (-1 = ground)].
+const COMPOUNDS := {
+	"church": [["church_nave", 0.0, -3.7, 0.0, -1], ["church_nave", 0.0, 3.7, 0.0, -1], ["church_tower", 0.0, 9.0, 0.0, -1], ["church_spire", 0.0, 9.0, 13.2, 2]],
+	"zelkova": [["zelkova_trunk", 0.0, 0.0, 0.0, -1], ["zelkova_canopy", 0.0, 0.0, 5.0, 0]],
+	"school": [["school_wing", -21.0, 0.0, 0.0, -1], ["school_wing", -10.5, 0.0, 0.0, -1], ["school_center", 0.0, 0.3, 0.0, -1], ["school_wing", 10.5, 0.0, 0.0, -1], ["school_wing", 21.0, 0.0, 0.0, -1]],
+}
+
 class Spec:
 	var kind := ""
 	var variant := 0
@@ -53,11 +65,16 @@ class Spec:
 	var decor := false
 	var mesh: Mesh
 	var node: Node3D
+	var lift := 0.0 ## Height above the ground (pieces resting on other pieces).
+	var group := -1 ## Compound this piece belongs to.
+	var rests_on := -1 ## Index within the group of the piece holding this one up.
+	var index := 0
 
 var specs: Array[Spec] = []
 var _rng := RandomNumberGenerator.new()
 var _next := 0
 var _live: Array[Spec] = []
+var _groups: Array[Dictionary] = [] ## Compound id -> {piece index: Prop}, filled as pieces stream in.
 
 
 func build() -> void:
@@ -95,6 +112,21 @@ func add(kind: String, d: float, u: float, yaw := INF, variant := -1, drop := ""
 	spec.drop = drop
 	specs.append(spec)
 	return spec
+
+
+## Places a multi-piece landmark. Pieces are separate props; upper pieces rest on lower ones.
+func add_compound(name: String, d: float, u: float, yaw: float) -> void:
+	var group := _groups.size()
+	_groups.append({})
+	var pieces: Array = COMPOUNDS[name]
+	for i in pieces.size():
+		var piece: Array = pieces[i]
+		var offset := Vector3(piece[1], 0.0, piece[2]).rotated(Vector3.UP, yaw)
+		var spec := add(piece[0], d - offset.z, u + offset.x, yaw, i)
+		spec.lift = piece[3]
+		spec.group = group
+		spec.rests_on = piece[4]
+		spec.index = i
 
 
 func add_decor(mesh: Mesh, d: float, u: float, yaw := 0.0, y := INF) -> Spec:
@@ -167,10 +199,10 @@ func _farm() -> void:
 
 
 func _village() -> void:
-	add("zelkova", 590.0, -17.0, 0.0)
+	add_compound("zelkova", 590.0, -17.0, 0.0)
 	add("pavilion", 590.0, -8.5, 0.1)
 	add("hall", 900.0, -16.0)
-	add("church", 1160.0, 26.0)
+	add_compound("church", 1160.0, 26.0, -PI * 0.5)
 	var d := 610.0
 	while d < 1440.0:
 		for side in [-1.0, 1.0]:
@@ -204,7 +236,7 @@ func _village() -> void:
 func _school() -> void:
 	add("gate", 1560.0, -8.5, 0.0)
 	add("gate", 1560.0, 8.5, 0.0)
-	add_decor(PropKit.mesh("school", 0), 1760.0, -46.0, PI * 0.5)
+	add_compound("school", 1760.0, -46.0, PI * 0.5)
 	add_decor(PropKit.mesh("flagpole", 0), 1640.0, -30.0, 0.0)
 	for i in 8:
 		add("plane_tree", 1570.0 + i * 22.0, 60.0 * (1.0 if i % 2 else -1.0) + _rng.randf_range(-4, 4))
@@ -392,7 +424,7 @@ func stream(d: float, budget := 8) -> void:
 
 
 func _instantiate(spec: Spec) -> void:
-	var y: float = spec.get_meta("y") if spec.has_meta("y") else Course.height(spec.d, spec.u)
+	var y: float = spec.get_meta("y") if spec.has_meta("y") else Course.height(spec.d, spec.u) + spec.lift
 	var position := Vector3(Course.center_x(spec.d) + spec.u, y, -spec.d)
 	if spec.decor:
 		var decor := MeshInstance3D.new()
@@ -421,12 +453,27 @@ func _instantiate(spec: Spec) -> void:
 		prop.rotation.y = spec.yaw
 		World.current.props.add_child(prop)
 		spec.node = prop
+		if spec.group >= 0:
+			_link(spec, prop)
 	_live.append(spec)
+
+
+## Connects a compound piece to whatever it rests on and whatever rests on it, whichever streamed first.
+func _link(spec: Spec, prop: Prop) -> void:
+	var members: Dictionary = _groups[spec.group]
+	members[spec.index] = prop
+	for other in specs:
+		if other.group != spec.group or not is_instance_valid(other.node):
+			continue
+		if other.index == spec.rests_on:
+			(other.node as Prop).supports.append(prop)
+		elif other.rests_on == spec.index:
+			prop.supports.append(other.node as Prop)
 
 
 func _debris_colors(kind: String, variant: int) -> Array:
 	match kind:
-		"house", "hall", "infested_house":
+		"house", "hall", "infested_house", "church_nave", "church_tower", "church_spire", "school_wing", "school_center":
 			return [PropKit.WALL_COLORS[variant % PropKit.WALL_COLORS.size()], PropKit.ROOF_COLORS[variant % PropKit.ROOF_COLORS.size()], Palette.STONE]
 		"greenhouse":
 			return [Palette.WHITE, Palette.MIST, Palette.FUNGUS]
@@ -436,7 +483,7 @@ func _debris_colors(kind: String, variant: int) -> Array:
 			return [Palette.WHITE, Palette.STRAW]
 		"car", "truck", "infested_car":
 			return [PropKit.CAR_COLORS[variant % PropKit.CAR_COLORS.size()], Palette.INK, Palette.DUSK]
-		"persimmon", "plane_tree", "reeds":
+		"persimmon", "plane_tree", "reeds", "zelkova_trunk", "zelkova_canopy":
 			return [Palette.PINE, Palette.WOOD, Palette.PEACH]
 		"crate":
 			return [Palette.PINE, Palette.OCHRE, Palette.BUTTER]

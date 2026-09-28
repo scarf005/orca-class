@@ -42,7 +42,7 @@ func _ready() -> void:
 	_build_bosses(_row_d[2])
 	_build_pickups(_row_d[3])
 	_build_props(_row_d[4], 4, ["wall", "jars", "pole", "persimmon", "bus_stop", "cultivator", "bale", "car", "reeds", "crate", "rock", "gate", "plane_tree", "rubble"])
-	_build_props(_row_d[5], 5, ["house", "greenhouse", "pavilion", "hall", "truck", "zelkova", "church"])
+	_build_props(_row_d[5], 5, ["house", "greenhouse", "pavilion", "hall", "truck", "zelkova_trunk", "church_nave", "church_tower", "school_wing", "school_center"])
 	_build_props(_row_d[6], 6, ["mushroom", "veins", "mycelium", "egg_sacs", "cordyceps", "husk_cow", "infested_car", "flesh_mound", "spore_tower", "infested_house", "fungal_spire"])
 	_build_projectiles(_row_d[7])
 	_build_vfx(_row_d[8])

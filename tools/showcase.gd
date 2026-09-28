@@ -48,6 +48,8 @@ func run() -> int:
 			_stage_vfx(world)
 		"fungus":
 			world.player.model.visible = true
+		"church":
+			_stage_church(world)
 		"boss":
 			world.rail.d = Course.ARENA_CENTER_D - 60.0
 			world.director._start_boss({"kind": "helicopter"})
@@ -84,6 +86,22 @@ func _stage_vfx(world: World) -> void:
 	world.radio.emit(&"AI_REAR")
 	world.player.load_round(Armament.Round.HEAT)
 	world.player.set_coax_tier(4)
+
+
+## Blows out the church tower and a nave half so the spire topples.
+func _stage_church(world: World) -> void:
+	var pieces := world.props.get_children().filter(func(p: Node) -> bool: return p is Prop and (p as Prop).kind.begins_with("church"))
+	for piece: Prop in pieces:
+		if piece.kind in ["church_tower", "church_nave"] and piece.max_hp > 0.0 and randf() < (1.0 if piece.kind == "church_tower" else 0.5):
+			var hit := Hit.make(Hit.Kind.SHELL, 9999.0, piece.global_position + Vector3.UP * 3.0)
+			hit.source = world.player
+			world.fx.explosion(hit.position, 4.0)
+			piece.take_hit(hit)
+	var cam := world.camera
+	cam.set_process(false)
+	var spot := Course.ground_at(1160.0, 26.0)
+	cam.global_position = spot + Vector3(-30, 14, 30)
+	cam.look_at(spot + Vector3.UP * 8.0, Vector3.UP)
 
 
 func _stage_tail(world: World) -> void:
