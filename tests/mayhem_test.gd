@@ -86,3 +86,42 @@ func test_high_style_heals_and_hits_cost_style() -> void:
 	var style := world.stats.style
 	tank.take_hit(Hit.make(Hit.Kind.SHELL, 20.0, tank.hit_center(), Vector3.FORWARD))
 	check(world.stats.style < style, "getting hit costs style")
+
+
+func test_a_shell_kill_throws_the_wreck_on_along_the_shot() -> void:
+	var world := stage()
+	var ugv := Ugv.new()
+	ugv.position = Course.ground_at(world.rail.d + 60.0, 0.0)
+	world.add_enemy(ugv)
+	await frames(2)
+	var shot_dir := Course.right(world.rail.d + 60.0)
+	var shot := Hit.make(Hit.Kind.SHELL, 9999.0, ugv.hit_center(), shot_dir)
+	shot.caliber = 100
+	shot.source = world.player
+	ugv.take_hit(shot)
+	var wrecks := world.get_children().filter(func(n: Node) -> bool: return n is Wreck)
+	check_eq(wrecks.size(), 2, "hull and turret fly off as separate wrecks")
+	var hull: Wreck = wrecks.filter(func(w: Wreck) -> bool: return w.explodes)[0]
+	check(Vector3(hull.velocity.x, 0, hull.velocity.z).dot(shot_dir) > 8.0, "the hull is thrown on along the shot")
+	check(wrecks.any(func(w: Wreck) -> bool: return not w.explodes), "the turret is a piece that just crashes")
+
+
+func test_blast_push_follows_the_attack() -> void:
+	check(Enemy.kill_push(null) == Vector3.ZERO, "no hit, no push")
+	var shell := Hit.make(Hit.Kind.SHELL, 1.0, Vector3.ZERO, Vector3(1, -0.5, 0).normalized())
+	check(Enemy.kill_push(shell).dot(Vector3.RIGHT) > 0.99 and Enemy.kill_push(shell).y >= 0.0, "shells push along the flight, never into the ground")
+	var bullet := Hit.make(Hit.Kind.BULLET, 1.0, Vector3.ZERO, Vector3.RIGHT)
+	check(Enemy.kill_push(bullet).length() < Enemy.kill_push(shell).length() * 0.5, "bullets barely nudge")
+
+
+func test_held_pieces_fall_away_from_the_blow() -> void:
+	var world := stage()
+	var tank := world.player
+	var trunk := _prop(world, "zelkova_trunk", tank.global_position + Vector3(0, 0, -40.0), 260.0)
+	var crown := _prop(world, "zelkova_canopy", trunk.global_position + Vector3.UP * 5.0, 150.0)
+	trunk.supports.append(crown)
+	var shot := Hit.make(Hit.Kind.SHELL, 999.0, trunk.global_position, Vector3.RIGHT)
+	shot.source = tank
+	trunk.take_hit(shot)
+	await frames(20)
+	check(crown.global_basis.y.x > 0.05, "the crown tips over toward +X, the way the shot went")

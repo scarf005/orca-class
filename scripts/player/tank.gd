@@ -462,6 +462,9 @@ func _fire_coax(muzzle: Node3D, caliber: int, spec: Dictionary) -> void:
 		bullet.blast_damage = spec.damage * 0.5
 		bullet.blast_colors = [Palette.WHITE, Palette.PEACH, Palette.CORAL]
 	world.fx.muzzle_flash(from + dir * 0.2, dir, 0.3 + caliber * 0.025, spec.color)
+	# Brass spills out of the mantlet and bounces off the deck.
+	var eject := global_basis.x * randf_range(2.0, 4.0) + Vector3.UP * randf_range(3.0, 5.0)
+	world.fx.spawn(Fx.Kind.SOLID, from - dir * 0.6, eject, 0.9, 0.05 + caliber * 0.004, Palette.BUTTER, {"gravity": 22.0, "bounce": true, "spin": 1.0})
 	Sfx.play(spec.sound, from, -4.0, randf_range(0.95, 1.08))
 
 
@@ -560,9 +563,15 @@ func _cannon_feedback(muzzle: Vector3, dir: Vector3) -> void:
 	Sfx.play("cannon", muzzle, 0.0, randf_range(0.95, 1.05))
 
 
-func _count_hit(_projectile: Projectile, _point: Vector3, target: Entity) -> void:
+## Main-gun impacts. A shell landing on an enemy freezes the frame for a beat and bucks the camera.
+func _count_hit(projectile: Projectile, point: Vector3, target: Entity) -> void:
+	var world := World.current
+	world.shake(0.3, point)
 	if target and target.team == Team.ENEMY:
-		World.current.stats.shot_hits += 1
+		world.stats.shot_hits += 1
+		world.hitstop(0.045)
+		world.fx.light_flash(point, 16.0, Palette.WHITE, 22.0)
+		world.fx.sparks(point, projectile.splash_direction(), 18, Palette.WHITE, 18.0)
 
 
 ## Dragon's breath sets the ground alight where flames land.

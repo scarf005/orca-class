@@ -15,6 +15,7 @@ var burning := 0.0
 var can_stagger := true
 var despawn_behind := 30.0 ## Removed once this far behind the rail; 0 keeps it.
 var wreck_on_death := false ## Vehicles: the hull is blown into the air and blows up again on landing.
+var pop_parts: Array[Node3D] = [] ## Parts (turrets) that blow off and fly separately when it dies as a wreck.
 var model := Node3D.new()
 var age := 0.0
 var _last_position := Vector3.ZERO
@@ -130,14 +131,19 @@ func on_death(hit: Hit) -> void:
 	var world := World.current
 	var center := hit_center()
 	var by_player := hit != null and hit.by_player()
+	var push := kill_push(hit)
 	# The death blast hurts whatever is close, so packed enemies go up in chains.
 	var chain := Hit.new()
 	chain.source = world.player if by_player else null
-	world.blast(center, death_radius * 1.4, 35.0, Team.PLAYER if by_player else Team.NEUTRAL, chain, self, [Palette.WHITE, Palette.AMBER, Palette.HOT, Palette.CORAL])
-	world.fx.debris(center, int(4 + death_radius * 3), debris_colors, 6.0 + death_radius * 2.0, 0.25 + death_radius * 0.08)
+	world.blast(center, death_radius * 1.4, 35.0, Team.PLAYER if by_player else Team.NEUTRAL, chain, self, [Palette.WHITE, Palette.AMBER, Palette.HOT, Palette.CORAL], push)
+	world.fx.debris(center, int(4 + death_radius * 3), debris_colors, 6.0 + death_radius * 2.0, 0.25 + death_radius * 0.08, push)
 	world.fx.smoke_column(center, death_radius, [Palette.DUSK, Palette.INK, Palette.ASH])
 	if wreck_on_death:
-		Wreck.launch(model, center, death_radius, by_player)
+		for part in pop_parts:
+			if is_instance_valid(part):
+				# Turrets blow clean off and cartwheel away on their own.
+				Wreck.launch(part, part.global_position, death_radius * 0.4, by_player, push * 8.0 + Vector3.UP * 10.0, false)
+		Wreck.launch(model, center, death_radius, by_player, push * 14.0)
 		model = Node3D.new()
 	world.award(score, center, true)
 	world.kill_style(hit, self)
@@ -147,7 +153,21 @@ func on_death(hit: Hit) -> void:
 		world.spawn_pickup(drop, center + Vector3.UP * 0.5)
 	if hit and hit.kind == Hit.Kind.SHELL and death_radius < 3.0:
 		# Heavy kills fling debris further.
-		world.fx.debris(center, 6, debris_colors, 14.0, 0.3)
+		world.fx.debris(center, 6, debris_colors, 14.0, 0.3, push)
+
+
+## How hard and which way the killing blow throws the remains: shells and rams send them flying
+## on along the shot, blasts shove them out, bullets barely nudge.
+static func kill_push(hit: Hit) -> Vector3:
+	if hit == null:
+		return Vector3.ZERO
+	var dir := Vector3(hit.direction.x, maxf(hit.direction.y, 0.0) * 0.5, hit.direction.z).normalized()
+	match hit.kind:
+		Hit.Kind.SHELL, Hit.Kind.RAM, Hit.Kind.THROWN, Hit.Kind.TAIL:
+			return dir
+		Hit.Kind.BLAST, Hit.Kind.FRAGMENT:
+			return dir * 0.6
+	return dir * 0.25
 
 
 func fire_at(shape: String, from: Vector3, target: Vector3, speed: float, damage: float, color := Palette.HOT) -> Projectile:

@@ -42,6 +42,7 @@ func _init() -> void:
 
 
 func build() -> void:
+	pop_parts = [_turret]
 	_hard = Game.difficulty == Game.Difficulty.HARD
 	if weapon == "atgm":
 		max_hp = 80.0

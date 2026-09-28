@@ -255,18 +255,20 @@ func light_flash(position: Vector3, energy: float, color := Palette.PEACH, radiu
 
 ## A layered blast: white flash core inside a colored fireball, shock ring, a ground dust ring,
 ## embers, burning debris trailing smoke, a lingering smoke column and, for big ones, secondary pops.
-func explosion(position: Vector3, damage_radius: float, palette := [Palette.BUTTER, Palette.AMBER, Palette.HOT, Palette.CORAL]) -> void:
+## `push` is the attack direction: the fireball, embers, dust and debris are thrown on along it and
+## the secondary pops march down it, so a shell's blast carries through what it hit.
+func explosion(position: Vector3, damage_radius: float, palette := [Palette.BUTTER, Palette.AMBER, Palette.HOT, Palette.CORAL], push := Vector3.ZERO) -> void:
 	# Visuals read bigger than the damage area: it has to register at 480x270 across the valley.
 	var radius := damage_radius * 1.5
 	var pick := func(i: int) -> Color: return palette[mini(i, palette.size() - 1)]
 	var variant := randi() % 3
 	var ball := func(b: LowPoly, c: Color) -> void: b.blob(Transform3D(), 1.0, c, 1, 0.3, variant)
 	_transient(_cached("ball%d" % variant, palette[0], ball), Transform3D(Basis(), position), 0.16 + radius * 0.02, true, Vector2(radius * 0.4, radius * 0.9), 0.1, true)
-	_transient(_cached("ball%d" % variant, pick.call(2), ball), Transform3D(Basis(), position + Vector3.UP * radius * 0.2), 0.4 + radius * 0.05, true, Vector2(radius * 0.5, radius * 1.35), 0.2, true)
+	_transient(_cached("ball%d" % variant, pick.call(2), ball), Transform3D(Basis(), position + Vector3.UP * radius * 0.2 + push * radius * 0.45), 0.4 + radius * 0.05, true, Vector2(radius * 0.5, radius * 1.35), 0.2, true)
 	shockwave(position, radius * 2.2, pick.call(1))
 	light_flash(position, 8.0 + radius * 1.5, pick.call(2), radius * 5.0)
 	for i in int(10 + radius * 7):
-		var dir := Vector3(randf_range(-1, 1), randf_range(0.2, 1.4), randf_range(-1, 1)).normalized()
+		var dir := (Vector3(randf_range(-1, 1), randf_range(0.2, 1.4), randf_range(-1, 1)).normalized() + push * 1.3).normalized()
 		spawn(Kind.FLAME, position, dir * randf_range(4, 14) * (0.6 + radius * 0.3), randf_range(0.25, 0.7), randf_range(0.25, 0.6) * (0.6 + radius * 0.15), palette[randi() % palette.size()], {"gravity": 8.0, "drag": 2.0})
 	var ground := Course.height_at(position)
 	var low := position.y - ground < radius * 1.5
@@ -274,18 +276,19 @@ func explosion(position: Vector3, damage_radius: float, palette := [Palette.BUTT
 		# Dust thrown out along the ground.
 		for i in int(8 + radius * 4):
 			var angle := randf() * TAU
-			var out := Vector3(cos(angle), 0.0, sin(angle))
+			var out := (Vector3(cos(angle), 0.0, sin(angle)) + Vector3(push.x, 0.0, push.z) * 1.2).normalized()
 			spawn(Kind.GLOW, Vector3(position.x, ground + 0.4, position.z) + out * radius * 0.4, out * randf_range(6, 12) * (0.5 + radius * 0.2) + Vector3.UP, randf_range(0.6, 1.2), randf_range(0.6, 1.1), [Palette.STRAW, Palette.OCHRE, Palette.MIST][i % 3], {"end_size": 1.8 + radius * 0.3, "drag": 3.5, "fade": 0.1})
 		scorch(Vector3(position.x, ground, position.z), radius * 0.9)
 	smoke(position, int(4 + radius * 2), radius)
 	smoke_column(position, radius)
-	debris(position, int(4 + radius * 2), [Palette.WOOD, Palette.INK, Palette.OCHRE], radius * 2.5)
+	debris(position, int(4 + radius * 2), [Palette.WOOD, Palette.INK, Palette.OCHRE], radius * 2.5, 0.35, push)
 	for i in int(1 + radius * 0.8):
 		var dir := Vector3(randf_range(-1, 1), randf_range(0.8, 1.6), randf_range(-1, 1)).normalized()
 		spawn(Kind.FLAME, position, dir * randf_range(6, 12) * (0.7 + radius * 0.15), randf_range(1.0, 1.8), 0.35, Palette.PEACH, {"gravity": 18.0, "trail": Palette.ASH, "end_size": 0.2, "fade": 0.8})
 	if damage_radius >= 3.0:
 		for i in int(damage_radius * 0.7):
-			_delayed.append({"time": randf_range(0.12, 0.45) + i * 0.1, "position": position + Vector3(randf_range(-1, 1), randf_range(0, 1), randf_range(-1, 1)) * damage_radius, "radius": damage_radius * 0.35, "palette": palette})
+			var along := push * damage_radius * (0.8 + i * 0.7)
+			_delayed.append({"time": randf_range(0.12, 0.3) + i * 0.1, "position": position + along + Vector3(randf_range(-1, 1), randf_range(0, 1), randf_range(-1, 1)) * damage_radius * 0.6, "radius": damage_radius * 0.4, "palette": palette, "push": push})
 
 
 ## A slow column of smoke that lingers where something blew up.
@@ -308,7 +311,7 @@ func _update_delayed(delta: float) -> void:
 			ready.append(d)
 	for d in ready:
 		_delayed.erase(d)
-		explosion(d.position, d.radius, d.palette)
+		explosion(d.position, d.radius, d.palette, d.get("push", Vector3.ZERO))
 		Sfx.play("blast_small", d.position, -4.0, randf_range(1.0, 1.3))
 
 

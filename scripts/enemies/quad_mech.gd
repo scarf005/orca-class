@@ -42,6 +42,7 @@ func _init() -> void:
 
 
 func build() -> void:
+	pop_parts = [_turret]
 	_hard = Game.difficulty == Game.Difficulty.HARD
 	_body.position = Vector3(0, 2.6, 0)
 	model.add_child(_body)

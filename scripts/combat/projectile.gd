@@ -150,7 +150,7 @@ func detonate(point: Vector3, target: Entity) -> void:
 	if airburst_fragments > 0:
 		_airburst(point)
 	elif blast_radius > 0.0:
-		world.blast(point, blast_radius, blast_damage, team, hit, target, blast_colors)
+		world.blast(point, blast_radius, blast_damage, team, hit, target, blast_colors, splash_direction())
 	else:
 		var normal := -velocity.normalized()
 		var color := Palette.BUTTER if team == Entity.Team.PLAYER else Palette.CORAL
@@ -161,6 +161,13 @@ func detonate(point: Vector3, target: Entity) -> void:
 		Sfx.play(impact_sound, point)
 	impacted.emit(self, point, target)
 	queue_free()
+
+
+## Where a blast from this round carries: on along its flight, deflected up off the ground.
+func splash_direction() -> Vector3:
+	var dir := velocity.normalized()
+	dir.y = absf(dir.y) * 0.5 + 0.35
+	return dir.normalized()
 
 
 ## Programmable airburst: a fragment cone sweeping forward from the burst point.

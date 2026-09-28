@@ -7,16 +7,19 @@ var velocity := Vector3.ZERO
 var spin := Vector3.ZERO
 var blast_radius := 4.0
 var by_player := false
+var explodes := true ## Pieces (a blown-off turret) just crash and burn.
 var _smoke := 0.0
 
 
-## Takes over `model` (already in the world) and throws it up from `center`.
-static func launch(model: Node3D, center: Vector3, size: float, player_kill: bool) -> Wreck:
+## Takes over `model` (already in the world) and throws it up from `center`, plus `push` along
+## the killing blow.
+static func launch(model: Node3D, center: Vector3, size: float, player_kill: bool, push := Vector3.ZERO, explode := true) -> Wreck:
 	var wreck := Wreck.new()
 	World.current.add_child(wreck)
 	wreck.global_position = center
 	model.reparent(wreck, true)
-	wreck.velocity = Vector3(randf_range(-4, 4), randf_range(9, 14) / sqrt(maxf(size, 1.0)), randf_range(-4, 4))
+	wreck.explodes = explode
+	wreck.velocity = Vector3(randf_range(-4, 4), randf_range(9, 14) / sqrt(maxf(size, 1.0)), randf_range(-4, 4)) + push / sqrt(maxf(size, 1.0))
 	wreck.spin = Vector3(randf_range(-6, 6), randf_range(-4, 4), randf_range(-6, 6)) / sqrt(maxf(size, 1.0))
 	wreck.blast_radius = 2.5 + size
 	wreck.by_player = player_kill
@@ -41,11 +44,18 @@ func _process(delta: float) -> void:
 func _land(ground: float) -> void:
 	var world := World.current
 	var at := Vector3(global_position.x, ground + 0.5, global_position.z)
+	if not explodes:
+		world.fx.debris(at, 6, [Palette.INK, Palette.SLATE, Palette.AMBER], 7.0, 0.3, velocity.normalized())
+		world.fx.dust(at, 4, 1.2, Palette.OCHRE)
+		world.fx.burn(at, 3.0, 0.5)
+		Sfx.play("rubble", at, -4.0, 1.3)
+		queue_free()
+		return
 	var chain := Hit.new()
 	chain.source = world.player if by_player else null
 	world.blast(at, blast_radius, 45.0, Entity.Team.PLAYER if by_player else Entity.Team.NEUTRAL, chain, null, [Palette.WHITE, Palette.AMBER, Palette.HOT, Palette.INK])
 	world.fx.smoke_column(at, blast_radius, [Palette.DUSK, Palette.INK, Palette.SLATE])
 	world.fx.burn(at, 5.0, 0.9)
-	world.fx.debris(at, 10, [Palette.INK, Palette.SLATE, Palette.AMBER], 10.0, 0.45)
+	world.fx.debris(at, 10, [Palette.INK, Palette.SLATE, Palette.AMBER], 10.0, 0.45, Vector3(velocity.x, 0.0, velocity.z).normalized())
 	world.shake(0.35, at)
 	queue_free()

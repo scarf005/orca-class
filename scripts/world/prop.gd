@@ -136,7 +136,8 @@ func damage_multiplier(hit: Hit) -> float:
 func on_death(hit: Hit) -> void:
 	var world := World.current
 	var center := global_position + Vector3.UP * height * 0.4
-	world.fx.debris(center, int(clampf(footprint * height * 1.5, 4, 24)), debris_colors, 5.0 + footprint, 0.3 + footprint * 0.12)
+	var push := Enemy.kill_push(hit)
+	world.fx.debris(center, int(clampf(footprint * height * 1.5, 4, 24)), debris_colors, 5.0 + footprint, 0.3 + footprint * 0.12, push)
 	world.fx.dust(global_position, int(clampf(footprint * 3.0, 3, 14)), footprint, Palette.MIST)
 	Sfx.play("rubble" if footprint > 1.5 else "wood", global_position)
 	if footprint > 2.5:
@@ -145,14 +146,15 @@ func on_death(hit: Hit) -> void:
 		world.spawn_pickup(drop, global_position + Vector3.UP)
 	for piece in supports:
 		if is_instance_valid(piece) and not piece.dead:
-			piece.topple(hit != null and hit.by_player(), global_position)
+			# Knocked out from one side, what it held falls away from the blow.
+			piece.topple(hit != null and hit.by_player(), piece.global_position - push * 5.0 if push != Vector3.ZERO else global_position)
 	if explosive:
 		# Wrecks the player sets off only hurt enemies; stray enemy fire makes them dangerous to everyone.
 		var by_player := hit != null and hit.by_player()
 		# Chain blasts carry this prop as their source so kills count as collateral.
 		var chain := Hit.new()
 		chain.source = self if by_player else null
-		world.blast(center, blast_size, 45.0 + blast_size * 4.0, Team.PLAYER if by_player else Team.NEUTRAL, chain, self, [Palette.WHITE, Palette.AMBER, Palette.HOT, Palette.INK])
+		world.blast(center, blast_size, 45.0 + blast_size * 4.0, Team.PLAYER if by_player else Team.NEUTRAL, chain, self, [Palette.WHITE, Palette.AMBER, Palette.HOT, Palette.INK], push * 0.5)
 		world.fx.smoke_column(center, blast_size * 0.6, [Palette.DUSK, Palette.INK, Palette.SLATE])
 		world.fx.burn(global_position, 4.0 + blast_size, 0.8)
 	if score > 0:
