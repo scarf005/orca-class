@@ -134,7 +134,7 @@ func hit_center() -> Vector3:
 
 
 func take_hit(hit: Hit) -> void:
-	if dead or _dying > 0.0:
+	if dead or invulnerable or _dying > 0.0 or hit.damage <= 0.0:
 		return
 	var world := World.current
 	# Find the part nearest the impact (blasts reach any part within their falloff).
@@ -167,13 +167,13 @@ func take_hit(hit: Hit) -> void:
 			world.fx.spores(global_transform * best.offset, 20, 2.0)
 			Sfx.play("roar", global_position, -4.0, 1.3)
 			world.shake(0.3)
-		flash()
+		impact_feedback(hit, amount)
 		return
 	if hit.kind == Hit.Kind.SHELL and hit.pierce and hit.caliber < 100:
 		amount *= 1.5
 	best.hp -= amount
 	hp = _total_hp()
-	flash()
+	impact_feedback(hit, amount, core.hp <= 0.0)
 	world.fx.spores(hit.position, 3, 0.5)
 	if best.hp <= 0.0:
 		best.mesh.visible = false

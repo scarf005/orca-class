@@ -9,6 +9,7 @@ signal boss_changed(boss: Entity) ## Null when the boss bar should hide.
 signal stage_cleared
 signal game_over
 signal intercepted(position: Vector3) ## The laser CIWS burned something out of the air.
+signal hit_confirmed(killed: bool) ## Player damage accepted by an enemy, including boss modules.
 
 static var current: World
 

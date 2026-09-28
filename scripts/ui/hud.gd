@@ -26,6 +26,8 @@ var _armor_shake := 0.0
 var _last_armor := 100.0
 var _time := 0.0
 var _storm := 0.0
+var _hit_marker := 0.0
+var _kill_marker := 0.0
 # Wireframe x-ray views of the real models.
 # Straight down, front of the tank at the top of the view.
 var _tank_view := WireView.new(Vector2i(84, 108), Vector3(0.6, 20.0, -0.6), Vector3(0.6, 0.0, -0.6), 16.0, Vector3.FORWARD)
@@ -57,6 +59,7 @@ func _ready() -> void:
 	world.radio.connect(_on_radio)
 	world.scored.connect(_on_scored)
 	world.intercepted.connect(_on_intercepted)
+	world.hit_confirmed.connect(_on_hit_confirmed)
 	world.director.incoming.connect(func(from: Vector3) -> void:
 		_incoming.append({"position": from, "time": 0.0})
 		Sfx.ui("warn", 0.0, 1.3))
@@ -110,6 +113,13 @@ func _on_intercepted(position: Vector3) -> void:
 		world.radio.emit(&"AI_CIWS")
 
 
+func _on_hit_confirmed(killed: bool) -> void:
+	_hit_marker = 0.16
+	if killed:
+		_kill_marker = 0.32
+	queue_redraw()
+
+
 func _on_pickup(id: String) -> void:
 	var name := tr("PICKUP_" + id.to_upper()) + "!!"
 	if id == "coax":
@@ -122,6 +132,8 @@ func _on_pickup(id: String) -> void:
 
 func _process(delta: float) -> void:
 	_time += delta
+	_hit_marker = maxf(0.0, _hit_marker - delta)
+	_kill_marker = maxf(0.0, _kill_marker - delta)
 	_banner_time -= delta
 	_shout_time -= delta
 	_hint_time -= delta
@@ -150,6 +162,7 @@ func _draw() -> void:
 	if _storm > 0.0:
 		_draw_storm()
 	_draw_reticle()
+	_draw_hit_marker()
 	_draw_threats()
 	_draw_popups()
 	_draw_status()
@@ -515,6 +528,20 @@ func _draw_reticle() -> void:
 			draw_line(center, lp, Color(Palette.HOSTILE, 0.5), 1.0)
 			draw_colored_polygon(PackedVector2Array([lp + Vector2(0, -6), lp + Vector2(6, 0), lp + Vector2(0, 6), lp + Vector2(-6, 0)]), Palette.BUTTER)
 			draw_polyline(PackedVector2Array([lp + Vector2(0, -6), lp + Vector2(6, 0), lp + Vector2(0, 6), lp + Vector2(-6, 0), lp + Vector2(0, -6)]), Palette.INK, 1.0)
+
+
+func _draw_hit_marker() -> void:
+	if world.player.dead or (_hit_marker <= 0.0 and _kill_marker <= 0.0):
+		return
+	var killed := _kill_marker > 0.0
+	var at := world.player.aim_screen * SCALE
+	var color := Palette.HOT if killed else Palette.WHITE
+	var outer := 22.0 if killed else 14.0
+	for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+		draw_line(at + corner * 7.0, at + corner * outer, Palette.INK, 6.0)
+		draw_line(at + corner * 7.0, at + corner * outer, color, 3.0)
+	if killed:
+		draw_arc(at, 27.0, 0.0, TAU, 20, Palette.HOT, 2.0)
 
 
 func _draw_threats() -> void:

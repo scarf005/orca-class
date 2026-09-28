@@ -7,6 +7,8 @@ const SOUNDS := {
 	"blast": ["res://assets/audio/blast.ogg", 0.0],
 	"blast_small": ["res://assets/audio/blast.ogg", -5.0, 1.45],
 	"impact": ["res://assets/audio/rubble.ogg", -2.0, 0.7],
+	"hit_confirm": ["res://assets/audio/synth/pop.wav", -9.0, 1.65],
+	"kill_confirm": ["res://assets/audio/synth/stab.wav", -5.0, 1.25],
 	"coax8": ["res://assets/audio/ciws.ogg", -6.0, 1.35],
 	"coax15": ["res://assets/audio/ciws.ogg", -4.0, 1.0],
 	"coax20": ["res://assets/audio/ciws.ogg", -2.0, 0.72],
@@ -50,6 +52,8 @@ var _pool: Array[AudioStreamPlayer3D] = []
 var _pool_owner: Node3D
 var _next := 0
 var _ui := AudioStreamPlayer.new()
+var _combat := AudioStreamPlayer.new()
+var _last_hit_sound := -100
 var music := AudioStreamPlayer.new()
 var _music_path := ""
 
@@ -58,6 +62,9 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_ui.bus = &"SFX"
 	add_child(_ui)
+	_combat.bus = &"SFX"
+	_combat.max_polyphony = 4
+	add_child(_combat)
 	music.bus = &"Music"
 	add_child(music)
 
@@ -110,6 +117,19 @@ func play(name: String, position := Vector3.INF, volume_db := 0.0, pitch := 1.0)
 	player.pitch_scale = base_pitch * pitch
 	player.global_position = position
 	player.play()
+
+
+## Feedback stays audible at long range and never cuts off radio or menu sounds.
+func confirm_hit(killed: bool) -> void:
+	var now := Time.get_ticks_msec()
+	if not killed and now - _last_hit_sound < 45:
+		return
+	_last_hit_sound = now
+	var name := "kill_confirm" if killed else "hit_confirm"
+	_combat.stream = stream(name)
+	_combat.volume_db = SOUNDS[name][1]
+	_combat.pitch_scale = SOUNDS[name][2]
+	_combat.play()
 
 
 func ui(name: String, volume_db := 0.0, pitch := 1.0) -> void:

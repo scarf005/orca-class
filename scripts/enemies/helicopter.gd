@@ -206,7 +206,7 @@ func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 
 
 func take_hit(hit: Hit) -> void:
-	if dead or _crash > 0.0:
+	if dead or invulnerable or _crash > 0.0 or hit.damage <= 0.0:
 		return
 	var world := World.current
 	var cannon := hit.kind == Hit.Kind.SHELL and hit.caliber >= 100
@@ -237,7 +237,7 @@ func take_hit(hit: Hit) -> void:
 			_lose_part(era, hit.direction)
 		hull = max_hp * PLATED_SHARE if cannon else amount * 0.1
 	hp -= hull
-	flash()
+	impact_feedback(hit, hull, hp <= 0.0 or not (_live("engine_l") or _live("engine_r")))
 	if cannon:
 		world.hitstop(0.05)
 		world.shake(0.3, hit.position)

@@ -47,6 +47,7 @@ func tick(delta: float) -> void:
 		_burn(delta)
 	if dead:
 		return
+	model.position = model.position.lerp(Vector3.ZERO, 1.0 - exp(-22.0 * delta))
 	behave(delta)
 	velocity = (global_position - _last_position) / maxf(delta, 0.0001)
 	_last_position = global_position
@@ -81,11 +82,32 @@ func damage_multiplier(hit: Hit) -> float:
 	return multiplier
 
 
-func on_damaged(hit: Hit, _amount: float) -> void:
+func on_damaged(hit: Hit, amount: float) -> void:
+	impact_feedback(hit, amount, hp <= 0.0)
 	if can_stagger and hit.stagger > 0.0:
 		stagger = maxf(stagger, hit.stagger)
 	if hit.incendiary:
 		burning = 3.0
+
+
+## Shared by ordinary enemies and bosses with their own module damage rules.
+func impact_feedback(hit: Hit, amount: float, killed := false) -> void:
+	if amount <= 0.0:
+		return
+	flash()
+	_flash = 0.11
+	var heavy := hit.kind in [Hit.Kind.SHELL, Hit.Kind.BLAST, Hit.Kind.RAM, Hit.Kind.TAIL, Hit.Kind.THROWN]
+	var kick := 0.65 if heavy else 0.22
+	model.position = (model.position + global_basis.inverse() * hit.direction.normalized() * kick).limit_length(0.85)
+	var world := World.current
+	world.fx.sparks(hit.position, -hit.direction, 14 if heavy else 7, Palette.WHITE, 18.0 if heavy else 11.0)
+	world.fx.spawn(Fx.Kind.FLAME, hit.position, Vector3.ZERO, 0.09, 1.2 if heavy else 0.65, Palette.BUTTER)
+	if hit.by_player():
+		world.hit_confirmed.emit(killed)
+		Sfx.confirm_hit(killed)
+		world.shake(0.14 if heavy else 0.035, hit.position)
+		if killed:
+			world.hitstop(0.065 if heavy else 0.035)
 
 
 func _burn(delta: float) -> void:
