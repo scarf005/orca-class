@@ -41,6 +41,6 @@ func test_actors_are_outlined_by_class_and_pickups_stand_in_a_beacon() -> void:
 	var view := DitherView.new()
 	add_child(view)
 	await frames(1)
-	check(view.class_masks.size() == 3, "the final pass has a mask per actor class")
+	check(view.class_masks.size() == 2, "the final pass has an outline mask for enemies and for pickups")
 	check(view.viewport.size == Vector2i(960, 540), "the 3D view renders at 960x540")
 	view.queue_free()

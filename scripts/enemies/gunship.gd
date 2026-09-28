@@ -17,6 +17,7 @@ const MODULE_HP := {"rotor_l": 150.0, "rotor_r": 150.0, "chin": 90.0, "pod_l": 1
 const ROTORS := ["rotor_l", "rotor_r"]
 const ROTOR_HEIGHT := 1.8
 const ROTOR_RADIUS := 5.8
+const MODEL_SCALE := 1.6 ## The whole airframe is drawn this much bigger than its model-space layout.
 const PLATES := ["era_front", "era_left", "era_right"]
 
 class Part:
@@ -36,6 +37,7 @@ var _orbit_angle := 0.0
 var _orbit_dir := 1.0
 var _velocity := Vector3.ZERO
 var _rotors: Dictionary = {}
+var _discs: Array[MeshInstance3D] = []
 var _chin := Node3D.new()
 var _fungus := Node3D.new()
 var _shots := 0
@@ -68,24 +70,40 @@ func build() -> void:
 	_hard = Game.difficulty == Game.Difficulty.HARD
 	max_hp = BODY_HP * (1.35 if _hard else 1.0)
 	hp = max_hp
+	# Built at 1:1.6: every part offset below is in model space, so hit tests scale with it.
+	model.scale = Vector3.ONE * MODEL_SCALE
 	var b := LowPoly.new()
-	# Broad armored belly, sloping cockpit and a short twin-fin tail.
-	b.box(Transform3D(Basis(), Vector3(0, 0, 0.5)), Vector3(5.4, 3.0, 10.5), Palette.MOSS)
-	b.box(Transform3D(Basis(Vector3.RIGHT, 0.3), Vector3(0, 0.1, -4.8)), Vector3(4.6, 2.2, 3.0), Palette.SLATE)
-	b.box(Transform3D(Basis(), Vector3(0, -1.5, -0.3)), Vector3(3.8, 0.9, 8.0), Palette.DUSK)
-	b.box(Transform3D(Basis(), Vector3(0, 1.6, 0.6)), Vector3(3.6, 0.7, 6.8), Palette.STONE)
-	b.box(Transform3D(Basis(), Vector3(0, 0.2, 7.0)), Vector3(1.2, 0.7, 4.4), Palette.SLATE)
-	b.box(Transform3D(Basis(), Vector3(0, 0.5, 8.5)), Vector3(5.8, 0.2, 1.3), Palette.DUSK)
+	# A slab-sided armored hull: light grey plates over a dark belly, hunched forward.
+	b.box(Transform3D(Basis(), Vector3(0, 0.2, 0.6)), Vector3(5.6, 3.2, 10.6), Palette.ASH)
+	b.box(Transform3D(Basis(), Vector3(0, -1.55, 0.2)), Vector3(4.6, 0.9, 9.6), Palette.SLATE)
+	b.box(Transform3D(Basis(Vector3.BACK, 0.5), Vector3(-2.55, 1.55, 0.6)), Vector3(1.2, 0.9, 10.2), Palette.STONE)
+	b.box(Transform3D(Basis(Vector3.BACK, -0.5), Vector3(2.55, 1.55, 0.6)), Vector3(1.2, 0.9, 10.2), Palette.STONE)
+	# Spine hump with twin exhausts.
+	b.box(Transform3D(Basis(), Vector3(0, 2.1, 1.4)), Vector3(3.0, 1.0, 6.0), Palette.STONE)
+	for x in [-0.8, 0.8]:
+		b.tube(Transform3D(Basis(), Vector3(x, 2.3, 4.4)), 0.42, 0.8, 8, Palette.INK)
+	# Wedge nose with a wide sensor visor that glows like an eye.
+	b.box(Transform3D(Basis(Vector3.RIGHT, 0.45), Vector3(0, 0.5, -5.0)), Vector3(5.0, 2.4, 2.6), Palette.ASH)
+	b.box(Transform3D(Basis(Vector3.RIGHT, -0.35), Vector3(0, -1.0, -5.2)), Vector3(4.4, 1.3, 2.2), Palette.SLATE)
+	b.glow = true
+	b.box(Transform3D(Basis(Vector3.RIGHT, 0.45), Vector3(0, 0.95, -5.75)), Vector3(4.2, 0.45, 0.12), Palette.AMBER)
+	for x in [-1.4, 1.4]:
+		b.box(Transform3D(Basis(), Vector3(x, 0.95, -5.9)), Vector3(0.6, 0.3, 0.1), Palette.HOT)
+	b.glow = false
+	# Hazard stripes down the flanks.
 	for side in [-1.0, 1.0]:
-		b.box(Transform3D(Basis(Vector3.BACK, side * -0.2), Vector3(side * 2.6, 1.3, 8.5)), Vector3(0.2, 1.9, 1.5), Palette.MOSS)
-		# Thick shoulders carry the lift nacelles and outboard missile racks.
-		b.box(Transform3D(Basis(Vector3.BACK, side * 0.08), Vector3(side * 6.0, 0.7, 0.7)), Vector3(8.0, 0.8, 3.0), Palette.SLATE)
-		b.box(Transform3D(Basis(), Vector3(side * 4.2, -0.1, 0.2)), Vector3(2.0, 1.5, 5.5), Palette.MOSS)
-		b.box(Transform3D(Basis(), Vector3(side * 10.3, 1.1, 0.8)), Vector3(0.25, 2.5, 2.5), Palette.DUSK)
-		b.glow = true
-		b.box(Transform3D(Basis(Vector3.RIGHT, 0.3), Vector3(side * 1.05, 0.9, -5.6)), Vector3(1.8, 0.4, 0.12), Palette.PERIWINKLE)
-		b.box(Transform3D(Basis(), Vector3(side * 4.2, 0.2, -2.6)), Vector3(1.1, 0.25, 0.1), Palette.HOT)
-		b.glow = false
+		for k in 5:
+			b.box(Transform3D(Basis(Vector3.RIGHT, 0.6), Vector3(side * 2.82, 0.9, -2.5 + k * 1.2)), Vector3(0.04, 0.9, 0.35), Palette.AMBER)
+	# Thick tail boom, horizontal stabilizer and twin fins.
+	b.box(Transform3D(Basis(), Vector3(0, 0.6, 7.6)), Vector3(1.8, 1.4, 4.4), Palette.ASH)
+	b.box(Transform3D(Basis(), Vector3(0, 0.8, 9.3)), Vector3(6.6, 0.3, 1.6), Palette.STONE)
+	for side in [-1.0, 1.0]:
+		b.box(Transform3D(Basis(Vector3.BACK, side * -0.25), Vector3(side * 3.1, 1.9, 9.3)), Vector3(0.3, 2.6, 1.8), Palette.ASH)
+		b.box(Transform3D(Basis(Vector3.BACK, side * -0.25), Vector3(side * 3.25, 2.9, 9.3)), Vector3(0.05, 0.5, 1.6), Palette.AMBER)
+		# Outrigger wings: thick beams out to the rotor nacelles, striped where they meet.
+		b.box(Transform3D(Basis(), Vector3(side * 4.9, 0.9, 0.7)), Vector3(4.6, 1.1, 2.8), Palette.STONE)
+		b.box(Transform3D(Basis(), Vector3(side * 4.9, 1.47, 0.7)), Vector3(4.2, 0.06, 0.4), Palette.AMBER)
+		b.box(Transform3D(Basis(), Vector3(side * 4.9, 0.1, 0.7)), Vector3(4.0, 0.5, 2.2), Palette.SLATE)
 	var body := MeshInstance3D.new()
 	body.mesh = b.mesh()
 	model.add_child(body)
@@ -95,15 +113,29 @@ func build() -> void:
 		var rotor := Node3D.new()
 		rotor.position.y = ROTOR_HEIGHT
 		parts[part_name].node.add_child(rotor)
+		# Four broad blades with bright tips, and a faint disc so the spin reads as a rotor.
 		var r := LowPoly.new()
-		r.prism(Transform3D(), 0.6, 0.4, 8, Palette.STONE)
-		for i in 6:
-			var xf := Transform3D(Basis(Vector3.UP, TAU * i / 6.0), Vector3.ZERO)
-			r.box(xf.translated_local(Vector3(3.0, 0.1, 0)), Vector3(5.6, 0.09, 0.55), Palette.INK)
-			r.box(xf.translated_local(Vector3(5.4, 0.16, 0)), Vector3(0.7, 0.03, 0.55), Palette.CORAL)
+		r.prism(Transform3D(), 0.7, 0.5, 8, Palette.INK)
+		for i in 4:
+			var xf := Transform3D(Basis(Vector3.UP, TAU * i / 4.0 + 0.2), Vector3.ZERO)
+			r.box(xf.translated_local(Vector3(ROTOR_RADIUS * 0.5, 0.2, 0)), Vector3(ROTOR_RADIUS, 0.1, 0.9), Palette.SLATE)
+			r.box(xf.translated_local(Vector3(ROTOR_RADIUS - 0.35, 0.26, 0)), Vector3(0.7, 0.04, 0.9), Palette.AMBER)
 		var blades := MeshInstance3D.new()
 		blades.mesh = r.mesh()
 		rotor.add_child(blades)
+		var d := LowPoly.new()
+		d.glow = true
+		for i in 20:
+			var a0 := TAU * i / 20.0
+			var a1 := TAU * (i + 1) / 20.0
+			d.tri(Vector3(0, 0.22, 0), Vector3(cos(a0), 0.22, sin(a0)) * Vector3(ROTOR_RADIUS, 1, ROTOR_RADIUS), Vector3(cos(a1), 0.22, sin(a1)) * Vector3(ROTOR_RADIUS, 1, ROTOR_RADIUS), Palette.MIST, Vector3.UP)
+		var disc := MeshInstance3D.new()
+		disc.mesh = d.mesh()
+		disc.material_override = World._halo_material
+		disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		parts[part_name].node.add_child(disc)
+		disc.position.y = ROTOR_HEIGHT
+		_discs.append(disc)
 		_rotors[part_name] = rotor
 	_chin.position = Vector3(0, -1.5, -5.3)
 	model.add_child(_chin)
@@ -128,16 +160,25 @@ func build() -> void:
 	_rotor_sound = Sfx.loop("rotor", self, 4.0)
 
 
+func _ready() -> void:
+	super()
+	# The spinning discs are blur, not airframe: no hostile outline around a rotor's whole sweep.
+	for disc in _discs:
+		ActorLayer.unmark(disc, ActorLayer.HOSTILE)
+
+
 func _nacelle_mesh() -> Mesh:
+	# A squat engine pod on the wingtip carrying the rotor mast, with glowing intakes.
 	var b := LowPoly.new()
-	b.box(Transform3D(), Vector3(2.8, 2.2, 5.8), Palette.MOSS)
-	b.box(Transform3D(Basis(Vector3.RIGHT, 0.3), Vector3(0, 0.1, -2.6)), Vector3(2.5, 1.8, 1.4), Palette.SLATE)
-	b.prism(Transform3D(Basis(), Vector3(0, 0.8, 0)), 0.5, 1.0, 8, Palette.INK)
-	for x in [-0.65, 0.65]:
-		b.tube(Transform3D(Basis(), Vector3(x, 0, 2.6)), 0.45, 0.5, 8, Palette.INK)
+	b.prism(Transform3D(Basis(), Vector3(0, -1.1, 0)), 1.5, 2.4, 8, Palette.ASH, 1.2)
+	b.box(Transform3D(Basis(), Vector3(0, -0.4, 0.2)), Vector3(3.2, 1.6, 4.6), Palette.STONE)
+	b.prism(Transform3D(Basis(), Vector3(0, 1.1, 0)), 0.45, ROTOR_HEIGHT - 1.0, 8, Palette.INK)
+	for x in [-0.8, 0.8]:
+		b.tube(Transform3D(Basis(), Vector3(x, -0.4, 2.5)), 0.5, 0.5, 8, Palette.INK)
 		b.glow = true
-		b.tube(Transform3D(Basis(), Vector3(x, 0, 3.11)), 0.28, 0.02, 8, Palette.HOT)
+		b.tube(Transform3D(Basis(), Vector3(x, -0.4, 3.01)), 0.3, 0.02, 8, Palette.HOT)
 		b.glow = false
+	b.box(Transform3D(Basis(), Vector3(0, 0.42, 0.2)), Vector3(3.0, 0.06, 0.4), Palette.AMBER)
 	return b.mesh()
 
 
@@ -172,13 +213,13 @@ func _nose_mesh() -> Mesh:
 
 
 func _pod_mesh() -> Mesh:
+	# A missile rack slung under the wingtip: a boxy launcher with rocket noses poking out.
 	var b := LowPoly.new()
-	b.box(Transform3D(), Vector3(2.4, 2.8, 3.4), Palette.STONE)
-	b.box(Transform3D(Basis(), Vector3(0, 0, -1.75)), Vector3(2.2, 2.6, 0.15), Palette.INK)
-	b.glow = true
-	for x in [-0.6, 0.6]:
-		for y in [-0.8, 0.0, 0.8]:
-			b.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(x, y, -1.85)), 0.25, 0.05, 6, Palette.CORAL)
+	b.box(Transform3D(), Vector3(2.2, 1.8, 4.2), Palette.STONE)
+	b.box(Transform3D(Basis(), Vector3(0, 0.95, 0)), Vector3(2.0, 0.1, 3.8), Palette.AMBER)
+	for x in [-0.55, 0.55]:
+		for y in [-0.45, 0.45]:
+			b.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(x, y, -2.1)), 0.32, 0.5, 6, Palette.ASH, 0.0)
 	return b.mesh()
 
 

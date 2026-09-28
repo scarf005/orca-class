@@ -9,13 +9,12 @@ uniform float spread = 0.08;
 uniform float strength : hint_range(0.0, 1.0) = 1.0;
 uniform vec4 flash = vec4(0.0); // Full-screen tint for hits and big blasts; alpha is the mix.
 uniform sampler2D actor_mask : filter_nearest; // Alpha > 0 where actors and flames are drawn.
-uniform float actor_dither = 0.15; // Fraction of the dither spread kept on actors.
-// Per-class masks: enemies, the tank, pickups. Each gets a glowing outline in its class color and is
-// shown in its true colors, not quantized to the pastel palette, so it stands out from the scenery.
+// Actors (the tank, enemies, pickups, shots, flames) are shown in their true colors, never quantized
+// to the pastel palette, so they stand out from the scenery. Enemies and pickups also get a glowing
+// outline; their half-resolution masks only give the silhouette.
 uniform sampler2D hostile_mask : filter_nearest;
-uniform sampler2D friendly_mask : filter_nearest;
 uniform sampler2D loot_mask : filter_nearest;
-uniform vec4 class_colors[3];
+uniform vec4 outline_colors[2];
 
 float coverage(sampler2D mask, vec2 uv, vec2 texel, float radius) {
 	float hit = 0.0;
@@ -44,40 +43,32 @@ void fragment() {
 	vec3 color = texture(TEXTURE, UV).rgb;
 	color = mix(color, flash.rgb, flash.a);
 	float threshold = (BAYER[(px.x & 3) + (px.y & 3) * 4] + 0.5) / 16.0 - 0.5;
-	float actor = step(0.5, texture(actor_mask, UV).a);
-	float amount = spread * strength * mix(1.0, actor_dither, actor);
-	vec3 lab = to_oklab(to_linear(clamp(color + threshold * amount, 0.0, 1.0)));
-	// Chroma errors cost more than lightness errors, so dithering mixes shades of one hue
-	// instead of speckling unrelated hues together.
-	vec3 weight = vec3(1.0, 1.7, 1.7);
-	float best = 1e9;
 	vec3 result = color;
-	for (int i = 0; i < palette_size; i++) {
-		vec3 d = (lab - palette_lab[i]) * weight;
-		float dist = dot(d, d);
-		if (dist < best) {
-			best = dist;
-			result = palette_rgb[i];
+	if (texture(actor_mask, UV).a < 0.5) {
+		vec3 lab = to_oklab(to_linear(clamp(color + threshold * spread * strength, 0.0, 1.0)));
+		// Chroma errors cost more than lightness errors, so dithering mixes shades of one hue
+		// instead of speckling unrelated hues together.
+		vec3 weight = vec3(1.0, 1.7, 1.7);
+		float best = 1e9;
+		for (int i = 0; i < palette_size; i++) {
+			vec3 d = (lab - palette_lab[i]) * weight;
+			float dist = dot(d, d);
+			if (dist < best) {
+				best = dist;
+				result = palette_rgb[i];
+			}
 		}
-	}
-	// Class actors keep their real color; around each, a solid rim and a dithered glow beyond it.
-	vec2 texel = 1.0 / size;
-	float glow_dither = BAYER[(px.x & 3) + (px.y & 3) * 4] / 16.0;
-	for (int k = 0; k < 3; k++) {
-		float inside = k == 0 ? texture(hostile_mask, UV).a : (k == 1 ? texture(friendly_mask, UV).a : texture(loot_mask, UV).a);
-		if (inside > 0.5) {
-			result = color;
-			continue;
-		}
-		if (class_colors[k].a < 0.5) {
-			continue;
-		}
-		float rim = k == 0 ? coverage(hostile_mask, UV, texel, 2.0) : (k == 1 ? coverage(friendly_mask, UV, texel, 2.0) : coverage(loot_mask, UV, texel, 2.0));
-		float halo = k == 0 ? coverage(hostile_mask, UV, texel, 5.0) : (k == 1 ? coverage(friendly_mask, UV, texel, 5.0) : coverage(loot_mask, UV, texel, 5.0));
-		if (rim > 0.5) {
-			result = class_colors[k].rgb;
-		} else if (halo > 0.5 && glow_dither < 0.5) {
-			result = mix(result, class_colors[k].rgb, 0.6);
+		// Around each outlined actor, a solid rim and a dithered glow beyond it.
+		vec2 texel = 1.0 / vec2(textureSize(hostile_mask, 0));
+		float glow_dither = BAYER[(px.x & 3) + (px.y & 3) * 4] / 16.0;
+		for (int k = 0; k < 2; k++) {
+			float rim = k == 0 ? coverage(hostile_mask, UV, texel, 1.0) : coverage(loot_mask, UV, texel, 1.0);
+			float halo = k == 0 ? coverage(hostile_mask, UV, texel, 2.5) : coverage(loot_mask, UV, texel, 2.5);
+			if (rim > 0.5) {
+				result = outline_colors[k].rgb;
+			} else if (halo > 0.5 && glow_dither < 0.5) {
+				result = mix(result, outline_colors[k].rgb, 0.6);
+			}
 		}
 	}
 	COLOR = vec4(result, 1.0);

@@ -4,7 +4,7 @@ extends MultiMeshInstance3D
 ## plates: the oldest are reused as new ones are laid, so the trail stretches a few hundred meters.
 
 const COUNT := 1600
-const SPACING := 0.8 ## Meters of travel between prints.
+const SPACING := 0.8 ## Meters of travel between prints; each print is a bit longer.
 const TRACK_OFFSET := 1.55 ## Half the distance between the tracks.
 
 var _next := 0
@@ -15,9 +15,11 @@ func _init() -> void:
 	top_level = true
 	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var plate := LowPoly.new()
-	# One tread plate: a dark pad with a lighter cleat across it.
-	plate.quad(Vector3(-0.32, 0, -0.34), Vector3(0.32, 0, -0.34), Vector3(0.32, 0, 0.34), Vector3(-0.32, 0, 0.34), Palette.DUSK, Vector3.UP)
-	plate.quad(Vector3(-0.32, 0.01, -0.08), Vector3(0.32, 0.01, -0.08), Vector3(0.32, 0.01, 0.08), Vector3(-0.32, 0.01, 0.08), Palette.SLATE, Vector3.UP)
+	# One stretch of tread print: churned mud a little longer than the spacing, so prints join into
+	# a continuous track, with dark cleat grooves across it.
+	plate.quad(Vector3(-0.36, 0, -0.48), Vector3(0.36, 0, -0.48), Vector3(0.36, 0, 0.48), Vector3(-0.36, 0, 0.48), Palette.WOOD, Vector3.UP)
+	for z in [-0.3, 0.0, 0.3]:
+		plate.quad(Vector3(-0.36, 0.01, z - 0.06), Vector3(0.36, 0.01, z - 0.06), Vector3(0.36, 0.01, z + 0.06), Vector3(-0.36, 0.01, z + 0.06), Palette.INK, Vector3.UP)
 	multimesh = MultiMesh.new()
 	multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	multimesh.mesh = plate.mesh()

@@ -3,16 +3,18 @@ extends TextureRect
 ## Shows a low-resolution SubViewport through the palette dither shader, scaled with nearest filtering.
 
 const RESOLUTION := Vector2i(960, 540)
-## Outline colors per actor class, in ActorLayer.CLASSES order: enemies, the tank, pickups. The
-## tank gets no outline (transparent); it still shows in its true colors.
-const CLASS_COLORS := [Palette.HOSTILE, Color(0, 0, 0, 0), Palette.WHITE]
+## Classes that get a glowing outline, and its color: enemies in red, pickups in white. The masks
+## that find their silhouettes render at half resolution; the outline only needs their shape.
+const OUTLINED := [ActorLayer.HOSTILE, ActorLayer.LOOT]
+const OUTLINE_COLORS := [Palette.HOSTILE, Palette.WHITE]
+const MASK_RESOLUTION := RESOLUTION / 2
 
 var viewport := SubViewport.new()
 ## Renders only actors, unlit, over a transparent background: its alpha marks where the dither
 ## pass should hold back. It shares the 3D world with `viewport`.
 var mask := SubViewport.new()
 var _mask_camera := Camera3D.new()
-## One mask per actor class (enemies, the tank, pickups): alpha marks where that class is drawn.
+## One mask per outlined class (enemies, pickups): alpha marks where that class is drawn.
 var class_masks: Array[SubViewport] = []
 var _class_cameras: Array[Camera3D] = []
 var _material := ShaderMaterial.new()
@@ -39,9 +41,9 @@ func _ready() -> void:
 	_mask_camera.environment = clear
 	mask.add_child(_mask_camera)
 	_mask_camera.current = true
-	for bits: int in ActorLayer.CLASSES:
+	for bits: int in OUTLINED:
 		var view := SubViewport.new()
-		view.size = RESOLUTION
+		view.size = MASK_RESOLUTION
 		view.transparent_bg = true
 		view.msaa_3d = Viewport.MSAA_DISABLED
 		view.debug_draw = Viewport.DEBUG_DRAW_UNSHADED
@@ -72,9 +74,8 @@ func _ready() -> void:
 	_material.set_shader_parameter("palette_size", Palette.ALL.size())
 	_material.set_shader_parameter("actor_mask", mask.get_texture())
 	_material.set_shader_parameter("hostile_mask", class_masks[0].get_texture())
-	_material.set_shader_parameter("friendly_mask", class_masks[1].get_texture())
-	_material.set_shader_parameter("loot_mask", class_masks[2].get_texture())
-	_material.set_shader_parameter("class_colors", PackedColorArray(CLASS_COLORS))
+	_material.set_shader_parameter("loot_mask", class_masks[1].get_texture())
+	_material.set_shader_parameter("outline_colors", PackedColorArray(OUTLINE_COLORS))
 	material = _material
 
 
