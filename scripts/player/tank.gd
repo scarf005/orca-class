@@ -991,7 +991,6 @@ func collect(pickup: Pickup) -> void:
 				tail.repair(60.0)
 		"era":
 			modules.restore_era()
-			model.set_era(modules.era)
 		"tail":
 			if tail.destroyed:
 				tail.regrow()
@@ -1050,7 +1049,6 @@ func take_hit(hit: Hit) -> void:
 		var world := World.current
 		var facing := facing_of(hit)
 		if modules.consume_era(facing):
-			model.set_era(modules.era)
 			world.fx.explosion(hit.position, 1.8, [Palette.WHITE, Palette.SKY, Palette.BUTTER])
 			world.fx.debris(hit.position, 8, [Palette.HULL, Palette.INK], 8.0, 0.3)
 			world.shake(0.35)
@@ -1130,7 +1128,6 @@ func die(_hit: Hit) -> void:
 func _finish_respawn() -> void:
 	hp = max_hp
 	modules.restore()
-	model.set_era(modules.era)
 	tail.regrow()
 	invuln = RESPAWN_INVULN
 	course_u = 0.0

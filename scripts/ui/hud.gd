@@ -252,7 +252,6 @@ func _update_xray() -> void:
 		_xray.set_coax_guns(Armament.tier_calibers(p.coax_tier))
 		_painted.erase(_xray.coax_root)
 		_rebuild_coax_view(Armament.tier_calibers(p.coax_tier))
-	_xray.set_era(m.era)
 	if not _tail_posed:
 		# Settle the tail into its resting curl once; after that the drawing stays still.
 		_tail_posed = true
@@ -269,9 +268,6 @@ func _update_xray() -> void:
 	_paint(_xray.barrel, _module_color(m.state("breech")))
 	_paint(_xray.coax_root, Palette.AMBER)
 	_paint(_xray.rws, _module_color(m.state("laser")))
-	for facing in _xray.era_blocks:
-		for brick in _xray.era_blocks[facing]:
-			_paint(brick, Palette.SKY)
 	_paint(_xray_tail, _tail_color())
 
 

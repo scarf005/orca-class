@@ -16,7 +16,6 @@ func test_era_stops_a_frontal_warhead() -> void:
 	tank.take_hit(_warhead(tank, tank.global_basis.z))
 	check_eq(tank.hp, hp, "no hull damage")
 	check_eq(tank.modules.era.front, TankModules.ERA.front - 1, "one front brick spent")
-	check(not tank.model.era_blocks.front[TankModules.ERA.front - 1].visible, "the spent brick is gone from the hull")
 	check_eq(world.stats.lives, 3, "no life lost")
 
 

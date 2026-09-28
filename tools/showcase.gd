@@ -42,7 +42,6 @@ func run() -> int:
 			tank.modules.consume_era("left")
 			tank.modules.damage("track_r", 999.0)
 			tank.modules.damage("breech", 40.0)
-			tank.model.set_era(tank.modules.era)
 			tank.tail.damage(70.0)
 			world.radio.emit(&"AI_MOD_TRACK_R_OUT")
 			_stage_vfx(world)

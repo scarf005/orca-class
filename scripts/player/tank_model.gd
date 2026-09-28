@@ -16,7 +16,6 @@ var coax_root := Node3D.new()
 var coax_muzzles: Array[Node3D] = []
 var tail_mount := Node3D.new()
 var track_meshes: Array[MeshInstance3D] = []
-var era_blocks := {"front": [], "left": [], "right": []} ## Facing -> brick nodes, removed as they fire.
 var _track_phase := 0.0
 
 
@@ -47,33 +46,6 @@ func _ready() -> void:
 	tail_mount.position = Vector3(0, 1.45, 3.45)
 	hull.add_child(tail_mount)
 	set_coax_guns([8])
-	_build_era()
-
-
-func _build_era() -> void:
-	var brick := LowPoly.new()
-	brick.box(Transform3D(), Vector3(0.72, 0.16, 0.5), Palette.SAGE, Palette.HULL_LIGHT)
-	brick.box(Transform3D(Basis(), Vector3(0, 0.09, 0)), Vector3(0.5, 0.03, 0.3), Palette.PINE)
-	var mesh := brick.mesh()
-	var place := func(facing: String, xf: Transform3D) -> void:
-		var node := MeshInstance3D.new()
-		node.mesh = mesh
-		node.transform = xf
-		hull.add_child(node)
-		era_blocks[facing].append(node)
-	for x in [-1.2, -0.4, 0.4, 1.2]:
-		place.call("front", Transform3D(Basis(Vector3.RIGHT, 0.55), Vector3(x, 1.3, -2.42)))
-	for z in [-1.8, -0.6, 0.6]:
-		place.call("left", Transform3D(Basis(Vector3.BACK, PI * 0.5), Vector3(-2.07, 0.95, z)))
-		place.call("right", Transform3D(Basis(Vector3.BACK, -PI * 0.5), Vector3(2.07, 0.95, z)))
-
-
-## Shows as many bricks per facing as remain.
-func set_era(era: Dictionary) -> void:
-	for facing in era_blocks:
-		var blocks: Array = era_blocks[facing]
-		for i in blocks.size():
-			blocks[i].visible = i < era.get(facing, 0)
 
 
 func _mesh(parent: Node3D, mesh: Mesh) -> MeshInstance3D:

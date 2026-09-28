@@ -90,15 +90,13 @@ func _row_title(row: int) -> void:
 
 func _build_tanks(d: float) -> void:
 	_row_title(0)
-	var setups := [["COAX 8MM", 0, {}], ["20+15MM, ERA HIT", 4, {"front": 2, "left": 1, "right": 3}], ["MAX, NO ERA", 5, {"front": 0, "left": 0, "right": 0}]]
+	var setups := [["COAX 8MM", 0], ["20+15MM", 4], ["MAX COAX", 5]]
 	for i in setups.size():
 		var model := TankModel.new()
 		world.add_child(model)
 		model.global_position = _slot(d, i, setups.size(), 12.0)
 		model.rotation.y = 0.6
 		model.set_coax_guns(Armament.tier_calibers(setups[i][1]))
-		if not setups[i][2].is_empty():
-			model.set_era(setups[i][2])
 		var tail := Tail.new()
 		tail.mount = model.tail_mount
 		world.add_child(tail)
