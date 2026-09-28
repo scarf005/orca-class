@@ -112,19 +112,63 @@ func targets_for(team: Entity.Team) -> Array[Entity]:
 	return result
 
 
+## shape -> [look, core width, length, halo scale]. Streaks trail behind the head; orbs are round;
+## missiles have a lit body and a glowing exhaust. Every shape gets a dithered glow halo.
 const PROJECTILE_SHAPES := {
-	"bullet": [0.07, 1.6, true],
-	"fragment": [0.05, 0.8, true],
-	"shell": [0.14, 2.6, true],
-	"rocket": [0.14, 0.9, false],
-	"atgm": [0.16, 1.1, false],
-	"mortar": [0.35, 0.35, true],
-	"bomb": [0.22, 0.7, false],
-	"fire": [0.35, 0.35, true],
-	"pellet": [0.06, 0.6, true],
-	"dart": [0.05, 3.4, true],
+	"bullet": ["streak", 0.3, 4.0, 3.0],
+	"fragment": ["streak", 0.18, 1.4, 2.5],
+	"pellet": ["streak", 0.24, 1.6, 2.5],
+	"shell": ["streak", 0.55, 5.0, 2.8],
+	"dart": ["streak", 0.28, 7.0, 3.0],
+	"orb": ["orb", 0.55, 0.0, 2.2],
+	"mortar": ["orb", 0.5, 0.0, 2.0],
+	"fire": ["orb", 0.4, 0.0, 2.2],
+	"rocket": ["missile", 0.2, 1.1, 2.6],
+	"atgm": ["missile", 0.24, 1.3, 2.8],
+	"bomb": ["missile", 0.3, 0.9, 2.0],
 }
 static var _shape_meshes := {}
+static var _halo_material := _make_halo_material()
+
+
+static func _make_halo_material() -> ShaderMaterial:
+	var material := ShaderMaterial.new()
+	material.shader = preload("res://shaders/dither_fade.gdshader")
+	material.set_shader_parameter("unshaded", true)
+	material.set_shader_parameter("alpha_scale", 0.5)
+	return material
+
+
+static func _projectile_meshes(shape: String, color: Color) -> Array[Mesh]:
+	var key := "%s_%s" % [shape, color.to_html()]
+	if _shape_meshes.has(key):
+		return _shape_meshes[key]
+	var spec: Array = PROJECTILE_SHAPES[shape]
+	var width: float = spec[1]
+	var length: float = spec[2]
+	var halo_scale: float = spec[3]
+	var hot := color.lerp(Palette.WHITE, 0.65)
+	var core := LowPoly.new()
+	var halo := LowPoly.new()
+	core.glow = true
+	halo.glow = true
+	match spec[0]:
+		"streak":
+			core.box(Transform3D(Basis(), Vector3(0, 0, length * 0.5)), Vector3(width, width, length), hot)
+			halo.box(Transform3D(Basis(), Vector3(0, 0, length * 0.55)), Vector3(width * halo_scale, width * halo_scale, length * 1.1), color)
+		"orb":
+			core.blob(Transform3D(), width, hot, 0, 0.15, 5)
+			halo.blob(Transform3D(), width * halo_scale, color, 0, 0.2, 6)
+		"missile":
+			core.glow = false
+			core.box(Transform3D(Basis(), Vector3(0, 0, length * 0.5)), Vector3(width, width, length), Palette.SLATE)
+			core.box(Transform3D(Basis(), Vector3(0, 0, length * 0.8)), Vector3(width * 2.2, 0.03, width * 1.2), Palette.STONE)
+			core.glow = true
+			core.box(Transform3D(Basis(), Vector3(0, 0, length + 0.15)), Vector3(width, width, 0.3) * 1.3, Palette.WHITE)
+			halo.blob(Transform3D(Basis(), Vector3(0, 0, length + 0.3)), width * halo_scale, color, 0, 0.2, 7)
+	var meshes: Array[Mesh] = [core.mesh(), halo.mesh()]
+	_shape_meshes[key] = meshes
+	return meshes
 
 
 func spawn_projectile(team: Entity.Team, position: Vector3, velocity: Vector3, shape: String, color := Color(0, 0, 0, 0)) -> Projectile:
@@ -133,24 +177,15 @@ func spawn_projectile(team: Entity.Team, position: Vector3, velocity: Vector3, s
 	projectile.velocity = velocity
 	projectile.hit.source = player if team == Entity.Team.PLAYER else null
 	if color.a == 0.0:
-		color = Palette.BUTTER if team == Entity.Team.PLAYER else Palette.CORAL
-	var key := "%s_%s" % [shape, color.to_html()]
-	if not _shape_meshes.has(key):
-		var spec: Array = PROJECTILE_SHAPES[shape]
-		var builder := LowPoly.new()
-		builder.glow = spec[2]
-		if shape == "mortar" or shape == "fire":
-			builder.blob(Transform3D(), spec[0], color, 0, 0.3, 5)
-		else:
-			builder.box(Transform3D(Basis(), Vector3(0, 0, spec[1] * 0.5)), Vector3(spec[0], spec[0], spec[1]), color)
-			if not spec[2]:
-				builder.glow = true
-				builder.box(Transform3D(Basis(), Vector3(0, 0, spec[1] + 0.12)), Vector3(spec[0], spec[0], 0.24) * 1.4, Palette.BUTTER)
-		_shape_meshes[key] = builder.mesh()
-	var mesh := MeshInstance3D.new()
-	mesh.mesh = _shape_meshes[key]
-	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	projectile.add_child(mesh)
+		color = Palette.BUTTER if team == Entity.Team.PLAYER else Palette.RED
+	var meshes := _projectile_meshes(shape, color)
+	for i in meshes.size():
+		var mesh := MeshInstance3D.new()
+		mesh.mesh = meshes[i]
+		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		if i == 1:
+			mesh.material_override = _halo_material
+		projectile.add_child(mesh)
 	_projectile_container.add_child(projectile)
 	projectile.global_position = position
 	if velocity.length_squared() > 0.01:

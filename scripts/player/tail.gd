@@ -112,8 +112,10 @@ func update(delta: float, hull: Basis, lateral_velocity: float) -> void:
 	match state:
 		State.IDLE:
 			# Rests high behind the tank, swaying like a living thing and trailing on turns.
-			target = base + hull.z * 2.4 + Vector3.UP * (1.7 + sin(_time * 2.1) * 0.25) \
-				+ hull.x * (sin(_time * 1.3) * 0.45 - lateral_velocity * 0.12)
+			# The camera sits behind the tank, so the tail rests curled off to the right side
+			# instead of trailing straight back into the view.
+			target = base + hull.z * 1.2 + Vector3.UP * (1.1 + sin(_time * 2.1) * 0.2) \
+				+ hull.x * (2.6 + sin(_time * 1.3) * 0.35 - lateral_velocity * 0.1)
 			claw_open = 0.15 + sin(_time * 3.0) * 0.1
 		State.HOLD:
 			target = base + hull.z * 0.8 + Vector3.UP * 3.2 + hull.x * sin(_time * 2.0) * 0.2

@@ -430,7 +430,7 @@ func _gun(delta: float, tank: Tank) -> void:
 		_shot_timer = 0.07
 		var from := _chin.global_position
 		var lead := tank.hit_center() + tank.velocity * (from.distance_to(tank.hit_center()) / 110.0) * 0.7
-		var shot := fire_at("bullet", from, lead + Vector3(randf_range(-1.5, 1.5), randf_range(-0.5, 0.5), randf_range(-1.5, 1.5)), 110.0, 4.5)
+		var shot := fire_at("orb", from, lead + Vector3(randf_range(-1.5, 1.5), randf_range(-0.5, 0.5), randf_range(-1.5, 1.5)), 110.0, 4.5)
 		shot.hit.caliber = 30
 		world.fx.spawn(Fx.Kind.GLOW, from, Vector3.ZERO, 0.05, 0.4, Palette.CORAL)
 		Sfx.play("enemy_gun", from, 0.0, 0.8)

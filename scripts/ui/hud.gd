@@ -309,7 +309,7 @@ func _draw_reticle() -> void:
 			draw_line(at, at - Vector2(corner.x * 5, 0), Palette.CORAL, 2.0)
 			draw_line(at, at - Vector2(0, corner.y * 5), Palette.CORAL, 2.0)
 		# Lead marker for the cannon.
-		var lead := p.lead_point(p.model.muzzle.global_position, 260.0, target)
+		var lead := p.lead_point(p.model.muzzle.global_position, Armament.SHELL_SPEED, target)
 		if not cam.is_position_behind(lead):
 			var lp := cam.unproject_position(lead) * SCALE
 			draw_line(center, lp, Color(Palette.CORAL, 0.5), 1.0)

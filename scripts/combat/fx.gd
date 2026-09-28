@@ -3,7 +3,7 @@ extends Node3D
 ## CPU particles drawn through two MultiMeshes (lit chunks and glowing sparks), plus short-lived
 ## meshes for blasts, rings, beams and ground scorch marks. Everything fades by dithering.
 
-const MAX_PARTICLES := 2400
+const MAX_PARTICLES := 4000
 const MAX_SCORCH := 60
 
 enum Kind { SOLID, GLOW }
@@ -21,6 +21,8 @@ class Particle:
 	var spin := Vector3.ZERO
 	var bounce := false
 	var fade_start := 0.55 ## Fraction of life after which it dithers away.
+	var trail := Color(0, 0, 0, 0) ## Leaves smoke puffs behind while alive (burning debris).
+	var trail_timer := 0.0
 
 static var _solid_material := _fade_material(false)
 static var _glow_material := _fade_material(true)
@@ -30,6 +32,8 @@ var _multimeshes := {}
 var _transients: Array[Dictionary] = []
 var _scorches: Array[MeshInstance3D] = []
 var _flashes: Array[OmniLight3D] = []
+var _delayed: Array[Dictionary] = [] ## Secondary blasts waiting to go off.
+var _emitters: Array[Dictionary] = [] ## Burning wrecks: flames and a smoke column for a while.
 
 
 static func _fade_material(glow: bool) -> ShaderMaterial:
@@ -90,11 +94,13 @@ func spawn(kind: Kind, position: Vector3, velocity: Vector3, life: float, size: 
 	p.drag = options.get("drag", 0.0)
 	p.bounce = options.get("bounce", false)
 	p.fade_start = options.get("fade", 0.55)
+	p.trail = options.get("trail", Color(0, 0, 0, 0))
 	p.spin = Vector3(randf_range(-8, 8), randf_range(-8, 8), randf_range(-8, 8)) * options.get("spin", 0.0)
 	pool.append(p)
 
 
 func _process(delta: float) -> void:
+	var trails: Array[Particle] = []
 	for kind: Kind in _pools:
 		var pool: Array = _pools[kind]
 		var multimesh: MultiMesh = _multimeshes[kind]
@@ -119,10 +125,21 @@ func _process(delta: float) -> void:
 			var color := p.color
 			color.a = 1.0 - smoothstep(p.fade_start, 1.0, t)
 			multimesh.set_instance_color(index, color)
+			if p.trail.a > 0.0:
+				p.trail_timer -= delta
+				if p.trail_timer <= 0.0:
+					p.trail_timer = 0.05
+					trails.append(p)
 			alive.append(p)
 			index += 1
 		_pools[kind] = alive
 		multimesh.visible_instance_count = index
+	for p in trails:
+		spawn(Kind.GLOW, p.position, Vector3.UP * 0.8, 0.9, p.size * 0.9, p.trail, {"end_size": p.size * 2.5, "drag": 1.5, "fade": 0.1})
+		if randf() < 0.5:
+			spawn(Kind.GLOW, p.position, Vector3.ZERO, 0.12, p.size * 0.8, [Palette.BUTTER, Palette.PEACH][randi() % 2])
+	_update_delayed(delta)
+	_update_emitters(delta)
 	_update_transients(delta)
 	for light in _flashes:
 		light.light_energy = move_toward(light.light_energy, 0.0, delta * 30.0)
@@ -168,21 +185,82 @@ func light_flash(position: Vector3, energy: float, color := Palette.PEACH, radiu
 	light.light_energy = energy
 
 
-## A fireball blast with shockwave, sparks, smoke, debris and a scorch mark.
-func explosion(position: Vector3, radius: float, palette := [Palette.WHITE, Palette.BUTTER, Palette.PEACH, Palette.CORAL]) -> void:
+## A layered blast: white flash core inside a colored fireball, shock ring, a ground dust ring,
+## embers, burning debris trailing smoke, a lingering smoke column and, for big ones, secondary pops.
+func explosion(position: Vector3, damage_radius: float, palette := [Palette.WHITE, Palette.BUTTER, Palette.PEACH, Palette.CORAL]) -> void:
+	# Visuals read bigger than the damage area: it has to register at 480x270 across the valley.
+	var radius := damage_radius * 1.5
+	var pick := func(i: int) -> Color: return palette[mini(i, palette.size() - 1)]
+	var core := LowPoly.new()
+	core.blob(Transform3D(), 1.0, palette[0], 1, 0.2, randi())
+	_transient(core.mesh(), Transform3D(Basis(), position), 0.16 + radius * 0.02, true, Vector2(radius * 0.4, radius * 0.9), 0.1)
 	var fireball := LowPoly.new()
-	fireball.blob(Transform3D(), 1.0, palette[0], 1, 0.25, randi())
-	_transient(fireball.mesh(), Transform3D(Basis(), position), 0.32 + radius * 0.03, true, Vector2(radius * 0.3, radius), 0.15)
-	shockwave(position, radius * 1.8, palette[mini(1, palette.size() - 1)])
-	light_flash(position, 6.0 + radius, palette[mini(2, palette.size() - 1)], radius * 4.0)
-	for i in int(8 + radius * 5):
+	fireball.blob(Transform3D(), 1.0, pick.call(2), 1, 0.3, randi())
+	_transient(fireball.mesh(), Transform3D(Basis(), position + Vector3.UP * radius * 0.2), 0.4 + radius * 0.05, true, Vector2(radius * 0.5, radius * 1.35), 0.2)
+	shockwave(position, radius * 2.2, pick.call(1))
+	light_flash(position, 8.0 + radius * 1.5, pick.call(2), radius * 5.0)
+	for i in int(10 + radius * 7):
 		var dir := Vector3(randf_range(-1, 1), randf_range(0.2, 1.4), randf_range(-1, 1)).normalized()
-		spawn(Kind.GLOW, position, dir * randf_range(4, 12) * (0.6 + radius * 0.25), randf_range(0.2, 0.55), randf_range(0.2, 0.5) * (0.6 + radius * 0.15), palette[randi() % palette.size()], {"gravity": 8.0, "drag": 2.0})
-	smoke(position, int(4 + radius * 2), radius)
-	debris(position, int(4 + radius * 2), [Palette.WOOD, Palette.INK, Palette.OCHRE], radius * 2.5)
+		spawn(Kind.GLOW, position, dir * randf_range(4, 14) * (0.6 + radius * 0.3), randf_range(0.25, 0.7), randf_range(0.25, 0.6) * (0.6 + radius * 0.15), palette[randi() % palette.size()], {"gravity": 8.0, "drag": 2.0})
 	var ground := Course.height_at(position)
-	if position.y - ground < radius:
+	var low := position.y - ground < radius * 1.5
+	if low:
+		# Dust thrown out along the ground.
+		for i in int(8 + radius * 4):
+			var angle := randf() * TAU
+			var out := Vector3(cos(angle), 0.0, sin(angle))
+			spawn(Kind.GLOW, Vector3(position.x, ground + 0.4, position.z) + out * radius * 0.4, out * randf_range(6, 12) * (0.5 + radius * 0.2) + Vector3.UP, randf_range(0.6, 1.2), randf_range(0.6, 1.1), [Palette.STRAW, Palette.OCHRE, Palette.MIST][i % 3], {"end_size": 1.8 + radius * 0.3, "drag": 3.5, "fade": 0.1})
 		scorch(Vector3(position.x, ground, position.z), radius * 0.9)
+	smoke(position, int(4 + radius * 2), radius)
+	smoke_column(position, radius)
+	debris(position, int(4 + radius * 2), [Palette.WOOD, Palette.INK, Palette.OCHRE], radius * 2.5)
+	for i in int(1 + radius * 0.8):
+		var dir := Vector3(randf_range(-1, 1), randf_range(0.8, 1.6), randf_range(-1, 1)).normalized()
+		spawn(Kind.GLOW, position, dir * randf_range(6, 12) * (0.7 + radius * 0.15), randf_range(1.0, 1.8), 0.35, Palette.PEACH, {"gravity": 18.0, "trail": Palette.ASH, "end_size": 0.2, "fade": 0.8})
+	if damage_radius >= 3.0:
+		for i in int(damage_radius * 0.7):
+			_delayed.append({"time": randf_range(0.12, 0.45) + i * 0.1, "position": position + Vector3(randf_range(-1, 1), randf_range(0, 1), randf_range(-1, 1)) * damage_radius, "radius": damage_radius * 0.35, "palette": palette})
+
+
+## A slow column of smoke that lingers where something blew up.
+func smoke_column(position: Vector3, radius: float, colors := [Palette.ASH, Palette.STONE, Palette.MIST]) -> void:
+	for i in int(3 + radius * 1.5):
+		var drift := Vector3(randf_range(-0.6, 0.6), randf_range(1.5, 3.0), randf_range(-0.6, 0.6))
+		spawn(Kind.GLOW, position + Vector3.UP * randf() * radius, drift, randf_range(2.5, 4.0), randf_range(0.8, 1.4) * (0.5 + radius * 0.2), colors[i % colors.size()], {"end_size": 1.5 + radius * 0.8, "drag": 0.6, "fade": 0.35})
+
+
+## Flames and a smoke column rising from a wreck for `duration` seconds.
+func burn(position: Vector3, duration: float, size := 1.0) -> void:
+	_emitters.append({"position": position, "time": duration, "size": size, "tick": 0.0})
+
+
+func _update_delayed(delta: float) -> void:
+	var ready: Array[Dictionary] = []
+	for d in _delayed:
+		d.time -= delta
+		if d.time <= 0.0:
+			ready.append(d)
+	for d in ready:
+		_delayed.erase(d)
+		explosion(d.position, d.radius, d.palette)
+		Sfx.play("blast_small", d.position, -4.0, randf_range(1.0, 1.3))
+
+
+func _update_emitters(delta: float) -> void:
+	var keep: Array[Dictionary] = []
+	for e in _emitters:
+		e.time -= delta
+		e.tick -= delta
+		if e.tick <= 0.0:
+			e.tick = 0.07
+			var s: float = e.size
+			var p: Vector3 = e.position + Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)) * s * 0.6
+			spawn(Kind.GLOW, p, Vector3(0, randf_range(2, 4), 0), randf_range(0.3, 0.6), randf_range(0.4, 0.8) * s, [Palette.BUTTER, Palette.PEACH, Palette.CORAL, Palette.FUNGUS][randi() % 4], {"drag": 1.0})
+			if randf() < 0.6:
+				spawn(Kind.GLOW, p + Vector3.UP * s, Vector3(randf_range(-0.4, 0.4), randf_range(2, 3.5), randf_range(-0.4, 0.4)), randf_range(2.0, 3.0), 0.8 * s, [Palette.ASH, Palette.STONE, Palette.DUSK][randi() % 3], {"end_size": 2.6 * s, "drag": 0.5, "fade": 0.3})
+		if e.time > 0.0:
+			keep.append(e)
+	_emitters = keep
 
 
 ## Flat, unlit puffs that rise, swell and dither away: reads as smoke, not rocks.
@@ -227,6 +305,19 @@ func shockwave(position: Vector3, radius: float, color: Color) -> void:
 		var o1 := Vector3(cos(a1), 0, sin(a1))
 		ring.quad(o0 * 0.8, o1 * 0.8, o1, o0, color, Vector3.UP)
 	_transient(ring.mesh(), Transform3D(Basis(), position + Vector3.UP * 0.2), 0.3, true, Vector2(radius * 0.2, radius), 0.1)
+
+
+## A star-shaped muzzle flash: a forward spike and a cross of side petals, gone in a blink.
+func muzzle_flash(position: Vector3, dir: Vector3, size: float, color := Palette.BUTTER) -> void:
+	var b := LowPoly.new()
+	b.glow = true
+	b.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3.ZERO), size * 0.35, size * 2.2, 5, Palette.WHITE, 0.0)
+	for i in 4:
+		var petal := Basis(Vector3.BACK, i * PI * 0.5 + randf() * 0.4) * Basis(Vector3.BACK, PI * 0.5)
+		b.prism(Transform3D(petal, Vector3.ZERO), size * 0.22, size * 1.1, 4, color, 0.0)
+	b.blob(Transform3D(), size * 0.5, color)
+	var up := Vector3.UP if absf(dir.y) < 0.99 else Vector3.RIGHT
+	_transient(b.mesh(), Transform3D(Basis.looking_at(dir, up), position), 0.06, true, Vector2.ONE, 0.6)
 
 
 ## A straight glowing line, used for laser zaps and designator lines.

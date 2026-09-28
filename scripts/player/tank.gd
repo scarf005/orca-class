@@ -413,13 +413,13 @@ func _fire_coax(muzzle: Node3D, caliber: int, spec: Dictionary) -> void:
 	bullet.hit = Hit.make(Hit.Kind.BULLET, spec.damage, from)
 	bullet.hit.caliber = caliber
 	bullet.hit.source = self
-	bullet.life = 0.6
+	bullet.life = 0.9
 	bullet.ricochet = caliber < 20
 	if spec.blast > 0.0:
 		bullet.blast_radius = spec.blast
 		bullet.blast_damage = spec.damage * 0.5
 		bullet.blast_colors = [Palette.WHITE, Palette.PEACH, Palette.CORAL]
-	world.fx.spawn(Fx.Kind.GLOW, from + dir * 0.3, dir * 4.0, 0.05, 0.25 + caliber * 0.01, spec.color)
+	world.fx.muzzle_flash(from + dir * 0.2, dir, 0.3 + caliber * 0.025, spec.color)
 	Sfx.play(spec.sound, from, -4.0, randf_range(0.95, 1.08))
 
 
@@ -449,7 +449,7 @@ func fire_cannon() -> void:
 				flame.radius = 0.6
 				flame.impacted.connect(_on_flame_impact)
 		_:
-			var speed := 600.0 if round == Armament.Round.APFSDS else 260.0
+			var speed := 600.0 if round == Armament.Round.APFSDS else Armament.SHELL_SPEED
 			var shape := "dart" if round == Armament.Round.APFSDS else "shell"
 			var dir := _fire_direction(muzzle, speed)
 			var shell := world.spawn_projectile(Team.PLAYER, muzzle, dir * speed, shape, Armament.ROUND_COLORS[round])
@@ -498,8 +498,13 @@ func _cannon_feedback(muzzle: Vector3, dir: Vector3) -> void:
 		local_velocity.y -= 8.0 * dir.dot(world.rail.forward())
 	world.camera.kick(0.035)
 	world.shake(0.28)
-	world.fx.light_flash(muzzle, 9.0, Palette.BUTTER, 22.0)
-	for i in 14:
+	world.fx.light_flash(muzzle, 12.0, Palette.BUTTER, 26.0)
+	world.fx.muzzle_flash(muzzle, dir, 2.4)
+	# Muzzle-brake jets blast out sideways.
+	var side_dir := dir.cross(Vector3.UP).normalized()
+	for side in [-1.0, 1.0]:
+		world.fx.muzzle_flash(muzzle - dir * 0.3, (side_dir * side + dir * 0.3).normalized(), 1.1, Palette.PEACH)
+	for i in 20:
 		var spread := (dir + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 0.35).normalized()
 		world.fx.spawn(Fx.Kind.GLOW, muzzle, spread * randf_range(8, 22), randf_range(0.06, 0.14), randf_range(0.5, 0.9), [Palette.WHITE, Palette.BUTTER, Palette.PEACH][i % 3], {"drag": 8.0})
 	for i in 10:

@@ -1,0 +1,79 @@
+extends Node
+## Stages a fixed scene and saves screenshots, for checking effects and art without playing.
+## Usage: xvfb-run -a godot --path . --resolution 960x540 -- --run=res://tools/showcase.gd \
+##        --scene=vfx|fungus|boss --d=620 --shots=0.5,1,2 --out=builds/showcase
+
+var screen: GameScreen
+
+
+func run() -> int:
+	var args: Dictionary = preload("res://scripts/main.gd").args()
+	var scene: String = args.get("scene", "vfx")
+	var out: String = args.get("out", "builds/showcase")
+	DirAccess.make_dir_recursive_absolute(out)
+	var shots: Array = []
+	for s: String in String(args.get("shots", "0.5,1,1.5,2.5")).split(",", false):
+		shots.append(float(s))
+	screen = GameScreen.new()
+	screen.checkpoint = "boss" if scene == "boss" else ""
+	add_child(screen)
+	var world := screen.world
+	world.player.invulnerable = true
+	world.player.input_enabled = false
+	var d := float(args.get("d", "620"))
+	if scene != "boss":
+		world.rail.d = d
+		world.rail.mode = Rail.Mode.HOLD
+		world.rail.hold_at = d
+		world.director._next_event = world.director.events.size()
+		world.director.scenery.stream(d, 100000)
+	# Let terrain and scenery settle before staging.
+	for _i in 30:
+		await get_tree().process_frame
+	match scene:
+		"vfx":
+			_stage_vfx(world)
+		"boss":
+			world.rail.d = Course.ARENA_CENTER_D - 60.0
+			world.director._start_boss({"kind": "helicopter"})
+	var elapsed := 0.0
+	var index := 0
+	while not shots.is_empty():
+		await get_tree().process_frame
+		elapsed += get_process_delta_time()
+		if scene == "vfx":
+			_drive(world, elapsed)
+		if elapsed >= shots[0]:
+			shots.pop_front()
+			get_viewport().get_texture().get_image().save_png("%s/%s_%d.png" % [out, scene, index])
+			index += 1
+	return 0
+
+
+func _stage_vfx(world: World) -> void:
+	var tank := world.player
+	var base := world.rail.d + tank.course_offset
+	for i in 3:
+		var ugv: Ugv = load("res://scripts/enemies/ugv.gd").new()
+		ugv.position = Course.ground_at(base + 30.0 + i * 8.0, -8.0 + i * 8.0)
+		world.add_enemy(ugv)
+	for i in 4:
+		var drone := FpvDrone.new()
+		drone.position = Course.ground_at(base + 25.0, -6.0 + i * 4.0) + Vector3.UP * 7.0
+		drone.approach_time = 99.0
+		world.add_enemy(drone)
+	world.fx.explosion(Course.ground_at(base + 22.0, 5.0) + Vector3.UP, 4.5)
+	world.fx.burn(Course.ground_at(base + 26.0, -9.0), 20.0, 1.3)
+
+
+func _drive(world: World, t: float) -> void:
+	var tank := world.player
+	tank.using_gamepad = true
+	if world.enemies.is_empty():
+		return
+	var target: Entity = world.enemies[int(t * 2.0) % world.enemies.size()]
+	tank.aim_screen = world.camera.unproject_position(target.hit_center())
+	Input.action_press("fire_coax")
+	tank.input_enabled = true
+	if tank.reload <= 0.0:
+		tank.fire_cannon()

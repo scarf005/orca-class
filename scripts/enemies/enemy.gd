@@ -139,7 +139,7 @@ func on_death(hit: Hit) -> void:
 		world.fx.debris(center, 6, debris_colors, 14.0, 0.3)
 
 
-func fire_at(shape: String, from: Vector3, target: Vector3, speed: float, damage: float, color := Palette.CORAL) -> Projectile:
+func fire_at(shape: String, from: Vector3, target: Vector3, speed: float, damage: float, color := Palette.RED) -> Projectile:
 	var projectile := World.current.spawn_projectile(Team.ENEMY, from, (target - from).normalized() * speed, shape, color)
 	projectile.hit = Hit.make(Hit.Kind.BULLET, damage, from)
 	projectile.hit.source = self
