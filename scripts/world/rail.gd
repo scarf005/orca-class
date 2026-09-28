@@ -4,9 +4,9 @@ extends RefCounted
 
 enum Mode { RAIL, HOLD, ARENA }
 
-const CRUISE := 13.0
-const OVERDRIVE := 25.0
-const BRAKE := 4.5
+const CRUISE := 80.0 / 3.6 ## 80 km/h.
+const OVERDRIVE := 42.0
+const BRAKE := 8.0
 const METER_DRAIN := 0.45 ## Per second while boosting or braking.
 const METER_REFILL := 0.3
 

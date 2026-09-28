@@ -10,9 +10,9 @@ signal life_lost
 const MAX_ARMOR := 100.0
 const LATERAL_LIMIT := 14.0
 const FORWARD_LIMIT := Vector2(-3.0, 14.0)
-const MOVE_SPEED := Vector2(13.0, 9.0) ## Lateral, forward (m/s) in the rail frame.
-const ARENA_SPEED := 14.0
-const ACCEL := 45.0
+const MOVE_SPEED := Vector2(21.0, 14.0) ## Lateral, forward (m/s) in the rail frame.
+const ARENA_SPEED := 23.0
+const ACCEL := 90.0
 const HULL_RADIUS := 2.3
 const CIWS_RANGE := 34.0
 const CIWS_DRONE_RANGE := 26.0
@@ -168,7 +168,7 @@ func _update_movement(delta: float) -> void:
 	local_velocity = local_velocity.move_toward(target, ACCEL * delta)
 	if _drift > 0.0:
 		_drift -= delta
-		local_velocity.x = _drift_dir * 34.0 * (_drift / 0.3)
+		local_velocity.x = _drift_dir * 46.0 * (_drift / 0.3)
 	course_u += local_velocity.x * delta
 	course_offset += local_velocity.y * delta
 	var limit := LATERAL_LIMIT if Course.deck_blend(rail.d) < 0.5 else 12.0
@@ -192,7 +192,7 @@ func _move_arena(delta: float, input: Vector2) -> void:
 	current = current.move_toward(wish, ACCEL * delta)
 	if _drift > 0.0:
 		_drift -= delta
-		current = right * _drift_dir * 30.0 * (_drift / 0.3) if absf(_drift_dir) > 0.0 else current
+		current = right * _drift_dir * 46.0 * (_drift / 0.3) if absf(_drift_dir) > 0.0 else current
 	local_velocity = Vector2(current.x, current.z)
 	var p := global_position + current * delta
 	var center := Course.to_world(Course.ARENA_CENTER_D, 0.0)

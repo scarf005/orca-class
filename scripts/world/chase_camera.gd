@@ -3,8 +3,11 @@ extends Camera3D
 ## Follows the rail from behind the tank; in the arena it locks on, keeping the boss framed.
 ## Trauma-based shake and recoil kick are layered on top of the smoothed pose.
 
-const RAIL_BACK := 11.0
-const RAIL_HEIGHT := 6.2
+const RAIL_BACK := 17.0
+const RAIL_HEIGHT := 12.5
+const RAIL_LOOK_AHEAD := 30.0
+const ARENA_BACK := 22.0
+const ARENA_HEIGHT := 16.0
 
 var trauma := 0.0
 var _kick := 0.0
@@ -15,7 +18,7 @@ var _initialized := false
 
 
 func _ready() -> void:
-	fov = 64.0
+	fov = 70.0
 	near = 0.3
 	far = 900.0
 	# Follow after the tank has moved this frame.
@@ -52,14 +55,14 @@ func follow(delta: float) -> void:
 		if away.length() < 1.0:
 			away = player.global_basis.z
 		away = away.normalized()
-		eye = player.global_position + away * 14.0 + Vector3.UP * 7.5
-		look = player.global_position.lerp(focus, 0.3) + Vector3.UP * 2.5
+		eye = player.global_position + away * ARENA_BACK + Vector3.UP * ARENA_HEIGHT
+		look = player.global_position.lerp(focus, 0.3) + Vector3.UP * 1.0
 	else:
 		var d := world.rail.d
 		var u := player.course_u
 		eye = Course.to_world(d - RAIL_BACK, u * 0.55)
 		eye.y = maxf(Course.height(d - RAIL_BACK, u * 0.55), player.global_position.y - 1.0) + RAIL_HEIGHT
-		look = Course.to_world(d + 24.0, u * 0.7, player.global_position.y + 1.2)
+		look = Course.to_world(d + RAIL_LOOK_AHEAD, u * 0.7, player.global_position.y - 1.0)
 		roll = -player.lateral_velocity * 0.006
 	var k := 1.0 - exp(-9.0 * delta)
 	if not _initialized:
