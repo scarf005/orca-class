@@ -40,6 +40,7 @@ class Particle:
 	var ground := -INF ## Ground height for bouncing, sampled once: debris lands near where it starts.
 	var trail_timer := 0.0
 	var layer := 0 ## Debris sprite in the texture array.
+	var water := false ## Bouncing over the reservoir: it splashes in and sinks instead.
 
 static var _solid_material := _debris_material()
 static var _glow_material := _fade_material(true)
@@ -157,6 +158,9 @@ func spawn(kind: Kind, position: Vector3, velocity: Vector3, life: float, size: 
 	p.trail = options.get("trail", Color(0, 0, 0, 0))
 	if p.bounce:
 		p.ground = Course.height_at(position)
+		if p.ground < Course.WATER_LEVEL:
+			p.ground = Course.WATER_LEVEL
+			p.water = true
 	p.spin = Vector3(randf_range(-8, 8), randf_range(-8, 8), randf_range(-8, 8)) * options.get("spin", 0.0)
 	if kind == Kind.SOLID:
 		var material: Debris = options.get("material", Debris.DIRT)
@@ -167,6 +171,7 @@ func spawn(kind: Kind, position: Vector3, velocity: Vector3, life: float, size: 
 
 func _process(delta: float) -> void:
 	var trails: Array[Particle] = []
+	var splashes: Array[Particle] = []
 	var camera := get_viewport().get_camera_3d()
 	var view := camera.global_basis if camera else Basis()
 	for kind: Kind in _pools:
@@ -184,8 +189,11 @@ func _process(delta: float) -> void:
 			p.velocity *= maxf(0.0, 1.0 - p.drag * delta)
 			p.position += p.velocity * delta
 			if p.bounce and p.position.y < p.ground:
-					p.position.y = p.ground
-					p.velocity = Vector3(p.velocity.x * 0.5, absf(p.velocity.y) * 0.3, p.velocity.z * 0.5)
+				if p.water:
+					splashes.append(p)
+					continue
+				p.position.y = p.ground
+				p.velocity = Vector3(p.velocity.x * 0.5, absf(p.velocity.y) * 0.3, p.velocity.z * 0.5)
 			var t := p.life / p.max_life
 			var s := lerpf(p.size, p.end_size, t)
 			# Row-major 3x4 transform, the color, then the custom data, as the MultiMesh buffer expects.
@@ -248,6 +256,8 @@ func _process(delta: float) -> void:
 		if index > 0:
 			multimesh.buffer = buffer
 		multimesh.visible_instance_count = index
+	for p in splashes:
+		splash(p.position, p.size)
 	for p in trails:
 		if p.bounce:
 			# A flying shard: a thin smoke line, no fire.
@@ -368,7 +378,14 @@ func explosion(position: Vector3, damage_radius: float, palette := [Palette.BUTT
 		var dir := (Vector3(randf_range(-1, 1), randf_range(0.2, 1.4), randf_range(-1, 1)).normalized() + push * 1.3).normalized()
 		spawn(Kind.FLAME, position, dir * randf_range(4, 14) * (0.6 + radius * 0.3), randf_range(0.25, 0.7) * BLAST_PACE, randf_range(0.25, 0.6) * (0.6 + radius * 0.15), palette[randi() % palette.size()], {"gravity": 8.0, "drag": 2.0})
 	var ground := Course.height_at(position)
-	var low := position.y - ground < radius * 1.5
+	if ground < Course.WATER_LEVEL and position.y - Course.WATER_LEVEL < radius * 1.5:
+		# Over the reservoir: a tall plume of water instead of dust and a scorch mark.
+		splash(position, radius * 0.8)
+		for i in int(6 + n * 4):
+			var up := Vector3(randf_range(-0.25, 0.25), 1.0, randf_range(-0.25, 0.25)).normalized()
+			spawn(Kind.GLOW, Vector3(position.x, Course.WATER_LEVEL, position.z), up * randf_range(8.0, 16.0) * (0.5 + radius * 0.15), randf_range(0.8, 1.3), randf_range(0.5, 0.9) * (0.6 + radius * 0.15), [Palette.WHITE, Palette.SKY, Palette.MIST][i % 3], {"gravity": 14.0, "end_size": 1.4, "drag": 0.6, "fade": 0.4})
+		ground = Course.WATER_LEVEL
+	var low := position.y - ground < radius * 1.5 and ground > Course.WATER_LEVEL
 	if low:
 		# Dust thrown out along the ground.
 		for i in int(8 + n * 4):
@@ -386,6 +403,23 @@ func explosion(position: Vector3, damage_radius: float, palette := [Palette.BUTT
 		for i in int(damage_radius * 0.5):
 			var along := push * damage_radius * (0.8 + i * 0.7)
 			_delayed.append({"time": (randf_range(0.12, 0.3) + i * 0.1) * BLAST_PACE, "position": position + along + Vector3(randf_range(-1, 1), randf_range(0, 1), randf_range(-1, 1)) * damage_radius * 0.6, "radius": damage_radius * 0.4, "palette": palette, "push": push})
+
+
+## Something hits the water: a crown of spray and rings spreading out over the surface.
+func splash(position: Vector3, size: float) -> void:
+	var at := Vector3(position.x, Course.WATER_LEVEL + 0.05, position.z)
+	for ring in [[2.5, 0.8], [4.5, 1.3], [7.0, 1.9]]:
+		_transient(_cached("ring", Palette.CREAM, _ring_builder), Transform3D(Basis(), at), ring[1] * (0.6 + size * 0.4), true, Vector2(size * 0.5, size * ring[0]), 0.2, false)
+	for i in int(4 + size * 6):
+		var dir := Vector3(randf_range(-0.4, 0.4), 1.0, randf_range(-0.4, 0.4)).normalized()
+		spawn(Kind.GLOW, at, dir * randf_range(3.0, 7.0) * (0.6 + size * 0.5), randf_range(0.4, 0.8), randf_range(0.15, 0.3) * (1.0 + size), [Palette.WHITE, Palette.SKY, Palette.CREAM][i % 3], {"gravity": 18.0, "end_size": 0.05, "fade": 0.6})
+
+
+static func _ring_builder(b: LowPoly, c: Color) -> void:
+	for i in 16:
+		var o0 := Vector3(cos(TAU * i / 16.0), 0, sin(TAU * i / 16.0))
+		var o1 := Vector3(cos(TAU * (i + 1) / 16.0), 0, sin(TAU * (i + 1) / 16.0))
+		b.quad(o0 * 0.8, o1 * 0.8, o1, o0, c, Vector3.UP)
 
 
 ## A slow column of smoke that lingers where something blew up.
@@ -482,11 +516,7 @@ func spores(position: Vector3, count: int, spread := 1.5) -> void:
 
 
 func shockwave(position: Vector3, radius: float, color: Color, life := 0.3) -> void:
-	var mesh := _cached("ring", color, func(b: LowPoly, c: Color) -> void:
-		for i in 16:
-			var o0 := Vector3(cos(TAU * i / 16.0), 0, sin(TAU * i / 16.0))
-			var o1 := Vector3(cos(TAU * (i + 1) / 16.0), 0, sin(TAU * (i + 1) / 16.0))
-			b.quad(o0 * 0.8, o1 * 0.8, o1, o0, c, Vector3.UP))
+	var mesh := _cached("ring", color, _ring_builder)
 	_transient(mesh, Transform3D(Basis(), position + Vector3.UP * 0.2), life, true, Vector2(radius * 0.2, radius), 0.1, true)
 
 
