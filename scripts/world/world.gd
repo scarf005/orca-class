@@ -386,6 +386,13 @@ func _setup_environment() -> void:
 	environment.fog_depth_end = 420.0
 	environment.fog_depth_curve = 1.4
 	environment.fog_sky_affect = 0.0
+	# Fire, flashes and tracers bloom into the scene around them.
+	environment.glow_enabled = true
+	environment.glow_intensity = 0.9
+	environment.glow_strength = 1.1
+	environment.glow_bloom = 0.05
+	environment.glow_hdr_threshold = 0.85
+	environment.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
 	var world_environment := WorldEnvironment.new()
 	world_environment.environment = environment
 	add_child(world_environment)

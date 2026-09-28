@@ -6,6 +6,7 @@ extends Node3D
 const MAX_PARTICLES := 4000
 const SOFT_CAP := 1200
 const MAX_SCORCH := 60
+const FLASH_LIGHTS := 12 ## Pooled lights for blasts, muzzles and fires; the dimmest one is reused.
 const BLAST_PACE := 0.8 ## Explosions play out in this fraction of their original time.
 const DEBRIS_SIZE := 1.8 ## Flat shards are drawn this much bigger than the size callers ask for.
 const DEBRIS_SMOKE := Color("9c93a3") ## Every flying shard trails a thin line of smoke.
@@ -109,7 +110,7 @@ func _ready() -> void:
 		var buffer := PackedFloat32Array()
 		buffer.resize(MAX_PARTICLES * STRIDE[kind])
 		_buffers[kind] = buffer
-	for i in 4:
+	for i in FLASH_LIGHTS:
 		var light := OmniLight3D.new()
 		light.light_color = Palette.PEACH
 		light.omni_range = 14.0
@@ -455,6 +456,8 @@ func _update_emitters(delta: float) -> void:
 			e.tick = 0.1
 			var s: float = e.size
 			var p: Vector3 = e.position + Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)) * s * 0.6
+			# Fires light up what is around them, flickering.
+			light_flash(e.position + Vector3.UP * s, randf_range(2.0, 3.5) * s, Palette.AMBER, 7.0 * s + 4.0)
 			spawn(Kind.FLAME, p, Vector3(0, randf_range(2, 4), 0), randf_range(0.3, 0.6), randf_range(0.4, 0.8) * s, [Palette.BUTTER, Palette.PEACH, Palette.CORAL, Palette.FUNGUS][randi() % 4], {"drag": 1.0})
 			if randf() < 0.6:
 				spawn(Kind.GLOW, p + Vector3.UP * s, Vector3(randf_range(-0.4, 0.4), randf_range(2, 3.5), randf_range(-0.4, 0.4)), randf_range(2.0, 3.0), 0.8 * s, [Palette.ASH, Palette.STONE, Palette.DUSK][randi() % 3], {"end_size": 2.6 * s, "drag": 0.5, "fade": 0.3})
