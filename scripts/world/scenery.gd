@@ -47,9 +47,6 @@ const PROPS := {
 	"plane_tree": [0.9, 9.0, 45.0, true, true, 10, false, false],
 }
 
-## Wrecked cars: the tank drives over them and flattens them; shooting them still sets them off.
-const VEHICLES := ["car", "truck", "infested_car"]
-
 ## Tall thin props that snap and fall over rather than vanish.
 const FALLING := ["pole", "plane_tree", "persimmon", "cordyceps"]
 
@@ -484,7 +481,6 @@ func _instantiate(spec: Spec) -> void:
 			prop.rubble_mesh = PropKit.mesh("rubble", spec.variant)
 		prop.drop = spec.drop
 		prop.falls = spec.kind in FALLING
-		prop.crush_flat = spec.kind in VEHICLES
 		prop.fungal = spec.kind in FUNGAL
 		prop.debris_colors = _debris_colors(spec.kind, spec.variant)
 		# Position before entering the tree: props register into spatial buckets on entry.

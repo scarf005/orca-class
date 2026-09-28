@@ -8,6 +8,7 @@ signal damaged(entity: Entity, hit: Hit)
 enum Team { PLAYER, ENEMY, NEUTRAL }
 
 const FLASH_TIME := 0.07
+const OVERKILL := 3.0 ## A killing hit this many times the full health leaves no remains, only shards.
 
 static var _flash_material := _make_flash_material()
 var rest_overlay: Material = null ## Overlay the meshes wear between hit flashes.
@@ -19,6 +20,7 @@ var radius := 1.0 ## Hit sphere radius around `hit_center()`.
 var center_height := 0.0
 var flying := false
 var dead := false
+var overkilled := false ## Killed by an overkill hit: shatter instead of leaving a wreck or rubble.
 var interceptable := false ## The player's laser CIWS may target this.
 var armor := 0.0 ## Fraction of small-caliber damage (below 20 mm) that is stopped.
 var invulnerable := false
@@ -91,6 +93,7 @@ func take_hit(hit: Hit) -> void:
 	damaged.emit(self, hit)
 	on_damaged(hit, amount)
 	if hp <= 0.0:
+		overkilled = amount > max_hp * OVERKILL
 		die(hit)
 
 
@@ -112,6 +115,15 @@ func on_damaged(_hit: Hit, _amount: float) -> void:
 
 func on_death(_hit: Hit) -> void:
 	pass
+
+
+## World-space box around everything the entity draws, so its shards match its size.
+func visual_bounds() -> AABB:
+	var box := AABB(hit_center(), Vector3.ZERO)
+	for mesh in _meshes:
+		if is_instance_valid(mesh) and mesh.is_inside_tree():
+			box = box.merge(mesh.global_transform * mesh.get_aabb())
+	return box
 
 
 ## Collects mesh instances so hit flashes can overlay them.

@@ -94,7 +94,8 @@ func test_a_shell_kill_throws_the_wreck_on_along_the_shot() -> void:
 	world.add_enemy(ugv)
 	await frames(2)
 	var shot_dir := Course.right(world.rail.d + 60.0)
-	var shot := Hit.make(Hit.Kind.SHELL, 9999.0, ugv.hit_center(), shot_dir)
+	# Just enough to kill: an overkill would leave no wreck at all.
+	var shot := Hit.make(Hit.Kind.SHELL, ugv.max_hp * 2.0, ugv.hit_center(), shot_dir)
 	shot.caliber = 100
 	shot.source = world.player
 	ugv.take_hit(shot)
@@ -150,10 +151,48 @@ func test_shot_pole_still_topples() -> void:
 	var world := stage()
 	var pole := _prop(world, "pole", world.player.global_position + Vector3(0, 0, -40.0), 25.0)
 	pole.falls = true
-	var shot := Hit.make(Hit.Kind.SHELL, 999.0, pole.global_position, Vector3.RIGHT)
+	var shot := Hit.make(Hit.Kind.SHELL, 50.0, pole.global_position, Vector3.RIGHT)
 	shot.source = world.player
 	pole.take_hit(shot)
-	check(not pole.dead and pole.is_falling(), "a shell snaps it and it goes over")
+	check(not pole.dead and pole.is_falling(), "a hit short of overkill snaps it and it goes over")
+
+
+func test_overkill_leaves_only_shards() -> void:
+	var world := stage()
+	var ugv := Ugv.new()
+	ugv.position = Course.ground_at(world.rail.d + 60.0, 0.0)
+	world.add_enemy(ugv)
+	await frames(2)
+	var shot := Hit.make(Hit.Kind.SHELL, ugv.max_hp * Entity.OVERKILL + 1.0, ugv.hit_center(), Vector3.RIGHT)
+	shot.source = world.player
+	var shards: int = world.fx._pools[Fx.Kind.SOLID].size()
+	ugv.take_hit(shot)
+	check(ugv.overkilled, "more than three times its health is an overkill")
+	check(not world.get_children().any(func(n: Node) -> bool: return n is Wreck), "no wreck is left")
+	check(world.fx._pools[Fx.Kind.SOLID].size() > shards + 20, "it bursts into shards")
+	var pole := _prop(world, "house", world.player.global_position + Vector3(0, 0, -40.0), 100.0)
+	pole.rubble_mesh = PropKit.mesh("rubble", 0)
+	var before := world.props.get_child_count()
+	pole.take_hit(Hit.make(Hit.Kind.SHELL, 301.0, pole.global_position))
+	check_eq(world.props.get_child_count(), before, "an overkilled building leaves no rubble")
+	var house := _prop(world, "house", world.player.global_position + Vector3(0, 0, -60.0), 100.0)
+	house.rubble_mesh = PropKit.mesh("rubble", 0)
+	before = world.props.get_child_count()
+	house.take_hit(Hit.make(Hit.Kind.SHELL, 299.0, house.global_position))
+	check_eq(world.props.get_child_count(), before + 1, "a plain kill leaves rubble")
+
+
+func test_shards_scale_with_the_size_of_what_broke() -> void:
+	var world := stage()
+	var pool: Array = world.fx._pools[Fx.Kind.SOLID]
+	world.fx.shatter(AABB(Vector3.ZERO, Vector3.ONE), [Palette.INK])
+	var small := pool.size()
+	var small_size: float = pool.map(func(p: Fx.Particle) -> float: return p.size).max()
+	pool.clear()
+	world.fx.shatter(AABB(Vector3.ZERO, Vector3.ONE * 6.0), [Palette.INK])
+	check(pool.size() > small * 5, "a big thing breaks into many more shards")
+	check(pool.map(func(p: Fx.Particle) -> float: return p.size).max() > small_size * 3.0, "and bigger ones")
+	check(pool.all(func(p: Fx.Particle) -> bool: return p.trail.a > 0.0), "every shard trails smoke")
 
 
 func test_ramming_a_landmark_takes_what_it_holds_at_once_without_stopping_the_tank() -> void:

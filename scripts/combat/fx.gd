@@ -1,14 +1,18 @@
 class_name Fx
 extends Node3D
-## CPU particles drawn through two MultiMeshes (lit chunks and glowing sparks), plus short-lived
-## meshes for blasts, rings, beams and ground scorch marks. Everything fades by dithering.
+## CPU particles drawn through MultiMeshes (flat debris shards, glowing puffs and flames), plus
+## short-lived meshes for blasts, rings, beams and ground scorch marks. Everything fades by dithering.
 
 const MAX_PARTICLES := 4000
 const SOFT_CAP := 1200
 const MAX_SCORCH := 60
+const DEBRIS_SIZE := 1.8 ## Flat shards are drawn this much bigger than the size callers ask for.
+const DEBRIS_SMOKE := Color("9c93a3") ## Every flying shard trails a thin line of smoke.
+const TRAIL_MIN_SPEED := 4.0 ## Shards stop trailing once they slow down on the ground.
 
-## SOLID: lit chunks (debris). GLOW: unlit puffs (smoke, dust, spores), dithered. FLAME: fire,
-## sparks and flashes, drawn without dithering.
+## SOLID: flat, ink-edged 2D shards (debris) that face the camera and tumble in the screen plane.
+## GLOW: unlit puffs (smoke, dust, spores), dithered. FLAME: fire, sparks and flashes, drawn
+## without dithering.
 enum Kind { SOLID, GLOW, FLAME }
 
 class Particle:
@@ -27,8 +31,9 @@ class Particle:
 	var trail := Color(0, 0, 0, 0) ## Leaves smoke puffs behind while alive (burning debris).
 	var ground := -INF ## Ground height for bouncing, sampled once: debris lands near where it starts.
 	var trail_timer := 0.0
+	var aspect := Vector2.ONE ## Shards are stretched differently, so one mesh reads as many shapes.
 
-static var _solid_material := _fade_material(false)
+static var _solid_material := _fade_material(true)
 static var _glow_material := _fade_material(true)
 static var _flame_material := _flame()
 
@@ -67,7 +72,7 @@ func _ready() -> void:
 		var instance := MultiMeshInstance3D.new()
 		instance.multimesh = multimesh
 		instance.material_override = [_solid_material, _glow_material, _flame_material][kind]
-		instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if kind == Kind.SOLID else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		if kind == Kind.FLAME:
 			instance.layers |= ActorLayer.LAYER
 		instance.custom_aabb = AABB(Vector3(-5000, -500, -5000), Vector3(10000, 1000, 10000))
@@ -90,11 +95,17 @@ static func _particle_mesh(kind: Kind) -> Mesh:
 	var builder := LowPoly.new()
 	if kind != Kind.SOLID:
 		builder.blob(Transform3D(), 0.5, Color.WHITE)
-	else:
-		# A chunky, irregular shard reads as debris, dirt or smoke depending on its color.
-		builder.blob(Transform3D(), 0.5, Color.WHITE, 0, 0.35, 3)
-	var mesh := builder.mesh()
-	return mesh
+		return builder.mesh()
+	# A flat, jagged shard in the XY plane with an ink rim behind it, like a hand-drawn chip.
+	var outline: Array[Vector3] = []
+	for corner: Vector2 in [Vector2(0.0, 0.5), Vector2(1.3, 0.34), Vector2(2.4, 0.55), Vector2(3.5, 0.3), Vector2(4.8, 0.46)]:
+		outline.append(Vector3(cos(corner.x), sin(corner.x), 0.0) * corner.y)
+	for layer: Array in [[1.3, -0.02, Palette.INK], [1.0, 0.0, Color.WHITE]]:
+		for i in outline.size():
+			var a: Vector3 = outline[i] * layer[0] + Vector3(0, 0, layer[1])
+			var b: Vector3 = outline[(i + 1) % outline.size()] * layer[0] + Vector3(0, 0, layer[1])
+			builder.tri(Vector3(0, 0, layer[1]), a, b, layer[2])
+	return builder.mesh()
 
 
 func particle_count() -> int:
@@ -126,11 +137,16 @@ func spawn(kind: Kind, position: Vector3, velocity: Vector3, life: float, size: 
 	if p.bounce:
 		p.ground = Course.height_at(position)
 	p.spin = Vector3(randf_range(-8, 8), randf_range(-8, 8), randf_range(-8, 8)) * options.get("spin", 0.0)
+	if kind == Kind.SOLID:
+		p.aspect = Vector2(randf_range(0.6, 1.4), randf_range(0.6, 1.4))
+		p.spin.x = randf() * TAU # Starting roll.
 	pool.append(p)
 
 
 func _process(delta: float) -> void:
 	var trails: Array[Particle] = []
+	var camera := get_viewport().get_camera_3d()
+	var view := camera.global_basis if camera else Basis()
 	for kind: Kind in _pools:
 		var pool: Array = _pools[kind]
 		var multimesh: MultiMesh = _multimeshes[kind]
@@ -151,7 +167,24 @@ func _process(delta: float) -> void:
 			var s := lerpf(p.size, p.end_size, t)
 			# Row-major 3x4 transform followed by the color, as the MultiMesh buffer expects.
 			var o := index * 16
-			if p.spin != Vector3.ZERO:
+			if kind == Kind.SOLID:
+				# Billboard: flat toward the camera, rolling in the screen plane.
+				var roll := p.spin.x + p.spin.z * p.life
+				var c := cos(roll)
+				var r := sin(roll)
+				var bx := (view.x * c + view.y * r) * s * p.aspect.x
+				var by := (view.y * c - view.x * r) * s * p.aspect.y
+				var bz := view.z * s
+				buffer[o] = bx.x
+				buffer[o + 1] = by.x
+				buffer[o + 2] = bz.x
+				buffer[o + 4] = bx.y
+				buffer[o + 5] = by.y
+				buffer[o + 6] = bz.y
+				buffer[o + 8] = bx.z
+				buffer[o + 9] = by.z
+				buffer[o + 10] = bz.z
+			elif p.spin != Vector3.ZERO:
 				var basis := Basis.from_euler(p.spin * p.life).scaled(Vector3.ONE * s)
 				buffer[o] = basis.x.x
 				buffer[o + 1] = basis.y.x
@@ -181,8 +214,8 @@ func _process(delta: float) -> void:
 			buffer[o + 15] = 1.0 - smoothstep(p.fade_start, 1.0, t)
 			if p.trail.a > 0.0:
 				p.trail_timer -= delta
-				if p.trail_timer <= 0.0:
-					p.trail_timer = 0.05
+				if p.trail_timer <= 0.0 and (kind != Kind.SOLID or p.velocity.length_squared() > TRAIL_MIN_SPEED * TRAIL_MIN_SPEED):
+					p.trail_timer = 0.05 if kind == Kind.FLAME else 0.08
 					trails.append(p)
 			alive.append(p)
 			index += 1
@@ -192,6 +225,10 @@ func _process(delta: float) -> void:
 			multimesh.buffer = buffer
 		multimesh.visible_instance_count = index
 	for p in trails:
+		if p.bounce:
+			# A flying shard: a thin smoke line, no fire.
+			spawn(Kind.GLOW, p.position, Vector3.UP * 0.4, 0.5, p.size * 0.6, p.trail, {"end_size": p.size * 1.6, "drag": 2.0, "fade": 0.1})
+			continue
 		spawn(Kind.GLOW, p.position, Vector3.UP * 0.8, 0.9, p.size * 0.9, p.trail, {"end_size": p.size * 2.5, "drag": 1.5, "fade": 0.1})
 		if randf() < 0.5:
 			spawn(Kind.FLAME, p.position, Vector3.ZERO, 0.12, p.size * 0.8, [Palette.BUTTER, Palette.PEACH][randi() % 2])
@@ -379,7 +416,25 @@ func smoke(position: Vector3, count: int, radius := 1.0, colors := [Palette.MIST
 func debris(position: Vector3, count: int, colors: Array, force := 6.0, size := 0.35, push := Vector3.ZERO) -> void:
 	for i in count:
 		var dir := (Vector3(randf_range(-1, 1), randf_range(0.5, 1.5), randf_range(-1, 1)).normalized() + push * 1.6).normalized()
-		spawn(Kind.SOLID, position, dir * randf_range(0.4, 1.0) * force, randf_range(1.2, 2.4), randf_range(0.6, 1.3) * size, colors[i % colors.size()], {"gravity": 22.0, "bounce": true, "spin": 1.0, "end_size": size * 0.8})
+		_shard(position, dir * randf_range(0.4, 1.0) * force, randf_range(0.6, 1.3) * size * DEBRIS_SIZE, colors[i % colors.size()])
+
+
+## Breaks something apart: shards spread through its box and flung out from its middle (and on
+## along `push`), as many and as big as the thing was. `share` < 1 when part of it stays behind.
+func shatter(bounds: AABB, colors: Array, push := Vector3.ZERO, share := 1.0) -> void:
+	var extent := bounds.size
+	var volume := maxf(extent.x * extent.y * extent.z, 0.05)
+	var count := int(clampf(1.5 * pow(volume, 2.0 / 3.0) * share, 3.0, 70.0))
+	var size := clampf(maxf(extent.x, maxf(extent.y, extent.z)) * 0.14, 0.2, 1.8)
+	var center := bounds.get_center()
+	for i in count:
+		var at := bounds.position + extent * Vector3(randf(), randf(), randf())
+		var out := ((at - center).normalized() + Vector3.UP * 0.7 + Vector3(randf_range(-0.4, 0.4), 0.0, randf_range(-0.4, 0.4))).normalized() + push * 1.4
+		_shard(at, out * randf_range(5.0, 12.0), randf_range(0.5, 1.5) * size, colors[i % colors.size()])
+
+
+func _shard(position: Vector3, velocity: Vector3, size: float, color: Color) -> void:
+	spawn(Kind.SOLID, position, velocity, randf_range(1.2, 2.4), size, color, {"gravity": 22.0, "bounce": true, "spin": 1.0, "end_size": size * 0.8, "trail": DEBRIS_SMOKE})
 
 
 func sparks(position: Vector3, normal: Vector3, count: int, color := Palette.BUTTER, speed := 10.0) -> void:

@@ -19,7 +19,6 @@ var blast_size := 4.5 ## Radius of the explosion when an explosive prop goes up.
 var fungal := false ## Bursts into spores and splatter when destroyed.
 var supports: Array[Prop] = [] ## Pieces resting on this one; they topple when it breaks.
 var falls := false
-var crush_flat := false ## Driven over, it is squashed flat instead of going up.
 var _topple := -1.0
 var _topple_axis := Vector3.RIGHT
 var _topple_by_player := false
@@ -93,7 +92,7 @@ static func _rammed(hit: Hit) -> bool:
 
 
 func die(hit: Hit) -> void:
-	if falls and not is_falling() and not dead and not _rammed(hit):
+	if falls and not is_falling() and not dead and not overkilled:
 		# Snaps at the base in a burst of splinters and goes over, away from the blow.
 		hp = 1.0
 		var push := Enemy.kill_push(hit)
@@ -158,24 +157,6 @@ func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 	return t * from.distance_to(to)
 
 
-## Driven over: the body is squashed flat with a crunch and a burst of glass and sparks, and the
-## flattened hulk stays behind. No explosion.
-func _crush(world: World, push: Vector3) -> void:
-	world.fx.sparks(global_position + Vector3.UP * 0.8, push + Vector3.UP, 18, Palette.BUTTER, 12.0)
-	world.fx.debris(global_position + Vector3.UP, 10, [Palette.SKY, Palette.WHITE, Palette.INK], 9.0, 0.18, push)
-	world.fx.dust(global_position, 6, footprint, Palette.OCHRE)
-	world.shake(0.2, global_position)
-	Sfx.play("rubble", global_position, 2.0, 1.3)
-	Sfx.play("impact", global_position, 0.0, 0.7)
-	var hulk := MeshInstance3D.new()
-	hulk.mesh = (get_node("Mesh") as MeshInstance3D).mesh
-	hulk.transform = global_transform.scaled_local(Vector3(1.12, 0.28, 1.06))
-	world.props.add_child(hulk)
-	if score > 0:
-		world.award(score, global_position, false)
-	world.style_event("CRUSH", 12.0)
-
-
 func damage_multiplier(hit: Hit) -> float:
 	if hit.kind == Hit.Kind.BULLET and hit.caliber < 15:
 		return 0.25
@@ -188,13 +169,11 @@ func on_death(hit: Hit) -> void:
 	var world := World.current
 	var center := global_position + Vector3.UP * height * 0.4
 	var push := Enemy.kill_push(hit)
-	# Rammed at speed, the pieces fly on ahead of the tank like it hit them at 80 km/h.
+	# Rammed at speed, the pieces fly on ahead of the tank like it hit them at 80 km/h. What leaves
+	# rubble sheds only some of itself; everything else goes entirely to pieces.
 	var rammed := hit != null and hit.kind == Hit.Kind.RAM
-	var force := (5.0 + footprint) * (2.6 if rammed else 1.0)
-	world.fx.debris(center, int(clampf(footprint * height * 1.5, 4, 24)) + (8 if rammed else 0), debris_colors, force, 0.3 + footprint * 0.12, push)
-	if crush_flat and rammed:
-		_crush(world, push)
-		return
+	var remains := rubble_mesh != null and not overkilled
+	world.fx.shatter(visual_bounds(), debris_colors, push * (2.0 if rammed else 1.0), 0.35 if remains else 1.0)
 	world.fx.dust(global_position, int(clampf(footprint * 3.0, 3, 14)), footprint, Palette.MIST)
 	Sfx.play("rubble" if footprint > 1.5 else "wood", global_position)
 	if footprint > 2.5:
@@ -223,17 +202,16 @@ func on_death(hit: Hit) -> void:
 		world.award(score, global_position, false)
 	if hit != null and hit.by_player():
 		world.style_event("DEMOLITION", 8.0 + footprint * 6.0)
-		if hit.kind == Hit.Kind.RAM and footprint > 2.5:
-			# Bulldozed buildings go up in a cloud of plaster and roof tiles.
+		if rammed and footprint > 2.5:
+			# Bulldozed buildings go up in a cloud of plaster.
 			world.fx.dust(global_position + Vector3.UP, 16, footprint * 1.2, Palette.MIST)
-			world.fx.debris(center + Vector3.UP * height * 0.3, 18, debris_colors, 12.0, 0.5)
 	if fungal:
 		world.fx.spores(center, int(5 + footprint * 3), footprint)
 		world.fx.debris(center, int(3 + footprint * 2), [Palette.FUNGUS, Palette.MAUVE, Palette.BLUSH], 7.0, 0.3)
 		Sfx.play("squelch", global_position, 0.0, randf_range(0.7, 1.0))
 	elif burnable and hit and hit.incendiary:
 		world.fx.spores(center, 10, footprint)
-	if rubble_mesh:
+	if remains:
 		# Leave a rubble pile behind instead of vanishing.
 		var rubble := MeshInstance3D.new()
 		rubble.mesh = rubble_mesh

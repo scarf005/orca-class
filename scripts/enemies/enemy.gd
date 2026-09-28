@@ -154,9 +154,11 @@ func on_death(hit: Hit) -> void:
 	var chain := Hit.new()
 	chain.source = world.player if by_player else null
 	world.blast(center, death_radius * 1.4, 35.0, Team.PLAYER if by_player else Team.NEUTRAL, chain, self, [Palette.WHITE, Palette.AMBER, Palette.HOT, Palette.CORAL], push)
-	world.fx.debris(center, int(4 + death_radius * 3), debris_colors, 6.0 + death_radius * 2.0, 0.25 + death_radius * 0.08, push)
+	# A hull that stays whole as a wreck sheds only some of itself; anything else goes to pieces.
+	var remains := wreck_on_death and not overkilled
+	world.fx.shatter(visual_bounds(), debris_colors, push, 0.35 if remains else 1.0)
 	world.fx.smoke_column(center, death_radius, [Palette.DUSK, Palette.INK, Palette.ASH])
-	if wreck_on_death:
+	if remains:
 		# The entity stops ticking after death, so its flash cannot expire on detached wrecks.
 		for mesh in _meshes:
 			if is_instance_valid(mesh):
@@ -175,9 +177,6 @@ func on_death(hit: Hit) -> void:
 		world.hitstop(0.05)
 	if not drop.is_empty():
 		world.spawn_pickup(drop, center + Vector3.UP * 0.5)
-	if hit and hit.kind == Hit.Kind.SHELL and death_radius < 3.0:
-		# Heavy kills fling debris further.
-		world.fx.debris(center, 6, debris_colors, 14.0, 0.3, push)
 
 
 ## How hard and which way the killing blow throws the remains: shells and rams send them flying

@@ -78,6 +78,7 @@ func test_detached_wreck_does_not_keep_hit_flash() -> void:
 	var world := stage()
 	var enemy := _target(world)
 	var meshes := enemy._meshes.duplicate()
-	enemy.take_hit(_shot(world, enemy, 1000.0))
+	enemy.max_hp = enemy.hp
+	enemy.take_hit(_shot(world, enemy, enemy.hp + 1.0))
 	for mesh: GeometryInstance3D in meshes:
 		check(mesh.material_overlay != Entity._flash_material, "detached wreck restores its material before the enemy stops ticking")
