@@ -18,7 +18,7 @@ const ROUND_IDS := {
 }
 
 ## Rounds loaded per special-round pickup.
-const MAGAZINE := {Round.HEAT: 8, Round.CANISTER: 10, Round.DRAGON: 8, Round.APFSDS: 8, Round.AIRBURST: 10}
+const MAGAZINE := {Round.HEAT: 4, Round.CANISTER: 4, Round.DRAGON: 4, Round.APFSDS: 4, Round.AIRBURST: 4}
 
 ## A real 100 mm gun: a three-second reload, and a shell that wrecks any ordinary vehicle outright.
 const RELOAD := 3.0
