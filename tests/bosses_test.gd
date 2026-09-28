@@ -100,12 +100,13 @@ func test_colossus_ignored_hits_do_not_damage_caps_or_confirm_hits() -> void:
 	boss.invulnerable = true
 	_hit_part_with(boss, node, hit)
 	boss.invulnerable = false
+	check(confirmations.is_empty(), "ignored hits do not emit hit confirmation")
 	hit.position = boss.global_position + Vector3.UP * 50.0
 	boss.take_hit(hit)
 	check_eq(node.cap, Colossus.CAP_HP, "zero, negative, invulnerable and off-target hits spare the cap")
 	check_eq(node.hp, Colossus.NODE_HP, "ignored hits spare the node")
 	check_eq(boss.hp, boss.max_hp, "ignored hits leave the health bar full")
-	check(confirmations.is_empty(), "ignored hits do not emit hit confirmation")
+	check_eq(confirmations, [false], "a hit on the mass away from any weak point still confirms")
 
 
 func test_colossus_core_opens_then_dies() -> void:
@@ -194,17 +195,23 @@ func test_gunship_modules_change_the_fight() -> void:
 	var world := stage("boss")
 	var boss := _gunship(world)
 	boss.take_hit(_shell(_on(boss, boss.parts.chin.offset)))
-	check(not boss._live("chin"), "a shell wrecks the chin gun")
-	for i in 30:
+	check(not boss._live("chin"), "a shell wrecks the chin drum")
+	boss.phase = Gunship.Phase.STRIPPED
+	var chosen := {}
+	for i in 60:
 		boss._choose_attack()
-		check(boss._attack != Gunship.Attack.GUN, "no gun runs without the chin gun")
+		chosen[boss._attack] = true
 		boss._end_attack()
+	check(not chosen.has(Gunship.Attack.ATGM), "no ATGM volleys without the chin drum")
+	check(chosen.has(Gunship.Attack.GUN), "the gatlings still fly gun runs")
 	boss._attack = Gunship.Attack.ROCKETS
 	var gun_l: Node3D = boss.parts.gatling_l.node
 	boss._lose_part(boss.parts.pod_l)
 	check(not boss._live("gatling_l") and boss._live("gatling_r"), "a lost rack takes only the gatling slung under it")
 	check(gun_l.get_parent() != boss.model, "the gatling falls away with its rack instead of hanging in midair")
 	check_eq(boss._gatlings[0], null, "the fallen gatling no longer tracks the tank")
+	boss._lose_part(boss.parts.gatling_r)
+	check(boss._live("pod_r"), "a lost gatling leaves the rack above it")
 	boss._lose_part(boss.parts.pod_r)
 	check_eq(boss._attack, Gunship.Attack.NONE, "losing both racks stops an active rocket volley")
 	var shots := world.projectiles.size()
@@ -245,7 +252,7 @@ func test_gunship_rotor_blades_can_be_shot_and_destroyed_blades_do_not_block() -
 	var world := stage("boss")
 	var boss := _gunship(world)
 	# Outboard blade tip is beyond the nacelle and missile rack hit spheres.
-	var tip: Vector3 = boss.parts.rotor_l.offset + Vector3(-4.5, 0, 0)
+	var tip: Vector3 = boss.parts.rotor_l.offset + Vector3(-8.0, 0, 0)
 	var from := _on(boss, tip + Vector3.UP * 5.0)
 	var to := _on(boss, tip + Vector3.DOWN * 5.0)
 	var distance := boss.hit_test(from, to)
