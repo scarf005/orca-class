@@ -10,10 +10,10 @@ signal missed ## A reach or stab ran out of time before arriving.
 
 enum State { IDLE, REACH, RETURN, STAB, SWAT, ANCHOR }
 
-const LENGTHS: Array[float] = [1.2, 1.05, 0.95, 0.8, 0.65] ## Same 4.65 m reach as before.
+const LENGTHS: Array[float] = [0.78, 0.68, 0.62, 0.52, 0.42] ## 3 m at rest.
 const ROOT_RADIUS := 0.34
 const TIP_RADIUS := 0.1
-const MAX_STRETCH := 1.9
+const MAX_STRETCH := 2.9 ## Lashing out, it stretches to REACH.
 const REACH := 9.0 ## Max claw distance from the mount, measured by action code.
 const COOLDOWN := 0.45
 const MAX_HP := 100.0
