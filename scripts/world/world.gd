@@ -10,7 +10,6 @@ signal stage_cleared
 signal game_over
 signal intercepted(position: Vector3) ## The laser CIWS burned something out of the air.
 signal hit_confirmed(killed: bool) ## Player damage accepted by an enemy, including boss modules.
-signal kill_chain(trick: String, kills: int) ## A chain of quick kills reached a named size.
 
 const CHAIN_GAP := 0.5 ## Kills closer together than this keep a chain going.
 ## Chain size -> [trick, style]. Each is awarded once as the chain grows through it.
@@ -341,7 +340,6 @@ func kill_style(hit: Hit, victim: Entity) -> void:
 	if CHAIN_TRICKS.has(_chain):
 		var step: Array = CHAIN_TRICKS[_chain]
 		style_event(step[0], step[1])
-		kill_chain.emit(step[0], _chain)
 
 
 func shake(amount: float, source := Vector3.INF) -> void:

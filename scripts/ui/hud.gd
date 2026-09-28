@@ -64,7 +64,6 @@ func _ready() -> void:
 	world.scored.connect(_on_scored)
 	world.intercepted.connect(_on_intercepted)
 	world.hit_confirmed.connect(_on_hit_confirmed)
-	world.kill_chain.connect(_on_kill_chain)
 	world.director.incoming.connect(func(from: Vector3) -> void:
 		_incoming.append({"position": from, "time": 0.0})
 		Sfx.ui("warn", 0.0, 1.3))
@@ -123,12 +122,6 @@ func _on_hit_confirmed(killed: bool) -> void:
 	if killed:
 		_kill_marker = 0.32
 	queue_redraw()
-
-
-## Big chains get the arcade call-out; the first step only shows in the style feed.
-func _on_kill_chain(trick: String, kills: int) -> void:
-	if kills >= 6:
-		shout(tr("STYLE_" + trick) + "!!", Palette.FUNGUS if kills >= 10 else Palette.CORAL, 1.1)
 
 
 ## Climbing a rank punches the meter with a rising sting; S and up are shouted, but not every time

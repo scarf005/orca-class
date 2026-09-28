@@ -151,8 +151,9 @@ func test_rammed_pole_snaps_falls_and_drops_its_wires() -> void:
 
 func test_kill_chains_escalate_and_break_on_a_gap() -> void:
 	var world := stage()
-	var chains: Array[String] = []
-	world.kill_chain.connect(func(trick: String, _kills: int) -> void: chains.append(trick))
+	var chains := func() -> Array:
+		var names := world.stats.style_feed.map(func(e: Dictionary) -> String: return e.name)
+		return names.filter(func(n: String) -> bool: return n in ["MULTIKILL", "MASSACRE", "ANNIHILATION"])
 	var kill := func() -> void:
 		var crawler := Crawler.new()
 		crawler.position = Course.ground_at(world.rail.d + 60.0, 5.0)
@@ -162,11 +163,11 @@ func test_kill_chains_escalate_and_break_on_a_gap() -> void:
 		crawler.take_hit(hit)
 	for i in 10:
 		kill.call()
-	check_eq(chains, ["MULTIKILL", "MASSACRE", "ANNIHILATION"] as Array[String], "a chain earns each step once")
-	chains.clear()
+	check_eq(chains.call(), ["ANNIHILATION", "MASSACRE", "MULTIKILL"], "a chain earns each step once")
+	world.stats.style_feed.clear()
 	world.stats.time += World.CHAIN_GAP + 0.1
 	for i in 2:
 		kill.call()
-	check(chains.is_empty(), "a gap starts a new chain")
+	check(chains.call().is_empty(), "a gap starts a new chain")
 	kill.call()
-	check_eq(chains, ["MULTIKILL"] as Array[String], "the new chain counts from one")
+	check_eq(chains.call(), ["MULTIKILL"], "the new chain counts from one")
