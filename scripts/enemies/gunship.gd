@@ -20,6 +20,9 @@ const ERA_HP := 100.0 ## One shell pops a plate; machine guns chew through it sl
 const MODULE_HP := {"rotor_l": 150.0, "rotor_r": 150.0, "chin": 90.0, "pod_l": 140.0, "pod_r": 140.0,
 	"gatling_l": 80.0, "gatling_r": 80.0, "nose_gun": 110.0, "bay": 120.0}
 const GATLINGS := ["gatling_l", "gatling_r"]
+const PART_LABELS := {"rotor_l": "ROTOR L", "rotor_r": "ROTOR R", "chin": "ATGM", "pod_l": "RACK L", "pod_r": "RACK R",
+	"gatling_l": "GUN L", "gatling_r": "GUN R", "nose_gun": "CANNON", "bay": "BOMBS"}
+const PART_PRIORITY := 3.0 ## A module this close behind the airframe skin still takes the hit.
 const ROTORS := ["rotor_l", "rotor_r"]
 const ROTOR_RADIUS := 8.5
 const ROTOR_TILT := 0.22 ## Each mast leans outward, so the two rotors mesh like an eggbeater.
@@ -294,20 +297,36 @@ func _live(part_name: String) -> bool:
 	return parts[part_name].hp > 0.0
 
 
+func aim_parts() -> Dictionary:
+	var result := {}
+	if _crash > 0.0:
+		return result
+	for name: String in MODULE_HP:
+		if _live(name):
+			var part: Part = parts[name]
+			result[name] = [model.global_transform * part.offset, part.radius * MODEL_SCALE, PART_LABELS[name]]
+	return result
+
+
+func module_states() -> Array:
+	return MODULE_HP.keys().map(func(name: String) -> Array: return [PART_LABELS[name], clampf(parts[name].hp / MODULE_HP[name], 0.0, 1.0)])
+
+
 func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 	if _crash > 0.0:
 		return -1.0
-	var best := -1.0
+	var best := -1.0 # The airframe; modules are tested after it.
 	for sphere: Vector4 in [Vector4(0, 0.2, -5.0, 2.2), Vector4(0, 0.4, -1.8, 2.7), Vector4(0, 0.4, 1.4, 2.6), Vector4(0, 0.4, 4.4, 2.0), Vector4(0, 0.6, 8.5, 1.0), Vector4(0, 0.6, 12.5, 1.2), Vector4(-3.9, -0.2, 0.2, 1.2), Vector4(3.9, -0.2, 0.2, 1.2)]:
 		var t := Entity.segment_sphere(from, to, model.global_transform * Vector3(sphere.x, sphere.y, sphere.z), sphere.w * MODEL_SCALE + extra_radius)
 		if t >= 0.0 and (best < 0.0 or t < best):
 			best = t
+	var module := -1.0
 	for part: Part in parts.values():
 		if part.hp <= 0.0:
 			continue
 		var t := Entity.segment_sphere(from, to, model.global_transform * part.offset, part.radius * MODEL_SCALE + extra_radius)
-		if t >= 0.0 and (best < 0.0 or t < best):
-			best = t
+		if t >= 0.0 and (module < 0.0 or t < module):
+			module = t
 	var local_from := model.to_local(from)
 	var local_to := model.to_local(to)
 	for name: String in ROTORS:
@@ -320,8 +339,12 @@ func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 		var t := Entity.segment_sphere(a, b, Vector3.ZERO, 1.0)
 		if t >= 0.0:
 			t *= from.distance_to(to) / maxf(a.distance_to(b), 0.0001)
-			if best < 0.0 or t < best:
-				best = t
+			if module < 0.0 or t < module:
+				module = t
+	# Modules stick out of the airframe, so one just behind where a shot meets the skin still
+	# takes it: a shot aimed at a rack is not stolen by the wing it hangs from.
+	if module >= 0.0 and (best < 0.0 or module - best < PART_PRIORITY):
+		return module
 	return best
 
 

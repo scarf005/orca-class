@@ -117,6 +117,17 @@ func on_death(_hit: Hit) -> void:
 	pass
 
 
+## Parts the sight can lock onto one by one (a boss's modules): name -> [world position, hit
+## radius, label]. Empty for anything that is a single piece.
+func aim_parts() -> Dictionary:
+	return {}
+
+
+## [label, health 0..1] for each module, shown under the boss bar.
+func module_states() -> Array:
+	return []
+
+
 ## World-space box around everything the entity draws, so its shards match its size.
 func visual_bounds() -> AABB:
 	var box := AABB(hit_center(), Vector3.ZERO)

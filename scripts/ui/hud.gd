@@ -418,6 +418,18 @@ func _draw_boss() -> void:
 	_bar(rect, boss.hp / boss.max_hp, Palette.CORAL, 40)
 	for mark: float in boss.get_meta("phase_marks", []):
 		draw_rect(Rect2(rect.position + Vector2(rect.size.x * mark - 1, -3), Vector2(2, 16)), Palette.CREAM)
+	# One chip per module under the bar: its name over its health; struck through once wrecked.
+	var modules := boss.module_states()
+	var width := rect.size.x / maxf(modules.size(), 1.0)
+	for i in modules.size():
+		var label: String = modules[i][0]
+		var health: float = modules[i][1]
+		var at := rect.position + Vector2(i * width, 16)
+		var color := Palette.CORAL if health > 0.0 else Palette.STONE
+		_text(at + Vector2(width * 0.5, 10), label, color, 9, HORIZONTAL_ALIGNMENT_CENTER, 0)
+		_bar(Rect2(at + Vector2(3, 14), Vector2(width - 6, 3)), health, color, 8)
+		if health <= 0.0:
+			draw_line(at + Vector2(4, 6), at + Vector2(width - 4, 6), Palette.STONE, 1.0)
 
 
 ## Combat assist announcements: a terse terminal line beside a waveform, typed out.
@@ -465,6 +477,7 @@ func _draw_banner() -> void:
 const CALLSIGNS := {"FpvDrone": "FPV", "Ugv": "UGV", "Uav": "UAV", "Walker": "WALKER", "QuadMech": "QUAD",
 	"Crawler": "CRAWLER", "Spitter": "SPITTER", "Colossus": "COLOSSUS", "Helicopter": "HELICOPTER", "Gunship": "GUNSHIP", "Flare": "FLARE"}
 var _lock: Entity
+var _lock_part := ""
 var _lock_time := 0.0
 var _was_ready := true
 var _ready_flash := 0.0
@@ -519,26 +532,37 @@ func _draw_reticle() -> void:
 		draw_arc(n, 30, a0, a0 + TAU / 12.0 - 0.12, 4, Armament.ROUND_COLORS[p.current_round] if filled else Color(Palette.STONE, 0.5), 3.0 if filled else 1.0)
 	if _ready_flash > 0.0 and fmod(_ready_flash, 0.1) < 0.06:
 		_text(n + Vector2(0, -40), "READY", Palette.WHITE, 12, HORIZONTAL_ALIGNMENT_CENTER, 0)
-	# Lock: brackets snap in from wide when a new target is acquired.
-	if target != _lock:
+	# Lock: brackets snap in from wide when a new target (or a new module of it) is acquired.
+	var part := p.coax_part
+	if target != _lock or part != _lock_part:
 		_lock = target
+		_lock_part = part
 		_lock_time = 0.0
 	_lock_time += get_process_delta_time()
 	if not is_instance_valid(target) or cam.is_position_behind(target.hit_center()):
 		return
-	var center := cam.unproject_position(target.hit_center()) * SCALE
+	var focus := target.hit_center()
+	var size := target.radius
+	var name: String = CALLSIGNS.get(String(target.get_script().get_global_name()), "TGT")
+	var parts := target.aim_parts()
+	if parts.has(part):
+		focus = parts[part][0]
+		size = parts[part][1] * 0.5
+		name = parts[part][2]
+	if cam.is_position_behind(focus):
+		return
+	var center := cam.unproject_position(focus) * SCALE
 	var k := clampf(_lock_time / 0.2, 0.0, 1.0)
-	var s := lerpf(46.0, 18.0 + target.radius * 3.0, ease(k, 0.4))
+	var s := lerpf(46.0, 18.0 + size * 3.0, ease(k, 0.4))
 	for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
 		var at := center + corner * s
 		draw_line(at, at - Vector2(corner.x * 9, 0), Palette.HOSTILE, 2.0)
 		draw_line(at, at - Vector2(0, corner.y * 9), Palette.HOSTILE, 2.0)
 	if k >= 1.0:
-		var name: String = CALLSIGNS.get(String(target.get_script().get_global_name()), "TGT")
-		var distance := int(target.hit_center().distance_to(p.global_position))
+		var distance := int(focus.distance_to(p.global_position))
 		_text(center + Vector2(0, s + 14), "%s  %dm" % [name, distance], Palette.HOSTILE, 12, HORIZONTAL_ALIGNMENT_CENTER, 0)
 		# Lead diamond for the main gun.
-		var lead := p.lead_point(p.model.muzzle.global_position, Armament.SHELL_SPEED, target)
+		var lead := p.lead_point(p.model.muzzle.global_position, Armament.SHELL_SPEED, target, focus)
 		if not cam.is_position_behind(lead):
 			var lp := cam.unproject_position(lead) * SCALE
 			draw_line(center, lp, Color(Palette.HOSTILE, 0.5), 1.0)

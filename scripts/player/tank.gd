@@ -28,6 +28,7 @@ const DASH_SPEED := 46.0
 const TAP_DIRECTIONS := {&"move_left": Vector2(-1, 0), &"move_right": Vector2(1, 0), &"move_forward": Vector2(0, 1), &"move_back": Vector2(0, -1)}
 const COAX_RANGE := 140.0
 const SOFT_LOCK_RADIUS := 56.0 ## Screen pixels (3D view) around the reticle.
+const PART_LOCK_RADIUS := 90.0 ## Screen pixels: on a target made of modules, the nearest one within this is locked.
 const RESPAWN_DELAY := 1.8
 const RESPAWN_INVULN := 2.6
 const CRUSH_SPEED := 5.0 ## Ground speed above which the tank runs down ground enemies.
@@ -71,6 +72,7 @@ var _barrel_recoil := 0.0
 var _last_position := Vector3.ZERO
 var _grab_target: Node3D
 var coax_target: Entity ## What the coax is tracking on its own.
+var coax_part := "" ## Which module of the locked target the guns are on, if it has several.
 var _last_tap := {&"move_left": -1.0, &"move_right": -1.0, &"move_forward": -1.0, &"move_back": -1.0}
 var _engine_sound: AudioStreamPlayer3D
 var input_enabled := true
@@ -498,6 +500,7 @@ func lead_point(from: Vector3, speed: float, target: Entity, spot := Vector3.INF
 
 func _update_weapons(delta: float) -> void:
 	coax_target = _pick_coax_target()
+	coax_part = _pick_part(coax_target)
 	if input_enabled and Input.is_action_pressed("fire_coax"):
 		var calibers := Armament.tier_calibers(coax_tier)
 		for i in calibers.size():
@@ -515,10 +518,33 @@ func _update_weapons(delta: float) -> void:
 
 ## The fire-control system's soft lock: the enemy under the reticle, else the one nearest it on
 ## screen within a small radius. The coax leads it automatically.
-## The point to lead on a locked target: exactly where the sight rests when it is on the target,
-## otherwise its middle (a soft lock only pulls toward the center).
+## The point to lead on a locked target: the locked module's middle, else exactly where the sight
+## rests when it is on the target, otherwise its middle (a soft lock pulls toward the center).
 func _aimed_spot(target: Entity) -> Vector3:
+	if target == coax_target and not coax_part.is_empty():
+		var parts := target.aim_parts()
+		if parts.has(coax_part):
+			return parts[coax_part][0]
 	return aim_point if target == aim_target else Vector3.INF
+
+
+## On a target made of modules, the one nearest the sight on screen.
+func _pick_part(target: Entity) -> String:
+	if not is_instance_valid(target):
+		return ""
+	var cam := World.current.camera
+	var best := ""
+	var best_distance := PART_LOCK_RADIUS
+	var parts := target.aim_parts()
+	for name: String in parts:
+		var at: Vector3 = parts[name][0]
+		if cam.is_position_behind(at):
+			continue
+		var distance := cam.unproject_position(at).distance_to(aim_screen)
+		if distance < best_distance:
+			best = name
+			best_distance = distance
+	return best
 
 
 func _pick_coax_target() -> Entity:
