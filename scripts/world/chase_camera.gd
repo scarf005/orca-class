@@ -15,6 +15,8 @@ var _time := 0.0
 var _eye := Vector3.ZERO
 var _look := Vector3.ZERO
 var _initialized := false
+var _watch: Node3D ## Set when the boss goes down: the camera stays on it (and where it fell).
+var _watch_point := Vector3.INF
 
 
 func _ready() -> void:
@@ -36,6 +38,12 @@ func add_trauma(amount: float) -> void:
 	trauma = clampf(trauma + amount * 0.7, 0.0, MAX_TRAUMA)
 
 
+## Keeps the camera on `target` from now on, and on the spot it was last seen once it is gone.
+func watch(target: Node3D) -> void:
+	_watch = target
+	_watch_point = target.global_position
+
+
 ## Pitches the view up briefly, e.g. on cannon recoil.
 func kick(amount: float) -> void:
 	_kick = minf(_kick + amount, 0.12)
@@ -51,7 +59,11 @@ func follow(delta: float) -> void:
 	var roll := 0.0
 	if world.rail.mode == Rail.Mode.ARENA:
 		var focus := player.global_position
-		if is_instance_valid(world.boss):
+		if is_instance_valid(_watch):
+			_watch_point = _watch.global_position
+		if _watch_point != Vector3.INF:
+			focus = _watch_point
+		elif is_instance_valid(world.boss):
 			focus = world.boss.global_position
 		var away := player.global_position - focus
 		away.y = 0.0
@@ -59,7 +71,7 @@ func follow(delta: float) -> void:
 			away = player.global_basis.z
 		away = away.normalized()
 		eye = player.global_position + away * ARENA_BACK + Vector3.UP * ARENA_HEIGHT
-		look = player.global_position.lerp(focus, 0.3) + Vector3.UP * 1.0
+		look = player.global_position.lerp(focus, 1.0 if _watch_point != Vector3.INF else 0.3) + Vector3.UP * 1.0
 	else:
 		var d := world.rail.d
 		var u := player.course_u

@@ -698,6 +698,7 @@ func _begin_crash() -> void:
 	if _rotor_sound:
 		_rotor_sound.stop()
 	_crash_from = global_position
+	world.camera.watch(self)
 	hp = 0.0
 	world.boss_changed.emit(null)
 	world.shake(0.7)
