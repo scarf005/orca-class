@@ -2,6 +2,7 @@ extends Control
 ## Title screen: the Orca-class idling under the village's old zelkova, with the main menu.
 
 signal start(checkpoint: String)
+signal debug_room
 
 const SCENE_D := 575.0
 
@@ -49,6 +50,7 @@ func _show_main() -> void:
 		_menu.add_item(tr("MENU_FROM_MIDBOSS"), _begin.bind(Game.Difficulty.NORMAL, "midboss"))
 	if Game.is_checkpoint_unlocked("boss"):
 		_menu.add_item(tr("MENU_FROM_BOSS"), _begin.bind(Game.Difficulty.NORMAL, "boss"))
+	_menu.add_item(tr("MENU_DEBUG_ROOM"), func() -> void: debug_room.emit())
 	_menu.add_item(tr("MENU_SETTINGS"), _show_settings)
 	_menu.add_item(tr("MENU_QUIT"), func() -> void: get_tree().quit())
 	add_child(_menu)

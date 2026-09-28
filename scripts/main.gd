@@ -21,6 +21,7 @@ func _ready() -> void:
 func show_title() -> void:
 	_swap(load("res://scripts/ui/title.gd").new())
 	_screen.start.connect(start_game)
+	_screen.debug_room.connect(func() -> void: _swap(DebugRoom.new()))
 
 
 func start_game(checkpoint: String) -> void:
