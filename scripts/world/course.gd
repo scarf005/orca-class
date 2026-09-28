@@ -17,11 +17,13 @@ const ARENA_CENTER_D := 3530.0
 const ARENA_RADIUS := 85.0
 const DAM_D := 3640.0
 
-## Road center x at control distances; interpolated with Catmull-Rom.
+## Road center x at control distances; interpolated with Catmull-Rom. The road winds in S-bends of
+## up to about 30°, and runs straight through the schoolyard, along the highway deck and into the arena.
 const CENTER_POINTS: Array[Vector2] = [
-	Vector2(-200, 0), Vector2(0, 0), Vector2(300, 12), Vector2(600, -14), Vector2(900, -6), Vector2(1200, 18),
-	Vector2(1450, 8), Vector2(1700, 0), Vector2(2000, -24), Vector2(2300, -10), Vector2(2650, 14), Vector2(3000, 4),
-	Vector2(3350, 0), Vector2(3700, 0), Vector2(4000, 0),
+	Vector2(-200, 0), Vector2(0, 0), Vector2(220, 60), Vector2(460, -50), Vector2(700, -100), Vector2(950, -25),
+	Vector2(1200, 70), Vector2(1400, 45), Vector2(1560, 25), Vector2(1720, 25), Vector2(1950, -60), Vector2(2200, -120),
+	Vector2(2480, -50), Vector2(2720, 30), Vector2(2900, 25), Vector2(3100, 25), Vector2(3300, 8), Vector2(3440, 0),
+	Vector2(3700, 0), Vector2(4000, 0),
 ]
 
 ## The debug room swaps the valley for a flat, open floor.
