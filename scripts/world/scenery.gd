@@ -107,7 +107,7 @@ func _prewarm() -> void:
 	for spec in specs:
 		if not spec.decor:
 			PropKit.mesh(spec.kind, spec.variant)
-			if PROPS[spec.kind][8]:
+			if PROPS[spec.kind][7]:
 				PropKit.mesh("rubble", spec.variant)
 
 
