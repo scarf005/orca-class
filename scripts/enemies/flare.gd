@@ -22,6 +22,7 @@ func _ready() -> void:
 	mesh.mesh = b.mesh()
 	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mesh)
+	ActorLayer.mark(self)
 
 
 func tick(delta: float) -> void:
@@ -30,7 +31,7 @@ func tick(delta: float) -> void:
 	drift *= 1.0 - 0.8 * delta
 	global_position += drift * delta
 	var world := World.current
-	world.fx.spawn(Fx.Kind.GLOW, global_position, Vector3.UP, 0.25, 0.5, [Palette.WHITE, Palette.BUTTER, Palette.PEACH][randi() % 3])
+	world.fx.spawn(Fx.Kind.FLAME, global_position, Vector3.UP, 0.25, 0.5, [Palette.WHITE, Palette.BUTTER, Palette.PEACH][randi() % 3])
 	if life <= 0.0:
 		die(null)
 

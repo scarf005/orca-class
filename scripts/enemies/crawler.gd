@@ -146,6 +146,6 @@ func on_death(hit: Hit) -> void:
 	world.kill_style(hit, self)
 	Sfx.play("squelch", hit_center(), 0.0, 1.1)
 	if hit and hit.kind == Hit.Kind.FIRE:
-		world.fx.spawn(Fx.Kind.GLOW, hit_center(), Vector3.UP * 3.0, 0.5, 1.2, Palette.PEACH)
+		world.fx.spawn(Fx.Kind.FLAME, hit_center(), Vector3.UP * 3.0, 0.5, 1.2, Palette.PEACH)
 	if not drop.is_empty():
 		world.spawn_pickup(drop, hit_center() + Vector3.UP)

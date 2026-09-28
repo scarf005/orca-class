@@ -444,7 +444,7 @@ func _gun(delta: float, tank: Tank) -> void:
 		var lead := tank.hit_center() + tank.velocity * (from.distance_to(tank.hit_center()) / 110.0) * 0.7
 		var shot := fire_at("orb", from, lead + Vector3(randf_range(-1.5, 1.5), randf_range(-0.5, 0.5), randf_range(-1.5, 1.5)), 110.0, 4.5)
 		shot.hit.caliber = 30
-		world.fx.spawn(Fx.Kind.GLOW, from, Vector3.ZERO, 0.05, 0.4, Palette.CORAL)
+		world.fx.spawn(Fx.Kind.FLAME, from, Vector3.ZERO, 0.05, 0.4, Palette.CORAL)
 		Sfx.play("enemy_gun", from, 0.0, 0.8)
 	elif _shots >= total:
 		_end_attack()
@@ -482,7 +482,7 @@ func _rockets(delta: float, tank: Tank) -> void:
 		rocket.intercept_hp = 0.55
 		rocket.trail = Palette.MIST
 		rocket.life = 4.0
-		world.fx.spawn(Fx.Kind.GLOW, from, Vector3.ZERO, 0.08, 0.6, Palette.BUTTER)
+		world.fx.spawn(Fx.Kind.FLAME, from, Vector3.ZERO, 0.08, 0.6, Palette.BUTTER)
 		Sfx.play("launch", from, -2.0, randf_range(1.1, 1.3))
 	elif _shots >= total:
 		_end_attack()
@@ -531,7 +531,7 @@ func _update_crash(delta: float) -> void:
 	model.rotation.y += delta * (4.0 + k * 10.0)
 	model.rotation.z = lerpf(model.rotation.z, 0.6, delta)
 	if randf() < delta * 20.0:
-		world.fx.spawn(Fx.Kind.GLOW, global_position + Vector3(randf_range(-1, 1), 1, randf_range(-1, 1)), Vector3(0, 3, 0), 0.5, 1.2, [Palette.PEACH, Palette.CORAL, Palette.BUTTER][randi() % 3])
+		world.fx.spawn(Fx.Kind.FLAME, global_position + Vector3(randf_range(-1, 1), 1, randf_range(-1, 1)), Vector3(0, 3, 0), 0.5, 1.2, [Palette.PEACH, Palette.CORAL, Palette.BUTTER][randi() % 3])
 		world.fx.smoke(global_position, 1, 2.0, [Palette.STONE, Palette.ASH, Palette.DUSK])
 	if _crash <= 0.0:
 		for i in 5:

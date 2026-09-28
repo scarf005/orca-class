@@ -24,6 +24,7 @@ func _ready() -> void:
 	ring.mesh = _ring_mesh(color())
 	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(ring)
+	ActorLayer.mark(self)
 	if World.current:
 		World.current.pickups.append(self)
 

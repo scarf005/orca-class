@@ -8,6 +8,8 @@ uniform int palette_size = 1;
 uniform float spread = 0.08;
 uniform float strength : hint_range(0.0, 1.0) = 1.0;
 uniform vec4 flash = vec4(0.0); // Full-screen tint for hits and big blasts; alpha is the mix.
+uniform sampler2D actor_mask : filter_nearest; // Alpha > 0 where actors and flames are drawn.
+uniform float actor_dither = 0.15; // Fraction of the dither spread kept on actors.
 
 const float BAYER[16] = float[16](0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0, 3.0, 11.0, 1.0, 9.0, 15.0, 7.0, 13.0, 5.0);
 
@@ -27,7 +29,9 @@ void fragment() {
 	vec3 color = texture(TEXTURE, UV).rgb;
 	color = mix(color, flash.rgb, flash.a);
 	float threshold = (BAYER[(px.x & 3) + (px.y & 3) * 4] + 0.5) / 16.0 - 0.5;
-	vec3 lab = to_oklab(to_linear(clamp(color + threshold * spread * strength, 0.0, 1.0)));
+	float actor = step(0.5, texture(actor_mask, UV).a);
+	float amount = spread * strength * mix(1.0, actor_dither, actor);
+	vec3 lab = to_oklab(to_linear(clamp(color + threshold * amount, 0.0, 1.0)));
 	// Chroma errors cost more than lightness errors, so dithering mixes shades of one hue
 	// instead of speckling unrelated hues together.
 	vec3 weight = vec3(1.0, 1.7, 1.7);

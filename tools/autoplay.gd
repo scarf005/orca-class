@@ -40,14 +40,14 @@ func run() -> int:
 				slow_frames += 1
 				if args.has("spikes") and frame_ms > 30.0:
 					print("SPIKE %.1fms t=%.1f d=%.0f particles=%d enemies=%d props=%d projectiles=%d" % [frame_ms, elapsed, world.rail.d,
-						world.fx._pools[Fx.Kind.SOLID].size() + world.fx._pools[Fx.Kind.GLOW].size(), world.enemies.size(), world.props.get_child_count(), world.projectiles.size()])
+						world.fx.particle_count(), world.enemies.size(), world.props.get_child_count(), world.projectiles.size()])
 		_drive(world, elapsed)
 		if args.has("profile") and frames % 60 == 0:
 			print("t=%.1f frame=%.1fms process=%.1fms draw_calls=%d objects=%d particles=%d enemies=%d props=%d" % [elapsed, frame_ms,
 				Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
 				Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
 				Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME),
-				world.fx._pools[Fx.Kind.SOLID].size() + world.fx._pools[Fx.Kind.GLOW].size(), world.enemies.size(),
+				world.fx.particle_count(), world.enemies.size(),
 				world.props.get_child_count()])
 		if not shots.is_empty() and elapsed >= shots[0]:
 			shots.pop_front()

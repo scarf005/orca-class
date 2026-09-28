@@ -85,6 +85,7 @@ func _ready() -> void:
 		_grab_target = null)
 	track_meshes(model)
 	set_coax_tier(0)
+	ActorLayer.mark(self)
 	_place(World.current.rail.d)
 	_last_position = global_position
 	_engine_sound = Sfx.loop("engine", self, -10.0)
@@ -100,6 +101,7 @@ func set_coax_tier(tier: int) -> void:
 	coax_tier = clampi(tier, 0, Armament.COAX_TIERS.size() - 1)
 	var calibers := Armament.tier_calibers(coax_tier)
 	model.set_coax_guns(calibers)
+	ActorLayer.mark(model.coax_root)
 	_coax_timers.resize(calibers.size())
 	_coax_timers.fill(0.0)
 
@@ -546,7 +548,7 @@ func _cannon_feedback(muzzle: Vector3, dir: Vector3) -> void:
 		world.fx.muzzle_flash(muzzle - dir * 0.3, (side_dir * side + dir * 0.3).normalized(), 1.1, Palette.PEACH)
 	for i in 20:
 		var spread := (dir + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 0.35).normalized()
-		world.fx.spawn(Fx.Kind.GLOW, muzzle, spread * randf_range(8, 22), randf_range(0.06, 0.14), randf_range(0.5, 0.9), [Palette.WHITE, Palette.BUTTER, Palette.PEACH][i % 3], {"drag": 8.0})
+		world.fx.spawn(Fx.Kind.FLAME, muzzle, spread * randf_range(8, 22), randf_range(0.06, 0.14), randf_range(0.5, 0.9), [Palette.WHITE, Palette.BUTTER, Palette.PEACH][i % 3], {"drag": 8.0})
 	for i in 10:
 		var side := dir.cross(Vector3.UP).normalized() * (1.0 if i % 2 == 0 else -1.0)
 		world.fx.spawn(Fx.Kind.GLOW, muzzle, (side * randf_range(3, 7) + dir * randf_range(2, 8) + Vector3.UP), randf_range(0.8, 1.5), 0.6, [Palette.MIST, Palette.CREAM][i % 2], {"end_size": 2.2, "drag": 2.5, "gravity": -0.5, "fade": 0.15})
@@ -621,7 +623,7 @@ func _update_ciws(delta: float) -> void:
 	model.rws.rotation.y = atan2(-local.x, -local.z)
 	var flicker := randf_range(0.7, 1.0)
 	world.fx.beam(origin, point, Palette.MINT if randf() < 0.6 else Palette.WHITE, 0.09 * flicker, 0.04)
-	world.fx.spawn(Fx.Kind.GLOW, point, Vector3(randf_range(-2, 2), randf_range(0, 3), randf_range(-2, 2)), 0.1, 0.3, Palette.WHITE)
+	world.fx.spawn(Fx.Kind.FLAME, point, Vector3(randf_range(-2, 2), randf_range(0, 3), randf_range(-2, 2)), 0.1, 0.3, Palette.WHITE)
 	if target is Projectile:
 		if (target as Projectile).laser(CIWS_LASER_DPS * delta):
 			ciws_heat += 0.06

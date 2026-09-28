@@ -7,7 +7,9 @@ const MAX_PARTICLES := 4000
 const SOFT_CAP := 1200
 const MAX_SCORCH := 60
 
-enum Kind { SOLID, GLOW }
+## SOLID: lit chunks (debris). GLOW: unlit puffs (smoke, dust, spores), dithered. FLAME: fire,
+## sparks and flashes, drawn without dithering.
+enum Kind { SOLID, GLOW, FLAME }
 
 class Particle:
 	var position: Vector3
@@ -28,8 +30,15 @@ class Particle:
 
 static var _solid_material := _fade_material(false)
 static var _glow_material := _fade_material(true)
+static var _flame_material := _flame()
 
-var _pools := {Kind.SOLID: [], Kind.GLOW: []}
+
+static func _flame() -> ShaderMaterial:
+	var material := _fade_material(true)
+	material.set_shader_parameter("hard_cut", true)
+	return material
+
+var _pools := {Kind.SOLID: [], Kind.GLOW: [], Kind.FLAME: []}
 var _multimeshes := {}
 var _buffers := {} ## Kind -> PackedFloat32Array uploaded to the MultiMesh in one call per frame.
 static var _mesh_cache := {} ## Unit-sized transient meshes by name and color.
@@ -48,7 +57,7 @@ static func _fade_material(glow: bool) -> ShaderMaterial:
 
 
 func _ready() -> void:
-	for kind: Kind in [Kind.SOLID, Kind.GLOW]:
+	for kind: Kind in [Kind.SOLID, Kind.GLOW, Kind.FLAME]:
 		var multimesh := MultiMesh.new()
 		multimesh.transform_format = MultiMesh.TRANSFORM_3D
 		multimesh.use_colors = true
@@ -57,8 +66,10 @@ func _ready() -> void:
 		multimesh.visible_instance_count = 0
 		var instance := MultiMeshInstance3D.new()
 		instance.multimesh = multimesh
-		instance.material_override = _glow_material if kind == Kind.GLOW else _solid_material
-		instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if kind == Kind.GLOW else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		instance.material_override = [_solid_material, _glow_material, _flame_material][kind]
+		instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if kind == Kind.SOLID else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		if kind == Kind.FLAME:
+			instance.layers |= ActorLayer.LAYER
 		instance.custom_aabb = AABB(Vector3(-5000, -500, -5000), Vector3(10000, 1000, 10000))
 		add_child(instance)
 		_multimeshes[kind] = multimesh
@@ -77,13 +88,20 @@ func _ready() -> void:
 
 static func _particle_mesh(kind: Kind) -> Mesh:
 	var builder := LowPoly.new()
-	if kind == Kind.GLOW:
+	if kind != Kind.SOLID:
 		builder.blob(Transform3D(), 0.5, Color.WHITE)
 	else:
 		# A chunky, irregular shard reads as debris, dirt or smoke depending on its color.
 		builder.blob(Transform3D(), 0.5, Color.WHITE, 0, 0.35, 3)
 	var mesh := builder.mesh()
 	return mesh
+
+
+func particle_count() -> int:
+	var total := 0
+	for pool: Array in _pools.values():
+		total += pool.size()
+	return total
 
 
 func spawn(kind: Kind, position: Vector3, velocity: Vector3, life: float, size: float, color: Color, options := {}) -> void:
@@ -176,7 +194,7 @@ func _process(delta: float) -> void:
 	for p in trails:
 		spawn(Kind.GLOW, p.position, Vector3.UP * 0.8, 0.9, p.size * 0.9, p.trail, {"end_size": p.size * 2.5, "drag": 1.5, "fade": 0.1})
 		if randf() < 0.5:
-			spawn(Kind.GLOW, p.position, Vector3.ZERO, 0.12, p.size * 0.8, [Palette.BUTTER, Palette.PEACH][randi() % 2])
+			spawn(Kind.FLAME, p.position, Vector3.ZERO, 0.12, p.size * 0.8, [Palette.BUTTER, Palette.PEACH][randi() % 2])
 	_update_delayed(delta)
 	_update_emitters(delta)
 	_update_transients(delta)
@@ -200,11 +218,13 @@ func _update_transients(delta: float) -> void:
 	_transients = keep
 
 
-func _transient(mesh: Mesh, xf: Transform3D, life: float, glow: bool, grow := Vector2.ONE, fade_from := 0.3) -> MeshInstance3D:
+func _transient(mesh: Mesh, xf: Transform3D, life: float, glow: bool, grow := Vector2.ONE, fade_from := 0.3, flame := false) -> MeshInstance3D:
 	var node := MeshInstance3D.new()
 	node.mesh = mesh
 	node.transform = xf
-	node.material_override = _glow_material if glow else _solid_material
+	node.material_override = _flame_material if flame else (_glow_material if glow else _solid_material)
+	if flame:
+		node.layers |= ActorLayer.LAYER
 	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(node)
 	_transients.append({"node": node, "age": 0.0, "life": life, "grow": grow, "fade_from": fade_from})
@@ -241,13 +261,13 @@ func explosion(position: Vector3, damage_radius: float, palette := [Palette.WHIT
 	var pick := func(i: int) -> Color: return palette[mini(i, palette.size() - 1)]
 	var variant := randi() % 3
 	var ball := func(b: LowPoly, c: Color) -> void: b.blob(Transform3D(), 1.0, c, 1, 0.3, variant)
-	_transient(_cached("ball%d" % variant, palette[0], ball), Transform3D(Basis(), position), 0.16 + radius * 0.02, true, Vector2(radius * 0.4, radius * 0.9), 0.1)
-	_transient(_cached("ball%d" % variant, pick.call(2), ball), Transform3D(Basis(), position + Vector3.UP * radius * 0.2), 0.4 + radius * 0.05, true, Vector2(radius * 0.5, radius * 1.35), 0.2)
+	_transient(_cached("ball%d" % variant, palette[0], ball), Transform3D(Basis(), position), 0.16 + radius * 0.02, true, Vector2(radius * 0.4, radius * 0.9), 0.1, true)
+	_transient(_cached("ball%d" % variant, pick.call(2), ball), Transform3D(Basis(), position + Vector3.UP * radius * 0.2), 0.4 + radius * 0.05, true, Vector2(radius * 0.5, radius * 1.35), 0.2, true)
 	shockwave(position, radius * 2.2, pick.call(1))
 	light_flash(position, 8.0 + radius * 1.5, pick.call(2), radius * 5.0)
 	for i in int(10 + radius * 7):
 		var dir := Vector3(randf_range(-1, 1), randf_range(0.2, 1.4), randf_range(-1, 1)).normalized()
-		spawn(Kind.GLOW, position, dir * randf_range(4, 14) * (0.6 + radius * 0.3), randf_range(0.25, 0.7), randf_range(0.25, 0.6) * (0.6 + radius * 0.15), palette[randi() % palette.size()], {"gravity": 8.0, "drag": 2.0})
+		spawn(Kind.FLAME, position, dir * randf_range(4, 14) * (0.6 + radius * 0.3), randf_range(0.25, 0.7), randf_range(0.25, 0.6) * (0.6 + radius * 0.15), palette[randi() % palette.size()], {"gravity": 8.0, "drag": 2.0})
 	var ground := Course.height_at(position)
 	var low := position.y - ground < radius * 1.5
 	if low:
@@ -262,7 +282,7 @@ func explosion(position: Vector3, damage_radius: float, palette := [Palette.WHIT
 	debris(position, int(4 + radius * 2), [Palette.WOOD, Palette.INK, Palette.OCHRE], radius * 2.5)
 	for i in int(1 + radius * 0.8):
 		var dir := Vector3(randf_range(-1, 1), randf_range(0.8, 1.6), randf_range(-1, 1)).normalized()
-		spawn(Kind.GLOW, position, dir * randf_range(6, 12) * (0.7 + radius * 0.15), randf_range(1.0, 1.8), 0.35, Palette.PEACH, {"gravity": 18.0, "trail": Palette.ASH, "end_size": 0.2, "fade": 0.8})
+		spawn(Kind.FLAME, position, dir * randf_range(6, 12) * (0.7 + radius * 0.15), randf_range(1.0, 1.8), 0.35, Palette.PEACH, {"gravity": 18.0, "trail": Palette.ASH, "end_size": 0.2, "fade": 0.8})
 	if damage_radius >= 3.0:
 		for i in int(damage_radius * 0.7):
 			_delayed.append({"time": randf_range(0.12, 0.45) + i * 0.1, "position": position + Vector3(randf_range(-1, 1), randf_range(0, 1), randf_range(-1, 1)) * damage_radius, "radius": damage_radius * 0.35, "palette": palette})
@@ -301,7 +321,7 @@ func _update_emitters(delta: float) -> void:
 			e.tick = 0.1
 			var s: float = e.size
 			var p: Vector3 = e.position + Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)) * s * 0.6
-			spawn(Kind.GLOW, p, Vector3(0, randf_range(2, 4), 0), randf_range(0.3, 0.6), randf_range(0.4, 0.8) * s, [Palette.BUTTER, Palette.PEACH, Palette.CORAL, Palette.FUNGUS][randi() % 4], {"drag": 1.0})
+			spawn(Kind.FLAME, p, Vector3(0, randf_range(2, 4), 0), randf_range(0.3, 0.6), randf_range(0.4, 0.8) * s, [Palette.BUTTER, Palette.PEACH, Palette.CORAL, Palette.FUNGUS][randi() % 4], {"drag": 1.0})
 			if randf() < 0.6:
 				spawn(Kind.GLOW, p + Vector3.UP * s, Vector3(randf_range(-0.4, 0.4), randf_range(2, 3.5), randf_range(-0.4, 0.4)), randf_range(2.0, 3.0), 0.8 * s, [Palette.ASH, Palette.STONE, Palette.DUSK][randi() % 3], {"end_size": 2.6 * s, "drag": 0.5, "fade": 0.3})
 		if e.time > 0.0:
@@ -325,7 +345,7 @@ func debris(position: Vector3, count: int, colors: Array, force := 6.0, size := 
 func sparks(position: Vector3, normal: Vector3, count: int, color := Palette.BUTTER, speed := 10.0) -> void:
 	for i in count:
 		var dir := (normal + Vector3(randf_range(-1, 1), randf_range(-0.5, 1), randf_range(-1, 1)) * 0.8).normalized()
-		spawn(Kind.GLOW, position, dir * randf_range(0.4, 1.0) * speed, randf_range(0.08, 0.25), randf_range(0.08, 0.16), color, {"gravity": 20.0})
+		spawn(Kind.FLAME, position, dir * randf_range(0.4, 1.0) * speed, randf_range(0.08, 0.25), randf_range(0.08, 0.16), color, {"gravity": 20.0})
 
 
 func dust(position: Vector3, count: int, spread := 2.0, color := Palette.STRAW) -> void:
@@ -347,7 +367,7 @@ func shockwave(position: Vector3, radius: float, color: Color) -> void:
 			var o0 := Vector3(cos(TAU * i / 16.0), 0, sin(TAU * i / 16.0))
 			var o1 := Vector3(cos(TAU * (i + 1) / 16.0), 0, sin(TAU * (i + 1) / 16.0))
 			b.quad(o0 * 0.8, o1 * 0.8, o1, o0, c, Vector3.UP))
-	_transient(mesh, Transform3D(Basis(), position + Vector3.UP * 0.2), 0.3, true, Vector2(radius * 0.2, radius), 0.1)
+	_transient(mesh, Transform3D(Basis(), position + Vector3.UP * 0.2), 0.3, true, Vector2(radius * 0.2, radius), 0.1, true)
 
 
 ## A star-shaped muzzle flash: a forward spike and a cross of side petals, gone in a blink.
@@ -360,7 +380,7 @@ func muzzle_flash(position: Vector3, dir: Vector3, size: float, color := Palette
 			b.prism(Transform3D(petal, Vector3.ZERO), 0.22, 1.1, 4, c, 0.0)
 		b.blob(Transform3D(), 0.5, c))
 	var up := Vector3.UP if absf(dir.y) < 0.99 else Vector3.RIGHT
-	_transient(mesh, Transform3D(Basis.looking_at(dir, up).scaled(Vector3.ONE * size), position), 0.06, true, Vector2.ONE, 0.6)
+	_transient(mesh, Transform3D(Basis.looking_at(dir, up).scaled(Vector3.ONE * size), position), 0.06, true, Vector2.ONE, 0.6, true)
 
 
 ## A straight glowing line, used for laser zaps and designator lines.
@@ -371,7 +391,7 @@ func beam(from: Vector3, to: Vector3, color: Color, width := 0.12, life := 0.06)
 	var mesh := _cached("beam", color, func(b: LowPoly, c: Color) -> void:
 		b.box(Transform3D(Basis(), Vector3(0, 0, -0.5)), Vector3.ONE, c))
 	var up := Vector3.UP if absf((to - from).normalized().y) < 0.99 else Vector3.RIGHT
-	_transient(mesh, Transform3D(Basis.looking_at(to - from, up).scaled(Vector3(width, width, length)), from), life, true, Vector2.ONE, 0.5)
+	_transient(mesh, Transform3D(Basis.looking_at(to - from, up).scaled(Vector3(width, width, length)), from), life, true, Vector2.ONE, 0.5, true)
 
 
 ## A pulsing ring on the ground that tightens until `time` runs out: where something will land.

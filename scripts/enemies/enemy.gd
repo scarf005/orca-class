@@ -30,6 +30,7 @@ func _ready() -> void:
 	add_child(model)
 	build()
 	track_meshes(model)
+	ActorLayer.mark(self)
 	_last_position = global_position
 	World.current.stats.spawned += 1
 
@@ -93,7 +94,7 @@ func _burn(delta: float) -> void:
 	if _burn_tick <= 0.0:
 		_burn_tick = 0.25
 		var world := World.current
-		world.fx.spawn(Fx.Kind.GLOW, hit_center() + Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)) * radius * 0.6, Vector3(0, randf_range(2, 4), 0), 0.4, 0.5, [Palette.FUNGUS, Palette.PEACH, Palette.BUTTER][randi() % 3])
+		world.fx.spawn(Fx.Kind.FLAME, hit_center() + Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)) * radius * 0.6, Vector3(0, randf_range(2, 4), 0), 0.4, 0.5, [Palette.FUNGUS, Palette.PEACH, Palette.BUTTER][randi() % 3])
 		if not dead:
 			var burn := Hit.make(Hit.Kind.FIRE, 5.0, hit_center())
 			take_hit(burn)

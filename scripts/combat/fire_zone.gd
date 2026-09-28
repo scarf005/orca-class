@@ -44,7 +44,7 @@ func _process(delta: float) -> void:
 	_tick = 0.2
 	for i in 2:
 		var offset := Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)) * RADIUS * 0.8
-		world.fx.spawn(Fx.Kind.GLOW, global_position + offset, Vector3(0, randf_range(2, 5), 0), randf_range(0.3, 0.6), randf_range(0.4, 0.8), [Palette.FUNGUS, Palette.PEACH, Palette.BUTTER, Palette.CORAL][randi() % 4], {"drag": 1.0})
+		world.fx.spawn(Fx.Kind.FLAME, global_position + offset, Vector3(0, randf_range(2, 5), 0), randf_range(0.3, 0.6), randf_range(0.4, 0.8), [Palette.FUNGUS, Palette.PEACH, Palette.BUTTER, Palette.CORAL][randi() % 4], {"drag": 1.0})
 	for entity in world.enemies.duplicate():
 		if not entity.flying and entity.global_position.distance_to(global_position) < RADIUS + entity.radius:
 			var burn := Hit.make(Hit.Kind.FIRE, DAMAGE_PER_SECOND * 0.2, global_position)

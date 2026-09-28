@@ -230,6 +230,7 @@ static func projectile_visual(shape: String, color: Color) -> Array[MeshInstance
 		var mesh := MeshInstance3D.new()
 		mesh.mesh = meshes[i]
 		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mesh.layers |= ActorLayer.LAYER
 		if i == 0:
 			mesh.material_override = _core_material
 		elif i == 1:

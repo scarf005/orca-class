@@ -5,6 +5,10 @@ extends TextureRect
 const RESOLUTION := Vector2i(480, 270)
 
 var viewport := SubViewport.new()
+## Renders only actors, unlit, over a transparent background: its alpha marks where the dither
+## pass should hold back. It shares the 3D world with `viewport`.
+var mask := SubViewport.new()
+var _mask_camera := Camera3D.new()
 var _material := ShaderMaterial.new()
 var _flash := Color(0, 0, 0, 0)
 
@@ -16,6 +20,19 @@ func _ready() -> void:
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	viewport.positional_shadow_atlas_size = 1024
 	add_child(viewport)
+	mask.size = RESOLUTION
+	mask.transparent_bg = true
+	mask.msaa_3d = Viewport.MSAA_DISABLED
+	mask.debug_draw = Viewport.DEBUG_DRAW_UNSHADED
+	mask.positional_shadow_atlas_size = 0
+	mask.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(mask)
+	_mask_camera.cull_mask = ActorLayer.LAYER
+	var clear := Environment.new()
+	clear.background_mode = Environment.BG_CLEAR_COLOR
+	_mask_camera.environment = clear
+	mask.add_child(_mask_camera)
+	_mask_camera.current = true
 	texture = viewport.get_texture()
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -31,10 +48,17 @@ func _ready() -> void:
 	_material.set_shader_parameter("palette_lab", labs)
 	_material.set_shader_parameter("palette_rgb", rgbs)
 	_material.set_shader_parameter("palette_size", Palette.ALL.size())
+	_material.set_shader_parameter("actor_mask", mask.get_texture())
 	material = _material
 
 
 func _process(delta: float) -> void:
+	var camera := viewport.get_camera_3d()
+	if camera:
+		_mask_camera.global_transform = camera.global_transform
+		_mask_camera.fov = camera.fov
+		_mask_camera.near = camera.near
+		_mask_camera.far = camera.far
 	_material.set_shader_parameter("strength", Game.settings.dither)
 	_flash.a = move_toward(_flash.a, 0.0, delta * 3.0)
 	_material.set_shader_parameter("flash", _flash)

@@ -146,7 +146,7 @@ func take_hit(hit: Hit) -> void:
 	if best == null or best_distance > (2.5 if hit.kind != Hit.Kind.BLAST else 5.0):
 		world.fx.sparks(hit.position, -hit.direction, 3, Palette.LILAC, 5.0)
 		if hit.incendiary:
-			world.fx.spawn(Fx.Kind.GLOW, hit.position, Vector3.UP * 2.0, 0.4, 0.6, Palette.PEACH)
+			world.fx.spawn(Fx.Kind.FLAME, hit.position, Vector3.UP * 2.0, 0.4, 0.6, Palette.PEACH)
 		return
 	var amount := hit.damage
 	if hit.kind == Hit.Kind.BULLET:

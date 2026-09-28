@@ -136,7 +136,7 @@ func behave(delta: float) -> void:
 			_burst_timer = 0.11
 			var shot := fire_at("orb", _muzzle.global_position, tank.hit_center() + Vector3(randf_range(-1.5, 1.5), randf_range(-0.5, 1.0), randf_range(-1.5, 1.5)), 95.0, 4.0)
 			shot.hit.caliber = 30
-			world.fx.spawn(Fx.Kind.GLOW, _muzzle.global_position, Vector3.ZERO, 0.06, 0.5, Palette.CORAL)
+			world.fx.spawn(Fx.Kind.FLAME, _muzzle.global_position, Vector3.ZERO, 0.06, 0.5, Palette.CORAL)
 			Sfx.play("enemy_gun", _muzzle.global_position, -2.0)
 		return
 	if _telegraph > 0.0:
