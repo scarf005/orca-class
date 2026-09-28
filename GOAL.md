@@ -1,6 +1,6 @@
 # Hypha — Goal
 
-A Star Fox-style action shooter in pastel, low-poly, ditherpunk 3D. You play Ha Yoon (하윤), driver of the tank
+A Star Fox-style action shooter in pastel, ditherpunk 3D. You play Ha Yoon (하윤), driver of the tank
 *Orca-class*, pushing through a fungus-infested, abandoned Korean countryside. This goal covers one complete,
 polished **Stage 1**, with enemies, a mid-boss, a final boss, power-ups, scoring and a results screen.
 
@@ -80,9 +80,13 @@ coiling and lashing with visible muscle and follow-through. Priorities:
 4. **Grab / stab:** small enemies in reach are grabbed; large ones are stabbed, which staggers them and interrupts
    telegraphed attacks.
 
-The one tail input is the **anchor** (the barrel roll of this game): with a direction, the claw bites the ground
-and the hull drifts sideways while the tail spins around it, lashing anything near; without one, it is a
-near-instant stop. Both give a brief dodge window and gouge the terrain.
+The tail also powers the **dash**: double-tap a direction and the claw kicks off the ground to hurl the hull that
+way. Sideways it dodges and lashes anything beside the hull (or hurls what the claw holds), forward it surges the
+rail, back it digs in to a near-instant stop. Each gives a brief dodge window and gouges the terrain.
+
+Controls are WASD and the mouse only: W/S steer forward and back and double as boost and brake, the left button
+fires the coax (it leads whatever the sight soft-locks), the right button fires the main gun. Rounds leave along
+the barrel, never more than a few degrees off where the turret points.
 
 The tail is a target: rear hits hurt it, and it can be torn off (see Modules).
 
@@ -177,14 +181,14 @@ Readable patterns, fair dodge windows, and no damage-sponge phases.
 
 ### Art direction
 
-- **Low-poly, flat-shaded** meshes with a strict, hand-picked pastel palette of about 24 colors: sage, mint,
-  butter, peach, lilac, sky, blush, with warm grey-greens for military hardware. Fungus is the loudest color in the
-  scene.
-- **Ditherpunk post-process:** render at low internal resolution (about 480×270), upscale with nearest-neighbor,
-  quantize to the palette with ordered (Bayer or blue-noise) dithering. Use dithered fog, shadows, transparency and
-  fade-outs. Keep dither stable in screen space and avoid crawling shimmer when the camera moves.
-- Strong silhouettes and a value hierarchy: player projectiles, enemy projectiles, enemies and terrain stay
-  distinguishable at a glance, even in chaos.
+- Flat-shaded meshes with a strict, hand-picked pastel palette of about 24 colors for the scenery: sage, mint,
+  butter, peach, lilac, sky, blush, with warm grey-greens. Fungus is the loudest color of the land.
+- **Ditherpunk post-process:** render at 960×540, upscale with nearest-neighbor, quantize the scenery to the palette
+  with ordered (Bayer) dithering. Use dithered fog, shadows, transparency and fade-outs. Keep dither stable in screen
+  space and avoid crawling shimmer when the camera moves.
+- **Actors pop off the scenery:** enemies, the tank and pickups are drawn in their true saturated colors (never
+  quantized to the pastel palette) with a glowing outline around the whole rendered object: hot red for enemies and
+  their shots, white for pickups; the tank has none. Outlines show through cover, so nothing hides behind a house.
 - Lighting: late-afternoon sun, long dithered shadows, spore haze. The boss arena shifts toward dusk.
 
 ### Game feel
@@ -194,9 +198,11 @@ tank; muzzle blasts that flatten grass and kick up dust; debris and persistent s
 spores; enemies that stagger. Every weapon has a distinct, punchy sound.
 
 Effects in the spirit of Project Landsword and Metal Slug: oversized, glowing projectiles (a white-hot core in a
-dithered colored halo; enemy fire as big red orbs), star-shaped muzzle flashes and muzzle-brake jets, layered
-explosions (flash core, fireball, shock ring, ground dust ring, embers, secondary pops), burning debris that trails
-smoke, lingering smoke columns and burning wrecks.
+dithered colored halo; tracer streaks, with enemy fire as red bolts), star-shaped muzzle flashes and muzzle-brake
+jets, cartoon fireballs in hard bands that bloom, cool to smoke and break up (with a shock ring, ground dust ring,
+embers and secondary pops), burning debris that trails smoke, lingering smoke columns, burning wrecks, and tread
+prints pressed into the ground behind the tank. Ramming at 80 km/h throws debris ahead and jolts the hull; cars are
+crushed flat, not blown up. Shake is capped so chaos never blurs the view.
 
 ### Mayhem and style
 
@@ -228,7 +234,7 @@ repo.
 ### Assets from orca-class
 
 Reuse only the orca-class audio (keeping its `ATTRIBUTION.md`) and the DenkiChip Hangul font. All 3D models are
-made new as low-poly for this game; the orca-class voxel models do not fit the style.
+made new for this game; the orca-class voxel models do not fit the style.
 
 ### HUD and menus
 

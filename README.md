@@ -1,6 +1,6 @@
 # Hypha (균사)
 
-A Star Fox-style tank shooter in pastel low-poly ditherpunk. Drive the Orca-class, with Ha Yoon at the controls,
+A Star Fox-style tank shooter in pastel ditherpunk. Drive the Orca-class, with Ha Yoon at the controls,
 through a fungus-infested, abandoned Korean farming village. Stage 1 runs from the farm road, through the village,
 branch school, reservoir and overpass, to a gunship fight below the dam. See [`GOAL.md`](GOAL.md) for the design.
 
@@ -20,10 +20,10 @@ godot --path .
 | --- | --- | --- |
 | Move within the corridor | WASD | Left stick |
 | Aim turret | Mouse | Right stick (with light aim assist) |
-| Coaxial gun (hold) | Left mouse | RT |
-| 100 mm main gun | Right mouse | RB |
-| Anchor: drift with a direction (tail spin), or hard stop | Q / Space | X / LB |
-| Overdrive / brake (shared meter) | Shift / Ctrl | A / LT |
+| Coaxial gun (hold; leads the soft-locked target) | Left mouse | RT |
+| 100 mm main gun | Right mouse | LT |
+| Boost / brake (shared meter) | Hold W / S | Left stick |
+| Dash (the tail kicks the hull that way) | Double-tap a direction | LB / RB (sideways) |
 | Pause | Esc | Start |
 
 The tail acts on its own: it snatches pickups, grabs and throws small enemies, stabs large ones and swats diving
@@ -40,7 +40,7 @@ godot --headless --fixed-fps 60 --path . -- --run=res://tests/run.gd [--only=tai
 
 The exit code is the number of failed checks.
 
-Debug room, a gallery of every model and effect on a flat checkered floor (10 m squares): WASD to fly, Q/E
+Debug room (also on the title menu), a gallery of every model and effect on a flat checkered floor (10 m squares): WASD to fly, Q/E
 down/up, Shift for speed, right-drag to look, 1–9 to jump between rows.
 
 ```sh
@@ -51,7 +51,7 @@ Tools run through the main scene with `--run`:
 
 ```sh
 # Bot playthrough with screenshots and frame timing. A small window keeps xvfb's software presentation cheap.
-xvfb-run -a godot --path . --resolution 480x270 -- --run=res://tools/autoplay.gd \
+xvfb-run -a godot --path . --resolution 960x540 -- --run=res://tools/autoplay.gd \
   --seconds=420 --scale=3 --god --shots=30,60 --out=builds/auto [--checkpoint=boss] [--profile]
 # Screenshots of every debug room row.
 xvfb-run -a godot --path . --resolution 960x540 -- --run=res://tools/debug_room_shots.gd --out=builds/debug_room
@@ -67,7 +67,7 @@ Generated content:
 
 ### Layout
 
-- `scripts/core`: palette, low-poly mesh builder, dither view, settings and audio autoloads.
+- `scripts/core`: palette, flat-shaded mesh builder, dither view, settings and audio autoloads.
 - `scripts/world`: course geography, terrain streaming, scenery, stage script and director, rail and camera.
 - `scripts/player`: the tank, its model, weapons data and tail.
 - `scripts/enemies`: FPV drones, UGVs, UAVs, crawlers, spitters, the colossus mid-boss and the helicopter boss.
