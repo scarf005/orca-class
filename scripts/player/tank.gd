@@ -23,7 +23,9 @@ const CIWS_LASER_DPS := 6.0
 const CIWS_ENTITY_DPS := 22.0
 const ANCHOR_COOLDOWN := 0.8
 const DOUBLE_TAP := 0.28 ## Seconds between taps that make a double tap.
-const DASH_SPEED := 46.0
+const DASH_DISTANCE := 13.0 ## Twice the hull's length.
+const DASH_TIME := 0.35
+const DASH_SPEED := 2.0 * DASH_DISTANCE / DASH_TIME ## Starts this fast and eases to a stop, covering DASH_DISTANCE.
 ## In the input vector's convention: +y is forward (Vector2.UP would be backward here).
 const TAP_DIRECTIONS := {&"move_left": Vector2(-1, 0), &"move_right": Vector2(1, 0), &"move_forward": Vector2(0, 1), &"move_back": Vector2(0, -1)}
 const COAX_RANGE := 140.0
@@ -64,6 +66,7 @@ var ciws_target: Object
 var _ciws_sound_cooldown := 0.0
 
 var invuln := 0.0
+var _blink := 0.0 ## Blinks while the fresh hull's respawn cover lasts; dashes and hits never blink.
 var anchor_cooldown := 0.0
 var _drift := 0.0
 var _drift_dir := 0.0
@@ -140,7 +143,8 @@ func tick(delta: float) -> void:
 	anchor_cooldown = maxf(0.0, anchor_cooldown - delta)
 	reload = maxf(0.0, reload - delta)
 	modules.update(delta)
-	model.visible = invuln <= 0.0 or fmod(invuln, 0.16) < 0.1
+	_blink = maxf(0.0, _blink - delta)
+	model.visible = _blink <= 0.0 or fmod(_blink, 0.16) < 0.1
 	tail.visible = model.visible and not tail.destroyed
 	_update_movement(delta)
 	_update_aim(delta)
@@ -192,7 +196,7 @@ func _update_movement(delta: float) -> void:
 	if _drift > 0.0:
 		_drift -= delta
 		if _drift_dir != 0.0:
-			local_velocity.x = _drift_dir * DASH_SPEED * (_drift / 0.3)
+			local_velocity.x = _drift_dir * DASH_SPEED * (_drift / DASH_TIME)
 	course_u += local_velocity.x * delta
 	course_offset += local_velocity.y * delta
 	var limit := lateral_limit(rail.d + course_offset)
@@ -216,7 +220,7 @@ func _move_arena(delta: float, input: Vector2) -> void:
 	current = current.move_toward(wish, ACCEL * delta)
 	if _drift > 0.0:
 		_drift -= delta
-		current = right * _drift_dir * DASH_SPEED * (_drift / 0.3) if absf(_drift_dir) > 0.0 else current
+		current = right * _drift_dir * DASH_SPEED * (_drift / DASH_TIME) if absf(_drift_dir) > 0.0 else current
 	local_velocity = Vector2(current.x, current.z)
 	var p := global_position + current * delta
 	var center := Course.to_world(Course.ARENA_CENTER_D, 0.0)
@@ -273,18 +277,18 @@ func _anchor(input: Vector2) -> void:
 	if anchor_cooldown > 0.0:
 		return
 	anchor_cooldown = ANCHOR_COOLDOWN
-	invuln = maxf(invuln, 0.3)
+	invuln = maxf(invuln, DASH_TIME)
 	var ground := global_position - global_basis.z * -3.0
 	if absf(input.x) > 0.3:
 		# Pivot drift: the claw bites the ground and the hull whips sideways around it.
-		_drift = 0.3
+		_drift = DASH_TIME
 		_drift_dir = signf(input.x)
 		swat(false)
 		ground = global_position + global_basis.x * -_drift_dir * 2.5 + global_basis.z * 3.0
 		Sfx.play("skid", global_position)
 	elif input.y > 0.3:
 		# Forward surge: the tail kicks off behind and the hull lunges ahead of the rail.
-		_drift = 0.3
+		_drift = DASH_TIME
 		_drift_dir = 0.0
 		if world.rail.mode != Rail.Mode.ARENA:
 			local_velocity.y = DASH_SPEED
@@ -1148,6 +1152,7 @@ func _finish_respawn() -> void:
 	modules.restore()
 	tail.regrow()
 	invuln = RESPAWN_INVULN
+	_blink = RESPAWN_INVULN
 	course_u = 0.0
 	course_offset = 4.0
 	local_velocity = Vector2.ZERO
