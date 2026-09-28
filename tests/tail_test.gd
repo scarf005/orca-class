@@ -28,12 +28,10 @@ func test_grab_and_throw_enemy() -> void:
 	var held := await wait_until(func() -> bool: return is_instance_valid(tank.tail.held), 240)
 	check(held, "claw holds the crawler")
 	check(crawler_ref.get_ref() == null or not world.enemies.has(crawler_ref.get_ref()), "grabbed enemy leaves the fight")
-	await wait_until(func() -> bool: return tank.tail.is_ready() and tank.tail.state_time() >= Tank.HOLD_TIME, 120)
 	tank.aim_point = tank.global_position + (-tank.global_basis.z) * 40.0
-	var before := world.projectiles.size()
-	tank.auto_tail()
-	check(not is_instance_valid(tank.tail.held), "throw releases it")
-	check(world.projectiles.size() > before, "thrown wreck becomes a projectile")
+	var released := await wait_until(func() -> bool: return not is_instance_valid(tank.tail.held), 120)
+	check(released, "the tail throws it on its own after a short dangle")
+	check(world.projectiles.any(func(p: Projectile) -> bool: return p.hit.kind == Hit.Kind.THROWN), "thrown wreck becomes a projectile")
 
 
 func test_swat_hits_nearby_drone() -> void:
@@ -106,3 +104,20 @@ func test_tail_can_be_torn_off_and_regrown() -> void:
 	check_eq(tank.tail.state, Tail.State.IDLE, "no snatching without a tail")
 	tank.collect(world.spawn_pickup("tail", tank.global_position + Vector3(0, 30, 0)))
 	check(not tank.tail.destroyed and tank.tail.hp == Tail.MAX_HP, "the regrowth pickup brings it back")
+
+
+func test_a_drift_never_leaves_an_enemy_dangling() -> void:
+	var world := stage()
+	var tank := world.player
+	await frames(2)
+	var crawler := Crawler.new()
+	crawler.position = tank.tail.mount.global_position + tank.global_basis.x * 5.0
+	world.add_enemy(crawler)
+	crawler.stagger = 10.0
+	tank.auto_tail()
+	var held := await wait_until(func() -> bool: return is_instance_valid(tank.tail.held), 240)
+	check(held, "claw holds the crawler")
+	# The old bug: a drift reset the claw's state while it held something, and it never threw.
+	tank.tail.set_state(Tail.State.IDLE)
+	var thrown := await wait_until(func() -> bool: return not is_instance_valid(tank.tail.held), 90)
+	check(thrown, "whatever state the claw is in, a held enemy gets thrown")

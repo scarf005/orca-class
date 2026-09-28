@@ -2,7 +2,7 @@ class_name Colossus
 extends Enemy
 ## Mid-boss rooted in the schoolyard. Three glowing nodes hide under spongy caps that burn off
 ## with fire (or wear down under heavy fire). With every node destroyed the core opens.
-## One cannon shell pops a cap or bursts a bare node, and takes a quarter of the open core.
+## One cannon shell pops a cap or bursts a bare node, and takes a third of the open core.
 ## Attacks: half-corridor tendril sweeps, spore barrages and crawler spawns; the exposed core
 ## adds a full sweep that must be dodged with an anchor drift.
 
@@ -11,7 +11,7 @@ enum Attack { NONE, SWEEP, BARRAGE, SPAWN }
 const NODE_HP := 100.0
 const CAP_HP := 100.0
 const CORE_HP := 600.0
-const CANNON_CORE_SHARE := 0.25
+const CANNON_CORE_SHARE := 0.34
 
 class Part:
 	var name := ""

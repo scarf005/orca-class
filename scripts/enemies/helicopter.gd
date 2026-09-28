@@ -3,7 +3,7 @@ extends Enemy
 ## Final boss: an attack helicopter overtaken by mycelium, fought in the arena below the dam.
 ## It is built from modules like the tank. ERA plates cover the nose and flanks: a cannon shell
 ## there only pops the plate. A shell on bare airframe (a stripped facing, the top, the belly or
-## the tail boom) takes a quarter of its hull. Knocking out modules changes the fight: the chin gun
+## the tail boom) takes a third of its hull. Knocking out modules changes the fight: the chin gun
 ## and rocket pods silence their attacks, a lost tail rotor sends it spinning and wild, and losing
 ## both engines drops it out of the sky.
 ## Phase 1 (Hunter) orbits wide with chin-gun strafes and rocket ripples that saturate the laser.
@@ -14,7 +14,7 @@ enum Phase { HUNTER, STRIPPED, INFECTED }
 enum Attack { NONE, GUN, ROCKETS, ATGM, DRONES, DIVE }
 
 const BODY_HP := 1600.0
-const CANNON_SHARE := 0.25 ## Hull taken by one main-gun shell on bare airframe.
+const CANNON_SHARE := 0.34 ## Hull taken by one main-gun shell on bare airframe: three clean hits.
 const PLATED_SHARE := 0.03 ## Hull taken when an ERA plate eats the shell.
 const ERA_HP := 100.0 ## One shell pops a plate; machine guns chew through it slowly.
 const MODULE_HP := {"engine_l": 150.0, "engine_r": 150.0, "tail_rotor": 110.0, "chin": 90.0, "pod_l": 140.0, "pod_r": 140.0}
@@ -63,7 +63,7 @@ func _init() -> void:
 	despawn_behind = 0.0
 	debris_colors = [Palette.SLATE, Palette.DUSK, Palette.FUNGUS, Palette.INK]
 	set_meta("title", "BOSS_HELICOPTER")
-	set_meta("phase_marks", [0.66, 0.33])
+	set_meta("phase_marks", [0.7, 0.34])
 
 
 func build() -> void:
@@ -314,13 +314,13 @@ func _lose_part(part: Part, direction := Vector3.ZERO) -> void:
 func _update_phase() -> void:
 	var world := World.current
 	var ratio := hp / max_hp
-	if phase == Phase.HUNTER and (ratio < 0.66 or PLATES.all(func(plate: String) -> bool: return not _live(plate))):
+	if phase == Phase.HUNTER and (ratio < 0.7 or PLATES.all(func(plate: String) -> bool: return not _live(plate))):
 		phase = Phase.STRIPPED
 		world.radio.emit(&"AI_BOSS_PHASE2")
 		_resupply()
 		_grow_fungus(6)
 		_next_attack = 1.0
-	elif phase == Phase.STRIPPED and ratio < 0.33:
+	elif phase == Phase.STRIPPED and ratio < 0.34:
 		phase = Phase.INFECTED
 		world.radio.emit(&"AI_BOSS_PHASE3")
 		_resupply()

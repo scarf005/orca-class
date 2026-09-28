@@ -230,7 +230,7 @@ func _update_visuals() -> void:
 		var up := Vector3.UP if absf(dir.normalized().y) < 0.95 else Vector3.BACK
 		var basis := Basis.looking_at(dir, up)
 		# Segment meshes point along local -Z with unit length.
-		_segments[i].global_transform = Transform3D(basis.scaled(Vector3(thin, thin, length)), a)
+		_segments[i].global_transform = Transform3D(basis * Basis.from_scale(Vector3(thin, thin, length)), a)
 		_knuckles[i].global_transform = Transform3D(Basis.from_scale(Vector3.ONE * thin), a)
 	var tip_dir := joints[last] - joints[last - 1]
 	var up := Vector3.UP if absf(tip_dir.normalized().y) < 0.95 else Vector3.BACK

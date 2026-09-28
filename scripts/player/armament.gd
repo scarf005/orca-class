@@ -20,9 +20,11 @@ const ROUND_IDS := {
 ## Rounds loaded per special-round pickup.
 const MAGAZINE := {Round.HEAT: 6, Round.CANISTER: 8, Round.DRAGON: 6, Round.APFSDS: 6, Round.AIRBURST: 8}
 
-const RELOAD := 1.0
+## A real 100 mm gun: a three-second reload, and a shell that wrecks any ordinary vehicle outright.
+const RELOAD := 3.0
 const SHELL_SPEED := 190.0 ## Slow enough that the glowing shell reads in flight.
-const HEAT_RELOAD := 1.25
+const HEAT_RELOAD := 3.0
+const SHELL_DAMAGE := 1500.0
 
 const ROUND_COLORS := {
 	Round.APHE: Palette.AMBER, Round.HEAT: Palette.HOT, Round.CANISTER: Palette.CYAN, Round.DRAGON: Palette.FUNGUS,

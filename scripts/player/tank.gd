@@ -8,19 +8,26 @@ signal round_changed
 signal life_lost
 
 const MAX_ARMOR := 100.0
-const LATERAL_LIMIT := 14.0
-const FORWARD_LIMIT := Vector2(-3.0, 14.0)
-const MOVE_SPEED := Vector2(21.0, 14.0) ## Lateral, forward (m/s) in the rail frame.
-const ARENA_SPEED := 23.0
-const ACCEL := 90.0
+const EDGE_MARGIN := 4.0 ## How close to the foot of the valley walls the tank may go.
+const FORWARD_LIMIT := Vector2(-3.0, 16.0)
+## Arwing-like handling: it crosses the corridor in about a second and stops on a dime.
+const MOVE_SPEED := Vector2(34.0, 20.0) ## Lateral, forward (m/s) in the rail frame.
+const ARENA_SPEED := 32.0
+const ACCEL := 220.0
 const HULL_RADIUS := 2.3
-const CIWS_RANGE := 34.0
-const CIWS_DRONE_RANGE := 26.0
-const CIWS_HEAT_RATE := 0.5
-const CIWS_COOL_RATE := 0.32
-const CIWS_LASER_DPS := 14.0
-const CIWS_ENTITY_DPS := 55.0
-const ANCHOR_COOLDOWN := 1.1
+const CIWS_RANGE := 24.0
+const CIWS_DRONE_RANGE := 15.0
+const CIWS_HEAT_RATE := 0.8
+const CIWS_COOL_RATE := 0.22
+const CIWS_LASER_DPS := 6.0
+const CIWS_ENTITY_DPS := 22.0
+const ANCHOR_COOLDOWN := 0.8
+const DOUBLE_TAP := 0.28 ## Seconds between taps that make a double tap.
+const DASH_SPEED := 46.0
+## In the input vector's convention: +y is forward (Vector2.UP would be backward here).
+const TAP_DIRECTIONS := {&"move_left": Vector2(-1, 0), &"move_right": Vector2(1, 0), &"move_forward": Vector2(0, 1), &"move_back": Vector2(0, -1)}
+const COAX_RANGE := 140.0
+const SOFT_LOCK_RADIUS := 56.0 ## Screen pixels (3D view) around the reticle.
 const RESPAWN_DELAY := 1.8
 const RESPAWN_INVULN := 2.6
 const HOLD_TIME := 0.35 ## A grabbed enemy dangles this long before it is thrown.
@@ -29,6 +36,7 @@ const RAM_DAMAGE := 150.0
 
 var model := TankModel.new()
 var tail := Tail.new()
+var tracks := TrackMarks.new()
 var modules := TankModules.new()
 
 var course_u := 0.0
@@ -38,7 +46,7 @@ var lateral_velocity := 0.0
 var velocity := Vector3.ZERO
 var hull_yaw := 0.0
 
-var aim_screen := Vector2(240, 120)
+var aim_screen := Vector2(DitherView.RESOLUTION) * Vector2(0.5, 0.45)
 var aim_point := Vector3.ZERO
 var aim_target: Entity
 var using_gamepad := false
@@ -62,6 +70,8 @@ var _respawn := 0.0
 var _barrel_recoil := 0.0
 var _last_position := Vector3.ZERO
 var _grab_target: Node3D
+var coax_target: Entity ## What the coax is tracking on its own.
+var _last_tap := {&"move_left": -1.0, &"move_right": -1.0, &"move_forward": -1.0, &"move_back": -1.0}
 var _engine_sound: AudioStreamPlayer3D
 var input_enabled := true
 
@@ -78,6 +88,7 @@ func _ready() -> void:
 	add_child(model)
 	tail.mount = model.tail_mount
 	add_child(tail)
+	add_child(tracks)
 	tail.arrived.connect(_on_tail_arrived)
 	tail.missed.connect(func() -> void:
 		if is_instance_valid(_grab_target) and _grab_target is Pickup:
@@ -85,7 +96,7 @@ func _ready() -> void:
 		_grab_target = null)
 	track_meshes(model)
 	set_coax_tier(0)
-	ActorLayer.mark(self)
+	ActorLayer.mark(self, ActorLayer.FRIENDLY)
 	_place(World.current.rail.d)
 	_last_position = global_position
 	_engine_sound = Sfx.loop("engine", self, -10.0)
@@ -101,7 +112,7 @@ func set_coax_tier(tier: int) -> void:
 	coax_tier = clampi(tier, 0, Armament.COAX_TIERS.size() - 1)
 	var calibers := Armament.tier_calibers(coax_tier)
 	model.set_coax_guns(calibers)
-	ActorLayer.mark(model.coax_root)
+	ActorLayer.mark(model.coax_root, ActorLayer.FRIENDLY)
 	_coax_timers.resize(calibers.size())
 	_coax_timers.fill(0.0)
 
@@ -133,13 +144,22 @@ func tick(delta: float) -> void:
 	_update_weapons(delta)
 	_update_ciws(delta)
 	tail.update(delta, global_basis, lateral_velocity)
-	if input_enabled:
-		auto_tail()
+	auto_tail() # The tail and the coax work on their own; only driving and the main gun take input.
 	_update_pickups()
+	tracks.press(global_transform)
+	model.rotation.x = move_toward(model.rotation.x, 0.0, delta * 0.8)
 	velocity = (global_position - _last_position) / maxf(delta, 0.0001)
 	_last_position = global_position
 	if _engine_sound:
 		_engine_sound.pitch_scale = 0.8 + clampf(velocity.length() / 25.0, 0.0, 0.6)
+
+
+## How far from the road the tank may range at d: out to the foot of the valley walls, and within
+## the guardrails on the highway deck.
+static func lateral_limit(d: float) -> float:
+	if Course.deck_blend(d) > 0.5:
+		return 12.0
+	return maxf(Course.valley_half_width(d) - EDGE_MARGIN, 14.0)
 
 
 func _input_vector() -> Vector2:
@@ -152,12 +172,12 @@ func _update_movement(delta: float) -> void:
 	var world := World.current
 	var rail := world.rail
 	var input := _input_vector()
-	if input_enabled and Input.is_action_just_pressed("anchor") and anchor_cooldown <= 0.0:
-		_anchor(input)
+	_read_double_taps()
+	# W and S double as the throttle: pushing forward boosts the rail, pulling back brakes it.
 	var command := 0
-	if input_enabled and Input.is_action_pressed("overdrive") and modules.overdrive_online():
+	if input.y > 0.5 and modules.overdrive_online():
 		command = 1
-	elif input_enabled and Input.is_action_pressed("brake"):
+	elif input.y < -0.5:
 		command = -1
 	if rail.mode == Rail.Mode.ARENA:
 		_move_arena(delta, input)
@@ -168,10 +188,11 @@ func _update_movement(delta: float) -> void:
 	local_velocity = local_velocity.move_toward(target, ACCEL * delta)
 	if _drift > 0.0:
 		_drift -= delta
-		local_velocity.x = _drift_dir * 46.0 * (_drift / 0.3)
+		if _drift_dir != 0.0:
+			local_velocity.x = _drift_dir * DASH_SPEED * (_drift / 0.3)
 	course_u += local_velocity.x * delta
 	course_offset += local_velocity.y * delta
-	var limit := LATERAL_LIMIT if Course.deck_blend(rail.d) < 0.5 else 12.0
+	var limit := lateral_limit(rail.d + course_offset)
 	course_u = clampf(course_u, -limit, limit)
 	course_offset = clampf(course_offset, FORWARD_LIMIT.x, FORWARD_LIMIT.y)
 	lateral_velocity = local_velocity.x
@@ -192,7 +213,7 @@ func _move_arena(delta: float, input: Vector2) -> void:
 	current = current.move_toward(wish, ACCEL * delta)
 	if _drift > 0.0:
 		_drift -= delta
-		current = right * _drift_dir * 46.0 * (_drift / 0.3) if absf(_drift_dir) > 0.0 else current
+		current = right * _drift_dir * DASH_SPEED * (_drift / 0.3) if absf(_drift_dir) > 0.0 else current
 	local_velocity = Vector2(current.x, current.z)
 	var p := global_position + current * delta
 	var center := Course.to_world(Course.ARENA_CENTER_D, 0.0)
@@ -213,8 +234,41 @@ func _move_arena(delta: float, input: Vector2) -> void:
 	model.animate_tracks(delta, current.length(), current.length())
 
 
+## Double taps: tap a direction twice to dash that way. Gamepad shoulders dash sideways.
+func _read_double_taps() -> void:
+	if not input_enabled:
+		return
+	if Input.is_action_just_pressed("roll_left"):
+		dash(Vector2(-1, 0))
+	elif Input.is_action_just_pressed("roll_right"):
+		dash(Vector2(1, 0))
+	var now := Time.get_ticks_msec() / 1000.0
+	for action: StringName in _last_tap:
+		if not Input.is_action_just_pressed(action):
+			continue
+		if now - float(_last_tap[action]) < DOUBLE_TAP:
+			_last_tap[action] = -1.0
+			dash(TAP_DIRECTIONS[action])
+		else:
+			_last_tap[action] = now
+
+
+## A burst of speed the way it was tapped, kicked off by the tail slamming the ground: sideways it
+## is a dodge that lashes whatever is beside the hull, forward it surges the rail, back it digs in.
+func dash(direction: Vector2) -> void:
+	if _respawn > 0.0:
+		return
+	_anchor(direction)
+
+
+func is_dashing() -> bool:
+	return _drift > 0.0
+
+
 func _anchor(input: Vector2) -> void:
 	var world := World.current
+	if anchor_cooldown > 0.0:
+		return
 	anchor_cooldown = ANCHOR_COOLDOWN
 	invuln = maxf(invuln, 0.3)
 	var ground := global_position - global_basis.z * -3.0
@@ -222,9 +276,26 @@ func _anchor(input: Vector2) -> void:
 		# Pivot drift: the claw bites the ground and the hull whips sideways around it.
 		_drift = 0.3
 		_drift_dir = signf(input.x)
+		if is_instance_valid(tail.held) and not tail.held is Pickup:
+			_throw_held()
+			Sfx.play("skid", global_position)
+			return
 		swat(false)
 		ground = global_position + global_basis.x * -_drift_dir * 2.5 + global_basis.z * 3.0
 		Sfx.play("skid", global_position)
+	elif input.y > 0.3:
+		# Forward surge: the tail kicks off behind and the hull lunges ahead of the rail.
+		_drift = 0.3
+		_drift_dir = 0.0
+		if world.rail.mode != Rail.Mode.ARENA:
+			local_velocity.y = DASH_SPEED
+			world.rail.speed = maxf(world.rail.speed, Rail.OVERDRIVE)
+		else:
+			var ahead := -world.camera.global_basis.z
+			local_velocity = Vector2(ahead.x, ahead.z).normalized() * DASH_SPEED
+		ground = global_position + global_basis.z * 3.0
+		world.camera.kick(0.03)
+		Sfx.play("skid", global_position, 0.0, 1.2)
 	else:
 		# Hard stop: the rail halts and the tank digs in.
 		if world.rail.mode != Rail.Mode.ARENA:
@@ -234,6 +305,8 @@ func _anchor(input: Vector2) -> void:
 			local_velocity = Vector2.ZERO
 		Sfx.play("skid", global_position, 0.0, 0.8)
 	ground.y = Course.height_at(ground)
+	if is_instance_valid(tail.held):
+		return # Never drop what the claw carries just to dig in.
 	tail.set_state(Tail.State.ANCHOR, ground, null, 400.0)
 	world.fx.dust(ground, 10, 1.5, Palette.OCHRE)
 	world.fx.debris(ground, 6, [Palette.OCHRE, Palette.WOOD], 5.0, 0.25)
@@ -247,14 +320,16 @@ func _anchor(input: Vector2) -> void:
 func _collide_props(delta: float) -> void:
 	var world := World.current
 	for prop: Prop in world.props.in_radius(global_position, HULL_RADIUS):
+		if prop.is_falling():
+			continue
 		if prop.global_position.y > global_position.y + 2.5:
 			continue # Resting up high (a tree crown, a spire): the hull passes under it.
 		# Sixty tons at speed flattens anything that is not a landmark.
 		if prop.crushable or _ground_speed() > CRUSH_SPEED:
-			var ram := Hit.make(Hit.Kind.RAM, 99999.0, prop.global_position)
+			var ram := Hit.make(Hit.Kind.RAM, 99999.0, prop.global_position, -global_basis.z)
 			ram.source = self
 			prop.take_hit(ram)
-			world.shake(0.08 if prop.footprint < 2.0 else 0.35)
+			_ram_jolt(prop.footprint)
 			continue
 		if not prop.solid:
 			continue
@@ -275,6 +350,21 @@ func _collide_props(delta: float) -> void:
 			var push := away.normalized() * overlap
 			global_position += push
 		world.shake(0.04)
+
+
+## Sixty tons at 80 km/h: the camera bucks, the hull rocks back and the frame catches a beat,
+## more for bigger things.
+func _ram_jolt(size: float) -> void:
+	var world := World.current
+	var heavy := clampf(size / 4.0, 0.15, 1.0) * clampf(_ground_speed() / Rail.CRUISE, 0.5, 1.5)
+	world.shake(0.1 + heavy * 0.3)
+	world.camera.kick(0.01 + heavy * 0.03)
+	if heavy > 0.4:
+		world.hitstop(0.02 + heavy * 0.03)
+	model.rotation.x = -0.05 - heavy * 0.12
+	if world.rail.mode != Rail.Mode.ARENA:
+		local_velocity.y -= 3.0 + heavy * 6.0
+	Sfx.play("impact", global_position, -6.0 + heavy * 6.0, 0.8)
 
 
 func _ground_speed() -> float:
@@ -335,14 +425,14 @@ func _update_aim(delta: float) -> void:
 	var stick := Input.get_vector("aim_left", "aim_right", "aim_up", "aim_down")
 	if stick.length() > 0.15:
 		using_gamepad = true
-		aim_screen += stick * 300.0 * delta * Game.settings.mouse_sensitivity
+		aim_screen += stick * 600.0 * delta * Game.settings.mouse_sensitivity
 		_aim_assist(delta)
 	elif not using_gamepad and world.view:
 		var mouse := world.view.get_local_mouse_position()
 		aim_screen = mouse * view_size / world.view.size
 	elif using_gamepad:
 		_aim_assist(delta)
-	aim_screen = aim_screen.clamp(Vector2(8, 8), view_size - Vector2(8, 8))
+	aim_screen = aim_screen.clamp(Vector2(16, 16), view_size - Vector2(16, 16))
 	var cam := world.camera
 	var origin := cam.project_ray_origin(aim_screen)
 	var dir := cam.project_ray_normal(aim_screen)
@@ -376,7 +466,7 @@ func _input(event: InputEvent) -> void:
 
 func _aim_assist(delta: float) -> void:
 	var cam := World.current.camera
-	var best_distance := 34.0
+	var best_distance := 68.0
 	var best := Vector2.INF
 	for enemy in World.current.enemies:
 		if cam.is_position_behind(enemy.hit_center()):
@@ -413,43 +503,77 @@ func _ray_ground(origin: Vector3, dir: Vector3, max_distance: float) -> float:
 	return -1.0
 
 
-## Direction from a muzzle to the aim point, lead-corrected for the locked target.
+## Direction from a muzzle to the aim point, lead-corrected for the locked target, but never more
+## than a few degrees off where the barrel points.
 func _fire_direction(from: Vector3, speed: float) -> Vector3:
 	var target := aim_point
-	if is_instance_valid(aim_target) and aim_target is Enemy:
-		target = lead_point(from, speed, aim_target)
-	return (target - from).normalized()
+	var lock := _pick_coax_target()
+	if is_instance_valid(lock) and lock is Enemy:
+		target = lead_point(from, speed, lock)
+	return along_barrel(-model.barrel.global_basis.z, (target - from).normalized())
 
 
+## Where to aim so a round at `speed` meets `target`: a few passes settle the flight time.
 func lead_point(from: Vector3, speed: float, target: Entity) -> Vector3:
 	var enemy_velocity := (target as Enemy).velocity if target is Enemy else Vector3.ZERO
 	var p := target.hit_center()
-	var t := from.distance_to(p) / speed
-	return p + enemy_velocity * t
+	var aim := p
+	for i in 3:
+		aim = p + enemy_velocity * (from.distance_to(aim) / speed)
+	return aim
 
 
 func _update_weapons(delta: float) -> void:
-	if not input_enabled:
-		return
-	if Input.is_action_pressed("fire_coax"):
+	coax_target = _pick_coax_target()
+	if input_enabled and Input.is_action_pressed("fire_coax"):
 		var calibers := Armament.tier_calibers(coax_tier)
 		for i in calibers.size():
 			_coax_timers[i] -= delta
 			if _coax_timers[i] <= 0.0:
 				var spec: Dictionary = Armament.GUNS[calibers[i]]
 				_coax_timers[i] += spec.interval
-				_fire_coax(model.coax_muzzles[i], calibers[i], spec)
+				_fire_coax(model.coax_muzzles[i], calibers[i], spec, coax_target)
 	else:
 		for i in _coax_timers.size():
 			_coax_timers[i] = maxf(_coax_timers[i] - delta, 0.0)
-	if Input.is_action_pressed("fire_cannon") and reload <= 0.0:
+	if input_enabled and Input.is_action_pressed("fire_cannon") and reload <= 0.0:
 		fire_cannon()
 
 
-func _fire_coax(muzzle: Node3D, caliber: int, spec: Dictionary) -> void:
+## The fire-control system's soft lock: the enemy under the reticle, else the one nearest it on
+## screen within a small radius. The coax leads it automatically.
+func _pick_coax_target() -> Entity:
+	if is_instance_valid(aim_target) and not aim_target.dead:
+		return aim_target
+	var cam := World.current.camera
+	var best: Entity = null
+	var best_distance := SOFT_LOCK_RADIUS
+	for enemy in World.current.enemies:
+		if enemy.dead or enemy is Flare or cam.is_position_behind(enemy.hit_center()):
+			continue
+		if enemy.hit_center().distance_to(global_position) > COAX_RANGE:
+			continue
+		var distance := cam.unproject_position(enemy.hit_center()).distance_to(aim_screen)
+		if distance < best_distance:
+			best_distance = distance
+			best = enemy
+	return best
+
+
+## Rounds leave along the barrel: the ballistic computer may correct only a few degrees off it,
+## so a gun still traversing never fires somewhere it is not pointing.
+static func along_barrel(barrel: Vector3, wanted: Vector3, max_degrees := 6.0) -> Vector3:
+	var angle := barrel.angle_to(wanted)
+	if angle <= deg_to_rad(max_degrees):
+		return wanted
+	return barrel.slerp(wanted, deg_to_rad(max_degrees) / angle).normalized()
+
+
+func _fire_coax(muzzle: Node3D, caliber: int, spec: Dictionary, target: Entity) -> void:
 	var world := World.current
 	var from := muzzle.global_position
-	var dir := _fire_direction(from, spec.speed)
+	var aim := lead_point(from, spec.speed, target) if is_instance_valid(target) else aim_point
+	var dir := along_barrel(-model.barrel.global_basis.z, (aim - from).normalized())
 	dir = (dir + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * spec.spread).normalized()
 	var bullet := world.spawn_projectile(Team.PLAYER, from, dir * spec.speed, "bullet", spec.color)
 	bullet.hit = Hit.make(Hit.Kind.BULLET, spec.damage, from)
@@ -479,7 +603,7 @@ func fire_cannon() -> void:
 			for i in 26:
 				var dir := (_fire_direction(muzzle, 200.0) + Vector3(randf_range(-1, 1), randf_range(-0.6, 1), randf_range(-1, 1)) * 0.11).normalized()
 				var pellet := world.spawn_projectile(Team.PLAYER, muzzle, dir * randf_range(170, 210), "pellet", Palette.SKY)
-				pellet.hit = Hit.make(Hit.Kind.BULLET, 16.0, muzzle)
+				pellet.hit = Hit.make(Hit.Kind.BULLET, 45.0, muzzle)
 				pellet.hit.caliber = 20
 				pellet.life = 0.28
 				pellet.impacted.connect(_count_hit, CONNECT_ONE_SHOT)
@@ -487,7 +611,7 @@ func fire_cannon() -> void:
 			for i in 34:
 				var dir := (_fire_direction(muzzle, 60.0) + Vector3(randf_range(-1, 1), randf_range(-0.4, 0.8), randf_range(-1, 1)) * 0.16).normalized()
 				var flame := world.spawn_projectile(Team.PLAYER, muzzle, dir * randf_range(38, 62), "fire", [Palette.WHITE, Palette.PEACH, Palette.BUTTER, Palette.AMBER][i % 4])
-				flame.hit = Hit.make(Hit.Kind.FIRE, 9.0, muzzle)
+				flame.hit = Hit.make(Hit.Kind.FIRE, 22.0, muzzle)
 				flame.hit.incendiary = true
 				flame.gravity = 6.0
 				flame.life = randf_range(0.45, 0.75)
@@ -498,7 +622,7 @@ func fire_cannon() -> void:
 			var shape := "dart" if round == Armament.Round.APFSDS else "shell"
 			var dir := _fire_direction(muzzle, speed)
 			var shell := world.spawn_projectile(Team.PLAYER, muzzle, dir * speed, shape, Armament.ROUND_COLORS[round])
-			shell.hit = Hit.make(Hit.Kind.SHELL, 110.0, muzzle)
+			shell.hit = Hit.make(Hit.Kind.SHELL, Armament.SHELL_DAMAGE, muzzle)
 			shell.hit.caliber = 100
 			shell.hit.source = self
 			shell.hit.stagger = 0.4
@@ -508,23 +632,23 @@ func fire_cannon() -> void:
 			shell.impacted.connect(_count_hit, CONNECT_ONE_SHOT)
 			match round:
 				Armament.Round.APHE:
-					shell.blast_radius = 4.2
-					shell.blast_damage = 60.0
+					shell.blast_radius = 8.0
+					shell.blast_damage = 320.0
 				Armament.Round.HEAT:
-					shell.hit.damage = 260.0
+					shell.hit.damage = Armament.SHELL_DAMAGE * 1.5
 					shell.hit.pierce = true
 					shell.hit.stagger = 1.0
-					shell.blast_radius = 3.0
-					shell.blast_damage = 40.0
+					shell.blast_radius = 5.5
+					shell.blast_damage = 220.0
 					shell.blast_colors = [Palette.WHITE, Palette.CORAL, Palette.RED, Palette.PEACH]
 				Armament.Round.APFSDS:
-					shell.hit.damage = 210.0
+					shell.hit.damage = Armament.SHELL_DAMAGE * 2.0
 					shell.hit.pierce = true
 					shell.pierce_entities = true
 					shell.gravity = 0.0
 					shell.life = 0.7
 				Armament.Round.AIRBURST:
-					shell.hit.damage = 11.0
+					shell.hit.damage = 30.0
 					shell.fuse_distance = maxf(muzzle.distance_to(aim_point) - 2.0, 6.0)
 					shell.airburst_fragments = 40
 	if round != Armament.Round.APHE:
@@ -631,16 +755,20 @@ func _update_ciws(delta: float) -> void:
 	var local := model.turret.global_transform.affine_inverse() * point
 	model.rws.rotation.y = atan2(-local.x, -local.z)
 	var flicker := randf_range(0.7, 1.0)
-	world.fx.beam(origin, point, Palette.MINT if randf() < 0.6 else Palette.WHITE, 0.09 * flicker, 0.04)
+	world.fx.beam(origin, point, Palette.WHITE, 0.07 * flicker, 0.04)
+	world.fx.beam(origin, point, Palette.MINT, 0.2 * flicker, 0.04)
 	world.fx.spawn(Fx.Kind.FLAME, point, Vector3(randf_range(-2, 2), randf_range(0, 3), randf_range(-2, 2)), 0.1, 0.3, Palette.WHITE)
 	if target is Projectile:
 		if (target as Projectile).laser(CIWS_LASER_DPS * delta):
 			ciws_heat += 0.06
 			world.award(10, point, false)
+			world.intercepted.emit(point)
 	else:
 		var zap := Hit.make(Hit.Kind.LASER, CIWS_ENTITY_DPS * delta, point)
 		zap.source = self
 		(target as Entity).take_hit(zap)
+		if (target as Entity).dead:
+			world.intercepted.emit(point)
 	ciws_heat += CIWS_HEAT_RATE * delta
 	if ciws_heat >= 1.0:
 		ciws_heat = 1.0
@@ -654,13 +782,22 @@ func _update_ciws(delta: float) -> void:
 ## The tail acts on its own so the driver only drives and shoots. Priorities: throw what it
 ## holds, swat anything about to hit the hull, snatch pickups, grab small enemies, stab big ones.
 func auto_tail() -> void:
-	if not tail.is_ready():
+	if tail.destroyed:
 		return
 	var world := World.current
 	var mount := tail.mount.global_position
 	if is_instance_valid(tail.held):
-		if tail.state == Tail.State.HOLD and tail.state_time() >= HOLD_TIME:
+		# Whatever the claw holds is dealt with at once, whatever state a drift or roll left it in:
+		# pickups are delivered, enemies are thrown after a short dangle.
+		if tail.held is Pickup:
+			if tail.state != Tail.State.RETURN:
+				collect(tail.held as Pickup)
+				tail.held = null
+				tail.set_state(Tail.State.IDLE)
+		elif tail.state != Tail.State.HOLD or tail.state_time() >= HOLD_TIME:
 			_throw_held()
+		return
+	if not tail.is_ready():
 		return
 	for entity in world.enemies:
 		if _is_imminent(entity):

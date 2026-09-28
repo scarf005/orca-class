@@ -131,7 +131,6 @@ func _drive(world: World, t: float) -> void:
 		return
 	var target: Entity = world.enemies[int(t * 2.0) % world.enemies.size()]
 	tank.aim_screen = world.camera.unproject_position(target.hit_center())
-	Input.action_press("fire_coax")
 	tank.input_enabled = true
 	if tank.reload <= 0.0:
 		tank.fire_cannon()

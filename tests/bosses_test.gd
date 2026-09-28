@@ -104,23 +104,22 @@ func test_helicopter_era_eats_a_shell_then_bare_hull_takes_a_quarter() -> void:
 	check(hp - boss.hp < boss.max_hp * 0.01, "machine guns only scratch it")
 
 
-func test_helicopter_four_bare_shells_bring_it_down() -> void:
+func test_helicopter_three_bare_shells_bring_it_down() -> void:
 	var world := stage("boss")
 	var boss := _helicopter(world)
-	for i in 4:
+	for i in 3:
 		check(boss._crash <= 0.0, "still flying before shell %d" % (i + 1))
 		boss.take_hit(_shell(_on(boss, Vector3(0, 0.3, 4.5))))
-	check(boss._crash > 0.0, "four shells on bare airframe start the crash")
+	check(boss._crash > 0.0, "three shells on bare airframe start the crash")
 
 
 func test_helicopter_phases_follow_hull() -> void:
 	var world := stage("boss")
 	var boss := _helicopter(world)
 	boss.take_hit(_shell(_on(boss, Vector3(0, 0.3, 4.5))))
+	check_eq(boss.phase, Helicopter.Phase.STRIPPED, "a third of its hull gone: it closes in")
 	boss.take_hit(_shell(_on(boss, Vector3(0, 0.3, 4.5))))
-	check_eq(boss.phase, Helicopter.Phase.STRIPPED, "half its hull gone: it closes in")
-	boss.take_hit(_shell(_on(boss, Vector3(0, 0.3, 4.5))))
-	check_eq(boss.phase, Helicopter.Phase.INFECTED, "a quarter left: it turns")
+	check_eq(boss.phase, Helicopter.Phase.INFECTED, "one shell from death: it turns")
 
 
 func test_helicopter_modules_change_the_fight() -> void:
@@ -156,9 +155,9 @@ func test_colossus_cannon_sized() -> void:
 	for part: Colossus.Part in boss.parts:
 		part.cap = 0.0
 		part.hp = 0.0
-	for i in 3:
+	for i in 2:
 		_hit_part_with(boss, boss.core, _shell(Vector3.ZERO))
-	check_near(boss.core.hp, Colossus.CORE_HP * 0.25, 0.5, "each shell takes a quarter of the core")
+	check_near(boss.core.hp, Colossus.CORE_HP * (1.0 - 2.0 * Colossus.CANNON_CORE_SHARE), 0.5, "each shell takes a third of the core")
 
 
 func _hit_part_with(boss: Colossus, part: Colossus.Part, hit: Hit) -> void:

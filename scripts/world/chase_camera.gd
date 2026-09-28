@@ -29,8 +29,11 @@ func _process(delta: float) -> void:
 	follow(delta)
 
 
+const MAX_TRAUMA := 0.55 ## Shake never goes past this, however many things blow up at once.
+
+
 func add_trauma(amount: float) -> void:
-	trauma = clampf(trauma + amount, 0.0, 1.0)
+	trauma = clampf(trauma + amount * 0.7, 0.0, MAX_TRAUMA)
 
 
 ## Pitches the view up briefly, e.g. on cannon recoil.
@@ -60,9 +63,9 @@ func follow(delta: float) -> void:
 	else:
 		var d := world.rail.d
 		var u := player.course_u
-		eye = Course.to_world(d - RAIL_BACK, u * 0.55)
-		eye.y = maxf(Course.height(d - RAIL_BACK, u * 0.55), player.global_position.y - 1.0) + RAIL_HEIGHT
-		look = Course.to_world(d + RAIL_LOOK_AHEAD, u * 0.7, player.global_position.y - 1.0)
+		eye = Course.to_world(d - RAIL_BACK, u * 0.75)
+		eye.y = maxf(Course.height(d - RAIL_BACK, u * 0.75), player.global_position.y - 1.0) + RAIL_HEIGHT
+		look = Course.to_world(d + RAIL_LOOK_AHEAD, u * 0.85, player.global_position.y - 1.0)
 		roll = -player.lateral_velocity * 0.006
 	var k := 1.0 - exp(-9.0 * delta)
 	if not _initialized:

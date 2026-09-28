@@ -83,7 +83,7 @@ func _drive(world: World, t: float) -> void:
 		tank.aim_screen = world.camera.unproject_position(target.hit_center())
 		Input.action_press("fire_cannon")
 	else:
-		tank.aim_screen = Vector2(240, 110)
+		tank.aim_screen = Vector2(DitherView.RESOLUTION) * Vector2(0.5, 0.4)
 		Input.action_release("fire_cannon")
 	Input.action_press("fire_coax")
 	var weave := sin(t * 0.7)
@@ -97,6 +97,4 @@ func _drive(world: World, t: float) -> void:
 		Input.action_release("move_left")
 		Input.action_release("move_right")
 	if int(t * 10) % 53 == 0:
-		Input.action_press("anchor")
-	else:
-		Input.action_release("anchor")
+		tank.dash(Vector2(1, 0) if weave < 0.0 else Vector2(-1, 0))
