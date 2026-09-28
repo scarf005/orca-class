@@ -157,8 +157,6 @@ func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 
 
 func damage_multiplier(hit: Hit) -> float:
-	if hit.kind == Hit.Kind.BULLET and hit.caliber < 15:
-		return 0.25
 	if hit.kind == Hit.Kind.FIRE:
 		return 3.0 if burnable else 0.3
 	return 1.0
