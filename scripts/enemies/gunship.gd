@@ -1,6 +1,8 @@
 class_name Gunship
 extends Enemy
-## Stage 1 boss: a heavy twin-rotor gunship overtaken by mycelium.
+## Stage 1 boss: a heavy synchrocopter gunship overtaken by mycelium, after Armored Core VI's
+## AH12 HC: a long armored hull, two intermeshing rotors on masts splayed in a V above it, stub
+## wings ending in huge missile racks, gatling turrets on the shoulders and a searchlight nose.
 ## Nose and flank plates protect the hull; three bare-airframe cannon hits bring it down.
 ## Each wing carries a destructible rotor: one lost lowers and banks the craft, both lost crash it.
 ## Chin gun and missile racks can be silenced independently. The three phases retain gun runs,
@@ -15,9 +17,9 @@ const PLATED_SHARE := 0.03 ## Hull taken when an ERA plate eats the shell.
 const ERA_HP := 100.0 ## One shell pops a plate; machine guns chew through it slowly.
 const MODULE_HP := {"rotor_l": 150.0, "rotor_r": 150.0, "chin": 90.0, "pod_l": 140.0, "pod_r": 140.0}
 const ROTORS := ["rotor_l", "rotor_r"]
-const ROTOR_HEIGHT := 1.8
-const ROTOR_RADIUS := 5.8
-const MODEL_SCALE := 1.6 ## The whole airframe is drawn this much bigger than its model-space layout.
+const ROTOR_RADIUS := 8.5
+const ROTOR_TILT := 0.22 ## Each mast leans outward, so the two rotors mesh like an eggbeater.
+const MODEL_SCALE := 1.8 ## The whole airframe is drawn this much bigger than its model-space layout.
 const PLATES := ["era_front", "era_left", "era_right"]
 
 class Part:
@@ -38,6 +40,8 @@ var _orbit_dir := 1.0
 var _velocity := Vector3.ZERO
 var _rotors: Dictionary = {}
 var _discs: Array[MeshInstance3D] = []
+var _gatlings: Array[Node3D] = [] ## Shoulder turrets that track the tank; barrels spin while firing.
+var _barrels: Array[Node3D] = []
 var _chin := Node3D.new()
 var _fungus := Node3D.new()
 var _shots := 0
@@ -70,88 +74,117 @@ func build() -> void:
 	_hard = Game.difficulty == Game.Difficulty.HARD
 	max_hp = BODY_HP * (1.35 if _hard else 1.0)
 	hp = max_hp
-	# Built at 1:1.6: every part offset below is in model space, so hit tests scale with it.
+	# Every part offset below is in model space, so hit tests scale with the model.
 	model.scale = Vector3.ONE * MODEL_SCALE
 	var b := LowPoly.new()
-	# A slab-sided armored hull: light grey plates over a dark belly, hunched forward.
-	b.box(Transform3D(Basis(), Vector3(0, 0.2, 0.6)), Vector3(5.6, 3.2, 10.6), Palette.ASH)
-	b.box(Transform3D(Basis(), Vector3(0, -1.55, 0.2)), Vector3(4.6, 0.9, 9.6), Palette.SLATE)
-	b.box(Transform3D(Basis(Vector3.BACK, 0.5), Vector3(-2.55, 1.55, 0.6)), Vector3(1.2, 0.9, 10.2), Palette.STONE)
-	b.box(Transform3D(Basis(Vector3.BACK, -0.5), Vector3(2.55, 1.55, 0.6)), Vector3(1.2, 0.9, 10.2), Palette.STONE)
-	# Spine hump with twin exhausts.
-	b.box(Transform3D(Basis(), Vector3(0, 2.1, 1.4)), Vector3(3.0, 1.0, 6.0), Palette.STONE)
-	for x in [-0.8, 0.8]:
-		b.tube(Transform3D(Basis(), Vector3(x, 2.3, 4.4)), 0.42, 0.8, 8, Palette.INK)
-	# Wedge nose with a wide sensor visor that glows like an eye.
-	b.box(Transform3D(Basis(Vector3.RIGHT, 0.45), Vector3(0, 0.5, -5.0)), Vector3(5.0, 2.4, 2.6), Palette.ASH)
-	b.box(Transform3D(Basis(Vector3.RIGHT, -0.35), Vector3(0, -1.0, -5.2)), Vector3(4.4, 1.3, 2.2), Palette.SLATE)
+	# The hull: hexagonal armored sections from the sensor nose back to the boom, dark gunmetal
+	# below, lighter plates above, with the patrol force's yellow bands.
+	var hull := [[-6.2, 1.6, 1.3, 2.2], [-4.4, 2.4, 2.0, 2.4], [-1.8, 2.7, 2.4, 3.0], [1.4, 2.6, 2.2, 3.0], [4.2, 2.0, 1.4, 2.6]]
+	for i in hull.size():
+		var seg: Array = hull[i]
+		var xf := Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0, 0, seg[0] - seg[3] * 0.5))
+		b.prism(xf, seg[1], seg[3], 6, Palette.ASH if i % 2 == 0 else Palette.MIST, seg[2])
+	b.box(Transform3D(Basis(), Vector3(0, 1.9, -0.4)), Vector3(3.2, 1.0, 7.4), Palette.MIST)
+	b.box(Transform3D(Basis(), Vector3(0, 2.45, -0.4)), Vector3(2.2, 0.3, 6.0), Palette.ASH)
+	for z in [-3.2, 2.0]:
+		b.box(Transform3D(Basis(), Vector3(0, 0.0, z)), Vector3(5.5, 0.35, 0.5), Palette.BUTTER)
+	b.box(Transform3D(Basis(), Vector3(0, -2.25, -0.5)), Vector3(2.6, 0.7, 7.0), Palette.INK)
+	# Sensor nose: a cluster of glowing lenses around a big searchlight.
 	b.glow = true
-	b.box(Transform3D(Basis(Vector3.RIGHT, 0.45), Vector3(0, 0.95, -5.75)), Vector3(4.2, 0.45, 0.12), Palette.AMBER)
-	for x in [-1.4, 1.4]:
-		b.box(Transform3D(Basis(), Vector3(x, 0.95, -5.9)), Vector3(0.6, 0.3, 0.1), Palette.HOT)
+	b.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0, -0.2, -7.4)), 0.55, 0.2, 10, Palette.CREAM)
+	for lens in [Vector3(-0.8, 0.5, -7.1), Vector3(0.8, 0.5, -7.1), Vector3(-1.0, -0.6, -7.0), Vector3(1.0, -0.6, -7.0)]:
+		b.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), lens), 0.22, 0.15, 6, Palette.HOT)
 	b.glow = false
-	# Hazard stripes down the flanks.
+	# Tail boom with twin fins and a stabilizer, like the K-MAX it copies.
+	b.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0, 0.6, 12.5)), 0.9, 7.0, 6, Palette.ASH, 0.55)
+	b.box(Transform3D(Basis(), Vector3(0, 0.7, 12.6)), Vector3(6.0, 0.25, 1.6), Palette.SLATE)
 	for side in [-1.0, 1.0]:
-		for k in 5:
-			b.box(Transform3D(Basis(Vector3.RIGHT, 0.6), Vector3(side * 2.82, 0.9, -2.5 + k * 1.2)), Vector3(0.04, 0.9, 0.35), Palette.AMBER)
-	# Thick tail boom, horizontal stabilizer and twin fins.
-	b.box(Transform3D(Basis(), Vector3(0, 0.6, 7.6)), Vector3(1.8, 1.4, 4.4), Palette.ASH)
-	b.box(Transform3D(Basis(), Vector3(0, 0.8, 9.3)), Vector3(6.6, 0.3, 1.6), Palette.STONE)
+		b.box(Transform3D(Basis(Vector3.BACK, side * -0.15), Vector3(side * 3.0, 1.6, 12.7)), Vector3(0.25, 2.4, 1.8), Palette.STONE)
+		b.box(Transform3D(Basis(Vector3.BACK, side * -0.15), Vector3(side * 3.12, 2.5, 12.7)), Vector3(0.05, 0.5, 1.7), Palette.BUTTER)
+	# Stub wings drooping to the missile racks, and the side booster pods under them.
 	for side in [-1.0, 1.0]:
-		b.box(Transform3D(Basis(Vector3.BACK, side * -0.25), Vector3(side * 3.1, 1.9, 9.3)), Vector3(0.3, 2.6, 1.8), Palette.ASH)
-		b.box(Transform3D(Basis(Vector3.BACK, side * -0.25), Vector3(side * 3.25, 2.9, 9.3)), Vector3(0.05, 0.5, 1.6), Palette.AMBER)
-		# Outrigger wings: thick beams out to the rotor nacelles, striped where they meet.
-		b.box(Transform3D(Basis(), Vector3(side * 4.9, 0.9, 0.7)), Vector3(4.6, 1.1, 2.8), Palette.STONE)
-		b.box(Transform3D(Basis(), Vector3(side * 4.9, 1.47, 0.7)), Vector3(4.2, 0.06, 0.4), Palette.AMBER)
-		b.box(Transform3D(Basis(), Vector3(side * 4.9, 0.1, 0.7)), Vector3(4.0, 0.5, 2.2), Palette.SLATE)
+		b.box(Transform3D(Basis(Vector3.BACK, side * 0.12), Vector3(side * 3.9, -0.2, 0.2)), Vector3(4.2, 0.45, 2.6), Palette.ASH)
+		b.box(Transform3D(Basis(Vector3.BACK, side * 0.12), Vector3(side * 3.9, 0.05, 0.2)), Vector3(3.8, 0.05, 0.6), Palette.BUTTER)
+		b.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(side * 2.5, -1.4, 3.6)), 0.75, 4.2, 8, Palette.STONE, 0.6)
+		b.glow = true
+		b.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(side * 2.5, -1.4, 3.65)), 0.5, 0.05, 8, Palette.AMBER)
+		b.glow = false
+	# Mast pylon on the spine that carries both rotor heads.
+	b.box(Transform3D(Basis(), Vector3(0, 3.0, 0.2)), Vector3(2.8, 1.4, 2.4), Palette.STONE)
 	var body := MeshInstance3D.new()
 	body.mesh = b.mesh()
 	model.add_child(body)
+	# Intermeshing rotors: each head leans outward on its mast and spins the opposite way.
 	for side in [-1.0, 1.0]:
 		var part_name := "rotor_l" if side < 0.0 else "rotor_r"
-		_add_part(part_name, Vector3(side * 7.0, 1.5, 0.7), 2.2, MODULE_HP[part_name], _nacelle_mesh())
+		var hub := Vector3(side * 1.0, 4.9, 0.2)
+		_add_part(part_name, hub, 1.4, MODULE_HP[part_name], _mast_mesh())
+		var mast: Node3D = parts[part_name].node
+		mast.rotation.z = -side * ROTOR_TILT
 		var rotor := Node3D.new()
-		rotor.position.y = ROTOR_HEIGHT
-		parts[part_name].node.add_child(rotor)
-		# Four broad blades with bright tips, and a faint disc so the spin reads as a rotor.
+		mast.add_child(rotor)
 		var r := LowPoly.new()
-		r.prism(Transform3D(), 0.7, 0.5, 8, Palette.INK)
-		for i in 4:
-			var xf := Transform3D(Basis(Vector3.UP, TAU * i / 4.0 + 0.2), Vector3.ZERO)
-			r.box(xf.translated_local(Vector3(ROTOR_RADIUS * 0.5, 0.2, 0)), Vector3(ROTOR_RADIUS, 0.1, 0.9), Palette.SLATE)
-			r.box(xf.translated_local(Vector3(ROTOR_RADIUS - 0.35, 0.26, 0)), Vector3(0.7, 0.04, 0.9), Palette.AMBER)
+		r.prism(Transform3D(), 0.55, 0.45, 8, Palette.INK)
+		for i in 2:
+			var xf := Transform3D(Basis(Vector3.UP, PI * i), Vector3.ZERO)
+			r.box(xf.translated_local(Vector3(ROTOR_RADIUS * 0.5, 0.3, 0)), Vector3(ROTOR_RADIUS, 0.12, 0.8), Palette.SLATE)
+			r.box(xf.translated_local(Vector3(ROTOR_RADIUS - 0.5, 0.37, 0)), Vector3(1.0, 0.04, 0.8), Palette.BUTTER)
 		var blades := MeshInstance3D.new()
 		blades.mesh = r.mesh()
 		rotor.add_child(blades)
 		var d := LowPoly.new()
 		d.glow = true
-		for i in 20:
-			var a0 := TAU * i / 20.0
-			var a1 := TAU * (i + 1) / 20.0
-			d.tri(Vector3(0, 0.22, 0), Vector3(cos(a0), 0.22, sin(a0)) * Vector3(ROTOR_RADIUS, 1, ROTOR_RADIUS), Vector3(cos(a1), 0.22, sin(a1)) * Vector3(ROTOR_RADIUS, 1, ROTOR_RADIUS), Palette.MIST, Vector3.UP)
+		for i in 24:
+			var a0 := TAU * i / 24.0
+			var a1 := TAU * (i + 1) / 24.0
+			d.tri(Vector3(0, 0.3, 0), Vector3(cos(a0) * ROTOR_RADIUS, 0.3, sin(a0) * ROTOR_RADIUS), Vector3(cos(a1) * ROTOR_RADIUS, 0.3, sin(a1) * ROTOR_RADIUS), Palette.MIST, Vector3.UP)
 		var disc := MeshInstance3D.new()
 		disc.mesh = d.mesh()
 		disc.material_override = World._halo_material
 		disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		parts[part_name].node.add_child(disc)
-		disc.position.y = ROTOR_HEIGHT
+		mast.add_child(disc)
 		_discs.append(disc)
 		_rotors[part_name] = rotor
-	_chin.position = Vector3(0, -1.5, -5.3)
+	# Shoulder gatling turrets: four barrels each on a ball mount.
+	for side in [-1.0, 1.0]:
+		var turret := Node3D.new()
+		turret.position = Vector3(side * 2.2, 1.9, -3.4)
+		model.add_child(turret)
+		var t := LowPoly.new()
+		t.blob(Transform3D(), 0.75, Palette.STONE, 1, 0.0, 3)
+		t.box(Transform3D(Basis(), Vector3(0, 0, -0.6)), Vector3(0.8, 0.6, 0.6), Palette.INK)
+		var mount := MeshInstance3D.new()
+		mount.mesh = t.mesh()
+		turret.add_child(mount)
+		var barrels := Node3D.new()
+		barrels.position = Vector3(0, 0, -0.9)
+		turret.add_child(barrels)
+		var g := LowPoly.new()
+		for k in 4:
+			var o := Vector3(cos(TAU * k / 4.0), sin(TAU * k / 4.0), 0) * 0.16
+			g.tube(Transform3D(Basis(Vector3.UP, PI), o), 0.07, 1.8, 6, Palette.INK)
+		g.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(0, 0, -1.2)), 0.28, 0.15, 8, Palette.SLATE)
+		var spin := MeshInstance3D.new()
+		spin.mesh = g.mesh()
+		barrels.add_child(spin)
+		_gatlings.append(turret)
+		_barrels.append(barrels)
+	# Chin rocket turret: an eight-tube drum under the nose; losing it silences the gun runs too.
+	_chin.position = Vector3(0, -2.3, -5.2)
 	model.add_child(_chin)
 	var c := LowPoly.new()
-	c.box(Transform3D(), Vector3(1.8, 0.9, 1.5), Palette.INK)
-	for x in [-0.55, 0.55]:
-		for y in [-0.2, 0.2]:
-			c.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(x, y, -0.5)), 0.13, 2.2, 6, Palette.SLATE)
+	c.box(Transform3D(), Vector3(1.6, 1.0, 1.4), Palette.STONE)
+	for k in 8:
+		var o := Vector3(cos(TAU * k / 8.0), sin(TAU * k / 8.0), 0) * 0.45
+		c.tube(Transform3D(Basis(Vector3.UP, PI), o + Vector3(0, 0, -0.6)), 0.14, 0.9, 6, Palette.INK)
 	var chin_mesh := MeshInstance3D.new()
 	chin_mesh.mesh = c.mesh()
 	_chin.add_child(chin_mesh)
-	_add_part("era_left", Vector3(-2.8, 0.0, -0.5), 1.8, ERA_HP, _panel_mesh(-1.0))
-	_add_part("era_right", Vector3(2.8, 0.0, -0.5), 1.8, ERA_HP, _panel_mesh(1.0))
-	_add_part("era_front", Vector3(0, -0.2, -6.3), 1.7, ERA_HP, _nose_mesh())
-	_add_part("pod_l", Vector3(-10.0, -0.5, -0.6), 1.8, MODULE_HP.pod_l, _pod_mesh())
-	_add_part("pod_r", Vector3(10.0, -0.5, -0.6), 1.8, MODULE_HP.pod_r, _pod_mesh())
+	_add_part("era_left", Vector3(-2.6, 0.0, -1.2), 2.0, ERA_HP, _panel_mesh(-1.0))
+	_add_part("era_right", Vector3(2.6, 0.0, -1.2), 2.0, ERA_HP, _panel_mesh(1.0))
+	_add_part("era_front", Vector3(0, 0.4, -6.9), 1.6, ERA_HP, _nose_mesh())
+	_add_part("pod_l", Vector3(-6.4, -0.4, 0.2), 1.9, MODULE_HP.pod_l, _pod_mesh())
+	_add_part("pod_r", Vector3(6.4, -0.4, 0.2), 1.9, MODULE_HP.pod_r, _pod_mesh())
 	_add_part("chin", _chin.position, 1.1, MODULE_HP.chin, null)
 	for part: Part in parts.values():
 		part.module = MODULE_HP.has(part.name)
@@ -167,18 +200,11 @@ func _ready() -> void:
 		ActorLayer.unmark(disc, ActorLayer.HOSTILE)
 
 
-func _nacelle_mesh() -> Mesh:
-	# A squat engine pod on the wingtip carrying the rotor mast, with glowing intakes.
+## A rotor head: the swashplate and hub on a short mast (the mast rises from the spine pylon).
+func _mast_mesh() -> Mesh:
 	var b := LowPoly.new()
-	b.prism(Transform3D(Basis(), Vector3(0, -1.1, 0)), 1.5, 2.4, 8, Palette.ASH, 1.2)
-	b.box(Transform3D(Basis(), Vector3(0, -0.4, 0.2)), Vector3(3.2, 1.6, 4.6), Palette.STONE)
-	b.prism(Transform3D(Basis(), Vector3(0, 1.1, 0)), 0.45, ROTOR_HEIGHT - 1.0, 8, Palette.INK)
-	for x in [-0.8, 0.8]:
-		b.tube(Transform3D(Basis(), Vector3(x, -0.4, 2.5)), 0.5, 0.5, 8, Palette.INK)
-		b.glow = true
-		b.tube(Transform3D(Basis(), Vector3(x, -0.4, 3.01)), 0.3, 0.02, 8, Palette.HOT)
-		b.glow = false
-	b.box(Transform3D(Basis(), Vector3(0, 0.42, 0.2)), Vector3(3.0, 0.06, 0.4), Palette.AMBER)
+	b.prism(Transform3D(Basis(), Vector3(0, -1.6, 0)), 0.35, 1.6, 8, Palette.INK, 0.28)
+	b.prism(Transform3D(Basis(), Vector3(0, -0.3, 0)), 0.75, 0.35, 8, Palette.STONE, 0.6)
 	return b.mesh()
 
 
@@ -197,36 +223,39 @@ func _add_part(part_name: String, offset: Vector3, r: float, part_hp: float, mes
 	parts[part_name] = part
 
 
+## Bolt-on armor slab along a flank.
 func _panel_mesh(side: float) -> Mesh:
 	var b := LowPoly.new()
-	b.box(Transform3D(Basis(Vector3.BACK, side * 0.12), Vector3(side * 0.1, 0, 0)), Vector3(0.18, 2.2, 5.8), Palette.STONE)
-	b.box(Transform3D(Basis(), Vector3(side * 0.18, 0.3, 0)), Vector3(0.04, 0.15, 5.0), Palette.CORAL)
+	b.box(Transform3D(Basis(Vector3.BACK, side * -0.25), Vector3(side * 0.1, 0, 0)), Vector3(0.25, 2.2, 5.6), Palette.ASH)
+	for z in [-2.0, 0.0, 2.0]:
+		b.box(Transform3D(Basis(Vector3.BACK, side * -0.25), Vector3(side * 0.24, 0, z)), Vector3(0.05, 1.8, 0.12), Palette.SLATE)
+	b.box(Transform3D(Basis(Vector3.BACK, side * -0.25), Vector3(side * 0.24, 0.8, 0)), Vector3(0.05, 0.2, 5.0), Palette.BUTTER)
 	return b.mesh()
 
 
+## Layered armor over the upper nose, above the sensor cluster.
 func _nose_mesh() -> Mesh:
 	var b := LowPoly.new()
 	for i in 3:
-		b.box(Transform3D(Basis(Vector3.RIGHT, 0.3), Vector3(0, 0.5 - i * 0.5, -0.1 * i)), Vector3(4.2, 0.45, 0.2), Palette.STONE)
-	b.box(Transform3D(Basis(), Vector3(0, -0.6, 0.1)), Vector3(4.0, 0.08, 0.4), Palette.CORAL)
+		b.box(Transform3D(Basis(Vector3.RIGHT, 0.5), Vector3(0, 0.4 - i * 0.28, 0.3 * i)), Vector3(2.8 - i * 0.3, 0.3, 1.4), Palette.ASH if i % 2 == 0 else Palette.STONE)
 	return b.mesh()
 
 
+## A wingtip missile rack: a tall box of launch cells with warhead noses showing.
 func _pod_mesh() -> Mesh:
-	# A missile rack slung under the wingtip: a boxy launcher with rocket noses poking out.
 	var b := LowPoly.new()
-	b.box(Transform3D(), Vector3(2.2, 1.8, 4.2), Palette.STONE)
-	b.box(Transform3D(Basis(), Vector3(0, 0.95, 0)), Vector3(2.0, 0.1, 3.8), Palette.AMBER)
-	for x in [-0.55, 0.55]:
-		for y in [-0.45, 0.45]:
-			b.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(x, y, -2.1)), 0.32, 0.5, 6, Palette.ASH, 0.0)
+	b.box(Transform3D(), Vector3(1.8, 2.8, 4.8), Palette.ASH)
+	b.box(Transform3D(Basis(), Vector3(0, 1.45, 0)), Vector3(1.6, 0.1, 4.4), Palette.BUTTER)
+	for x in [-0.45, 0.45]:
+		for y in [-0.9, 0.0, 0.9]:
+			b.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(x, y, -2.4)), 0.3, 0.45, 6, Palette.ASH, 0.0)
 	return b.mesh()
 
 
 func _grow_fungus(count: int) -> void:
 	for i in count:
 		var blob := MeshInstance3D.new()
-		var p := Vector3(randf_range(-2.5, 2.5), randf_range(-1.0, 1.8), randf_range(-4.0, 5.0))
+		var p := Vector3(randf_range(-2.0, 2.0), randf_range(-1.5, 2.0), randf_range(-5.0, 9.0))
 		blob.mesh = LowPoly.new().blob(Transform3D(), randf_range(0.5, 1.1), [Palette.FUNGUS, Palette.LILAC, Palette.BLUSH][i % 3], 0, 0.35, randi()).mesh()
 		blob.position = p
 		_fungus.add_child(blob)
@@ -241,8 +270,8 @@ func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 	if _crash > 0.0:
 		return -1.0
 	var best := -1.0
-	for center: Vector3 in [Vector3(0, 0, -3.5), Vector3(0, 0, 0), Vector3(0, 0, 3.5), Vector3(-4.5, 0.7, 0.7), Vector3(4.5, 0.7, 0.7), Vector3(0, 0.2, 7.0)]:
-		var t := Entity.segment_sphere(from, to, model.global_transform * center, (2.6 if absf(center.x) < 1.0 and center.z < 6.0 else 1.3) + extra_radius)
+	for sphere: Vector4 in [Vector4(0, 0.2, -5.0, 2.2), Vector4(0, 0.4, -1.8, 2.7), Vector4(0, 0.4, 1.4, 2.6), Vector4(0, 0.4, 4.4, 2.0), Vector4(0, 0.6, 8.5, 1.0), Vector4(0, 0.6, 12.5, 1.2), Vector4(-3.9, -0.2, 0.2, 1.2), Vector4(3.9, -0.2, 0.2, 1.2)]:
+		var t := Entity.segment_sphere(from, to, model.global_transform * Vector3(sphere.x, sphere.y, sphere.z), sphere.w * MODEL_SCALE + extra_radius)
 		if t >= 0.0 and (best < 0.0 or t < best):
 			best = t
 	for part: Part in parts.values():
@@ -256,7 +285,7 @@ func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 	for name: String in ROTORS:
 		if not _live(name):
 			continue
-		var center: Vector3 = parts[name].offset + Vector3.UP * ROTOR_HEIGHT
+		var center: Vector3 = parts[name].offset
 		var extent := Vector3(ROTOR_RADIUS, 0.35, ROTOR_RADIUS) + Vector3.ONE * extra_radius
 		var a := (local_from - center) / extent
 		var b := (local_to - center) / extent
@@ -314,7 +343,7 @@ func _struck_part(at: Vector3) -> Part:
 	var local := model.to_local(at)
 	for name: String in ROTORS:
 		var part: Part = parts[name]
-		var blade := (local - part.offset - Vector3.UP * ROTOR_HEIGHT) / Vector3(ROTOR_RADIUS + 0.35, 0.7, ROTOR_RADIUS + 0.35)
+		var blade := (local - part.offset) / Vector3(ROTOR_RADIUS + 0.35, 0.9, ROTOR_RADIUS + 0.35)
 		if part.hp > 0.0 and blade.length_squared() <= 1.0:
 			return part
 	var nearest: Part = null
@@ -332,9 +361,9 @@ func _struck_part(at: Vector3) -> Part:
 ## Which ERA plate covers the airframe at a local impact point: the nose, a flank below the
 ## rotors, or none (top, belly, tail boom).
 static func _plate_facing(local: Vector3) -> String:
-	if local.z < -4.0 and absf(local.x) < 2.6:
+	if local.z < -5.6 and absf(local.x) < 2.4:
 		return "era_front"
-	if local.z < 3.0 and local.y < 1.2 and absf(local.x) > 2.0:
+	if local.z < 2.0 and local.z > -4.4 and local.y < 1.6 and absf(local.x) > 1.8:
 		return "era_left" if local.x < 0.0 else "era_right"
 	return ""
 
@@ -424,8 +453,8 @@ func behave(delta: float) -> void:
 	_watch_for_shells()
 	# Orbit the arena center, keeping the tank in front.
 	var center := Course.to_world(Course.ARENA_CENTER_D, 0.0)
-	var orbit_radius := [55.0, 34.0, 28.0][phase] as float
-	var altitude := [19.0, 13.0, 11.0][phase] as float
+	var orbit_radius := [70.0, 50.0, 42.0][phase] as float
+	var altitude := [24.0, 18.0, 15.0][phase] as float
 	var speed := [0.18, 0.3, 0.42][phase] as float
 	if not (_live("rotor_l") and _live("rotor_r")):
 		speed *= 0.6
@@ -467,6 +496,10 @@ func behave(delta: float) -> void:
 	model.rotation.z = lerpf(model.rotation.z, clampf(-lateral * 0.04, -0.15, 0.15) + damaged_bank, 3.0 * delta)
 	model.rotation.x = lerpf(model.rotation.x, -_velocity.dot(-model.global_basis.z) * 0.02 - 0.08, 3.0 * delta)
 	_chin.look_at(tank.hit_center(), Vector3.UP)
+	for gatling in _gatlings:
+		gatling.look_at(tank.hit_center(), Vector3.UP)
+	for barrels in _barrels:
+		barrels.rotation.z += delta * (30.0 if _attack == Attack.GUN else 2.0)
 	_update_attack(delta, tank)
 
 
@@ -589,7 +622,8 @@ func _gun(delta: float, tank: Tank) -> void:
 	if _shot_timer <= 0.0 and _shots < total:
 		_shots += 1
 		_shot_timer = 0.07
-		var from := _chin.global_position
+		# The shoulder gatlings take turns, so the stream visibly comes from both sides.
+		var from: Vector3 = _barrels[_shots % 2].global_transform * Vector3(0, 0, -2.0)
 		var lead := tank.hit_center() + tank.velocity * (from.distance_to(tank.hit_center()) / 110.0) * 0.7
 		var wild := 1.0 if _live("rotor_l") and _live("rotor_r") else 2.0
 		var shot := fire_at("orb", from, lead + Vector3(randf_range(-1.5, 1.5), randf_range(-0.5, 0.5), randf_range(-1.5, 1.5)) * wild, 110.0, 4.5)
