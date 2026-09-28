@@ -200,7 +200,11 @@ func test_gunship_modules_change_the_fight() -> void:
 		check(boss._attack != Gunship.Attack.GUN, "no gun runs without the chin gun")
 		boss._end_attack()
 	boss._attack = Gunship.Attack.ROCKETS
+	var gun_l: Node3D = boss.parts.gatling_l.node
 	boss._lose_part(boss.parts.pod_l)
+	check(not boss._live("gatling_l") and boss._live("gatling_r"), "a lost rack takes only the gatling slung under it")
+	check(gun_l.get_parent() != boss.model, "the gatling falls away with its rack instead of hanging in midair")
+	check_eq(boss._gatlings[0], null, "the fallen gatling no longer tracks the tank")
 	boss._lose_part(boss.parts.pod_r)
 	check_eq(boss._attack, Gunship.Attack.NONE, "losing both racks stops an active rocket volley")
 	var shots := world.projectiles.size()

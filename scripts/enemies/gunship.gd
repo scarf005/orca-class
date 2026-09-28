@@ -484,6 +484,10 @@ func _lose_part(part: Part, direction := Vector3.ZERO) -> void:
 			hp -= max_hp * 0.05
 			if not (_live("pod_l") or _live("pod_r")) and _attack == Attack.ROCKETS:
 				_end_attack()
+			# The gatling slung under the rack goes down with it.
+			var gatling: Part = parts["gatling_l" if part.name == "pod_l" else "gatling_r"]
+			if gatling.hp > 0.0:
+				_lose_part(gatling, direction)
 	_update_phase()
 
 
