@@ -113,24 +113,36 @@ func targets_for(team: Entity.Team) -> Array[Entity]:
 	return result
 
 
-## shape -> [look, core width, length, halo scale]. Streaks trail behind the head; orbs are round;
-## missiles have a lit body and a glowing exhaust. Every shape gets a dithered glow halo.
+## shape -> [look, caliber width, tracer length, halo scale]. Rounds have a pointed nose, a round
+## body and a tracer tail tapering away behind them; darts are finned rods; orbs are round;
+## missiles have a lit body and a glowing exhaust. Every shape gets an ink outline and a glow halo.
 const PROJECTILE_SHAPES := {
-	"bullet": ["streak", 0.3, 4.0, 3.0],
-	"fragment": ["streak", 0.18, 1.4, 2.5],
-	"pellet": ["streak", 0.24, 1.6, 2.5],
-	"shell": ["streak", 0.55, 5.0, 2.8],
-	"dart": ["streak", 0.28, 7.0, 3.0],
-	"orb": ["orb", 0.55, 0.0, 2.2],
-	"mortar": ["orb", 0.5, 0.0, 2.0],
-	"fire": ["orb", 0.4, 0.0, 2.2],
-	"rocket": ["missile", 0.2, 1.1, 2.6],
-	"atgm": ["missile", 0.24, 1.3, 2.8],
-	"bomb": ["missile", 0.3, 0.9, 2.0],
+	"bullet": ["round", 0.3, 4.0, 1.8],
+	"fragment": ["round", 0.18, 1.4, 1.8],
+	"pellet": ["orb", 0.18, 0.0, 1.8],
+	"shell": ["round", 0.55, 5.0, 1.8],
+	"dart": ["dart", 0.22, 5.0, 2.0],
+	"orb": ["orb", 0.55, 0.0, 1.6],
+	"mortar": ["orb", 0.5, 0.0, 1.5],
+	"fire": ["orb", 0.4, 0.0, 1.7],
+	"rocket": ["missile", 0.2, 1.1, 2.0],
+	"atgm": ["missile", 0.24, 1.3, 2.2],
+	"bomb": ["missile", 0.3, 0.9, 1.8],
 }
 static var _shape_meshes := {}
 static var _halo_material := _make_halo_material()
 static var _outline_material := _make_outline_material()
+static var _core_material := _make_core_material()
+
+
+## Shots are drawn at their true saturated color: vertex colors read as sRGB, unlit. The scene's
+## default material treats them as linear, which washes everything else toward pastel on purpose.
+static func _make_core_material() -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.vertex_color_use_as_albedo = true
+	material.vertex_color_is_srgb = true
+	return material
 
 
 ## Back faces of a slightly larger shell drawn in ink: a hard outline around every shot.
@@ -146,7 +158,7 @@ static func _make_halo_material() -> ShaderMaterial:
 	var material := ShaderMaterial.new()
 	material.shader = preload("res://shaders/dither_fade.gdshader")
 	material.set_shader_parameter("unshaded", true)
-	material.set_shader_parameter("alpha_scale", 0.75)
+	material.set_shader_parameter("alpha_scale", 0.45)
 	return material
 
 
@@ -167,23 +179,43 @@ static func _projectile_meshes(shape: String, color: Color) -> Array[Mesh]:
 	halo.glow = true
 	outline.glow = true
 	match spec[0]:
-		"streak":
-			core.box(Transform3D(Basis(), Vector3(0, 0, length * 0.5)), Vector3(width, width, length), color)
-			core.box(Transform3D(Basis(), Vector3(0, 0, length * 0.2)), Vector3(width, width, length * 0.4) * 1.02, hot)
-			outline.box(Transform3D(Basis(), Vector3(0, 0, length * 0.5)), Vector3(width * 1.7, width * 1.7, length + width), Palette.INK)
-			halo.box(Transform3D(Basis(), Vector3(0, 0, length * 0.55)), Vector3(width * halo_scale, width * halo_scale, length * 1.1), color)
+		"round", "dart":
+			# The head points along -Z (the flight direction); the tracer streams back along +Z.
+			var r := width * 0.5
+			var forward := Basis.from_euler(Vector3(0, PI, 0))
+			var body := width * (2.2 if spec[0] == "round" else 5.0)
+			var nose := width * (1.5 if spec[0] == "round" else 1.0)
+			core.tube(Transform3D(forward, Vector3.ZERO), r, nose, 8, hot, 0.0)
+			core.tube(Transform3D(Basis(), Vector3.ZERO), r, body, 8, color, r * 0.92)
+			if shape == "shell":
+				core.tube(Transform3D(Basis(), Vector3(0, 0, body * 0.6)), r * 1.12, width * 0.35, 8, Palette.AMBER)
+			if spec[0] == "dart":
+				for k in 4:
+					core.box(Transform3D(Basis(Vector3.BACK, k * PI * 0.5), Vector3(0, 0, body - width)), Vector3(width * 2.4, width * 0.25, width * 1.6), Palette.SLATE)
+			core.tube(Transform3D(Basis(), Vector3(0, 0, body)), r * 0.8, length, 6, color, 0.0)
+			outline.tube(Transform3D(forward, Vector3(0, 0, -width * 0.2)), r * 1.45, nose * 1.2, 8, Palette.INK, 0.0)
+			outline.tube(Transform3D(Basis(), Vector3.ZERO), r * 1.45, body + width * 0.3, 8, Palette.INK, r * 1.3)
+			halo.blob(Transform3D(), r * halo_scale, color, 0, 0.1, 3)
+			halo.tube(Transform3D(Basis(), Vector3.ZERO), r * halo_scale * 0.7, body + length * 0.8, 6, color, 0.0)
 		"orb":
 			core.blob(Transform3D(), width, color, 1, 0.1, 5)
 			core.blob(Transform3D(), width * 0.55, hot, 0, 0.1, 5)
 			outline.blob(Transform3D(), width * 1.3, Palette.INK, 1, 0.1, 5)
 			halo.blob(Transform3D(), width * halo_scale, color, 0, 0.2, 6)
 		"missile":
+			# Round body with a pointed nose, a colored band and four tail fins; glowing motor behind.
+			var r := width * 0.5
+			var forward := Basis.from_euler(Vector3(0, PI, 0))
 			core.glow = false
-			core.box(Transform3D(Basis(), Vector3(0, 0, length * 0.5)), Vector3(width, width, length), Palette.SLATE)
-			core.box(Transform3D(Basis(), Vector3(0, 0, length * 0.8)), Vector3(width * 2.2, 0.03, width * 1.2), Palette.STONE)
+			core.tube(Transform3D(forward, Vector3.ZERO), r, width * 1.6, 8, Palette.STONE, 0.0)
+			core.tube(Transform3D(Basis(), Vector3.ZERO), r, length, 8, Palette.SLATE)
+			core.tube(Transform3D(Basis(), Vector3(0, 0, length * 0.25)), r * 1.05, width * 0.5, 8, color)
+			for k in 4:
+				core.box(Transform3D(Basis(Vector3.BACK, k * PI * 0.5 + PI * 0.25), Vector3(0, 0, length * 0.85)), Vector3(width * 2.4, 0.03, width * 1.4), Palette.DUSK)
 			core.glow = true
-			core.box(Transform3D(Basis(), Vector3(0, 0, length + 0.15)), Vector3(width, width, 0.3) * 1.3, hot)
-			outline.box(Transform3D(Basis(), Vector3(0, 0, length * 0.55)), Vector3(width * 1.5, width * 1.5, length * 1.3), Palette.INK)
+			core.tube(Transform3D(Basis(), Vector3(0, 0, length)), r * 0.8, width * 1.5, 6, hot, 0.0)
+			outline.tube(Transform3D(forward, Vector3(0, 0, -width * 0.2)), r * 1.4, width * 1.9, 8, Palette.INK, 0.0)
+			outline.tube(Transform3D(Basis(), Vector3.ZERO), r * 1.4, length + width * 0.2, 8, Palette.INK)
 			halo.blob(Transform3D(Basis(), Vector3(0, 0, length + 0.3)), width * halo_scale, color, 0, 0.2, 7)
 	var meshes: Array[Mesh] = [core.mesh(), halo.mesh(), outline.mesh()]
 	_shape_meshes[key] = meshes
@@ -198,7 +230,9 @@ static func projectile_visual(shape: String, color: Color) -> Array[MeshInstance
 		var mesh := MeshInstance3D.new()
 		mesh.mesh = meshes[i]
 		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		if i == 1:
+		if i == 0:
+			mesh.material_override = _core_material
+		elif i == 1:
 			mesh.material_override = _halo_material
 		elif i == 2:
 			mesh.material_override = _outline_material

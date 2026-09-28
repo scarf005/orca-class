@@ -21,6 +21,17 @@ func run() -> int:
 	var closeup: String = preload("res://scripts/main.gd").args().get("closeup", "")
 	if not closeup.is_empty():
 		# Frame every posed enemy of the given classes, e.g. --closeup=Walker,QuadMech.
+		if closeup == "projectiles":
+			var cam_p := room.world.camera
+			for part in 2:
+				var focus := Course.ground_at(room._row_d[7], (part - 0.5) * 14.0) + Vector3.UP * 2.0
+				cam_p.global_position = focus + Vector3(0, 0.8, 7.5)
+				cam_p.look_at(focus, Vector3.UP)
+				room._yaw = cam_p.rotation.y
+				room._pitch = cam_p.rotation.x
+				await get_tree().create_timer(0.2).timeout
+				get_viewport().get_texture().get_image().save_png("%s/projectiles_%d.png" % [out, part])
+			return 0
 		var targets := room.world.enemies.filter(func(e: Entity) -> bool: return e.get_script().get_global_name() in closeup.split(","))
 		var center := Vector3.ZERO
 		for e: Entity in targets:

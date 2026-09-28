@@ -8,7 +8,7 @@ extends Control
 const START_D := 120.0
 const ROWS := ["TANK", "ENEMIES", "BOSSES", "PICKUPS", "PROPS", "BUILDINGS", "FUNGUS", "PROJECTILES", "VFX"]
 ## Per row: distance ahead of the previous row, camera distance back, camera height.
-const LAYOUT := [[0.0, 16.0, 6.0], [34.0, 34.0, 10.0], [44.0, 48.0, 20.0], [44.0, 16.0, 3.5], [30.0, 30.0, 11.0], [40.0, 46.0, 18.0], [52.0, 42.0, 16.0], [44.0, 20.0, 6.0], [30.0, 62.0, 22.0]]
+const LAYOUT := [[0.0, 16.0, 6.0], [34.0, 34.0, 10.0], [44.0, 48.0, 20.0], [44.0, 16.0, 3.5], [30.0, 30.0, 11.0], [40.0, 46.0, 18.0], [52.0, 42.0, 16.0], [44.0, 17.0, 3.0], [30.0, 62.0, 22.0]]
 
 var view := DitherView.new()
 var world: World
@@ -172,14 +172,14 @@ func _build_projectiles(d: float) -> void:
 	_row_title(7)
 	var shapes := World.PROJECTILE_SHAPES.keys()
 	for i in shapes.size():
-		var at := _slot(d, i, shapes.size(), 4.5) + Vector3.UP * 2.0
+		var at := _slot(d, i, shapes.size(), 2.6) + Vector3.UP * 2.0
 		var enemy_shot: bool = shapes[i] in ["orb", "rocket", "atgm", "bomb", "mortar"]
 		var color := Palette.HOT if enemy_shot else Palette.AMBER
 		for node in World.projectile_visual(shapes[i], color):
 			world.add_child(node)
 			node.global_position = at
 			node.rotation.y = PI * 0.5
-		_label(String(shapes[i]).to_upper(), at + Vector3.UP * 2.0, color, 0.7)
+		_label(String(shapes[i]).to_upper(), at + Vector3.UP * (1.2 + (i % 2) * 0.8), color, 0.45)
 
 
 func _build_vfx(d: float) -> void:
