@@ -170,6 +170,7 @@ func _attack(tank: Tank) -> void:
 		return
 	var world := World.current
 	var from := _muzzle.global_position
+	muzzle_blast(from, Vector3.UP, true)
 	for i in (4 if _hard else 3):
 		var flight := 1.7 + i * 0.12
 		var target := tank.global_position + tank.velocity * flight + Vector3(randf_range(-5, 5), 0, randf_range(-5, 5)) * float(i > 0)

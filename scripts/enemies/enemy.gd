@@ -215,7 +215,22 @@ static func kill_push(hit: Hit) -> Vector3:
 	return dir * 0.25
 
 
+const HEAVY_SHOTS := ["rocket", "atgm", "mortar"]
+
+
+## Every enemy shot leaves the barrel in a hot flash and a puff of gun smoke; launches and mortars
+## kick out a bigger cloud and light up the ground.
+func muzzle_blast(from: Vector3, dir: Vector3, heavy: bool) -> void:
+	var fx := World.current.fx
+	fx.muzzle_flash(from + dir * 0.3, dir, 1.5 if heavy else 0.9, Palette.HOT)
+	fx.smoke(from + dir * 0.5, 4 if heavy else 2, 0.8 if heavy else 0.35, [Palette.ASH, Palette.STONE, Palette.MIST])
+	if heavy:
+		fx.smoke(from - dir * 1.2, 3, 0.8, [Palette.ASH, Palette.MIST])
+		fx.light_flash(from, 6.0, Palette.CORAL, 10.0)
+
+
 func fire_at(shape: String, from: Vector3, target: Vector3, speed: float, damage: float, color := Palette.HOT) -> Projectile:
+	muzzle_blast(from, (target - from).normalized(), shape in HEAVY_SHOTS)
 	var projectile := World.current.spawn_projectile(Team.ENEMY, from, (target - from).normalized() * speed, shape, color)
 	projectile.hit = Hit.make(Hit.Kind.BULLET, damage, from)
 	projectile.hit.source = self
