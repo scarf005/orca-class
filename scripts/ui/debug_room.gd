@@ -2,7 +2,8 @@ class_name DebugRoom
 extends Control
 ## A gallery of every model and effect in labeled rows on a flat checkered floor (10 m squares).
 ## Fly with WASD (Q/E down/up, Shift fast), look by dragging with the right mouse button,
-## jump between rows with 1-9. Effect stations replay every two seconds.
+## jump between rows with 1-9. Left click fires the main gun from the camera; the mouse wheel
+## picks the round. Effect stations replay every two seconds.
 ## Run: godot --path . -- --debug-room
 
 const START_D := -440.0 ## On the long straight before the stage start, so the rows line up.
@@ -19,10 +20,15 @@ var _looking := false
 var _vfx_timer := 0.0
 var _stations: Array[Dictionary] = [] ## {position, effect}
 var _tails: Array[Tail] = []
+var _gunner := Tank.new() ## Never seen or moved: it only owns the rounds fired from the camera.
+var _round := Armament.Round.APHE
+var _round_label := Label.new()
 
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# Let clicks and drags through to _input instead of being eaten by this Control.
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	Course.flat = true
 	var d := START_D
 	for spec: Array in LAYOUT:
@@ -46,11 +52,43 @@ func _ready() -> void:
 	_build_props(_row_d[6], 6, ["mushroom", "veins", "mycelium", "egg_sacs", "cordyceps", "husk_cow", "infested_car", "flesh_mound", "spore_tower", "infested_house", "fungal_spire"])
 	_build_projectiles(_row_d[7])
 	_build_vfx(_row_d[8])
+	world.add_child(_gunner)
+	_gunner.process_mode = Node.PROCESS_MODE_DISABLED
+	_gunner.visible = false
+	_gunner._engine_sound.stop()
+	var crosshair := Label.new()
+	crosshair.text = "+"
+	crosshair.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	add_child(crosshair)
+	_round_label.position = Vector2(16, 16)
+	add_child(_round_label)
+	_show_round()
 	jump_to(0)
+
+
+func _show_round() -> void:
+	_round_label.text = String(Armament.ROUND_IDS[_round]).to_upper()
+
+
+## Fires the chosen round from just below the camera toward the middle of the view.
+func _fire() -> void:
+	var cam := world.camera
+	var forward := -cam.global_basis.z
+	var from := cam.global_position + forward * 2.0 - cam.global_basis.y * 0.6
+	var target := from + forward * 150.0
+	for k in 150:
+		var p := from + forward * k
+		if p.y < Course.height_at(p):
+			target = p
+			break
+	_gunner.aim_point = target
+	_gunner.load_round(_round)
+	_gunner.fire_cannon(from, forward)
 
 
 func _exit_tree() -> void:
 	Course.flat = false
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
 ## Camera preset looking at a row from the front and a little above.
@@ -238,9 +276,16 @@ func _process(delta: float) -> void:
 	cam.rotation = Vector3(_pitch, _yaw, 0.0)
 
 
-func _unhandled_input(event: InputEvent) -> void:
+func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
 		_looking = event.pressed
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if _looking else Input.MOUSE_MODE_VISIBLE
+	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		_fire()
+	elif event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		var step := 1 if event.button_index == MOUSE_BUTTON_WHEEL_DOWN else -1
+		_round = posmod(_round + step, Armament.ROUND_IDS.size()) as Armament.Round
+		_show_round()
 	elif event is InputEventMouseMotion and _looking:
 		_yaw -= event.relative.x * 0.004
 		_pitch = clampf(_pitch - event.relative.y * 0.004, -1.4, 1.4)

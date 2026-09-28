@@ -564,16 +564,19 @@ func _fire_coax(muzzle: Node3D, caliber: int, spec: Dictionary, target: Entity) 
 	Sfx.gun(spec.sound, randf_range(0.93, 1.07))
 
 
-func fire_cannon() -> void:
+## Fires the loaded round from the barrel, or from `from` along `toward` when given (the debug
+## room shoots from its camera).
+func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO) -> void:
 	var world := World.current
-	var muzzle := model.muzzle.global_position
-	var barrel_dir := -model.barrel.global_basis.z
+	var muzzle := model.muzzle.global_position if from == Vector3.INF else from
+	var barrel_dir := -model.barrel.global_basis.z if toward == Vector3.ZERO else toward.normalized()
+	var shot_dir := func(speed: float) -> Vector3: return barrel_dir if toward != Vector3.ZERO else _fire_direction(muzzle, speed)
 	var round := current_round
 	world.stats.shots += 1
 	match round:
 		Armament.Round.CANISTER:
 			# A wall of tungsten balls, and a muzzle blast that flattens everything just ahead.
-			var aim_dir := _fire_direction(muzzle, 200.0)
+			var aim_dir: Vector3 = shot_dir.call(200.0)
 			world.blast(muzzle + aim_dir * 7.0, 6.0, 260.0, Team.PLAYER, _cannon_hit(), null, [Palette.WHITE, Palette.BUTTER, Palette.AMBER], aim_dir)
 			# Fifty hitscan balls land at once, each drawn as a yellow streak.
 			for i in 50:
@@ -589,7 +592,7 @@ func fire_cannon() -> void:
 				world.fx.spawn(Fx.Kind.FLAME, end, Vector3.UP * 2.0, 0.12, 0.5, Palette.BUTTER)
 		Armament.Round.DRAGON:
 			# A roaring cone of burning magnesium: a fireball right ahead and a long gout of flame.
-			var aim_dir := _fire_direction(muzzle, 60.0)
+			var aim_dir: Vector3 = shot_dir.call(60.0)
 			var burst := _cannon_hit()
 			burst.incendiary = true
 			world.blast(muzzle + aim_dir * 9.0, 7.0, 220.0, Team.PLAYER, burst, null, [Palette.WHITE, Palette.BUTTER, Palette.AMBER, Palette.HOT], aim_dir)
@@ -617,7 +620,7 @@ func fire_cannon() -> void:
 		_:
 			var speed := Armament.SHELL_SPEED
 			var shape := "dart" if round == Armament.Round.APFSDS else "shell"
-			var dir := _fire_direction(muzzle, speed)
+			var dir: Vector3 = shot_dir.call(speed)
 			var shell := world.spawn_projectile(Team.PLAYER, muzzle, dir * speed, shape, Armament.ROUND_COLORS[round])
 			shell.hit = Hit.make(Hit.Kind.SHELL, Armament.SHELL_DAMAGE, muzzle)
 			shell.hit.caliber = 100
