@@ -1,0 +1,72 @@
+extends TestCase
+## Stage flow: events, checkpoints, mid-boss hold, game over, stage data sanity.
+
+
+func test_checkpoint_start_is_unranked_and_positioned() -> void:
+	var world := stage("boss")
+	check_near(world.rail.d, Director.CHECKPOINTS["boss"], 0.01, "rail starts at the boss checkpoint")
+	check(not world.stats.ranked, "checkpoint runs are unranked")
+	check(world.player.coax_tier >= 3, "checkpoint grants a fair coax tier")
+
+
+func test_waves_spawn_as_rail_advances() -> void:
+	var world := stage()
+	world.rail.d = 85.0
+	var ok := await wait_until(func() -> bool: return world.enemies.size() > 0, 120)
+	check(ok, "the first drone wave spawns near d=90")
+
+
+func test_midboss_holds_rail_until_dead() -> void:
+	var world := stage("midboss")
+	world.rail.d = Course.MIDBOSS_D - 111.0
+	var spawned := await wait_until(func() -> bool: return world.boss is Colossus, 120)
+	check(spawned, "mid-boss appears")
+	check_eq(world.rail.mode, Rail.Mode.HOLD, "rail holds for the fight")
+	await frames(400)
+	check(world.rail.d <= world.rail.hold_at + 0.5, "rail never passes the hold point")
+	var boss := world.boss as Colossus
+	for part: Colossus.Part in boss.parts:
+		part.cap = 0.0
+		part.hp = 0.0
+	boss.core.hp = 1.0
+	boss.take_hit(Hit.make(Hit.Kind.SHELL, 10.0, boss.global_transform * boss.core.offset))
+	var released := await wait_until(func() -> bool: return world.rail.mode == Rail.Mode.RAIL, 60 * 8)
+	check(released, "rail resumes after the mid-boss dies")
+
+
+func test_game_over_after_last_life() -> void:
+	var world := stage()
+	var over := [false]
+	world.game_over.connect(func() -> void: over[0] = true)
+	world.stats.lives = 1
+	world.player.take_hit(Hit.make(Hit.Kind.BLAST, 9999.0, world.player.global_position, Vector3.BACK))
+	check(over[0], "last life lost ends the run")
+	check(world.player.dead, "tank stays dead")
+
+
+func test_stage_events_are_ordered_and_reach_the_boss() -> void:
+	var events := Stage1.events(false)
+	var kinds := {}
+	for e in events:
+		if e.type == "wave":
+			kinds[e.kind] = true
+			check(Director.ENEMY_SCRIPTS.has(e.kind), "wave kind %s has a script" % e.kind)
+	for kind in ["fpv", "ugv", "uav", "crawler", "spitter"]:
+		check(kinds.has(kind), "stage uses %s" % kind)
+	check(events.any(func(e: Dictionary) -> bool: return e.type == "midboss"), "stage has the mid-boss")
+	check(events.any(func(e: Dictionary) -> bool: return e.type == "boss"), "stage has the boss")
+	check(Stage1.events(true).size() > events.size(), "hard adds encounters")
+
+
+func test_course_is_continuous_and_walkable() -> void:
+	var previous := Course.height(0.0, 0.0)
+	var d := 0.0
+	while d < Course.ARENA_CENTER_D:
+		for u in [-12.0, 0.0, 12.0]:
+			var h := Course.height(d, u)
+			check(not is_nan(h), "height defined at %.0f,%.0f" % [d, u])
+			check(h > Course.WATER_LEVEL, "corridor stays above water at %.0f,%.0f" % [d, u])
+		var h0 := Course.height(d, 0.0)
+		check(absf(h0 - previous) < 1.5, "road has no cliffs near d=%.0f" % d)
+		previous = h0
+		d += 2.0
