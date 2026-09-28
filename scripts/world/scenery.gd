@@ -47,6 +47,12 @@ const PROPS := {
 	"plane_tree": [0.9, 9.0, 45.0, false, true, true, 10, false, false],
 }
 
+## Wrecked cars: the tank drives over them and flattens them; shooting them still sets them off.
+const VEHICLES := ["car", "truck", "infested_car"]
+
+## Tall thin props that snap and fall over rather than vanish.
+const FALLING := ["pole", "plane_tree", "persimmon", "cordyceps"]
+
 ## Plain props that spawn overgrown more often the deeper the stage goes.
 const INFESTED := {"house": "infested_house", "car": "infested_car"}
 const FUNGAL := ["fungal_spire", "infested_house", "infested_car", "flesh_mound", "cordyceps", "husk_cow", "egg_sacs", "mushroom", "spore_tower"]
@@ -77,6 +83,7 @@ var specs: Array[Spec] = []
 var _rng := RandomNumberGenerator.new()
 var _next := 0
 var _live: Array[Spec] = []
+var _wires_of := {} ## Pole spec -> the wire decor specs strung from it.
 var _groups: Array[Dictionary] = [] ## Compound id -> {piece index: Prop}, filled as pieces stream in.
 
 
@@ -197,6 +204,7 @@ func _farm() -> void:
 		add("husk_cow", cd, _rng.randf_range(12.0, 30.0) * (1.0 if int(cd) % 2 else -1.0), _rng.randf() * TAU)
 	add("bus_stop", 300.0, -8.0)
 	add("car", 360.0, 3.0, 0.3, 2)
+	_scatter("car", 60.0, 560.0, 10, 1.0, 14.0)
 	add("crate", 150.0, -4.0, 0.2, 0, "coax")
 	add("crate", 470.0, 5.0, -0.2, 1, "canister")
 	_fungus(200.0, 560.0, 0.5)
@@ -227,7 +235,7 @@ func _village() -> void:
 		for k in 3:
 			add("greenhouse", gd + k * 20.0, 20.0 + k * 1.5, 0.0)
 			add("greenhouse", gd + 10.0 + k * 20.0, -22.0 - k * 1.5, 0.0)
-	_scatter("car", 620.0, 1430.0, 7, 2.0, 11.0)
+	_scatter("car", 620.0, 1430.0, 22, 2.0, 16.0)
 	_scatter("persimmon", 620.0, 1430.0, 14, 9.0, 30.0)
 	add("crate", 880.0, 7.0, 0.0, 0, "dragon")
 	add("crate", 640.0, -5.0, 0.0, 1, "era")
@@ -258,7 +266,7 @@ func _reservoir() -> void:
 	for pd in [1900.0, 2150.0, 2400.0]:
 		add_decor(PropKit.mesh("pier", int(pd)), pd, -60.0 - _rng.randf_range(0, 20), _rng.randf() * TAU, Course.WATER_LEVEL)
 	_scatter("house", 1780.0, 2640.0, 6, 22.0, 40.0, false)
-	_scatter("car", 1800.0, 2640.0, 6, 0.0, 9.0)
+	_scatter("car", 1800.0, 2640.0, 18, 0.0, 12.0)
 	add("crate", 2000.0, 6.0, 0.0, 0, "airburst")
 	add("crate", 2150.0, -4.0, 0.0, 1, "era")
 	add("crate", 2450.0, 3.0, 0.0, 0, "tail")
@@ -278,7 +286,7 @@ func _overpass() -> void:
 	add_decor(_gantry_mesh(), 3260.0, 0.0, 0.0)
 	for td in [3040.0, 3140.0, 3220.0, 3300.0]:
 		add("truck" if _rng.randf() < 0.5 else "car", td, _rng.randf_range(-9.0, 9.0), _rng.randf_range(-0.4, 0.4))
-	_scatter("car", 2680.0, 2890.0, 5, 0.0, 10.0)
+	_scatter("car", 2680.0, 2890.0, 10, 0.0, 12.0)
 	add("crate", 2700.0, 0.0, 0.0, 0, "apfsds")
 	add("crate", 2950.0, -3.0, 0.0, 1, "era")
 	add("crate", 3050.0, 4.0, 0.0, 0, "tail")
@@ -305,9 +313,9 @@ func _boom() -> void:
 	while d < Course.SECTION_STARTS[Course.Section.ARENA]:
 		if Course.section_at(d) != Course.Section.SCHOOL:
 			var u := _rng.randf_range(4.0, 11.0) * (1.0 if _rng.randf() < 0.5 else -1.0)
-			for i in _rng.randi_range(3, 6):
+			for i in _rng.randi_range(2, 3):
 				add("barrel", d + _rng.randf_range(-2.0, 2.0), u + _rng.randf_range(-2.0, 2.0), _rng.randf() * TAU)
-		d += _rng.randf_range(70.0, 120.0)
+		d += _rng.randf_range(220.0, 320.0)
 	for station in [[980.0, -14.0], [2880.0, 10.0]]:
 		add("gas_station", station[0], station[1], PI * 0.5)
 		for k in 3:
@@ -334,6 +342,7 @@ func _wires() -> void:
 	for side in [-1.0, 1.0]:
 		var d := 10.0 if side < 0.0 else 30.0
 		var previous := Vector3.INF
+		var previous_pole: Spec = null
 		while d < Course.SECTION_STARTS[Course.Section.OVERPASS]:
 			var u: float = side * 9.5
 			if Course.section_at(d) == Course.Section.RESERVOIR and side < 0.0:
@@ -344,11 +353,17 @@ func _wires() -> void:
 				previous = Vector3.INF
 				d += 40.0
 				continue
-			add("pole", d, u, 0.0)
+			var pole := add("pole", d, u, 0.0)
 			var top := Course.ground_at(d, u) + Vector3.UP * 9.2
 			if previous != Vector3.INF:
-				add_decor(_wire_mesh(previous, top, Course.yaw_at(d)), d, u, 0.0, 0.0)
+				var wire := add_decor(_wire_mesh(previous, top, Course.yaw_at(d)), d, u, 0.0, 0.0)
+				wire.set_meta("ends", [previous, top])
+				for end: Spec in [previous_pole, pole]:
+					if not _wires_of.has(end):
+						_wires_of[end] = []
+					_wires_of[end].append(wire)
 			previous = top
+			previous_pole = pole
 			d += 40.0
 
 
@@ -469,6 +484,8 @@ func _instantiate(spec: Spec) -> void:
 		if cfg[8]:
 			prop.rubble_mesh = PropKit.mesh("rubble", spec.variant)
 		prop.drop = spec.drop
+		prop.falls = spec.kind in FALLING
+		prop.crush_flat = spec.kind in VEHICLES
 		prop.fungal = spec.kind in FUNGAL
 		prop.debris_colors = _debris_colors(spec.kind, spec.variant)
 		# Position before entering the tree: props register into spatial buckets on entry.
@@ -478,7 +495,37 @@ func _instantiate(spec: Spec) -> void:
 		spec.node = prop
 		if spec.group >= 0:
 			_link(spec, prop)
+		if _wires_of.has(spec):
+			prop.felled.connect(func(_p: Prop) -> void: _cut_wires(spec))
+			prop.died.connect(func(_e: Entity) -> void: _cut_wires(spec))
 	_live.append(spec)
+
+
+## A pole went down: its wires snap in a shower of sparks and fall.
+func _cut_wires(pole: Spec) -> void:
+	for wire: Spec in _wires_of.get(pole, []):
+		if wire.has_meta("cut"):
+			continue
+		wire.set_meta("cut", true)
+		var world := World.current
+		for end: Vector3 in wire.get_meta("ends"):
+			world.fx.sparks(end, Vector3.UP, 26, Palette.WHITE, 14.0)
+			world.fx.sparks(end, Vector3.DOWN, 14, Palette.CYAN, 10.0)
+			world.fx.light_flash(end, 10.0, Palette.CYAN, 18.0)
+		Sfx.play("zap", wire.get_meta("ends")[1], 4.0, 0.6)
+		if not is_instance_valid(wire.node):
+			continue
+		var node := wire.node
+		var drop := node.create_tween()
+		drop.tween_property(node, "position:y", node.position.y - 8.4, 0.6).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		drop.tween_callback(func() -> void:
+			var ends: Array = wire.get_meta("ends")
+			for i in 5:
+				var p: Vector3 = (ends[0] as Vector3).lerp(ends[1], (i + 0.5) / 5.0)
+				p.y = Course.height_at(p) + 0.2
+				World.current.fx.sparks(p, Vector3.UP, 8, Palette.CYAN, 7.0)
+			World.current.fx.dust((ends[0] as Vector3).lerp(ends[1], 0.5), 5, 3.0, Palette.OCHRE)
+			Sfx.play("zap", ends[1], 0.0, 0.9))
 
 
 ## Connects a compound piece to whatever it rests on and whatever rests on it, whichever streamed first.

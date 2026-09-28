@@ -1,7 +1,10 @@
 class_name Prop
 extends Entity
 ## A destructible piece of scenery with a vertical-cylinder footprint.
-## Solid props block the tank; crushable ones break when the tank drives into them.
+## Solid props block the tank; crushable ones break when the tank drives into them. Tall thin ones
+## (`falls`: poles, trees) snap at the base and topple the way they were hit instead of vanishing.
+
+signal felled(prop: Prop) ## It started to topple.
 
 var kind := ""
 var footprint := 1.0
@@ -15,6 +18,8 @@ var explosive := false
 var blast_size := 4.5 ## Radius of the explosion when an explosive prop goes up.
 var fungal := false ## Bursts into spores and splatter when destroyed.
 var supports: Array[Prop] = [] ## Pieces resting on this one; they topple when it breaks.
+var falls := false
+var crush_flat := false ## Driven over, it is squashed flat instead of going up.
 var _topple := -1.0
 var _topple_axis := Vector3.RIGHT
 var _topple_by_player := false
@@ -75,13 +80,36 @@ func topple(by_player: bool, from: Vector3) -> void:
 	_topple_axis = Vector3.UP.cross(away.normalized())
 	always_tick = true
 	set_process(true)
+	felled.emit(self)
+
+
+func is_falling() -> bool:
+	return _topple >= 0.0
+
+
+func die(hit: Hit) -> void:
+	if falls and not is_falling() and not dead:
+		# Snaps at the base in a burst of splinters and goes over, away from the blow.
+		hp = 1.0
+		var push := Enemy.kill_push(hit)
+		if push == Vector3.ZERO:
+			push = Vector3(randf_range(-1, 1), 0, randf_range(-1, 1))
+		var world := World.current
+		world.fx.debris(global_position + Vector3.UP * 0.6, 10, debris_colors, 8.0, 0.25, push)
+		world.fx.dust(global_position, 4, 1.0, Palette.MIST)
+		Sfx.play("wood", global_position, 0.0, randf_range(0.8, 1.1))
+		if hit != null and hit.by_player():
+			world.style_event("DEMOLITION", 8.0)
+		topple(hit != null and hit.by_player(), global_position - push)
+		return
+	super(hit)
 
 
 func tick(delta: float) -> void:
 	if _topple < 0.0:
 		return
 	_topple += delta
-	var k := minf(_topple / 1.1, 1.0)
+	var k := minf(_topple / (0.7 if falls else 1.1), 1.0)
 	rotate(_topple_axis, delta * (0.5 + k * 2.4))
 	global_position.y -= delta * k * 6.0
 	if k >= 1.0:
@@ -125,6 +153,25 @@ func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 	return t * from.distance_to(to)
 
 
+## Driven over: the body is squashed flat with a crunch and a burst of glass and sparks, and the
+## flattened hulk stays behind. No explosion.
+func _crush(world: World, push: Vector3) -> void:
+	world.fx.sparks(global_position + Vector3.UP * 0.8, push + Vector3.UP, 18, Palette.BUTTER, 12.0)
+	world.fx.debris(global_position + Vector3.UP, 10, [Palette.SKY, Palette.WHITE, Palette.INK], 9.0, 0.18, push)
+	world.fx.dust(global_position, 6, footprint, Palette.OCHRE)
+	world.shake(0.2, global_position)
+	world.hitstop(0.025)
+	Sfx.play("rubble", global_position, 2.0, 1.3)
+	Sfx.play("impact", global_position, 0.0, 0.7)
+	var hulk := MeshInstance3D.new()
+	hulk.mesh = (get_node("Mesh") as MeshInstance3D).mesh
+	hulk.transform = global_transform.scaled_local(Vector3(1.12, 0.28, 1.06))
+	world.props.add_child(hulk)
+	if score > 0:
+		world.award(score, global_position, false)
+	world.style_event("CRUSH", 12.0)
+
+
 func damage_multiplier(hit: Hit) -> float:
 	if hit.kind == Hit.Kind.BULLET and hit.caliber < 15:
 		return 0.25
@@ -137,7 +184,13 @@ func on_death(hit: Hit) -> void:
 	var world := World.current
 	var center := global_position + Vector3.UP * height * 0.4
 	var push := Enemy.kill_push(hit)
-	world.fx.debris(center, int(clampf(footprint * height * 1.5, 4, 24)), debris_colors, 5.0 + footprint, 0.3 + footprint * 0.12, push)
+	# Rammed at speed, the pieces fly on ahead of the tank like it hit them at 80 km/h.
+	var rammed := hit != null and hit.kind == Hit.Kind.RAM
+	var force := (5.0 + footprint) * (2.6 if rammed else 1.0)
+	world.fx.debris(center, int(clampf(footprint * height * 1.5, 4, 24)) + (8 if rammed else 0), debris_colors, force, 0.3 + footprint * 0.12, push)
+	if crush_flat and rammed:
+		_crush(world, push)
+		return
 	world.fx.dust(global_position, int(clampf(footprint * 3.0, 3, 14)), footprint, Palette.MIST)
 	Sfx.play("rubble" if footprint > 1.5 else "wood", global_position)
 	if footprint > 2.5:

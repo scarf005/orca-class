@@ -125,3 +125,25 @@ func test_held_pieces_fall_away_from_the_blow() -> void:
 	trunk.take_hit(shot)
 	await frames(20)
 	check(crown.global_basis.y.x > 0.05, "the crown tips over toward +X, the way the shot went")
+
+
+func test_rammed_pole_snaps_falls_and_drops_its_wires() -> void:
+	var world := stage()
+	var scenery := world.director.scenery
+	var pole: Scenery.Spec = null
+	for spec in scenery.specs:
+		if spec.kind == "pole" and scenery._wires_of.has(spec) and is_instance_valid(spec.node):
+			pole = spec
+			break
+	check(pole != null, "a streamed-in pole with wires exists")
+	if pole == null:
+		return
+	var prop := pole.node as Prop
+	var ram := Hit.make(Hit.Kind.RAM, 99999.0, prop.global_position, Vector3.RIGHT)
+	ram.source = world.player
+	prop.take_hit(ram)
+	check(not prop.dead and prop.is_falling(), "the pole snaps and goes over instead of vanishing")
+	var wires: Array = scenery._wires_of[pole]
+	check(wires.all(func(w: Scenery.Spec) -> bool: return w.has_meta("cut")), "its wires snap")
+	var fell := await wait_until(gone(prop), 90)
+	check(fell, "it breaks up when it hits the ground")
