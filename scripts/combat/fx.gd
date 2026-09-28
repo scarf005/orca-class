@@ -289,7 +289,9 @@ func light_flash(position: Vector3, energy: float, color := Palette.PEACH, radiu
 ## the secondary pops march down it, so a shell's blast carries through what it hit.
 func explosion(position: Vector3, damage_radius: float, palette := [Palette.BUTTER, Palette.AMBER, Palette.HOT, Palette.CORAL], push := Vector3.ZERO) -> void:
 	# Visuals read bigger than the damage area: it has to register at 480x270 across the valley.
-	var radius := damage_radius * 1.5
+	# Capped so a heavy shell's blast reads huge without swallowing the screen.
+	var radius := minf(damage_radius * 1.5, 8.0)
+	var smoke_radius := minf(radius, 4.0)
 	# Particle counts grow slower than the visual size: big blasts read big without flooding the frame.
 	var n := radius * 0.75
 	var pick := func(i: int) -> Color: return palette[mini(i, palette.size() - 1)]
@@ -313,8 +315,8 @@ func explosion(position: Vector3, damage_radius: float, palette := [Palette.BUTT
 			var out := (Vector3(cos(angle), 0.0, sin(angle)) + Vector3(push.x, 0.0, push.z) * 1.2).normalized()
 			spawn(Kind.GLOW, Vector3(position.x, ground + 0.4, position.z) + out * radius * 0.4, out * randf_range(6, 12) * (0.5 + radius * 0.2) + Vector3.UP, randf_range(0.6, 1.2), randf_range(0.6, 1.1), [Palette.STRAW, Palette.OCHRE, Palette.MIST][i % 3], {"end_size": 1.8 + radius * 0.3, "drag": 3.5, "fade": 0.1})
 		scorch(Vector3(position.x, ground, position.z), radius * 0.9)
-	smoke(position, int(4 + n * 2), radius)
-	smoke_column(position, radius)
+	smoke(position, int(4 + n * 2), smoke_radius)
+	smoke_column(position, smoke_radius)
 	debris(position, int(4 + n * 2), [Palette.WOOD, Palette.INK, Palette.OCHRE], radius * 2.5, 0.35, push)
 	for i in int(1 + n * 0.8):
 		var dir := Vector3(randf_range(-1, 1), randf_range(0.8, 1.6), randf_range(-1, 1)).normalized()

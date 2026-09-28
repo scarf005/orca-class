@@ -40,12 +40,16 @@ func press(hull: Transform3D, airborne := false) -> void:
 		_last = at # Teleported (respawn): no smear across the gap.
 		return
 	var yaw := Basis(Vector3.UP, atan2(-hull.basis.z.x, -hull.basis.z.z))
-	for side in [-1.0, 1.0]:
-		var p: Vector3 = at + hull.basis.x * side * TRACK_OFFSET
-		p.y = Course.height_at(p) + 0.06
-		multimesh.set_instance_transform(_next, Transform3D(yaw, p))
-		_next = (_next + 1) % COUNT
-		multimesh.visible_instance_count = mini(multimesh.visible_instance_count + 1, COUNT)
+	# Fill the whole stretch covered since the last call, so fast frames leave no gaps.
+	var steps := int(travelled / SPACING)
+	for k in range(1, steps + 1):
+		var along := _last.lerp(at, float(k) / steps)
+		for side in [-1.0, 1.0]:
+			var p: Vector3 = along + hull.basis.x * side * TRACK_OFFSET
+			p.y = Course.height_at(p) + 0.06
+			multimesh.set_instance_transform(_next, Transform3D(yaw, p))
+			_next = (_next + 1) % COUNT
+			multimesh.visible_instance_count = mini(multimesh.visible_instance_count + 1, COUNT)
 	_last = at
 
 

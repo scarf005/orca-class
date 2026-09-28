@@ -375,7 +375,8 @@ func _draw_style() -> void:
 	_panel(Rect2(origin, Vector2(144, 58 + stats.style_feed.size() * 14)), color)
 	var jitter := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * rank * 0.5
 	_text(origin + Vector2(8, 34) + jitter, stats.STYLE_LETTERS[rank], color, 36)
-	_text(origin + Vector2(62, 22), stats.STYLE_WORDS[rank], color)
+	var word: String = stats.STYLE_WORDS[rank]
+	_text(origin + Vector2(62, 22), word, color, 12 if word.length() <= 10 else 9)
 	_text(origin + Vector2(62, 38), "×%d" % stats.multiplier(), Palette.CREAM)
 	_bar(Rect2(origin + Vector2(8, 44), Vector2(128, 5)), stats.style_progress(), color, 16)
 	for i in stats.style_feed.size():
