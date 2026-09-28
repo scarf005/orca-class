@@ -1,4 +1,4 @@
-"""Serve the Web export with the isolation headers required by Godot's worker threads.
+"""Serve the Web export locally.
 
 Run: python3 tools/serve_web.py [--port 8000]
 """
@@ -15,8 +15,6 @@ class WebHandler(SimpleHTTPRequestHandler):
     extensions_map = {**SimpleHTTPRequestHandler.extensions_map, ".wasm": "application/wasm"}
 
     def end_headers(self):
-        self.send_header("Cross-Origin-Opener-Policy", "same-origin")
-        self.send_header("Cross-Origin-Embedder-Policy", "require-corp")
         self.send_header("Cache-Control", "no-cache")
         super().end_headers()
 

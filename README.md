@@ -25,6 +25,10 @@ python3 tools/serve_web.py
 
 Open [the local game](http://127.0.0.1:8000) in a desktop browser with WebGL 2 and WebAssembly.
 
+Play or download the game on [itch.io](https://scarf005.itch.io/orca-class). Pushing to `main` exports the web,
+Linux, Windows, and macOS builds and updates the `html` and `desktop` channels. The GitHub repository needs a
+`BUTLER_API_KEY` Actions secret from `butler login`.
+
 ## Develop
 
 ### Run Test

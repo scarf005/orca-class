@@ -34,6 +34,7 @@ locale/fallback="ko"
 [rendering]
 renderer/rendering_method.web="gl_compatibility"
 textures/canvas_textures/default_texture_filter=0
+textures/vram_compression/import_etc2_astc=true
 anti_aliasing/quality/msaa_3d=0
 lights_and_shadows/directional_shadow/size=2048
 environment/defaults/default_clear_color=Color(0.99, 0.95, 0.9, 1)

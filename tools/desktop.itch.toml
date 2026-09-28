@@ -1,0 +1,14 @@
+[[actions]]
+name = "play"
+path = "linux/OrcaClass.x86_64"
+platform = "linux"
+
+[[actions]]
+name = "play"
+path = "windows/OrcaClass.exe"
+platform = "windows"
+
+[[actions]]
+name = "play"
+path = "mac/OrcaClass.app"
+platform = "osx"
