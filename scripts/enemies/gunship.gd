@@ -29,6 +29,7 @@ const BOMB_FLIGHT := 0.9 ## Seconds from the bay to the ground for the first bom
 const CANNON_SPEED := 450.0 ## The nose cannon's shells arrive almost at once, so each shot is warned first.
 const CANNON_AIM := 0.7 ## Seconds of warning before each cannon shot.
 const CANNON_LOCK := 0.35 ## For the last of the warning the aim holds still: move now and it misses.
+const MIN_CLEARANCE := 9.0 ## Its belly and underslung guns hang this far below it: never lower than this over the ground.
 const PART_PRIORITY := 3.0 ## A module this close behind the airframe skin still takes the hit.
 const ROTORS := ["rotor_l", "rotor_r"]
 const ROTOR_RADIUS := 8.5
@@ -559,9 +560,15 @@ func behave(delta: float) -> void:
 		goal = tank.global_position + Vector3.UP * 5.0
 	if is_staggered():
 		goal.y -= 5.0
+	goal.y = maxf(goal.y, Course.height_at(goal) + MIN_CLEARANCE)
 	var accel := (goal - global_position) * 1.6 - _velocity * 1.4
 	_velocity += accel * delta
 	global_position += _velocity * delta
+	# However hard it is knocked about, it stays in the air until it actually crashes.
+	var floor_y := Course.height_at(global_position) + MIN_CLEARANCE
+	if global_position.y < floor_y:
+		global_position.y = floor_y
+		_velocity.y = maxf(_velocity.y, 0.0)
 	# Nose at the tank, bank into the turn.
 	var to_tank := tank.global_position - global_position
 	var yaw := atan2(-to_tank.x, -to_tank.z)
