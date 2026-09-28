@@ -587,10 +587,11 @@ func behave(delta: float) -> void:
 func _smoke_modules(delta: float) -> void:
 	var world := World.current
 	for name: String in MODULE_HP:
-		if not _live(name) and randf() < delta * 10.0:
+		if not _live(name) and randf() < delta * 16.0:
 			var at: Vector3 = model.global_transform * parts[name].offset
-			world.fx.spawn(Fx.Kind.FLAME, at, Vector3.UP * 2.0, 0.35, 0.9, [Palette.AMBER, Palette.BUTTER][randi() % 2])
-			world.fx.smoke(at, 1, 1.6, [Palette.INK, Palette.DUSK, Palette.SLATE])
+			for i in 2:
+				world.fx.spawn(Fx.Kind.FLAME, at + Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)), Vector3.UP * randf_range(3.0, 5.0), randf_range(0.4, 0.6), randf_range(1.8, 2.8), [Palette.AMBER, Palette.BUTTER, Palette.CORAL][randi() % 3], {"drag": 1.0})
+			world.fx.spawn(Fx.Kind.GLOW, at, Vector3(randf_range(-0.6, 0.6), randf_range(3.0, 5.0), randf_range(-0.6, 0.6)), randf_range(2.0, 3.0), 2.4, [Palette.INK, Palette.DUSK, Palette.SLATE][randi() % 3], {"end_size": 8.0, "drag": 0.6, "fade": 0.3})
 
 
 func _watch_for_shells() -> void:

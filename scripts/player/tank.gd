@@ -136,6 +136,7 @@ func tick(delta: float) -> void:
 		_place(world.rail.d)
 		return
 	invuln = maxf(0.0, invuln - delta)
+	show_damage(delta, HULL_RADIUS)
 	anchor_cooldown = maxf(0.0, anchor_cooldown - delta)
 	reload = maxf(0.0, reload - delta)
 	modules.update(delta)

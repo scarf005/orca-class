@@ -26,6 +26,7 @@ var armor := 0.0 ## Fraction of small-caliber damage (below 20 mm) that is stopp
 var invulnerable := false
 var always_tick := true ## False for scenery: it only processes while a hit flash is showing.
 var _flash := 0.0
+var _smoke_tick := 0.0
 var _meshes: Array[GeometryInstance3D] = []
 
 
@@ -135,6 +136,26 @@ func visual_bounds() -> AABB:
 		if is_instance_valid(mesh) and mesh.is_inside_tree():
 			box = box.merge(mesh.global_transform * mesh.get_aabb())
 	return box
+
+
+## A hurt machine smokes, and a badly hurt one burns, from all over its body: the worse the
+## damage, the thicker, bigger and faster it pours out. `size` is roughly half the body's length.
+func show_damage(delta: float, size: float) -> void:
+	var hurt := 1.0 - hp / maxf(max_hp, 0.001)
+	if hurt < 0.15:
+		return
+	_smoke_tick -= delta
+	if _smoke_tick > 0.0:
+		return
+	_smoke_tick = lerpf(0.12, 0.03, hurt)
+	var fx := World.current.fx
+	var at := hit_center() + Vector3(randf_range(-1, 1), randf_range(0.0, 0.8), randf_range(-1, 1)) * size * 0.6
+	var puff := (0.8 + size * 0.35) * (1.0 + hurt)
+	fx.spawn(Fx.Kind.GLOW, at, Vector3(randf_range(-0.6, 0.6), randf_range(3.0, 5.0), randf_range(-0.6, 0.6)), randf_range(1.6, 2.6), puff, [Palette.INK, Palette.DUSK, Palette.SLATE, Palette.ASH][randi() % 4], {"end_size": puff * 4.0, "drag": 0.7, "fade": 0.3})
+	if hurt > 0.4:
+		for i in 2:
+			var flame_at := at + Vector3(randf_range(-1, 1), 0.0, randf_range(-1, 1)) * size * 0.3
+			fx.spawn(Fx.Kind.FLAME, flame_at, Vector3(0, randf_range(3.0, 6.0), 0), randf_range(0.35, 0.7), puff * 0.9, [Palette.BUTTER, Palette.AMBER, Palette.CORAL, Palette.HOT][randi() % 4], {"drag": 1.0})
 
 
 ## Collects mesh instances so hit flashes can overlay them.
