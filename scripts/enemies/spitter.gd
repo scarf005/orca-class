@@ -21,7 +21,6 @@ func _init() -> void:
 	stabbable = true
 	can_stagger = true
 	score = 350
-	death_radius = 2.2
 	debris_colors = [Palette.LILAC, Palette.FUNGUS, Palette.CREAM, Palette.MAUVE]
 	weakness = {Hit.Kind.FIRE: 2.5, Hit.Kind.TAIL: 1.5}
 

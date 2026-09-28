@@ -63,7 +63,6 @@ func _init() -> void:
 	flying = true
 	can_stagger = true
 	score = 50000
-	death_radius = 7.0
 	despawn_behind = 0.0
 	debris_colors = [Palette.SLATE, Palette.DUSK, Palette.FUNGUS, Palette.INK]
 	set_meta("title", "BOSS_GUNSHIP")

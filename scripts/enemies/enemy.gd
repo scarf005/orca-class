@@ -6,7 +6,7 @@ var score := 100
 var velocity := Vector3.ZERO
 var stabbable := false
 var weakness := {} ## Hit.Kind -> damage multiplier.
-var death_radius := 2.0
+var death_radius := 2.0 ## Size of the death blast: half the model's longest side, set once it is built.
 var debris_colors: Array = [Palette.INK, Palette.SLATE, Palette.HULL]
 var drop := ""
 var stagger := 0.0
@@ -31,6 +31,9 @@ func _ready() -> void:
 	add_child(model)
 	build()
 	track_meshes(model)
+	var extent := visual_bounds().size
+	if extent != Vector3.ZERO:
+		death_radius = maxf(extent.x, maxf(extent.y, extent.z)) * 0.5
 	ActorLayer.mark(self, ActorLayer.HOSTILE)
 	_last_position = global_position
 	World.current.stats.spawned += 1

@@ -6,6 +6,7 @@ extends Node3D
 const MAX_PARTICLES := 4000
 const SOFT_CAP := 1200
 const MAX_SCORCH := 60
+const BLAST_PACE := 0.8 ## Explosions play out in this fraction of their original time.
 const DEBRIS_SIZE := 1.8 ## Flat shards are drawn this much bigger than the size callers ask for.
 const DEBRIS_SMOKE := Color("9c93a3") ## Every flying shard trails a thin line of smoke.
 const TRAIL_MIN_SPEED := 4.0 ## Shards stop trailing once they slow down on the ground.
@@ -333,16 +334,16 @@ func explosion(position: Vector3, damage_radius: float, palette := [Palette.BUTT
 	var n := radius * 0.75
 	var pick := func(i: int) -> Color: return palette[mini(i, palette.size() - 1)]
 	# The main ball, then smaller ones budding off around it (thrown on along the attack).
-	var life := 0.45 + radius * 0.06
+	var life := (0.45 + radius * 0.06) * BLAST_PACE
 	fireball(position + Vector3.UP * radius * 0.15, radius * 0.25, radius * 0.75, life)
 	for i in 3 + int(n * 0.6):
 		var out := (Vector3(randf_range(-1, 1), randf_range(-0.2, 1.0), randf_range(-1, 1)).normalized() + push * 0.8).normalized()
 		fireball(position + out * radius * randf_range(0.35, 0.7) + Vector3.UP * radius * 0.2, radius * 0.12, radius * randf_range(0.3, 0.5), life * randf_range(0.7, 1.1))
-	shockwave(position, radius * 2.2, Palette.WHITE)
+	shockwave(position, radius * 2.2, Palette.WHITE, 0.3 * BLAST_PACE)
 	light_flash(position, 8.0 + radius * 1.5, pick.call(2), radius * 5.0)
 	for i in int(4 + n * 3):
 		var dir := (Vector3(randf_range(-1, 1), randf_range(0.2, 1.4), randf_range(-1, 1)).normalized() + push * 1.3).normalized()
-		spawn(Kind.FLAME, position, dir * randf_range(4, 14) * (0.6 + radius * 0.3), randf_range(0.25, 0.7), randf_range(0.25, 0.6) * (0.6 + radius * 0.15), palette[randi() % palette.size()], {"gravity": 8.0, "drag": 2.0})
+		spawn(Kind.FLAME, position, dir * randf_range(4, 14) * (0.6 + radius * 0.3), randf_range(0.25, 0.7) * BLAST_PACE, randf_range(0.25, 0.6) * (0.6 + radius * 0.15), palette[randi() % palette.size()], {"gravity": 8.0, "drag": 2.0})
 	var ground := Course.height_at(position)
 	var low := position.y - ground < radius * 1.5
 	if low:
@@ -361,7 +362,7 @@ func explosion(position: Vector3, damage_radius: float, palette := [Palette.BUTT
 	if damage_radius >= 3.0:
 		for i in int(damage_radius * 0.5):
 			var along := push * damage_radius * (0.8 + i * 0.7)
-			_delayed.append({"time": randf_range(0.12, 0.3) + i * 0.1, "position": position + along + Vector3(randf_range(-1, 1), randf_range(0, 1), randf_range(-1, 1)) * damage_radius * 0.6, "radius": damage_radius * 0.4, "palette": palette, "push": push})
+			_delayed.append({"time": (randf_range(0.12, 0.3) + i * 0.1) * BLAST_PACE, "position": position + along + Vector3(randf_range(-1, 1), randf_range(0, 1), randf_range(-1, 1)) * damage_radius * 0.6, "radius": damage_radius * 0.4, "palette": palette, "push": push})
 
 
 ## A slow column of smoke that lingers where something blew up.
@@ -456,13 +457,13 @@ func spores(position: Vector3, count: int, spread := 1.5) -> void:
 		spawn(Kind.GLOW if i % 4 == 0 else Kind.SOLID, position + dir * randf() * spread, dir * randf_range(0.5, 3.0) * spread, randf_range(0.8, 1.8), randf_range(0.2, 0.5), color, {"end_size": 0.9, "drag": 2.0, "gravity": -0.3})
 
 
-func shockwave(position: Vector3, radius: float, color: Color) -> void:
+func shockwave(position: Vector3, radius: float, color: Color, life := 0.3) -> void:
 	var mesh := _cached("ring", color, func(b: LowPoly, c: Color) -> void:
 		for i in 16:
 			var o0 := Vector3(cos(TAU * i / 16.0), 0, sin(TAU * i / 16.0))
 			var o1 := Vector3(cos(TAU * (i + 1) / 16.0), 0, sin(TAU * (i + 1) / 16.0))
 			b.quad(o0 * 0.8, o1 * 0.8, o1, o0, c, Vector3.UP))
-	_transient(mesh, Transform3D(Basis(), position + Vector3.UP * 0.2), 0.3, true, Vector2(radius * 0.2, radius), 0.1, true)
+	_transient(mesh, Transform3D(Basis(), position + Vector3.UP * 0.2), life, true, Vector2(radius * 0.2, radius), 0.1, true)
 
 
 ## A star-shaped muzzle flash: a forward spike and a cross of side petals, gone in a blink.

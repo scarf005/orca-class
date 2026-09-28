@@ -36,7 +36,6 @@ func _init() -> void:
 	radius = 2.4
 	flying = true
 	score = 500
-	death_radius = 2.6
 	despawn_behind = 0.0
 	debris_colors = [Palette.MIST, Palette.SLATE, Palette.INK]
 	weakness = {Hit.Kind.BLAST: 1.4}

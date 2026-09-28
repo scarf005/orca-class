@@ -24,7 +24,6 @@ func _init() -> void:
 	center_height = 0.8
 	stabbable = true
 	score = 120
-	death_radius = 1.2
 	debris_colors = [Palette.FUNGUS, Palette.LILAC, Palette.CREAM]
 	weakness = {Hit.Kind.FIRE: 3.0, Hit.Kind.BLAST: 1.3, Hit.Kind.TAIL: 2.0}
 

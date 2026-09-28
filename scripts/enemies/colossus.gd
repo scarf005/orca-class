@@ -44,7 +44,6 @@ func _init() -> void:
 	can_stagger = true
 	stabbable = true
 	score = 20000
-	death_radius = 8.0
 	despawn_behind = 0.0
 	debris_colors = [Palette.MAUVE, Palette.LILAC, Palette.FUNGUS, Palette.CREAM]
 	set_meta("title", "BOSS_COLOSSUS")
