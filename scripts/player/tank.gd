@@ -32,6 +32,7 @@ const RESPAWN_DELAY := 1.8
 const RESPAWN_INVULN := 2.6
 const CRUSH_SPEED := 5.0 ## Ground speed above which the tank runs down ground enemies.
 const RAM_DAMAGE := 150.0
+const CANISTER_RANGE := 70.0
 
 var model := TankModel.new()
 var tail := Tail.new()
@@ -574,19 +575,34 @@ func fire_cannon() -> void:
 			# A wall of tungsten balls, and a muzzle blast that flattens everything just ahead.
 			var aim_dir := _fire_direction(muzzle, 200.0)
 			world.blast(muzzle + aim_dir * 7.0, 6.0, 260.0, Team.PLAYER, _cannon_hit(), null, [Palette.WHITE, Palette.BUTTER, Palette.AMBER], aim_dir)
-			for i in 40:
+			# Fifty hitscan balls land at once, each drawn as a yellow streak.
+			for i in 50:
 				var dir := (aim_dir + Vector3(randf_range(-1, 1), randf_range(-0.6, 1), randf_range(-1, 1)) * 0.13).normalized()
-				var pellet := world.spawn_projectile(Team.PLAYER, muzzle, dir * randf_range(170, 210), "pellet", Palette.SKY)
+				var pellet := world.spawn_projectile(Team.PLAYER, muzzle, dir * 200.0, "pellet", Palette.BUTTER)
 				pellet.hit = Hit.make(Hit.Kind.BULLET, 90.0, muzzle)
 				pellet.hit.caliber = 20
-				pellet.life = 0.36
 				pellet.impacted.connect(_count_hit, CONNECT_ONE_SHOT)
+				var end := pellet.resolve_now(CANISTER_RANGE)
+				world.fx.beam(muzzle, end, Palette.WHITE, 0.06, 0.08)
+				world.fx.beam(muzzle, end, Palette.BUTTER, 0.18, 0.14)
+				world.fx.spawn(Fx.Kind.FLAME, end, Vector3.UP * 2.0, 0.12, 0.5, Palette.BUTTER)
 		Armament.Round.DRAGON:
 			# A roaring cone of burning magnesium: a fireball right ahead and a long gout of flame.
 			var aim_dir := _fire_direction(muzzle, 60.0)
 			var burst := _cannon_hit()
 			burst.incendiary = true
 			world.blast(muzzle + aim_dir * 9.0, 7.0, 220.0, Team.PLAYER, burst, null, [Palette.WHITE, Palette.BUTTER, Palette.AMBER, Palette.HOT], aim_dir)
+			# The gout itself: a cone of flame from white-hot at the muzzle to red at its ragged end,
+			# already filling its length the moment it fires, with black smoke rolling off the top.
+			for i in 140:
+				var reach := randf()
+				var dir := (aim_dir + Vector3(randf_range(-1, 1), randf_range(-0.3, 0.6), randf_range(-1, 1)) * (0.05 + reach * 0.16)).normalized()
+				var color: Color = [Palette.WHITE, Palette.BUTTER, Palette.AMBER, Palette.HOT][mini(int(reach * 4.0), 3)]
+				world.fx.spawn(Fx.Kind.FLAME, muzzle + dir * reach * 26.0, dir * randf_range(25.0, 45.0) + Vector3.UP * reach * 4.0, randf_range(0.35, 0.7), 0.5 + reach * 1.6, color, {"drag": 3.0, "end_size": 0.8 + reach * 2.6, "gravity": -4.0})
+			for i in 24:
+				var reach := randf_range(0.3, 1.0)
+				world.fx.spawn(Fx.Kind.GLOW, muzzle + aim_dir * reach * 26.0 + Vector3.UP * (1.0 + reach * 2.0), aim_dir * 10.0 + Vector3.UP * 4.0, randf_range(1.0, 1.8), 1.2 + reach, [Palette.INK, Palette.DUSK, Palette.SLATE][i % 3], {"end_size": 4.0, "drag": 1.5, "fade": 0.3})
+			world.fx.light_flash(muzzle + aim_dir * 10.0, 26.0, Palette.AMBER, 40.0)
 			for i in 52:
 				var dir := (aim_dir + Vector3(randf_range(-1, 1), randf_range(-0.4, 0.8), randf_range(-1, 1)) * 0.18).normalized()
 				var flame := world.spawn_projectile(Team.PLAYER, muzzle, dir * randf_range(45, 75), "fire", [Palette.WHITE, Palette.PEACH, Palette.BUTTER, Palette.AMBER][i % 4])
@@ -634,8 +650,10 @@ func fire_cannon() -> void:
 					shell.airburst_fragments = 70
 			# Hitscan: the round lands this very frame, and a tracer flash marks its line.
 			var end := shell.resolve_now(Armament.SHELL_RANGE)
-			world.fx.beam(muzzle, end, Palette.WHITE, 0.28, 0.07)
-			world.fx.beam(muzzle, end, Armament.ROUND_COLORS[round], 0.7, 0.12)
+			world.fx.beam(muzzle, end, Palette.WHITE, 0.5, 0.1)
+			world.fx.beam(muzzle, end, Armament.ROUND_COLORS[round], 1.4, 0.18)
+			world.fx.beam(muzzle, end, Armament.ROUND_COLORS[round], 2.6, 0.08)
+			world.fx.light_flash(end, 20.0, Armament.ROUND_COLORS[round], 30.0)
 			var length := muzzle.distance_to(end)
 			for k in int(length / 6.0):
 				var at := muzzle.lerp(end, (k + 0.5) * 6.0 / length)
@@ -662,18 +680,22 @@ func _cannon_feedback(muzzle: Vector3, dir: Vector3) -> void:
 	_barrel_recoil = 0.7
 	if world.rail.mode != Rail.Mode.ARENA:
 		local_velocity.y -= 8.0 * dir.dot(world.rail.forward())
-	world.camera.kick(0.035)
-	world.shake(0.28)
-	world.fx.light_flash(muzzle, 12.0, Palette.BUTTER, 26.0)
-	world.fx.muzzle_flash(muzzle, dir, 2.4)
+	world.camera.kick(0.05)
+	world.shake(0.4)
+	world.screen_flash(Palette.BUTTER, 0.18)
+	world.fx.light_flash(muzzle, 24.0, Palette.BUTTER, 40.0)
+	world.fx.muzzle_flash(muzzle, dir, 4.2)
+	world.fx.muzzle_flash(muzzle + dir * 1.5, dir, 2.6, Palette.WHITE)
+	world.fx.fireball(muzzle + dir * 2.0, 0.6, 2.4, 0.22)
+	world.fx.shockwave(muzzle, 9.0, Palette.WHITE, 0.2)
 	# Muzzle-brake jets blast out sideways.
 	var side_dir := dir.cross(Vector3.UP).normalized()
 	for side in [-1.0, 1.0]:
 		world.fx.muzzle_flash(muzzle - dir * 0.3, (side_dir * side + dir * 0.3).normalized(), 1.1, Palette.PEACH)
-	for i in 20:
+	for i in 40:
 		var spread := (dir + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 0.35).normalized()
-		world.fx.spawn(Fx.Kind.FLAME, muzzle, spread * randf_range(8, 22), randf_range(0.06, 0.14), randf_range(0.5, 0.9), [Palette.WHITE, Palette.BUTTER, Palette.PEACH][i % 3], {"drag": 8.0})
-	for i in 10:
+		world.fx.spawn(Fx.Kind.FLAME, muzzle, spread * randf_range(10, 30), randf_range(0.08, 0.2), randf_range(0.6, 1.2), [Palette.WHITE, Palette.BUTTER, Palette.PEACH][i % 3], {"drag": 8.0})
+	for i in 22:
 		var side := dir.cross(Vector3.UP).normalized() * (1.0 if i % 2 == 0 else -1.0)
 		world.fx.spawn(Fx.Kind.GLOW, muzzle, (side * randf_range(3, 7) + dir * randf_range(2, 8) + Vector3.UP), randf_range(0.8, 1.5), 0.6, [Palette.MIST, Palette.CREAM][i % 2], {"end_size": 2.2, "drag": 2.5, "gravity": -0.5, "fade": 0.15})
 	# The blast flattens the ground below the muzzle.
