@@ -8,6 +8,7 @@ signal scored(points: int, position: Vector3, combo: int)
 signal boss_changed(boss: Entity) ## Null when the boss bar should hide.
 signal stage_cleared
 signal game_over
+signal intercepted(position: Vector3) ## The laser CIWS burned something out of the air.
 
 static var current: World
 
@@ -117,12 +118,12 @@ func targets_for(team: Entity.Team) -> Array[Entity]:
 ## body and a tracer tail tapering away behind them; darts are finned rods; orbs are round;
 ## missiles have a lit body and a glowing exhaust. Every shape gets an ink outline and a glow halo.
 const PROJECTILE_SHAPES := {
-	"bullet": ["round", 0.3, 4.0, 1.8],
-	"fragment": ["round", 0.18, 1.4, 1.8],
+	"bullet": ["streak", 0.26, 5.0, 2.2],
+	"fragment": ["streak", 0.16, 1.8, 2.0],
 	"pellet": ["orb", 0.18, 0.0, 1.8],
-	"shell": ["round", 0.55, 5.0, 1.8],
-	"dart": ["dart", 0.22, 5.0, 2.0],
-	"orb": ["orb", 0.55, 0.0, 1.6],
+	"shell": ["streak", 0.55, 7.0, 2.4],
+	"dart": ["streak", 0.22, 10.0, 2.4],
+	"orb": ["streak", 0.5, 3.2, 2.4],
 	"mortar": ["orb", 0.5, 0.0, 1.5],
 	"fire": ["orb", 0.4, 0.0, 1.7],
 	"rocket": ["missile", 0.2, 1.1, 2.0],
@@ -131,7 +132,6 @@ const PROJECTILE_SHAPES := {
 }
 static var _shape_meshes := {}
 static var _halo_material := _make_halo_material()
-static var _outline_material := _make_outline_material()
 static var _core_material := _make_core_material()
 
 
@@ -142,15 +142,6 @@ static func _make_core_material() -> StandardMaterial3D:
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.vertex_color_use_as_albedo = true
 	material.vertex_color_is_srgb = true
-	return material
-
-
-## Back faces of a slightly larger shell drawn in ink: a hard outline around every shot.
-static func _make_outline_material() -> StandardMaterial3D:
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.cull_mode = BaseMaterial3D.CULL_FRONT
-	material.albedo_color = Palette.INK
 	return material
 
 
@@ -170,42 +161,29 @@ static func _projectile_meshes(shape: String, color: Color) -> Array[Mesh]:
 	var width: float = spec[1]
 	var length: float = spec[2]
 	var halo_scale: float = spec[3]
-	# A hot center, a solid saturated body, an ink outline and a dithered glow around it all.
-	var hot := color.lerp(Palette.WHITE, 0.3)
+	# A white-hot head, a saturated tail tapering to nothing, and a dithered glow around it all.
+	var hot := color.lerp(Palette.WHITE, 0.55)
 	var core := LowPoly.new()
 	var halo := LowPoly.new()
-	var outline := LowPoly.new()
 	core.glow = true
 	halo.glow = true
-	outline.glow = true
+	var forward := Basis.from_euler(Vector3(0, PI, 0))
 	match spec[0]:
-		"round", "dart":
-			# The head points along -Z (the flight direction); the tracer streams back along +Z.
+		"streak":
+			# A tracer: a short pointed head along -Z (the flight direction) and a long tapered tail.
 			var r := width * 0.5
-			var forward := Basis.from_euler(Vector3(0, PI, 0))
-			var body := width * (2.2 if spec[0] == "round" else 5.0)
-			var nose := width * (1.5 if spec[0] == "round" else 1.0)
-			core.tube(Transform3D(forward, Vector3.ZERO), r, nose, 8, hot, 0.0)
-			core.tube(Transform3D(Basis(), Vector3.ZERO), r, body, 8, color, r * 0.92)
-			if shape == "shell":
-				core.tube(Transform3D(Basis(), Vector3(0, 0, body * 0.6)), r * 1.12, width * 0.35, 8, Palette.AMBER)
-			if spec[0] == "dart":
-				for k in 4:
-					core.box(Transform3D(Basis(Vector3.BACK, k * PI * 0.5), Vector3(0, 0, body - width)), Vector3(width * 2.4, width * 0.25, width * 1.6), Palette.SLATE)
-			core.tube(Transform3D(Basis(), Vector3(0, 0, body)), r * 0.8, length, 6, color, 0.0)
-			outline.tube(Transform3D(forward, Vector3(0, 0, -width * 0.2)), r * 1.45, nose * 1.2, 8, Palette.INK, 0.0)
-			outline.tube(Transform3D(Basis(), Vector3.ZERO), r * 1.45, body + width * 0.3, 8, Palette.INK, r * 1.3)
-			halo.blob(Transform3D(), r * halo_scale, color, 0, 0.1, 3)
-			halo.tube(Transform3D(Basis(), Vector3.ZERO), r * halo_scale * 0.7, body + length * 0.8, 6, color, 0.0)
+			core.tube(Transform3D(forward, Vector3.ZERO), r, width * 0.9, 6, hot, 0.0)
+			core.tube(Transform3D(Basis(), Vector3.ZERO), r, width * 0.8, 6, hot, r * 0.8)
+			core.tube(Transform3D(Basis(), Vector3(0, 0, width * 0.8)), r * 0.8, length, 6, color, 0.0)
+			halo.tube(Transform3D(forward, Vector3.ZERO), r * halo_scale, width * 1.2, 6, color, 0.0)
+			halo.tube(Transform3D(Basis(), Vector3.ZERO), r * halo_scale, length * 1.1, 6, color, 0.0)
 		"orb":
 			core.blob(Transform3D(), width, color, 1, 0.1, 5)
 			core.blob(Transform3D(), width * 0.55, hot, 0, 0.1, 5)
-			outline.blob(Transform3D(), width * 1.3, Palette.INK, 1, 0.1, 5)
 			halo.blob(Transform3D(), width * halo_scale, color, 0, 0.2, 6)
 		"missile":
 			# Round body with a pointed nose, a colored band and four tail fins; glowing motor behind.
 			var r := width * 0.5
-			var forward := Basis.from_euler(Vector3(0, PI, 0))
 			core.glow = false
 			core.tube(Transform3D(forward, Vector3.ZERO), r, width * 1.6, 8, Palette.STONE, 0.0)
 			core.tube(Transform3D(Basis(), Vector3.ZERO), r, length, 8, Palette.SLATE)
@@ -214,16 +192,15 @@ static func _projectile_meshes(shape: String, color: Color) -> Array[Mesh]:
 				core.box(Transform3D(Basis(Vector3.BACK, k * PI * 0.5 + PI * 0.25), Vector3(0, 0, length * 0.85)), Vector3(width * 2.4, 0.03, width * 1.4), Palette.DUSK)
 			core.glow = true
 			core.tube(Transform3D(Basis(), Vector3(0, 0, length)), r * 0.8, width * 1.5, 6, hot, 0.0)
-			outline.tube(Transform3D(forward, Vector3(0, 0, -width * 0.2)), r * 1.4, width * 1.9, 8, Palette.INK, 0.0)
-			outline.tube(Transform3D(Basis(), Vector3.ZERO), r * 1.4, length + width * 0.2, 8, Palette.INK)
 			halo.blob(Transform3D(Basis(), Vector3(0, 0, length + 0.3)), width * halo_scale, color, 0, 0.2, 7)
-	var meshes: Array[Mesh] = [core.mesh(), halo.mesh(), outline.mesh()]
+	var meshes: Array[Mesh] = [core.mesh(), halo.mesh()]
 	_shape_meshes[key] = meshes
 	return meshes
 
 
-## Mesh instances for a projectile look: core, glow halo and ink outline.
-static func projectile_visual(shape: String, color: Color) -> Array[MeshInstance3D]:
+## Mesh instances for a projectile look: core and glow halo. `hostile` shots also go on the
+## hostile layer, so the final pass rings them in red.
+static func projectile_visual(shape: String, color: Color, hostile := false) -> Array[MeshInstance3D]:
 	var meshes := _projectile_meshes(shape, color)
 	var result: Array[MeshInstance3D] = []
 	for i in meshes.size():
@@ -233,10 +210,10 @@ static func projectile_visual(shape: String, color: Color) -> Array[MeshInstance
 		mesh.layers |= ActorLayer.LAYER
 		if i == 0:
 			mesh.material_override = _core_material
-		elif i == 1:
+			if hostile:
+				mesh.layers |= ActorLayer.HOSTILE
+		else:
 			mesh.material_override = _halo_material
-		elif i == 2:
-			mesh.material_override = _outline_material
 		result.append(mesh)
 	return result
 
@@ -247,7 +224,7 @@ func spawn_projectile(team: Entity.Team, position: Vector3, velocity: Vector3, s
 	projectile.velocity = velocity
 	projectile.hit.source = player if team == Entity.Team.PLAYER else null
 	projectile.color = team_color(team, shape, color)
-	for mesh in projectile_visual(shape, projectile.color):
+	for mesh in projectile_visual(shape, projectile.color, team != Entity.Team.PLAYER):
 		projectile.add_child(mesh)
 	_projectile_container.add_child(projectile)
 	projectile.global_position = position

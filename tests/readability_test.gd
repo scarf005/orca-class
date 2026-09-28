@@ -21,15 +21,26 @@ func test_spawned_projectiles_follow_the_language() -> void:
 	check(shell.color != Palette.HOSTILE, "a HEAT shell never looks like enemy fire")
 
 
-func test_enemies_wear_a_hostile_rim_and_pickups_a_cyan_beacon() -> void:
+func test_actors_are_outlined_by_class_and_pickups_stand_in_a_beacon() -> void:
 	var world := stage()
 	var ugv := Ugv.new()
 	ugv.position = Course.ground_at(world.rail.d + 60.0, 0.0)
 	world.add_enemy(ugv)
+	ugv.invulnerable = true
 	await frames(1)
-	check(ugv._meshes.all(func(m: GeometryInstance3D) -> bool: return m.material_overlay == Enemy._hostile_rim), "every enemy mesh has the rim")
-	ugv.flash()
-	await frames(20)
-	check(ugv._meshes.all(func(m: GeometryInstance3D) -> bool: return not is_instance_valid(m) or m.material_overlay == Enemy._hostile_rim), "the rim comes back after a hit flash")
+	var on := func(root: Node, bits: int) -> bool:
+		var meshes := root.find_children("*", "MeshInstance3D", true, false)
+		return not meshes.is_empty() and meshes.all(func(m: MeshInstance3D) -> bool: return m.layers & bits)
+	check(on.call(ugv, ActorLayer.HOSTILE), "every enemy mesh is on the hostile outline layer")
+	check(on.call(world.player.model, ActorLayer.FRIENDLY), "the tank is on the friendly outline layer")
 	var pickup := world.spawn_pickup("heat", Course.ground_at(world.rail.d + 20.0, 0.0))
+	check(on.call(pickup, ActorLayer.LOOT), "pickups are on the loot outline layer")
 	check(pickup.get_children().any(func(n: Node) -> bool: return n is MeshInstance3D and (n as MeshInstance3D).mesh == Pickup._pillar_mesh()), "pickups stand in a cyan beacon")
+	var shot := world.spawn_projectile(Entity.Team.ENEMY, Vector3.ZERO, Vector3.FORWARD, "orb")
+	check((shot.get_child(0) as MeshInstance3D).layers & ActorLayer.HOSTILE, "enemy shots are outlined hostile too")
+	var view := DitherView.new()
+	add_child(view)
+	await frames(1)
+	check(view.class_masks.size() == 3, "the final pass has a mask per actor class")
+	check(view.viewport.size == Vector2i(960, 540), "the 3D view renders at 960x540")
+	view.queue_free()

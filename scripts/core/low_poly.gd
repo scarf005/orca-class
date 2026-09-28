@@ -8,6 +8,10 @@ static var lit_material: StandardMaterial3D = _make_material(false)
 static var glow_material: StandardMaterial3D = _make_material(true)
 static var flesh_material: ShaderMaterial = _make_flesh(false)
 static var flesh_glow_material: ShaderMaterial = _make_flesh(true)
+## Actors (enemies, the tank, pickups) read their vertex colors as sRGB: true, saturated colors
+## that stand out against the scenery, which the default material washes toward pastel.
+static var vivid_lit_material: StandardMaterial3D = _make_material(false, true)
+static var vivid_glow_material: StandardMaterial3D = _make_material(true, true)
 
 var glow := false ## When true, following primitives go to the unshaded surface.
 var flesh := false ## When true, following primitives pulse (combines with `glow`).
@@ -21,9 +25,10 @@ static func _make_flesh(glowing: bool) -> ShaderMaterial:
 	return material
 
 
-static func _make_material(unshaded: bool) -> StandardMaterial3D:
+static func _make_material(unshaded: bool, vivid := false) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
 	material.vertex_color_use_as_albedo = true
+	material.vertex_color_is_srgb = vivid
 	material.roughness = 1.0
 	material.metallic_specular = 0.15
 	if unshaded:

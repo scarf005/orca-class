@@ -2,7 +2,9 @@ class_name Pickup
 extends Node3D
 ## A floating power-up. Driving through it or snatching it with the tail applies it.
 
-const COLLECT_RADIUS := 3.4
+const COLLECT_RADIUS := 4.5
+const MAGNET_RADIUS := 16.0 ## Within this, a pickup flies to the tank on its own.
+const MAGNET_SPEED := 40.0
 const IDS := ["coax", "heat", "canister", "dragon", "apfsds", "airburst", "repair", "life", "era", "tail"]
 
 var id := "coax"
@@ -15,7 +17,7 @@ var _carried := false
 
 func _ready() -> void:
 	add_child(_model)
-	_model.scale = Vector3.ONE * 1.4
+	_model.scale = Vector3.ONE * 2.2
 	var mesh := MeshInstance3D.new()
 	mesh.mesh = _mesh_for(id)
 	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -28,7 +30,7 @@ func _ready() -> void:
 	pillar.mesh = _pillar_mesh()
 	pillar.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(pillar)
-	ActorLayer.mark(self)
+	ActorLayer.mark(self, ActorLayer.LOOT)
 	if World.current:
 		World.current.pickups.append(self)
 
@@ -66,10 +68,17 @@ func _process(delta: float) -> void:
 	_model.rotation.y = _time * 2.5
 	if _carried:
 		return
-	var ground := Course.height_at(global_position)
-	_base_y = ground + 1.6
-	global_position.y = _base_y + sin(_time * 3.0) * 0.35
 	var world := World.current
+	var tank := world.player if world else null
+	if tank and not tank.dead and global_position.distance_to(tank.hit_center()) < MAGNET_RADIUS:
+		# Close enough: it homes in, so a pickup in front of the tank is never missed.
+		global_position = global_position.move_toward(tank.hit_center(), MAGNET_SPEED * delta)
+		return
+	var ground := Course.height_at(global_position)
+	_base_y = ground + 2.2
+	global_position.y = _base_y + sin(_time * 3.0) * 0.35
+	# Blinks white now and then, so it catches the eye against the pastel ground.
+	_model.scale = Vector3.ONE * (2.2 + (0.35 if fmod(_time, 1.2) < 0.1 else 0.0))
 	if world and world.rail.mode != Rail.Mode.ARENA and Course.to_course(global_position).x < world.rail.d - 25.0:
 		queue_free()
 

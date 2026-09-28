@@ -213,9 +213,38 @@ func _update_transients(delta: float) -> void:
 			continue
 		if t.grow != Vector2.ONE:
 			node.scale = Vector3.ONE * lerpf(t.grow.x, t.grow.y, 1.0 - pow(1.0 - k, 3.0))
-		node.set_instance_shader_parameter("instance_alpha", 1.0 - smoothstep(t.fade_from, 1.0, k))
+		if t.has("fireball"):
+			node.set_instance_shader_parameter("progress", k)
+			node.position.y += delta * 1.5
+		else:
+			node.set_instance_shader_parameter("instance_alpha", 1.0 - smoothstep(t.fade_from, 1.0, k))
 		keep.append(t)
 	_transients = keep
+
+
+static var _fireball_material := _make_fireball()
+
+
+static func _make_fireball() -> ShaderMaterial:
+	var material := ShaderMaterial.new()
+	material.shader = preload("res://shaders/fireball.gdshader")
+	return material
+
+
+## One ball of an explosion: it swells from `start` to `end` radius while its bands cool and it
+## breaks up. Drawn crisp (never dithered) on the actor layer.
+func fireball(position: Vector3, start: float, end: float, life: float) -> void:
+	var mesh := _cached("fireball", Palette.WHITE, func(b: LowPoly, c: Color) -> void: b.blob(Transform3D(), 1.0, c, 2, 0.12, 4))
+	var node := MeshInstance3D.new()
+	node.mesh = mesh
+	node.position = position
+	node.rotation = Vector3(randf() * TAU, randf() * TAU, 0.0)
+	node.material_override = _fireball_material
+	node.layers |= ActorLayer.LAYER
+	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	node.set_instance_shader_parameter("seed", randf())
+	add_child(node)
+	_transients.append({"node": node, "age": 0.0, "life": life, "grow": Vector2(start, end), "fade_from": 1.0, "fireball": true})
 
 
 func _transient(mesh: Mesh, xf: Transform3D, life: float, glow: bool, grow := Vector2.ONE, fade_from := 0.3, flame := false) -> MeshInstance3D:
@@ -253,8 +282,9 @@ func light_flash(position: Vector3, energy: float, color := Palette.PEACH, radiu
 	light.light_energy = energy
 
 
-## A layered blast: white flash core inside a colored fireball, shock ring, a ground dust ring,
-## embers, burning debris trailing smoke, a lingering smoke column and, for big ones, secondary pops.
+## A layered blast: a cluster of cartoon fireballs that bloom, cool and break up, a crisp shock ring,
+## a ground dust ring, a few embers, burning debris trailing smoke, a smoke column and, for big ones,
+## secondary pops.
 ## `push` is the attack direction: the fireball, embers, dust and debris are thrown on along it and
 ## the secondary pops march down it, so a shell's blast carries through what it hit.
 func explosion(position: Vector3, damage_radius: float, palette := [Palette.BUTTER, Palette.AMBER, Palette.HOT, Palette.CORAL], push := Vector3.ZERO) -> void:
@@ -263,13 +293,15 @@ func explosion(position: Vector3, damage_radius: float, palette := [Palette.BUTT
 	# Particle counts grow slower than the visual size: big blasts read big without flooding the frame.
 	var n := radius * 0.75
 	var pick := func(i: int) -> Color: return palette[mini(i, palette.size() - 1)]
-	var variant := randi() % 3
-	var ball := func(b: LowPoly, c: Color) -> void: b.blob(Transform3D(), 1.0, c, 1, 0.3, variant)
-	_transient(_cached("ball%d" % variant, palette[0], ball), Transform3D(Basis(), position), 0.16 + radius * 0.02, true, Vector2(radius * 0.4, radius * 0.9), 0.1, true)
-	_transient(_cached("ball%d" % variant, pick.call(2), ball), Transform3D(Basis(), position + Vector3.UP * radius * 0.2 + push * radius * 0.45), 0.4 + radius * 0.05, true, Vector2(radius * 0.5, radius * 1.35), 0.2, true)
-	shockwave(position, radius * 2.2, pick.call(1))
+	# The main ball, then smaller ones budding off around it (thrown on along the attack).
+	var life := 0.45 + radius * 0.06
+	fireball(position + Vector3.UP * radius * 0.15, radius * 0.25, radius * 0.75, life)
+	for i in 3 + int(n * 0.6):
+		var out := (Vector3(randf_range(-1, 1), randf_range(-0.2, 1.0), randf_range(-1, 1)).normalized() + push * 0.8).normalized()
+		fireball(position + out * radius * randf_range(0.35, 0.7) + Vector3.UP * radius * 0.2, radius * 0.12, radius * randf_range(0.3, 0.5), life * randf_range(0.7, 1.1))
+	shockwave(position, radius * 2.2, Palette.WHITE)
 	light_flash(position, 8.0 + radius * 1.5, pick.call(2), radius * 5.0)
-	for i in int(10 + n * 7):
+	for i in int(4 + n * 3):
 		var dir := (Vector3(randf_range(-1, 1), randf_range(0.2, 1.4), randf_range(-1, 1)).normalized() + push * 1.3).normalized()
 		spawn(Kind.FLAME, position, dir * randf_range(4, 14) * (0.6 + radius * 0.3), randf_range(0.25, 0.7), randf_range(0.25, 0.6) * (0.6 + radius * 0.15), palette[randi() % palette.size()], {"gravity": 8.0, "drag": 2.0})
 	var ground := Course.height_at(position)
@@ -397,7 +429,9 @@ func beam(from: Vector3, to: Vector3, color: Color, width := 0.12, life := 0.06)
 	var mesh := _cached("beam", color, func(b: LowPoly, c: Color) -> void:
 		b.box(Transform3D(Basis(), Vector3(0, 0, -0.5)), Vector3.ONE, c))
 	var up := Vector3.UP if absf((to - from).normalized().y) < 0.99 else Vector3.RIGHT
-	_transient(mesh, Transform3D(Basis.looking_at(to - from, up).scaled(Vector3(width, width, length)), from), life, true, Vector2.ONE, 0.5, true)
+	# Scale in the beam's own frame: `Basis.scaled` would stretch it along world axes instead.
+	var basis := Basis.looking_at(to - from, up) * Basis.from_scale(Vector3(width, width, length))
+	_transient(mesh, Transform3D(basis, from), life, true, Vector2.ONE, 0.5, true)
 
 
 ## A pulsing ring on the ground that tightens until `time` runs out: where something will land.

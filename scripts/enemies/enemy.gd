@@ -31,22 +31,9 @@ func _ready() -> void:
 	add_child(model)
 	build()
 	track_meshes(model)
-	rest_overlay = _hostile_rim
-	for mesh in _meshes:
-		mesh.material_overlay = rest_overlay
-	ActorLayer.mark(self)
+	ActorLayer.mark(self, ActorLayer.HOSTILE)
 	_last_position = global_position
 	World.current.stats.spawned += 1
-
-
-static var _hostile_rim := _make_rim()
-
-
-static func _make_rim() -> ShaderMaterial:
-	var material := ShaderMaterial.new()
-	material.shader = preload("res://shaders/hostile_rim.gdshader")
-	material.set_shader_parameter("rim_color", Palette.HOSTILE)
-	return material
 
 
 ## Subclasses add meshes to `model` here.
@@ -152,11 +139,8 @@ func on_death(hit: Hit) -> void:
 	world.fx.debris(center, int(4 + death_radius * 3), debris_colors, 6.0 + death_radius * 2.0, 0.25 + death_radius * 0.08, push)
 	world.fx.smoke_column(center, death_radius, [Palette.DUSK, Palette.INK, Palette.ASH])
 	if wreck_on_death:
-		# Remains are no longer a threat: drop the hostile rim.
-		for mesh in _meshes:
-			if is_instance_valid(mesh):
-				mesh.material_overlay = null
-		rest_overlay = null
+		# Remains are no longer a threat: drop the hostile outline.
+		ActorLayer.unmark(model, ActorLayer.HOSTILE)
 		for part in pop_parts:
 			if is_instance_valid(part):
 				# Turrets blow clean off and cartwheel away on their own.
