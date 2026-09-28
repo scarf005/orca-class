@@ -10,11 +10,16 @@ func run() -> int:
 	add_child(room)
 	for _i in 30:
 		await get_tree().process_frame
+	var only: String = preload("res://scripts/main.gd").args().get("row", "")
 	for row in DebugRoom.ROWS.size():
+		if not only.is_empty() and str(row + 1) != only:
+			continue
 		room.jump_to(row)
 		room._play_stations()
 		await get_tree().create_timer(0.35).timeout
 		get_viewport().get_texture().get_image().save_png("%s/row%d.png" % [out, row + 1])
+	if not only.is_empty():
+		return 0
 	var cam := room.world.camera
 	cam.global_position = Course.to_world(DebugRoom.START_D - 40.0, 0.0, 75.0)
 	cam.look_at(Course.to_world(DebugRoom.START_D + 150.0, 0.0, 0.0), Vector3.UP)

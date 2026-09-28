@@ -1,14 +1,18 @@
 class_name Tail
 extends Node3D
-## The Orca-class's three-segment muscular tail. A spring drives the claw toward a goal and a
+## The Orca-class's five-segment muscular tail. A spring drives the claw toward a goal and a
 ## FABRIK pass bends the segments to follow. Segments stretch and thin when reaching far.
+## Radii taper continuously from root to claw and ball joints fill every bend, so it reads as one
+## limb rather than floating pieces.
 
 signal arrived ## The claw reached its current goal.
 signal missed ## A reach or stab ran out of time before arriving.
 
 enum State { IDLE, REACH, RETURN, HOLD, THROW, STAB, SWAT, ANCHOR }
 
-const LENGTHS: Array[float] = [1.8, 1.55, 1.3]
+const LENGTHS: Array[float] = [1.2, 1.05, 0.95, 0.8, 0.65] ## Same 4.65 m reach as before.
+const ROOT_RADIUS := 0.34
+const TIP_RADIUS := 0.1
 const MAX_STRETCH := 1.9
 const REACH := 9.0 ## Max claw distance from the mount, measured by action code.
 const COOLDOWN := 0.45
@@ -24,7 +28,7 @@ var goal := Vector3.ZERO ## World-space claw goal.
 var goal_node: Node3D ## When set, the goal follows this node.
 var held: Node3D ## Thing carried by the claw.
 var mount: Node3D ## The tail's attachment point on the hull.
-var joints: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO, Vector3.ZERO, Vector3.ZERO]
+var joints: Array[Vector3] = []
 var claw_open := 0.0
 var destroyed := false
 
@@ -42,13 +46,15 @@ var _initialized := false
 
 func _ready() -> void:
 	top_level = true
+	joints.resize(LENGTHS.size() + 1)
+	joints.fill(Vector3.ZERO)
 	for i in LENGTHS.size():
 		var segment := MeshInstance3D.new()
 		segment.mesh = _segment_mesh(i)
 		add_child(segment)
 		_segments.append(segment)
 		var knuckle := MeshInstance3D.new()
-		knuckle.mesh = _knuckle_mesh(0.34 - i * 0.06)
+		knuckle.mesh = _knuckle_mesh(_radius(i))
 		add_child(knuckle)
 		_knuckles.append(knuckle)
 	add_child(_claw_root)
@@ -124,8 +130,8 @@ func update(delta: float, hull: Basis, lateral_velocity: float) -> void:
 	var base := mount.global_position
 	if not _initialized:
 		_claw = base + hull.z * 3.0 + Vector3.UP * 1.5
-		for i in 4:
-			joints[i] = base.lerp(_claw, i / 3.0)
+		for i in joints.size():
+			joints[i] = base.lerp(_claw, float(i) / LENGTHS.size())
 		_initialized = true
 	if is_instance_valid(goal_node):
 		goal = goal_node.global_position + Vector3.UP * 0.6
@@ -198,21 +204,23 @@ func _solve(base: Vector3, hull: Basis) -> void:
 	for l in LENGTHS:
 		lengths.append(l * stretch)
 	# Bias the middle joints upward so the tail arches like a scorpion instead of sagging.
-	joints[1] += Vector3.UP * 0.3 - hull.z * 0.05
-	joints[2] += Vector3.UP * 0.2
+	var last := LENGTHS.size()
+	for j in range(1, last):
+		joints[j] += Vector3.UP * 0.3 * sin(PI * j / last) - hull.z * 0.03
 	for _i in 4:
-		joints[3] = _claw
-		for j in range(2, -1, -1):
+		joints[last] = _claw
+		for j in range(last - 1, -1, -1):
 			joints[j] = joints[j + 1] + (joints[j] - joints[j + 1]).normalized() * lengths[j]
 		joints[0] = base
-		for j in range(0, 3):
+		for j in range(0, last):
 			joints[j + 1] = joints[j] + (joints[j + 1] - joints[j]).normalized() * lengths[j]
 
 
 func _update_visuals() -> void:
-	var stretch := clampf(joints[0].distance_to(joints[3]) / _total_length(), 1.0, MAX_STRETCH)
+	var last := LENGTHS.size()
+	var stretch := clampf(joints[0].distance_to(joints[last]) / _total_length(), 1.0, MAX_STRETCH)
 	var thin := 1.0 / sqrt(stretch)
-	for i in 3:
+	for i in last:
 		var a := joints[i]
 		var b := joints[i + 1]
 		var dir := b - a
@@ -223,27 +231,33 @@ func _update_visuals() -> void:
 		var basis := Basis.looking_at(dir, up)
 		# Segment meshes point along local -Z with unit length.
 		_segments[i].global_transform = Transform3D(basis.scaled(Vector3(thin, thin, length)), a)
-		_knuckles[i].global_position = a
-	var tip_dir := joints[3] - joints[2]
+		_knuckles[i].global_transform = Transform3D(Basis.from_scale(Vector3.ONE * thin), a)
+	var tip_dir := joints[last] - joints[last - 1]
 	var up := Vector3.UP if absf(tip_dir.normalized().y) < 0.95 else Vector3.BACK
-	_claw_root.global_transform = Transform3D(Basis.looking_at(tip_dir, up), joints[3])
+	_claw_root.global_transform = Transform3D(Basis.looking_at(tip_dir, up), joints[last])
 	for i in _pincers.size():
 		var side := -1.0 if i == 0 else 1.0
 		_pincers[i].rotation.y = side * lerpf(0.05, 0.7, claw_open)
 
 
+## Radius at joint `index` (0 = root): a straight taper, shared by the segments meeting there.
+func _radius(index: int) -> float:
+	return lerpf(ROOT_RADIUS, TIP_RADIUS, float(index) / LENGTHS.size())
+
+
 func _segment_mesh(index: int) -> Mesh:
 	var b := LowPoly.new()
-	var r0 := 0.3 - index * 0.06
-	var r1 := r0 - 0.06
-	b.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3.ZERO), r0, 1.0, 6, Palette.HULL_LIGHT if index % 2 == 0 else Palette.BLUSH, r1)
-	# A muscle band along the top.
-	b.box(Transform3D(Basis(), Vector3(0, r0 * 0.85, -0.5)), Vector3(r0 * 0.7, 0.08, 0.6), Palette.FUNGUS)
+	var r0 := _radius(index)
+	var r1 := _radius(index + 1)
+	b.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3.ZERO), r0, 1.0, 8, Palette.HULL_LIGHT, r1)
+	# Muscle ridges along the top and a pale belly plate underneath.
+	b.box(Transform3D(Basis(), Vector3(0, (r0 + r1) * 0.46, -0.5)), Vector3((r0 + r1) * 0.35, 0.06, 0.8), Palette.FUNGUS)
+	b.box(Transform3D(Basis(), Vector3(0, -(r0 + r1) * 0.44, -0.5)), Vector3((r0 + r1) * 0.5, 0.05, 0.7), Palette.BLUSH)
 	return b.mesh()
 
 
 func _knuckle_mesh(r: float) -> Mesh:
-	return LowPoly.new().blob(Transform3D(), r, Palette.MAUVE, 0, 0.1, 9).mesh()
+	return LowPoly.new().blob(Transform3D(), r * 1.04, Palette.HULL_LIGHT, 1, 0.0, 9).mesh()
 
 
 func _palm_mesh() -> Mesh:
