@@ -255,7 +255,7 @@ func light_flash(position: Vector3, energy: float, color := Palette.PEACH, radiu
 
 ## A layered blast: white flash core inside a colored fireball, shock ring, a ground dust ring,
 ## embers, burning debris trailing smoke, a lingering smoke column and, for big ones, secondary pops.
-func explosion(position: Vector3, damage_radius: float, palette := [Palette.WHITE, Palette.BUTTER, Palette.PEACH, Palette.CORAL]) -> void:
+func explosion(position: Vector3, damage_radius: float, palette := [Palette.BUTTER, Palette.AMBER, Palette.HOT, Palette.CORAL]) -> void:
 	# Visuals read bigger than the damage area: it has to register at 480x270 across the valley.
 	var radius := damage_radius * 1.5
 	var pick := func(i: int) -> Color: return palette[mini(i, palette.size() - 1)]
