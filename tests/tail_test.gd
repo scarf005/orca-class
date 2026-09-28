@@ -6,8 +6,8 @@ func test_snatches_pickup_in_reach() -> void:
 	var world := stage()
 	var tank := world.player
 	await frames(2)
-	var pickup := world.spawn_pickup("repair", tank.tail.mount.global_position + tank.global_basis.x * 6.0)
-	tank.hp = 50.0
+	tank.hp = 50.0 # Hurt first, or the spawn swaps the unneeded repair for something else.
+	var pickup := world.spawn_pickup("repair", tank.tail.mount.global_position + tank.global_basis.x * (Tail.REACH - 1.0))
 	tank.auto_tail()
 	check_eq(tank.tail.state, Tail.State.REACH, "claw reaches for the pickup")
 	var ok := await wait_until(gone(pickup), 240)
@@ -25,7 +25,7 @@ func test_tail_stabs_small_enemies_instead_of_grabbing() -> void:
 	crawler.stagger = 10.0
 	tank.auto_tail()
 	check_eq(tank.tail.state, Tail.State.STAB, "the claw stabs it")
-	var dead := await wait_until(func() -> bool: return crawler.dead or not is_instance_valid(crawler), 120)
+	var dead := await wait_until(func() -> bool: return not is_instance_valid(crawler) or crawler.dead, 120)
 	check(dead, "a stab kills a small enemy")
 	check(not is_instance_valid(tank.tail.held), "nothing is carried")
 
