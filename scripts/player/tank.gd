@@ -581,6 +581,7 @@ func fire_cannon() -> void:
 				var pellet := world.spawn_projectile(Team.PLAYER, muzzle, dir * 200.0, "pellet", Palette.BUTTER)
 				pellet.hit = Hit.make(Hit.Kind.BULLET, 90.0, muzzle)
 				pellet.hit.caliber = 20
+				pellet.hit.source = self
 				pellet.impacted.connect(_count_hit, CONNECT_ONE_SHOT)
 				var end := pellet.resolve_now(CANISTER_RANGE)
 				world.fx.beam(muzzle, end, Palette.WHITE, 0.06, 0.08)
@@ -607,6 +608,7 @@ func fire_cannon() -> void:
 				var dir := (aim_dir + Vector3(randf_range(-1, 1), randf_range(-0.4, 0.8), randf_range(-1, 1)) * 0.18).normalized()
 				var flame := world.spawn_projectile(Team.PLAYER, muzzle, dir * randf_range(45, 75), "fire", [Palette.WHITE, Palette.PEACH, Palette.BUTTER, Palette.AMBER][i % 4])
 				flame.hit = Hit.make(Hit.Kind.FIRE, 45.0, muzzle)
+				flame.hit.source = self
 				flame.hit.incendiary = true
 				flame.gravity = 6.0
 				flame.life = randf_range(0.6, 0.95)
