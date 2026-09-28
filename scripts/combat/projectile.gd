@@ -75,6 +75,22 @@ func step(delta: float) -> void:
 			World.current.fx.spawn(Fx.Kind.GLOW, to, Vector3(randf_range(-0.3, 0.3), 0.6, randf_range(-0.3, 0.3)), 0.7, 0.35, trail, {"end_size": 1.1, "drag": 2.0, "fade": 0.2})
 
 
+## Hitscan: flies the whole path this frame in short sweeps, so the round lands the instant it is
+## fired. Returns where it stopped (impact point, or the end of its range).
+func resolve_now(max_range: float) -> Vector3:
+	var end := [global_position]
+	impacted.connect(func(_p: Projectile, point: Vector3, _t: Entity) -> void: end[0] = point)
+	var speed := maxf(velocity.length(), 1.0)
+	life = max_range / speed + 1.0
+	while not is_queued_for_deletion() and _traveled < max_range:
+		end[0] = global_position
+		step(6.0 / speed)
+	if not is_queued_for_deletion():
+		end[0] = global_position
+		queue_free()
+	return end[0]
+
+
 ## Returns true when the projectile stopped.
 func _sweep(from: Vector3, to: Vector3) -> bool:
 	var world := World.current

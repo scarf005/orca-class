@@ -22,7 +22,8 @@ const MAGAZINE := {Round.HEAT: 8, Round.CANISTER: 10, Round.DRAGON: 8, Round.APF
 
 ## A real 100 mm gun: a three-second reload, and a shell that wrecks any ordinary vehicle outright.
 const RELOAD := 3.0
-const SHELL_SPEED := 190.0 ## Slow enough that the glowing shell reads in flight.
+const SHELL_SPEED := 1700.0 ## Main-gun rounds are hitscan; this only sets their lead (none, in effect).
+const SHELL_RANGE := 420.0
 const HEAT_RELOAD := 3.0
 const SHELL_DAMAGE := 1500.0
 
