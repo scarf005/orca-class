@@ -8,7 +8,7 @@ extends Control
 const START_D := 120.0
 const ROWS := ["TANK", "ENEMIES", "BOSSES", "PICKUPS", "PROPS", "BUILDINGS", "FUNGUS", "PROJECTILES", "VFX"]
 ## Per row: distance ahead of the previous row, camera distance back, camera height.
-const LAYOUT := [[0.0, 16.0, 6.0], [34.0, 24.0, 9.0], [44.0, 48.0, 20.0], [44.0, 16.0, 3.5], [30.0, 30.0, 11.0], [40.0, 46.0, 18.0], [52.0, 42.0, 16.0], [44.0, 20.0, 6.0], [30.0, 62.0, 22.0]]
+const LAYOUT := [[0.0, 16.0, 6.0], [34.0, 34.0, 10.0], [44.0, 48.0, 20.0], [44.0, 16.0, 3.5], [30.0, 30.0, 11.0], [40.0, 46.0, 18.0], [52.0, 42.0, 16.0], [44.0, 20.0, 6.0], [30.0, 62.0, 22.0]]
 
 var view := DitherView.new()
 var world: World
@@ -108,12 +108,12 @@ func _build_tanks(d: float) -> void:
 
 func _build_enemies(d: float) -> void:
 	_row_title(1)
-	var kinds := [["FPV", "fpv", {}], ["UGV GUN", "ugv", {"weapon": "gun"}], ["UGV ATGM", "ugv", {"weapon": "atgm"}], ["UGV SUPPLY", "ugv", {"weapon": "supply"}], ["UAV", "uav", {}], ["CRAWLER", "crawler", {}], ["SPITTER", "spitter", {}]]
+	var kinds := [["FPV", "fpv", {}], ["UGV GUN", "ugv", {"weapon": "gun"}], ["UGV ATGM", "ugv", {"weapon": "atgm"}], ["UGV SUPPLY", "ugv", {"weapon": "supply"}], ["UAV", "uav", {}], ["CRAWLER", "crawler", {}], ["SPITTER", "spitter", {}], ["WALKER GUN", "walker", {"weapon": "gun"}], ["WALKER MISSILE", "walker", {"weapon": "missile"}], ["QUAD FLAK", "quad", {"weapon": "flak"}], ["QUAD MORTAR", "quad", {"weapon": "mortar"}]]
 	for i in kinds.size():
 		var enemy: Enemy = load(Director.ENEMY_SCRIPTS[kinds[i][1]]).new()
 		for key in kinds[i][2]:
 			enemy.set(key, kinds[i][2][key])
-		var at := _slot(d, i, kinds.size(), 8.0)
+		var at := _slot(d, i, kinds.size(), 8.5)
 		_pose(enemy, at + (Vector3.UP * 3.0 if enemy.flying else Vector3.ZERO))
 		_label(kinds[i][0], at + Vector3.UP * 6.0)
 
@@ -134,6 +134,8 @@ func _pose(enemy: Enemy, at: Vector3) -> void:
 	world.add_enemy(enemy)
 	enemy.set_process(false)
 	enemy.global_position = at # Some builds place themselves (the UAV enters far ahead).
+	if enemy.has_method("pose_idle"):
+		enemy.pose_idle()
 
 
 func _build_pickups(d: float) -> void:

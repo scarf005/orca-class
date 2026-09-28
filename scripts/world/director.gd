@@ -14,6 +14,8 @@ const ENEMY_SCRIPTS := {
 	"uav": "res://scripts/enemies/uav.gd",
 	"crawler": "res://scripts/enemies/crawler.gd",
 	"spitter": "res://scripts/enemies/spitter.gd",
+	"walker": "res://scripts/enemies/walker.gd",
+	"quad": "res://scripts/enemies/quad_mech.gd",
 	"colossus": "res://scripts/enemies/colossus.gd",
 	"helicopter": "res://scripts/enemies/helicopter.gd",
 }

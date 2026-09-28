@@ -95,3 +95,28 @@ func test_ugv_modules() -> void:
 	ugv.take_hit(high)
 	check(ugv.disarmed, "turret hit disarms")
 	check(not ugv.dead, "the hull is still alive")
+
+
+func test_walker_legs_break() -> void:
+	var world := stage()
+	var walker: Walker = load("res://scripts/enemies/walker.gd").new()
+	walker.position = Course.ground_at(world.rail.d + 60.0, 0.0)
+	world.add_enemy(walker)
+	walker.take_hit(Hit.make(Hit.Kind.SHELL, 40.0, walker.global_position + Vector3.UP * 0.6))
+	check(walker.crippled, "a low hit breaks its legs")
+	check(not walker.dead, "still alive")
+
+
+func test_quad_collapses_after_two_legs() -> void:
+	var world := stage()
+	var quad: QuadMech = load("res://scripts/enemies/quad_mech.gd").new()
+	quad.position = Course.ground_at(world.rail.d + 60.0, 0.0)
+	world.add_enemy(quad)
+	var hit_leg := func(corner: Vector2) -> void:
+		var at: Vector3 = quad._body.global_transform * Vector3(corner.x * 1.8, -1.5, corner.y * 1.4)
+		quad.take_hit(Hit.make(Hit.Kind.SHELL, QuadMech.LEG_HP + 1.0, at))
+	hit_leg.call(Vector2(-1, -1))
+	check_eq(quad.legs_lost(), 1, "one leg shot off")
+	check(not quad.collapsed(), "still standing on three")
+	hit_leg.call(Vector2(1, 1))
+	check(quad.collapsed(), "two legs gone: it collapses")

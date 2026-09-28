@@ -18,6 +18,22 @@ func run() -> int:
 		room._play_stations()
 		await get_tree().create_timer(0.35).timeout
 		get_viewport().get_texture().get_image().save_png("%s/row%d.png" % [out, row + 1])
+	var closeup: String = preload("res://scripts/main.gd").args().get("closeup", "")
+	if not closeup.is_empty():
+		# Frame every posed enemy of the given classes, e.g. --closeup=Walker,QuadMech.
+		var targets := room.world.enemies.filter(func(e: Entity) -> bool: return e.get_script().get_global_name() in closeup.split(","))
+		var center := Vector3.ZERO
+		for e: Entity in targets:
+			center += e.global_position
+		center /= maxf(targets.size(), 1)
+		var cam := room.world.camera
+		cam.global_position = center + Vector3(0, 6.0, 16.0)
+		cam.look_at(center + Vector3.UP * 2.5, Vector3.UP)
+		room._yaw = cam.rotation.y
+		room._pitch = cam.rotation.x
+		await get_tree().create_timer(0.3).timeout
+		get_viewport().get_texture().get_image().save_png("%s/closeup.png" % out)
+		return 0
 	if not only.is_empty():
 		return 0
 	var cam := room.world.camera
