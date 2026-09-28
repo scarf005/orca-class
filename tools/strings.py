@@ -101,7 +101,7 @@ S = {
     "BOSS_HELICOPTER": ("감염된 공격헬기", "INFECTED GUNSHIP"),
     "HINT_CONTROLS": ("WASD 이동 (W/S 가속·감속, 두 번: 대시) · 좌클릭 기관총 · 우클릭 주포",
                       "WASD MOVE (W/S BOOST, BRAKE, DOUBLE-TAP: DASH) · LMB COAX · RMB MAIN GUN"),
-    "HINT_TAIL": ("꼬리는 알아서 낚아채고, 잡고, 던집니다", "THE TAIL SNATCHES, GRABS AND THROWS ON ITS OWN"),
+    "HINT_TAIL": ("꼬리는 알아서 아이템을 낚아채고, 가까운 적을 찌르고 쳐냅니다", "THE TAIL SNATCHES PICKUPS AND STABS AND SWATS NEARBY ENEMIES ON ITS OWN"),
     "HINT_ANCHOR": ("방향키 두 번: 꼬리로 땅을 차고 그 방향으로 급가속",
                     "DOUBLE-TAP A DIRECTION: THE TAIL KICKS OFF AND THE HULL DASHES THAT WAY"),
     "SHOUT_MISSION_START": ("작전 개시!!", "MISSION START!!"),

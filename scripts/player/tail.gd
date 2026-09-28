@@ -8,7 +8,7 @@ extends Node3D
 signal arrived ## The claw reached its current goal.
 signal missed ## A reach or stab ran out of time before arriving.
 
-enum State { IDLE, REACH, RETURN, HOLD, THROW, STAB, SWAT, ANCHOR }
+enum State { IDLE, REACH, RETURN, STAB, SWAT, ANCHOR }
 
 const LENGTHS: Array[float] = [1.2, 1.05, 0.95, 0.8, 0.65] ## Same 4.65 m reach as before.
 const ROOT_RADIUS := 0.34
@@ -19,7 +19,7 @@ const COOLDOWN := 0.45
 const MAX_HP := 100.0
 const REACH_TIMEOUT := 0.7
 ## Claw speeds (m/s) for strikes that must land even while the tank races past the target.
-const STRIKE_SPEED := {State.REACH: 55.0, State.STAB: 65.0, State.RETURN: 40.0, State.THROW: 50.0}
+const STRIKE_SPEED := {State.REACH: 55.0, State.STAB: 65.0, State.RETURN: 40.0}
 
 var state := State.IDLE
 var hp := MAX_HP
@@ -72,7 +72,7 @@ func _ready() -> void:
 
 
 func is_ready() -> bool:
-	return not destroyed and cooldown <= 0.0 and state in [State.IDLE, State.HOLD]
+	return not destroyed and cooldown <= 0.0 and state == State.IDLE
 
 
 func state_time() -> float:
@@ -144,16 +144,11 @@ func update(delta: float, hull: Basis, lateral_velocity: float) -> void:
 			target = base + hull.z * 1.2 + Vector3.UP * (1.1 + sin(_time * 2.1) * 0.2) \
 				+ hull.x * (2.6 + sin(_time * 1.3) * 0.35 - lateral_velocity * 0.1)
 			claw_open = 0.15 + sin(_time * 3.0) * 0.1
-		State.HOLD:
-			target = base + hull.z * 0.8 + Vector3.UP * 3.2 + hull.x * sin(_time * 2.0) * 0.2
-			claw_open = 0.0
 		State.REACH, State.STAB:
 			claw_open = 1.0
 		State.RETURN:
 			target = base + hull.z * 1.0 + Vector3.UP * 3.0
 			claw_open = 0.0
-		State.THROW:
-			claw_open = 1.0 if _state_time > 0.08 else 0.0
 		State.SWAT:
 			var angle := _state_time * 22.0
 			target = base + Vector3.UP * 1.2 + (hull.z * cos(angle) + hull.x * sin(angle)) * 6.5
@@ -182,7 +177,7 @@ func update(delta: float, hull: Basis, lateral_velocity: float) -> void:
 	var max_reach := _total_length() * MAX_STRETCH
 	if offset.length() > max_reach:
 		_claw = base + offset.normalized() * max_reach
-	if state in [State.REACH, State.STAB, State.RETURN, State.THROW] and _claw.distance_to(target) < 0.8:
+	if state in [State.REACH, State.STAB, State.RETURN] and _claw.distance_to(target) < 0.8:
 		arrived.emit()
 	_solve(base, hull)
 	_update_visuals()

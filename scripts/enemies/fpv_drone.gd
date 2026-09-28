@@ -28,7 +28,7 @@ func _init() -> void:
 	radius = 0.9
 	flying = true
 	interceptable = true
-	grabbable = true
+	stabbable = true
 	score = 150
 	death_radius = 1.4
 	debris_colors = [Palette.INK, Palette.SLATE, Palette.BUTTER]

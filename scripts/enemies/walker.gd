@@ -35,7 +35,7 @@ func _init() -> void:
 	radius = 1.6
 	center_height = 2.6
 	armor = 0.0
-	grabbable = true
+	stabbable = true
 	score = 450
 	death_radius = 2.6
 	debris_colors = [Palette.SLATE, Palette.DUSK, Palette.CORAL, Palette.INK]

@@ -30,7 +30,6 @@ const COAX_RANGE := 140.0
 const SOFT_LOCK_RADIUS := 56.0 ## Screen pixels (3D view) around the reticle.
 const RESPAWN_DELAY := 1.8
 const RESPAWN_INVULN := 2.6
-const HOLD_TIME := 0.35 ## A grabbed enemy dangles this long before it is thrown.
 const CRUSH_SPEED := 5.0 ## Ground speed above which buildings and wrecks give way.
 const RAM_DAMAGE := 150.0
 
@@ -276,10 +275,6 @@ func _anchor(input: Vector2) -> void:
 		# Pivot drift: the claw bites the ground and the hull whips sideways around it.
 		_drift = 0.3
 		_drift_dir = signf(input.x)
-		if is_instance_valid(tail.held) and not tail.held is Pickup:
-			_throw_held()
-			Sfx.play("skid", global_position)
-			return
 		swat(false)
 		ground = global_position + global_basis.x * -_drift_dir * 2.5 + global_basis.z * 3.0
 		Sfx.play("skid", global_position)
@@ -797,24 +792,19 @@ func _update_ciws(delta: float) -> void:
 		world.radio.emit(&"AI_OVERHEAT")
 
 
-## Tail button: throw what is held, else snatch a pickup, grab or stab an enemy, or swat around.
-## The tail acts on its own so the driver only drives and shoots. Priorities: throw what it
-## holds, swat anything about to hit the hull, snatch pickups, grab small enemies, stab big ones.
+## The tail acts on its own so the driver only drives and shoots. Priorities: swat anything about
+## to hit the hull, snatch pickups in reach, stab enemies in reach.
 func auto_tail() -> void:
 	if tail.destroyed:
 		return
 	var world := World.current
 	var mount := tail.mount.global_position
 	if is_instance_valid(tail.held):
-		# Whatever the claw holds is dealt with at once, whatever state a drift or roll left it in:
-		# pickups are delivered, enemies are thrown after a short dangle.
-		if tail.held is Pickup:
-			if tail.state != Tail.State.RETURN:
-				collect(tail.held as Pickup)
-				tail.held = null
-				tail.set_state(Tail.State.IDLE)
-		elif tail.state != Tail.State.HOLD or tail.state_time() >= HOLD_TIME:
-			_throw_held()
+		# A carried pickup is delivered at once if a dash interrupted the return.
+		if tail.state != Tail.State.RETURN:
+			collect(tail.held as Pickup)
+			tail.held = null
+			tail.set_state(Tail.State.IDLE)
 		return
 	if not tail.is_ready():
 		return
@@ -838,15 +828,14 @@ func auto_tail() -> void:
 	var best_enemy: Enemy = null
 	best_distance = Tail.REACH
 	for entity in world.enemies:
-		if entity is Enemy and ((entity as Enemy).grabbable or (entity as Enemy).stabbable):
+		if entity is Enemy and (entity as Enemy).stabbable:
 			var distance := entity.hit_center().distance_to(mount) - entity.radius
 			if distance < best_distance:
 				best_distance = distance
 				best_enemy = entity
 	if best_enemy:
 		_grab_target = best_enemy
-		var state := Tail.State.REACH if best_enemy.grabbable else Tail.State.STAB
-		tail.set_state(state, best_enemy.hit_center(), best_enemy, 260.0)
+		tail.set_state(Tail.State.STAB, best_enemy.hit_center(), best_enemy, 260.0)
 		Sfx.play("whip", mount)
 
 
@@ -895,15 +884,6 @@ func _on_tail_arrived() -> void:
 				var pickup := _grab_target as Pickup
 				tail.held = pickup
 				tail.set_state(Tail.State.RETURN, Vector3.ZERO, null, 200.0)
-			elif is_instance_valid(_grab_target) and _grab_target is Enemy and not (_grab_target as Enemy).dead:
-				var enemy := _grab_target as Enemy
-				tail.held = enemy.grab()
-				world.award(enemy.score / 2, enemy.global_position, true)
-				world.style_event("SNATCH", 45.0)
-				enemy.die_silently()
-				tail.set_state(Tail.State.HOLD, Vector3.ZERO, null, 120.0)
-				world.shake(0.15)
-				Sfx.play("grab", tail.claw_position())
 			else:
 				tail.set_state(Tail.State.IDLE)
 			_grab_target = null
@@ -931,59 +911,6 @@ func _on_tail_arrived() -> void:
 			_grab_target = null
 			tail.set_state(Tail.State.IDLE)
 			tail.start_cooldown()
-		Tail.State.THROW:
-			pass
-
-
-func _throw_held() -> void:
-	var world := World.current
-	var held := tail.held
-	tail.held = null
-	var from := tail.claw_position()
-	var target := _throw_target()
-	# Lob with a slight arc so thrown wrecks read as heavy.
-	var flat := Vector3(target.x - from.x, 0, target.z - from.z)
-	var speed := 48.0
-	var time := maxf(flat.length() / speed, 0.15)
-	var velocity_out := flat / time
-	velocity_out.y = (target.y - from.y) / time + 0.5 * 18.0 * time
-	var thrown := world.spawn_projectile(Team.PLAYER, from, velocity_out, "mortar", Palette.WOOD)
-	for child in thrown.get_children():
-		child.queue_free()
-	held.reparent(thrown, false)
-	held.position = Vector3.ZERO
-	thrown.gravity = 18.0
-	thrown.radius = 1.3
-	thrown.life = 3.0
-	thrown.hit = Hit.make(Hit.Kind.THROWN, 120.0, from)
-	thrown.hit.stagger = 1.0
-	thrown.hit.source = self
-	thrown.blast_radius = 5.0
-	thrown.blast_damage = 70.0
-	thrown.impacted.connect(func(_p: Projectile, point: Vector3, _t: Entity) -> void:
-		World.current.hitstop(0.05)
-		World.current.fx.debris(point, 10, [Palette.INK, Palette.HULL, Palette.OCHRE], 9.0, 0.4))
-	tail.set_state(Tail.State.THROW, from + velocity_out.normalized() * 6.0, null, 300.0)
-	tail.start_cooldown()
-	get_tree().create_timer(0.25).timeout.connect(func() -> void:
-		if tail.state == Tail.State.THROW:
-			tail.set_state(Tail.State.IDLE))
-	Sfx.play("whip", from, 2.0, 0.7)
-	world.shake(0.15)
-
-
-func _throw_target() -> Vector3:
-	if is_instance_valid(aim_target):
-		return aim_target.hit_center()
-	var best := aim_point
-	var best_distance := 70.0
-	var forward := -global_basis.z
-	for enemy in World.current.enemies:
-		var offset := enemy.hit_center() - global_position
-		if offset.dot(forward) > 0.0 and offset.length() < best_distance:
-			best_distance = offset.length()
-			best = enemy.hit_center()
-	return best
 
 
 func _update_pickups() -> void:

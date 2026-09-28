@@ -4,7 +4,6 @@ extends Entity
 
 var score := 100
 var velocity := Vector3.ZERO
-var grabbable := false
 var stabbable := false
 var weakness := {} ## Hit.Kind -> damage multiplier.
 var death_radius := 2.0
@@ -104,21 +103,6 @@ func _burn(delta: float) -> void:
 ## Cancels a telegraphed attack (tail stab, heavy stagger).
 func interrupt() -> void:
 	stagger = maxf(stagger, 1.0)
-
-
-## Called when the tail grabs this enemy. Returns the model, now owned by the tail.
-func grab() -> Node3D:
-	var held := model
-	model = Node3D.new()
-	held.reparent(World.current, true)
-	return held
-
-
-## Removes the enemy after a grab without a death explosion; the grab already scored it.
-func die_silently() -> void:
-	dead = true
-	World.current.unregister(self)
-	queue_free()
 
 
 func despawn() -> void:
