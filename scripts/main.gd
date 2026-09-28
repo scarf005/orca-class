@@ -42,6 +42,8 @@ func _swap(screen: Node) -> void:
 
 
 func _run_script(path: String) -> void:
+	Game.silent = not OS.get_cmdline_user_args().has("--sound")
+	Game.apply_settings()
 	var node: Node = load(path).new()
 	add_child(node)
 	var code: int = await node.run()

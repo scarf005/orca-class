@@ -30,6 +30,8 @@ const REBINDABLE: Array[StringName] = [
 	&"overdrive", &"brake", &"pause",
 ]
 
+## Tools and tests run silent (pass `--sound` to hear them).
+var silent := false
 var settings := {
 	"locale": "ko",
 	"master_volume": 0.8,
@@ -141,7 +143,7 @@ func _set_bus_volume(bus_name: String, value: float) -> void:
 	var bus := AudioServer.get_bus_index(bus_name)
 	if bus >= 0:
 		AudioServer.set_bus_volume_db(bus, linear_to_db(maxf(value, 0.0001)))
-		AudioServer.set_bus_mute(bus, value <= 0.001)
+		AudioServer.set_bus_mute(bus, value <= 0.001 or (silent and bus_name == "Master"))
 
 
 func _load_bests() -> void:
