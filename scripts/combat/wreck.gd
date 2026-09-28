@@ -19,7 +19,9 @@ static func launch(model: Node3D, center: Vector3, size: float, player_kill: boo
 	wreck.global_position = center
 	model.reparent(wreck, true)
 	wreck.explodes = explode
-	wreck.velocity = Vector3(randf_range(-4, 4), randf_range(9, 14) / sqrt(maxf(size, 1.0)), randf_range(-4, 4)) + push / sqrt(maxf(size, 1.0))
+	# A hard push (a shell kill) overrides the random tumble so the wreck clearly flies with the shot.
+	var scatter := 4.0 * (1.0 - clampf(push.length() / 18.0, 0.0, 1.0) * 0.6)
+	wreck.velocity = Vector3(randf_range(-scatter, scatter), randf_range(9, 14) / sqrt(maxf(size, 1.0)), randf_range(-scatter, scatter)) + push / sqrt(maxf(size, 1.0))
 	wreck.spin = Vector3(randf_range(-6, 6), randf_range(-4, 4), randf_range(-6, 6)) / sqrt(maxf(size, 1.0))
 	wreck.blast_radius = 2.5 + size
 	wreck.by_player = player_kill

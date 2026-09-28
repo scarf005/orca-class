@@ -161,7 +161,7 @@ func on_death(hit: Hit) -> void:
 			if is_instance_valid(part):
 				# Turrets blow clean off and cartwheel away on their own.
 				Wreck.launch(part, part.global_position, death_radius * 0.4, by_player, push * 8.0 + Vector3.UP * 10.0, false)
-		Wreck.launch(model, center, death_radius, by_player, push * 14.0)
+		Wreck.launch(model, center, death_radius, by_player, push * 18.0)
 		model = Node3D.new()
 	world.award(score, center, true)
 	world.kill_style(hit, self)
