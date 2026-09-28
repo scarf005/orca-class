@@ -150,28 +150,26 @@ func _bar(rect: Rect2, value: float, color: Color, segments := 20, back := Palet
 func _draw_status() -> void:
 	var p := world.player
 	var shake := Vector2(randf_range(-2, 2), randf_range(-2, 2)) * (_armor_shake / 0.3) * 3.0
-	var origin := Vector2(16, 480) + shake
-	_panel(Rect2(origin, Vector2(210, 48)), Palette.MINT)
+	var origin := Vector2(16, 470) + shake
+	_panel(Rect2(origin, Vector2(214, 58)), Palette.MINT)
 	var armor := p.hp / p.max_hp
 	var color := Palette.MINT if armor > 0.5 else (Palette.BUTTER if armor > 0.25 else Palette.RED)
 	if armor <= 0.25 and fmod(_time, 0.4) < 0.2:
 		color = Palette.CORAL
-	_icon_shield(origin + Vector2(10, 8), color)
-	_bar(Rect2(origin + Vector2(28, 9), Vector2(172, 10)), armor, color)
+	Icons.draw(self, "shield", origin + Vector2(6, 6), color)
+	_bar(Rect2(origin + Vector2(28, 10), Vector2(176, 10)), armor, color)
 	var tail := p.tail.hp / Tail.MAX_HP
 	var tail_color := Palette.FUNGUS if not p.tail.is_hurt() else Palette.CORAL
-	_icon_tail(origin + Vector2(10, 28), tail_color if p.tail.cooldown <= 0.0 else Palette.STONE)
-	_bar(Rect2(origin + Vector2(28, 29), Vector2(84, 6)), tail, tail_color, 10)
-	# Lives as small hull silhouettes.
+	if p.tail.destroyed:
+		tail_color = Palette.STONE
+	Icons.draw(self, "tail", origin + Vector2(6, 38), tail_color if p.tail.cooldown <= 0.0 else tail_color.darkened(0.3))
+	_bar(Rect2(origin + Vector2(28, 42), Vector2(84, 6)), tail, tail_color, 10)
 	for i in world.stats.lives:
-		var at := origin + Vector2(124 + i * 22, 32)
-		draw_rect(Rect2(at, Vector2(16, 6)), Palette.HULL)
-		draw_rect(Rect2(at + Vector2(4, -3), Vector2(7, 3)), Palette.HULL_LIGHT)
-		draw_rect(Rect2(at + Vector2(10, -2), Vector2(8, 1)), Palette.HULL_LIGHT)
+		Icons.draw(self, "tank", origin + Vector2(120 + i * 22, 38), Palette.HULL)
 	# Throttle meter between brake and boost chevrons.
 	var rail := world.rail
-	var m := Vector2(400, 510)
-	_panel(Rect2(m - Vector2(8, 10), Vector2(176, 22)), Palette.SKY)
+	var m := Vector2(392, 508)
+	_panel(Rect2(m - Vector2(8, 12), Vector2(192, 26)), Palette.SKY)
 	var meter_color := Palette.SKY
 	if rail.is_meter_locked():
 		meter_color = Palette.STONE
@@ -179,9 +177,9 @@ func _draw_status() -> void:
 		meter_color = Palette.BUTTER
 	elif rail.throttle == -1:
 		meter_color = Palette.PERIWINKLE
-	_chevrons(m + Vector2(7, 1), -1.0, Palette.PERIWINKLE if rail.throttle == -1 else Palette.STONE)
-	_bar(Rect2(m + Vector2(24, -3), Vector2(112, 8)), rail.meter, meter_color, 12)
-	_chevrons(m + Vector2(146, 1), 1.0, Palette.BUTTER if rail.throttle == 1 else Palette.STONE)
+	Icons.draw(self, "boost", m + Vector2(0, -5), Palette.PERIWINKLE if rail.throttle == -1 else Palette.STONE, 1.0, true)
+	_bar(Rect2(m + Vector2(22, -3), Vector2(132, 8)), rail.meter, meter_color, 12)
+	Icons.draw(self, "boost", m + Vector2(162, -5), Palette.BUTTER if rail.throttle == 1 else Palette.STONE)
 
 
 func _module_color(state: TankModules.State) -> Color:
@@ -193,30 +191,73 @@ func _module_color(state: TankModules.State) -> Color:
 	return Palette.MINT
 
 
-## Top-down schematic of the tank, front up: ERA bricks, tracks, engine, turret, breech, laser, tail.
+## Outlined rectangle: ink border, fill, and a one-pixel highlight on the top edge.
+func _plate(rect: Rect2, fill: Color) -> void:
+	draw_rect(rect.grow(1.0), Palette.INK)
+	draw_rect(rect, fill)
+	draw_rect(Rect2(rect.position, Vector2(rect.size.x, 1)), fill.lightened(0.3))
+
+
+## Top-down schematic of the tank, front up. Each module is drawn in its own shape and colored by
+## state: tracks with links and road wheels, engine grille, turret ring with hatch, gun with muzzle
+## brake, the laser RWS, ERA bricks on the glacis and skirts, and the segmented tail with its claw.
 func _draw_modules() -> void:
 	var p := world.player
 	var m := p.modules
-	var origin := Vector2(232, 452)
-	_panel(Rect2(origin, Vector2(64, 76)), Palette.MINT)
-	var c := origin + Vector2(32, 34)
-	draw_rect(Rect2(c + Vector2(-10, -20), Vector2(20, 38)), Palette.DUSK)
-	draw_rect(Rect2(c + Vector2(-16, -18), Vector2(5, 34)), _module_color(m.state("track_l")))
-	draw_rect(Rect2(c + Vector2(11, -18), Vector2(5, 34)), _module_color(m.state("track_r")))
-	draw_rect(Rect2(c + Vector2(-7, 8), Vector2(14, 8)), _module_color(m.state("engine")))
-	draw_circle(c + Vector2(0, -3), 7.0, _module_color(m.state("turret")))
-	draw_rect(Rect2(c + Vector2(-1.5, -24), Vector2(3, 16)), _module_color(m.state("breech")))
-	draw_rect(Rect2(c + Vector2(-6, -3), Vector2(3, 3)), _module_color(m.state("laser")))
+	var origin := Vector2(236, 430)
+	_panel(Rect2(origin, Vector2(78, 98)), Palette.MINT)
+	var c := origin + Vector2(39, 50)
+	# Tracks: links and road wheels.
+	for side in [-1.0, 1.0]:
+		var track := _module_color(m.state("track_l" if side < 0.0 else "track_r"))
+		var rect := Rect2(c + Vector2(side * 15.0 - 4.0, -26), Vector2(8, 46))
+		_plate(rect, track.darkened(0.2))
+		for k in 11:
+			draw_rect(Rect2(rect.position + Vector2(0, 2 + k * 4), Vector2(8, 1)), Palette.INK)
+		for k in 5:
+			draw_rect(Rect2(rect.position + Vector2(2, 4 + k * 9), Vector2(4, 4)), track)
+	# Hull with engine deck.
+	_plate(Rect2(c + Vector2(-10, -24), Vector2(20, 42)), Palette.HULL)
+	var engine := _module_color(m.state("engine"))
+	_plate(Rect2(c + Vector2(-8, 8), Vector2(16, 8)), engine.darkened(0.15))
+	for k in 4:
+		draw_rect(Rect2(c + Vector2(-6 + k * 4, 9), Vector2(1, 6)), Palette.INK)
+	# ERA bricks: four on the glacis, three on each skirt.
 	for i in TankModules.ERA.front:
-		draw_rect(Rect2(c + Vector2(-10 + i * 5, -27), Vector2(4, 3)), Palette.SKY if i < m.era.front else Palette.DUSK)
+		_plate(Rect2(c + Vector2(-10 + i * 5, -29), Vector2(4, 3)), Palette.SKY if i < m.era.front else Palette.DUSK)
 	for i in TankModules.ERA.left:
-		draw_rect(Rect2(c + Vector2(-21, -16 + i * 9), Vector2(3, 7)), Palette.SKY if i < m.era.left else Palette.DUSK)
-		draw_rect(Rect2(c + Vector2(18, -16 + i * 9), Vector2(3, 7)), Palette.SKY if i < m.era.right else Palette.DUSK)
+		_plate(Rect2(c + Vector2(-22, -20 + i * 10), Vector2(2, 7)), Palette.SKY if i < m.era.left else Palette.DUSK)
+		_plate(Rect2(c + Vector2(20, -20 + i * 10), Vector2(2, 7)), Palette.SKY if i < m.era.right else Palette.DUSK)
+	# Gun: barrel, fume extractor and muzzle brake.
+	var breech := _module_color(m.state("breech"))
+	_plate(Rect2(c + Vector2(-1, -40), Vector2(3, 32)), breech)
+	_plate(Rect2(c + Vector2(-2, -30), Vector2(5, 4)), breech.darkened(0.2))
+	_plate(Rect2(c + Vector2(-3, -42), Vector2(7, 3)), breech.darkened(0.2))
+	# Turret: an octagon ring with the commander's hatch and the laser RWS.
+	var turret := _module_color(m.state("turret"))
+	var ring := PackedVector2Array()
+	for k in 8:
+		var angle := TAU * (k + 0.5) / 8.0
+		ring.append(c + Vector2(cos(angle), sin(angle)) * 9.0 + Vector2(0, -6))
+	draw_colored_polygon(ring, Palette.INK)
+	for k in ring.size():
+		ring[k] = (ring[k] - (c + Vector2(0, -6))) * 0.85 + c + Vector2(0, -6)
+	draw_colored_polygon(ring, turret)
+	draw_circle(c + Vector2(4, -3), 2.0, Palette.INK)
+	draw_circle(c + Vector2(4, -3), 1.2, turret.lightened(0.3))
+	var laser := _module_color(m.state("laser"))
+	_plate(Rect2(c + Vector2(-7, -5), Vector2(4, 4)), laser)
+	if p.ciws_target != null and fmod(_time, 0.1) < 0.06:
+		draw_rect(Rect2(c + Vector2(-6, -9), Vector2(1, 4)), Palette.WHITE)
+	# Tail: five tapering segments and a claw.
 	var tail_color := Palette.FUNGUS if not p.tail.is_hurt() else Palette.CORAL
 	if p.tail.destroyed:
 		tail_color = Palette.RED if fmod(_time, 0.5) < 0.3 else Palette.DUSK
-	for i in 3:
-		draw_rect(Rect2(c + Vector2(-2 + i * 2, 19 + i * 4), Vector2(4, 4)), tail_color)
+	for k in 5:
+		var size := 5.0 - k * 0.6
+		_plate(Rect2(c + Vector2(-size * 0.5 + sin(_time * 3.0 + k) * k * 0.4, 20 + k * 4), Vector2(size, 3)), tail_color)
+	draw_colored_polygon(PackedVector2Array([c + Vector2(-3, 40), c + Vector2(0, 45), c + Vector2(-1, 40)]), tail_color)
+	draw_colored_polygon(PackedVector2Array([c + Vector2(3, 40), c + Vector2(0, 45), c + Vector2(1, 40)]), tail_color)
 
 
 func _coax_label() -> String:
@@ -232,33 +273,39 @@ func _coax_label() -> String:
 
 func _draw_weapons() -> void:
 	var p := world.player
-	var origin := Vector2(734, 456)
+	var origin := Vector2(724, 444)
 	var round_color: Color = Armament.ROUND_COLORS[p.current_round]
-	_panel(Rect2(origin, Vector2(210, 72)), round_color)
-	# Main gun: round icon, magazine pips (infinity for APHE) and a reload bar.
-	_icon_shell(origin + Vector2(10, 7), round_color)
+	_panel(Rect2(origin, Vector2(220, 84)), round_color)
+	# Main gun: the loaded round, its magazine as small shells (infinity for APHE), reload bar.
+	Icons.draw(self, "shell", origin + Vector2(6, 8), round_color)
 	if p.current_round != Armament.Round.APHE:
 		for i in p.round_count:
-			draw_rect(Rect2(origin + Vector2(30 + i * 8, 9), Vector2(5, 11)), round_color)
+			var at := origin + Vector2(32 + i * 9, 10)
+			_plate(Rect2(at + Vector2(0, 3), Vector2(4, 6)), Palette.BUTTER)
+			_plate(Rect2(at, Vector2(4, 3)), round_color)
 	else:
-		_text(origin + Vector2(30, 20), "∞", Palette.STONE)
+		_text(origin + Vector2(32, 20), "∞", Palette.STONE)
 	var reload := 1.0 - p.reload / Armament.RELOAD
-	_bar(Rect2(origin + Vector2(110, 12), Vector2(90, 6)), reload, Palette.CREAM if reload >= 1.0 else Palette.STONE, 8)
-	# Coax: one bullet glyph per mounted gun, sized by caliber, plus tier pips.
+	_bar(Rect2(origin + Vector2(120, 12), Vector2(90, 6)), reload, Palette.CREAM if reload >= 1.0 else Palette.STONE, 8)
+	# Coax: a cartridge per mounted gun, sized by caliber, then tier pips.
 	var x := 10.0
 	for caliber in Armament.tier_calibers(p.coax_tier):
-		_icon_bullet(origin + Vector2(x, 28), caliber, Armament.GUNS[caliber].color)
-		x += 8.0 + caliber * 0.35
+		Icons.cartridge(self, origin + Vector2(x, 30), caliber, Armament.GUNS[caliber].color)
+		x += 10.0 + caliber * 0.3
 	for i in Armament.COAX_TIERS.size():
-		draw_rect(Rect2(origin + Vector2(110 + i * 15, 33), Vector2(11, 6)), Palette.BUTTER if i <= p.coax_tier else Palette.DUSK)
+		_plate(Rect2(origin + Vector2(120 + i * 15, 40), Vector2(11, 6)), Palette.BUTTER if i <= p.coax_tier else Palette.DUSK)
 	# Laser CIWS heat.
 	var heat_color := Palette.MINT
 	if p.ciws_overheated:
 		heat_color = Palette.RED if fmod(_time, 0.3) < 0.15 else Palette.CORAL
 	elif p.ciws_heat > 0.7:
 		heat_color = Palette.BUTTER
-	_icon_laser(origin + Vector2(10, 52), heat_color, p.ciws_target != null and not p.ciws_overheated)
-	_bar(Rect2(origin + Vector2(30, 54), Vector2(170, 8)), p.ciws_heat, heat_color, 13)
+	if not p.modules.laser_online():
+		heat_color = Palette.STONE
+	Icons.draw(self, "laser", origin + Vector2(6, 64), heat_color)
+	if p.ciws_target != null and not p.ciws_overheated and fmod(_time, 0.1) < 0.06:
+		draw_line(origin + Vector2(22, 68), origin + Vector2(30, 68), Palette.WHITE, 2.0)
+	_bar(Rect2(origin + Vector2(32, 66), Vector2(178, 8)), p.ciws_heat, heat_color, 13)
 
 
 const STYLE_COLORS: Array[Color] = [Palette.MIST, Palette.SKY, Palette.MINT, Palette.BUTTER, Palette.PEACH, Palette.CORAL, Palette.FUNGUS]
@@ -302,43 +349,6 @@ func _draw_progress() -> void:
 	draw_rect(Rect2(origin + Vector2(width * k - 3, -3), Vector2(6, 9)), Palette.FUNGUS)
 
 
-func _icon_shield(at: Vector2, color: Color) -> void:
-	draw_colored_polygon(PackedVector2Array([at, at + Vector2(12, 0), at + Vector2(12, 7), at + Vector2(6, 12), at + Vector2(0, 7)]), color)
-	draw_rect(Rect2(at + Vector2(5, 2), Vector2(2, 7)), Palette.INK)
-
-
-func _icon_tail(at: Vector2, color: Color) -> void:
-	for i in 3:
-		draw_rect(Rect2(at + Vector2(i * 3, 6 - i * 3), Vector2(4, 4)), color)
-	draw_colored_polygon(PackedVector2Array([at + Vector2(9, -2), at + Vector2(14, -3), at + Vector2(11, 1)]), color)
-	draw_colored_polygon(PackedVector2Array([at + Vector2(9, 2), at + Vector2(14, 4), at + Vector2(10, 4)]), color)
-
-
-func _icon_shell(at: Vector2, color: Color) -> void:
-	draw_rect(Rect2(at + Vector2(0, 4), Vector2(9, 6)), Palette.OCHRE)
-	draw_colored_polygon(PackedVector2Array([at + Vector2(9, 3), at + Vector2(15, 7), at + Vector2(9, 11)]), color)
-
-
-func _icon_bullet(at: Vector2, caliber: int, color: Color) -> void:
-	var h := 6.0 + caliber * 0.4
-	var w := 2.0 + caliber * 0.2
-	draw_rect(Rect2(at + Vector2(0, 14 - h * 0.7), Vector2(w, h * 0.7)), Palette.OCHRE)
-	draw_rect(Rect2(at + Vector2(0, 14 - h), Vector2(w, h * 0.3)), color)
-
-
-func _icon_laser(at: Vector2, color: Color, firing: bool) -> void:
-	draw_rect(Rect2(at + Vector2(0, 2), Vector2(6, 8)), Palette.HULL_LIGHT)
-	draw_rect(Rect2(at + Vector2(6, 4), Vector2(3, 4)), color)
-	if firing and fmod(_time, 0.1) < 0.06:
-		draw_line(at + Vector2(9, 6), at + Vector2(18, 6), Palette.WHITE, 2.0)
-
-
-func _chevrons(at: Vector2, direction: float, color: Color) -> void:
-	for i in 2:
-		var x := at.x + i * 7.0 * direction
-		draw_colored_polygon(PackedVector2Array([Vector2(x, at.y - 5), Vector2(x + 6 * direction, at.y), Vector2(x, at.y + 5)]), color)
-
-
 func _draw_boss() -> void:
 	var boss := world.boss
 	if not is_instance_valid(boss) or boss.dead:
@@ -358,7 +368,7 @@ func _draw_radio() -> void:
 	var shown := int(clampf((RADIO_TIME - _radio_time) * 45.0, 0.0, text.length()))
 	var warning := text.begins_with("경고") or text.begins_with("Warning")
 	var accent := Palette.CORAL if warning else Palette.MINT
-	var origin := Vector2(16, 400)
+	var origin := Vector2(16, 388)
 	var slide := clampf((RADIO_TIME - _radio_time) * 8.0, 0.0, 1.0) * clampf(_radio_time * 6.0, 0.0, 1.0)
 	origin.x -= (1.0 - slide) * 380.0
 	_panel(Rect2(origin, Vector2(370, 34)), accent)
