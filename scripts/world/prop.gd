@@ -12,7 +12,6 @@ var footprint := 1.0
 var height := 2.0
 var crushable := false
 var debris: Array = [Fx.Debris.WOOD, Fx.Debris.CONCRETE] ## Fx.Debris materials it breaks into.
-var drop := "" ## Pickup id dropped when destroyed.
 var burnable := false
 var explosive := false
 var blast_size := 4.5 ## Radius of the explosion when an explosive prop goes up.
@@ -181,8 +180,6 @@ func on_death(hit: Hit) -> void:
 	Sfx.play("rubble" if footprint > 1.5 else "wood", global_position)
 	if footprint > 2.5:
 		world.shake(0.25, global_position)
-	if not drop.is_empty():
-		world.spawn_pickup(drop, global_position + Vector3.UP)
 	for piece in supports:
 		if not is_instance_valid(piece) or piece.dead:
 			continue

@@ -67,7 +67,7 @@ class Spec:
 	var d := 0.0
 	var u := 0.0
 	var yaw := 0.0
-	var drop := ""
+	var pickup := "" ## Loot lying on the ground here instead of a prop.
 	var decor := false
 	var mesh: Mesh
 	var node: Node3D
@@ -102,13 +102,13 @@ func build() -> void:
 ## Builds every prop mesh the plan uses up front, so streaming never stalls on a first build.
 func _prewarm() -> void:
 	for spec in specs:
-		if not spec.decor:
+		if not spec.decor and spec.pickup.is_empty():
 			PropKit.mesh(spec.kind, spec.variant)
 			if PROPS[spec.kind][7]:
 				PropKit.mesh("rubble", spec.variant)
 
 
-func add(kind: String, d: float, u: float, yaw := INF, variant := -1, drop := "") -> Spec:
+func add(kind: String, d: float, u: float, yaw := INF, variant := -1) -> Spec:
 	if INFESTED.has(kind) and _rng.randf() < clampf((d - 300.0) / 2400.0, 0.1, 0.75):
 		kind = INFESTED[kind]
 	var spec := Spec.new()
@@ -117,7 +117,16 @@ func add(kind: String, d: float, u: float, yaw := INF, variant := -1, drop := ""
 	spec.u = u
 	spec.yaw = yaw if yaw != INF else (-PI * 0.5 if u > 0.0 else PI * 0.5) + _rng.randf_range(-0.15, 0.15)
 	spec.variant = variant if variant >= 0 else _rng.randi_range(0, 11)
-	spec.drop = drop
+	specs.append(spec)
+	return spec
+
+
+## Places a power-up on the ground, floating like any other loot.
+func add_pickup(id: String, d: float, u: float) -> Spec:
+	var spec := Spec.new()
+	spec.pickup = id
+	spec.d = d
+	spec.u = u
 	specs.append(spec)
 	return spec
 
@@ -202,8 +211,8 @@ func _farm() -> void:
 	add("bus_stop", 300.0, -8.0)
 	add("car", 360.0, 3.0, 0.3, 2)
 	_scatter("car", 60.0, 560.0, 10, 1.0, 14.0)
-	add("crate", 150.0, -4.0, 0.2, 0, "coax")
-	add("crate", 470.0, 5.0, -0.2, 1, "canister")
+	add_pickup("coax", 150.0, -4.0)
+	add_pickup("canister", 470.0, 5.0)
 	_fungus(200.0, 560.0, 0.5)
 
 
@@ -234,11 +243,11 @@ func _village() -> void:
 			add("greenhouse", gd + 10.0 + k * 20.0, -22.0 - k * 1.5, 0.0)
 	_scatter("car", 620.0, 1430.0, 22, 2.0, 16.0)
 	_scatter("persimmon", 620.0, 1430.0, 14, 9.0, 30.0)
-	add("crate", 880.0, 7.0, 0.0, 0, "dragon")
-	add("crate", 640.0, -5.0, 0.0, 1, "era")
-	add("crate", 1100.0, 5.0, 0.0, 0, "tail")
-	add("crate", 1210.0, -6.0, 0.0, 1, "coax")
-	add("crate", 1400.0, 3.0, 0.0, 0, "repair")
+	add_pickup("dragon", 880.0, 7.0)
+	add_pickup("era", 640.0, -5.0)
+	add_pickup("tail", 1100.0, 5.0)
+	add_pickup("coax", 1210.0, -6.0)
+	add_pickup("repair", 1400.0, 3.0)
 	_fungus(600.0, 1450.0, 0.9)
 
 
@@ -249,7 +258,7 @@ func _school() -> void:
 	add_decor(PropKit.mesh("flagpole", 0), 1640.0, -30.0, 0.0)
 	for i in 8:
 		add("plane_tree", 1570.0 + i * 22.0, 60.0 * (1.0 if i % 2 else -1.0) + _rng.randf_range(-4, 4))
-	add("crate", 1520.0, 0.0, 0.0, 0, "heat")
+	add_pickup("heat", 1520.0, 0.0)
 	_fungus(1560.0, 1760.0, 1.4)
 
 
@@ -264,11 +273,11 @@ func _reservoir() -> void:
 		add_decor(PropKit.mesh("pier", int(pd)), pd, -60.0 - _rng.randf_range(0, 20), _rng.randf() * TAU, Course.WATER_LEVEL)
 	_scatter("house", 1780.0, 2640.0, 6, 22.0, 40.0, false)
 	_scatter("car", 1800.0, 2640.0, 18, 0.0, 12.0)
-	add("crate", 2000.0, 6.0, 0.0, 0, "airburst")
-	add("crate", 2150.0, -4.0, 0.0, 1, "era")
-	add("crate", 2450.0, 3.0, 0.0, 0, "tail")
-	add("crate", 2300.0, -5.0, 0.0, 1, "coax")
-	add("crate", 2560.0, 4.0, 0.0, 0, "repair")
+	add_pickup("airburst", 2000.0, 6.0)
+	add_pickup("era", 2150.0, -4.0)
+	add_pickup("tail", 2450.0, 3.0)
+	add_pickup("coax", 2300.0, -5.0)
+	add_pickup("repair", 2560.0, 4.0)
 	_fungus(1760.0, 2660.0, 1.6)
 
 
@@ -284,10 +293,10 @@ func _overpass() -> void:
 	for td in [3040.0, 3140.0, 3220.0, 3300.0]:
 		add("truck" if _rng.randf() < 0.5 else "car", td, _rng.randf_range(-9.0, 9.0), _rng.randf_range(-0.4, 0.4))
 	_scatter("car", 2680.0, 2890.0, 10, 0.0, 12.0)
-	add("crate", 2700.0, 0.0, 0.0, 0, "apfsds")
-	add("crate", 2950.0, -3.0, 0.0, 1, "era")
-	add("crate", 3050.0, 4.0, 0.0, 0, "tail")
-	add("crate", 3180.0, 4.0, 0.0, 1, "heat")
+	add_pickup("apfsds", 2700.0, 0.0)
+	add_pickup("era", 2950.0, -3.0)
+	add_pickup("tail", 3050.0, 4.0)
+	add_pickup("heat", 3180.0, 4.0)
 	_fungus(2660.0, 2900.0, 1.8)
 
 
@@ -460,7 +469,9 @@ func _instantiate(spec: Spec) -> void:
 	var y: float = spec.get_meta("y") if spec.has_meta("y") else Course.height(spec.d, spec.u) + spec.lift
 	var position := Course.to_world(spec.d, spec.u, y)
 	var yaw := spec.yaw + Course.yaw_at(spec.d)
-	if spec.decor:
+	if not spec.pickup.is_empty():
+		spec.node = World.current.spawn_pickup(spec.pickup, position + Vector3.UP * 1.6)
+	elif spec.decor:
 		var decor := MeshInstance3D.new()
 		decor.mesh = spec.mesh
 		decor.visibility_range_end = 260.0
@@ -479,7 +490,6 @@ func _instantiate(spec: Spec) -> void:
 		prop.blast_size = {"barrel": 4.0, "gas_pump": 8.0}.get(spec.kind, 4.5)
 		if cfg[7]:
 			prop.rubble_mesh = PropKit.mesh("rubble", spec.variant)
-		prop.drop = spec.drop
 		prop.falls = spec.kind in FALLING
 		prop.fungal = spec.kind in FUNGAL
 		prop.debris = _debris(spec.kind)

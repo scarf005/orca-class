@@ -3,8 +3,8 @@ extends Node3D
 ## A floating power-up. Driving through it or snatching it with the tail applies it.
 
 const COLLECT_RADIUS := 4.5
-const MAGNET_RADIUS := 16.0 ## Within this, a pickup flies to the tank on its own.
-const MAGNET_SPEED := 40.0
+const MAGNET_RADIUS := 40.0 ## Within this, every pickup flies to the tank on its own.
+const MAGNET_SPEED := 60.0
 const IDS := ["coax", "heat", "canister", "dragon", "apfsds", "airburst", "repair", "life", "era", "tail"]
 
 var id := "coax"
