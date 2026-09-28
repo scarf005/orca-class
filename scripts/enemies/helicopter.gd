@@ -257,6 +257,7 @@ func _update_phase() -> void:
 	if phase == Phase.HUNTER and (ratio < 0.66 or not (_live("panel_l") or _live("panel_r"))):
 		phase = Phase.STRIPPED
 		world.radio.emit(&"AI_BOSS_PHASE2")
+		_resupply()
 		_grow_fungus(6)
 		for side in ["panel_l", "panel_r"]:
 			if _live(side):
@@ -266,10 +267,21 @@ func _update_phase() -> void:
 	elif phase == Phase.STRIPPED and ratio < 0.33:
 		phase = Phase.INFECTED
 		world.radio.emit(&"AI_BOSS_PHASE3")
+		_resupply()
 		_grow_fungus(14)
 		world.screen_flash(Palette.FUNGUS, 0.4)
 		Sfx.play("roar", global_position, 6.0, 0.7)
 		_next_attack = 0.8
+
+
+## Drops fresh ERA and a regrowth pod near the tank at each phase change.
+func _resupply() -> void:
+	var world := World.current
+	var tank := player()
+	if tank == null:
+		return
+	world.spawn_pickup("era", tank.global_position + tank.global_basis.x * 8.0 + Vector3.UP * 1.5)
+	world.spawn_pickup("tail", tank.global_position - tank.global_basis.x * 8.0 + Vector3.UP * 1.5)
 
 
 func behave(delta: float) -> void:
@@ -483,6 +495,7 @@ func _launch_atgm(tank: Tank, index: int) -> void:
 	missile.hit.source = self
 	missile.blast_radius = 3.0
 	missile.blast_damage = 24.0
+	missile.hit.warhead = true
 	missile.homing_target = tank
 	missile.turn_rate = 2.0
 	missile.interceptable = true

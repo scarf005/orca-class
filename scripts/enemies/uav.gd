@@ -18,6 +18,8 @@ var _strafe_point := Vector3.ZERO
 var _strafe_step := Vector3.ZERO
 var _prop: Node3D
 var _sound: AudioStreamPlayer3D
+var engine_hp := 18.0 ## A hit on the pusher engine sends it gliding into the ground.
+var _falling := false
 
 
 func _init() -> void:
@@ -65,7 +67,28 @@ func build() -> void:
 	_sound = Sfx.loop("jet", self, -4.0)
 
 
+func on_damaged(hit: Hit, amount: float) -> void:
+	super(hit, amount)
+	var local := model.global_transform.affine_inverse() * hit.position
+	if not _falling and local.z > 1.0:
+		engine_hp -= amount
+		if engine_hp <= 0.0:
+			_falling = true
+			World.current.fx.explosion(_prop.global_position, 0.8)
+			World.current.fx.burn(_prop.global_position, 0.1, 0.5)
+
+
 func behave(delta: float) -> void:
+	if _falling:
+		# Engine out: nose down, trailing smoke, until it hits the ground.
+		_dir = (_dir + Vector3.DOWN * delta * 0.8).normalized()
+		global_position += _dir * SPEED * delta
+		model.look_at(global_position + _dir, Vector3.UP)
+		model.rotate_object_local(Vector3.FORWARD, age * 3.0)
+		World.current.fx.smoke(global_position, 1, 0.6, [Palette.ASH, Palette.STONE])
+		if global_position.y <= Course.height_at(global_position) + 0.5:
+			die(Hit.make(Hit.Kind.RAM, 999.0, global_position))
+		return
 	var world := World.current
 	var tank := player()
 	if tank == null:

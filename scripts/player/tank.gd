@@ -27,6 +27,7 @@ const HOLD_TIME := 0.35 ## A grabbed enemy dangles this long before it is thrown
 
 var model := TankModel.new()
 var tail := Tail.new()
+var modules := TankModules.new()
 
 var course_u := 0.0
 var course_offset := 4.0 ## Distance ahead of the rail position.
@@ -120,8 +121,9 @@ func tick(delta: float) -> void:
 	invuln = maxf(0.0, invuln - delta)
 	anchor_cooldown = maxf(0.0, anchor_cooldown - delta)
 	reload = maxf(0.0, reload - delta)
+	modules.update(delta)
 	model.visible = invuln <= 0.0 or fmod(invuln, 0.16) < 0.1
-	tail.visible = model.visible
+	tail.visible = model.visible and not tail.destroyed
 	_update_movement(delta)
 	_update_aim(delta)
 	_update_weapons(delta)
@@ -149,16 +151,16 @@ func _update_movement(delta: float) -> void:
 	if input_enabled and Input.is_action_just_pressed("anchor") and anchor_cooldown <= 0.0:
 		_anchor(input)
 	var command := 0
-	if input_enabled and Input.is_action_pressed("overdrive"):
+	if input_enabled and Input.is_action_pressed("overdrive") and modules.overdrive_online():
 		command = 1
 	elif input_enabled and Input.is_action_pressed("brake"):
 		command = -1
 	if rail.mode == Rail.Mode.ARENA:
 		_move_arena(delta, input)
-		rail.advance(delta, 0)
+		rail.advance(delta, 0, modules.meter_refill_factor())
 		return
-	rail.advance(delta, command)
-	var target := Vector2(input.x * MOVE_SPEED.x, input.y * MOVE_SPEED.y)
+	rail.advance(delta, command, modules.meter_refill_factor())
+	var target := Vector2(input.x * MOVE_SPEED.x, input.y * MOVE_SPEED.y) * modules.move_factor()
 	local_velocity = local_velocity.move_toward(target, ACCEL * delta)
 	if _drift > 0.0:
 		_drift -= delta
@@ -180,7 +182,7 @@ func _move_arena(delta: float, input: Vector2) -> void:
 	forward.y = 0.0
 	forward = forward.normalized()
 	var right := forward.cross(Vector3.UP)
-	var wish := (right * input.x + forward * input.y) * ARENA_SPEED
+	var wish := (right * input.x + forward * input.y) * ARENA_SPEED * modules.move_factor()
 	var current := Vector3(local_velocity.x, 0, local_velocity.y)
 	current = current.move_toward(wish, ACCEL * delta)
 	if _drift > 0.0:
@@ -321,7 +323,7 @@ func _update_aim(delta: float) -> void:
 	# Turret traverse and gun elevation follow the aim point.
 	var local := model.turret.global_transform.affine_inverse() * aim_point
 	var yaw := atan2(-local.x, -local.z)
-	model.turret.rotation.y = rotate_toward(model.turret.rotation.y, model.turret.rotation.y + yaw, 7.0 * delta)
+	model.turret.rotation.y = rotate_toward(model.turret.rotation.y, model.turret.rotation.y + yaw, 7.0 * modules.traverse_factor() * delta)
 	var to_aim := local - model.gun_pivot.position
 	var pitch := clampf(atan2(to_aim.y, Vector2(to_aim.x, to_aim.z).length()), deg_to_rad(-8.0), deg_to_rad(55.0))
 	model.gun_pivot.rotation.x = move_toward(model.gun_pivot.rotation.x, pitch, 3.0 * delta)
@@ -489,7 +491,7 @@ func fire_cannon() -> void:
 		if round_count <= 0:
 			current_round = Armament.Round.APHE
 		round_changed.emit()
-	reload = Armament.HEAT_RELOAD if round == Armament.Round.HEAT else Armament.RELOAD
+	reload = (Armament.HEAT_RELOAD if round == Armament.Round.HEAT else Armament.RELOAD) * modules.reload_factor()
 	_cannon_feedback(muzzle, barrel_dir)
 
 
@@ -534,6 +536,9 @@ func _on_flame_impact(_projectile: Projectile, point: Vector3, target: Entity) -
 func _update_ciws(delta: float) -> void:
 	var world := World.current
 	_ciws_sound_cooldown = maxf(0.0, _ciws_sound_cooldown - delta)
+	if not modules.laser_online():
+		ciws_target = null
+		return
 	if ciws_overheated:
 		ciws_heat = maxf(0.0, ciws_heat - CIWS_COOL_RATE * delta)
 		if ciws_heat <= 0.3:
@@ -792,7 +797,17 @@ func collect(pickup: Pickup) -> void:
 				world.award(2000, global_position, false)
 		"repair":
 			hp = minf(hp + 35.0, max_hp)
-			tail.repair(60.0)
+			modules.repair_all()
+			if not tail.destroyed:
+				tail.repair(60.0)
+		"era":
+			modules.restore_era()
+			model.set_era(modules.era)
+		"tail":
+			if tail.destroyed:
+				tail.regrow()
+			else:
+				tail.repair(Tail.MAX_HP)
 		"life":
 			world.stats.lives += 1
 		_:
@@ -805,6 +820,24 @@ func collect(pickup: Pickup) -> void:
 	pickup.queue_free()
 
 
+## Which side of the hull a hit arrives from: "front", "left", "right" or "rear".
+func facing_of(hit: Hit) -> String:
+	var incoming := -hit.direction
+	incoming.y = 0.0
+	if incoming.length() < 0.01:
+		incoming = hit.position - global_position
+		incoming.y = 0.0
+	if incoming.length() < 0.01:
+		return "front"
+	incoming = incoming.normalized()
+	var front := (-global_basis.z).dot(incoming)
+	if front > 0.5:
+		return "front"
+	if front < -0.5:
+		return "rear"
+	return "right" if global_basis.x.dot(incoming) > 0.0 else "left"
+
+
 func damage_multiplier(hit: Hit) -> float:
 	if invuln > 0.0 or _respawn > 0.0:
 		return 0.0
@@ -812,15 +845,36 @@ func damage_multiplier(hit: Hit) -> float:
 	if hit.kind == Hit.Kind.BULLET and hit.caliber < 20:
 		multiplier *= 0.35
 	# Frontal armor is thick, the rear is weak.
-	var incoming := -hit.direction
-	incoming.y = 0.0
-	if incoming.length() > 0.01:
-		var facing := (-global_basis.z).dot(incoming.normalized())
-		if facing > 0.5:
+	match facing_of(hit):
+		"front":
 			multiplier *= 0.6
-		elif facing < -0.5:
+		"rear":
 			multiplier *= 1.4
 	return multiplier
+
+
+## Shaped charges are decided by ERA: a block on that facing eats it, otherwise it is fatal.
+func take_hit(hit: Hit) -> void:
+	if dead or invulnerable or _respawn > 0.0:
+		return
+	if hit.warhead and invuln <= 0.0:
+		var world := World.current
+		var facing := facing_of(hit)
+		if modules.consume_era(facing):
+			model.set_era(modules.era)
+			world.fx.explosion(hit.position, 1.8, [Palette.WHITE, Palette.SKY, Palette.BUTTER])
+			world.fx.debris(hit.position, 8, [Palette.HULL, Palette.INK], 8.0, 0.3)
+			world.shake(0.35)
+			world.screen_flash(Palette.SKY, 0.2)
+			Sfx.play("blast_small", hit.position, 2.0, 0.8)
+			world.radio.emit(&"AI_ERA" if modules.era[facing] > 0 else &"AI_ERA_GONE")
+			invuln = 0.15
+			return
+		world.radio.emit(&"AI_PENETRATION")
+		world.stats.damage_taken += hp
+		die(hit)
+		return
+	super(hit)
 
 
 func on_damaged(hit: Hit, amount: float) -> void:
@@ -831,12 +885,26 @@ func on_damaged(hit: Hit, amount: float) -> void:
 	world.screen_flash(Palette.CORAL, clampf(amount / 40.0, 0.12, 0.45))
 	world.fx.sparks(hit.position, -hit.direction, 6, Palette.CORAL)
 	Sfx.play("hurt", global_position, 0.0, randf_range(0.9, 1.1))
-	var incoming := -hit.direction
-	if (-global_basis.z).dot(incoming) < -0.3:
-		tail.damage(amount * 0.8)
+	_damage_modules(hit, amount)
 	invuln = maxf(invuln, 0.12)
 	if hp < MAX_ARMOR * 0.3 and hp + amount >= MAX_ARMOR * 0.3:
 		world.radio.emit(&"AI_LOW_ARMOR")
+
+
+## Heavy hits knock out the modules exposed on the facing they come from.
+func _damage_modules(hit: Hit, amount: float) -> void:
+	var world := World.current
+	var facing := facing_of(hit)
+	if facing == "rear" and tail.damage(amount * 1.2):
+		world.fx.explosion(tail.mount.global_position, 1.5, [Palette.WHITE, Palette.FUNGUS, Palette.BLUSH])
+		world.radio.emit(&"AI_MOD_TAIL")
+	if hit.kind == Hit.Kind.BULLET and hit.caliber < 20:
+		return
+	var exposed: Array = TankModules.EXPOSED[facing]
+	var name: String = exposed[randi() % exposed.size()]
+	if modules.damage(name, amount * 1.3):
+		world.radio.emit(StringName("AI_MOD_" + name.to_upper() + ("_OUT" if modules.state(name) == TankModules.State.DESTROYED else "")))
+		world.fx.sparks(hit_center(), Vector3.UP, 14, Palette.BUTTER, 10.0)
 
 
 ## Losing all armor costs a life instead of removing the tank.
@@ -870,6 +938,9 @@ func die(_hit: Hit) -> void:
 
 func _finish_respawn() -> void:
 	hp = max_hp
+	modules.restore()
+	model.set_era(modules.era)
+	tail.regrow()
 	invuln = RESPAWN_INVULN
 	course_u = 0.0
 	course_offset = 4.0

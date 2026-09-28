@@ -124,6 +124,7 @@ func behave(delta: float) -> void:
 			if tank.hit_center().distance_to(global_position) < tank.radius + 0.8 and not tank.dead:
 				var boom := Hit.make(Hit.Kind.BLAST, 14.0, global_position, _dive_dir)
 				boom.source = self
+				boom.warhead = true
 				tank.take_hit(boom)
 				_explode()
 			elif global_position.y < Course.height_at(global_position) + 0.3 or _state_time > 3.0:

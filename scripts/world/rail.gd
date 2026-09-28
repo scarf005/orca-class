@@ -21,7 +21,7 @@ var _stop_timer := 0.0
 
 
 ## `command` is the player's wish: -1 brake, 0 cruise, 1 overdrive.
-func advance(delta: float, command: int) -> void:
+func advance(delta: float, command: int, refill := 1.0) -> void:
 	if meter <= 0.0:
 		_meter_locked = true
 	elif meter > 0.35:
@@ -30,7 +30,7 @@ func advance(delta: float, command: int) -> void:
 	if throttle != 0:
 		meter = maxf(0.0, meter - METER_DRAIN * delta)
 	else:
-		meter = minf(1.0, meter + METER_REFILL * delta)
+		meter = minf(1.0, meter + METER_REFILL * refill * delta)
 	var target := CRUISE
 	match throttle:
 		1: target = OVERDRIVE

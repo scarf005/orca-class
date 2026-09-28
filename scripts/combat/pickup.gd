@@ -3,7 +3,7 @@ extends Node3D
 ## A floating power-up. Driving through it or snatching it with the tail applies it.
 
 const COLLECT_RADIUS := 3.4
-const IDS := ["coax", "heat", "canister", "dragon", "apfsds", "airburst", "repair", "life"]
+const IDS := ["coax", "heat", "canister", "dragon", "apfsds", "airburst", "repair", "life", "era", "tail"]
 
 var id := "coax"
 var collected := false
@@ -37,6 +37,8 @@ func color() -> Color:
 		"coax": return Palette.BUTTER
 		"repair": return Palette.MINT
 		"life": return Palette.FUNGUS
+		"era": return Palette.SKY
+		"tail": return Palette.BLUSH
 	return Armament.ROUND_COLORS[Armament.round_from_id(id)]
 
 
@@ -76,6 +78,13 @@ func _mesh_for(kind: String) -> Mesh:
 		"repair":
 			b.box(Transform3D(), Vector3(1.0, 0.3, 0.3), c)
 			b.box(Transform3D(), Vector3(0.3, 1.0, 0.3), c)
+		"era":
+			for i in 3:
+				b.box(Transform3D(Basis(), Vector3(0, -0.4 + i * 0.4, 0)), Vector3(1.0, 0.25, 0.7), c, Palette.WHITE)
+		"tail":
+			for i in 3:
+				b.blob(Transform3D(Basis(), Vector3(-0.4 + i * 0.35, -0.2 + i * 0.25, 0)), 0.28 - i * 0.04, c)
+			b.prism(Transform3D(Basis(Vector3.BACK, -0.6), Vector3(0.45, 0.4, 0)), 0.14, 0.5, 4, Palette.FUNGUS, 0.0)
 		"life":
 			b.blob(Transform3D(), 0.55, c, 0, 0.2, 4)
 			b.glow = false

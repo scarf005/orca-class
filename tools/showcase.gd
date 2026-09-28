@@ -35,6 +35,17 @@ func run() -> int:
 			_stage_vfx(world)
 		"tail":
 			_stage_tail(world)
+		"modules":
+			var tank := world.player
+			tank.modules.consume_era("front")
+			tank.modules.consume_era("left")
+			tank.modules.consume_era("left")
+			tank.modules.damage("track_r", 999.0)
+			tank.modules.damage("breech", 40.0)
+			tank.model.set_era(tank.modules.era)
+			tank.tail.damage(70.0)
+			world.radio.emit(&"AI_MOD_TRACK_R_OUT")
+			_stage_vfx(world)
 		"boss":
 			world.rail.d = Course.ARENA_CENTER_D - 60.0
 			world.director._start_boss({"kind": "helicopter"})

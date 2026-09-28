@@ -91,13 +91,18 @@ func test_anchor_hard_stop_halts_rail() -> void:
 	check(world.rail.speed > 8.0, "rail resumes")
 
 
-func test_hurt_tail_is_slower_but_never_disabled() -> void:
-	var tail := Tail.new()
-	tail.damage(1000.0)
-	check(tail.hp > 0.0, "tail never fully disabled")
-	check(tail.is_hurt(), "heavy damage marks it hurt")
-	tail.start_cooldown()
-	check(tail.cooldown > Tail.COOLDOWN, "hurt tail recovers slower")
-	tail.repair(200.0)
-	check_eq(tail.hp, Tail.MAX_HP, "repair caps at max")
-	tail.free()
+func test_tail_can_be_torn_off_and_regrown() -> void:
+	var world := stage()
+	var tank := world.player
+	await frames(2)
+	tank.tail.damage(60.0)
+	check(tank.tail.is_hurt(), "heavy damage marks it hurt")
+	tank.tail.start_cooldown()
+	check(tank.tail.cooldown > Tail.COOLDOWN, "hurt tail recovers slower")
+	check(tank.tail.damage(1000.0), "enough damage tears it off")
+	check(not tank.tail.is_ready(), "a lost tail does nothing")
+	world.spawn_pickup("repair", tank.tail.mount.global_position + tank.global_basis.x * 5.0)
+	tank.auto_tail()
+	check_eq(tank.tail.state, Tail.State.IDLE, "no snatching without a tail")
+	tank.collect(world.spawn_pickup("tail", tank.global_position + Vector3(0, 30, 0)))
+	check(not tank.tail.destroyed and tank.tail.hp == Tail.MAX_HP, "the regrowth pickup brings it back")

@@ -368,4 +368,5 @@ func on_death(_hit: Hit) -> void:
 	world.award(score, global_position + Vector3.UP * 6.0, true)
 	world.spawn_pickup("coax", Course.ground_at(Course.MIDBOSS_D - 30.0, 6.0) + Vector3.UP)
 	world.spawn_pickup("repair", Course.ground_at(Course.MIDBOSS_D - 30.0, -6.0) + Vector3.UP)
+	world.spawn_pickup("era", Course.ground_at(Course.MIDBOSS_D - 36.0, 0.0) + Vector3.UP)
 	Sfx.play("blast", global_position)

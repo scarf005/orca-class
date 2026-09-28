@@ -26,6 +26,7 @@ var held: Node3D ## Thing carried by the claw.
 var mount: Node3D ## The tail's attachment point on the hull.
 var joints: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO, Vector3.ZERO, Vector3.ZERO]
 var claw_open := 0.0
+var destroyed := false
 
 var _claw := Vector3.ZERO
 var _claw_velocity := Vector3.ZERO
@@ -65,7 +66,7 @@ func _ready() -> void:
 
 
 func is_ready() -> bool:
-	return cooldown <= 0.0 and state in [State.IDLE, State.HOLD]
+	return not destroyed and cooldown <= 0.0 and state in [State.IDLE, State.HOLD]
 
 
 func state_time() -> float:
@@ -92,8 +93,24 @@ func start_cooldown(scale := 1.0) -> void:
 	cooldown = COOLDOWN * scale * (1.6 if is_hurt() else 1.0)
 
 
-func damage(amount: float) -> void:
-	hp = maxf(hp - amount, 12.0) # Never fully disabled.
+## Returns true when this hit tore the tail off. It only grows back from a pickup.
+func damage(amount: float) -> bool:
+	if destroyed:
+		return false
+	hp = maxf(hp - amount, 0.0)
+	if hp > 0.0:
+		return false
+	destroyed = true
+	held = null
+	set_state(State.IDLE)
+	visible = false
+	return true
+
+
+func regrow() -> void:
+	destroyed = false
+	hp = MAX_HP
+	visible = true
 
 
 func repair(amount: float) -> void:

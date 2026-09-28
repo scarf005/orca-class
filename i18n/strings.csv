@@ -59,6 +59,8 @@ PICKUP_DRAGON,용의 숨결,DRAGON'S BREATH
 PICKUP_APFSDS,날개안정분리철갑탄,APFSDS
 PICKUP_AIRBURST,공중폭발탄,AIRBURST
 PICKUP_REPAIR,수리,REPAIR
+PICKUP_ERA,반응장갑,REACTIVE ARMOR
+PICKUP_TAIL,꼬리 재생,TAIL REGROWTH
 PICKUP_LIFE,예비 차체,SPARE HULL
 SECTION_0,농로,FARM ROAD
 SECTION_1,마을,VILLAGE
@@ -107,4 +109,20 @@ AI_CLEAR,위협 소멸. 작전 구역 확보.,Threats neutralized. Area secured.
 AI_LOW_ARMOR,경고: 장갑 무결성 위험.,Warning: hull integrity critical.
 AI_LIFE_LOST,차체 손실. 예비 차체 투입.,Hull lost. Deploying spare hull.
 AI_OVERHEAT,레이저 과열. 냉각 중.,Laser overheat. Cooling.
+AI_ERA,반응장갑 작동.,Reactive armor triggered.
+AI_ERA_GONE,경고: 해당 면 반응장갑 소진.,Warning: reactive armor depleted on that face.
+AI_PENETRATION,치명적 관통.,Catastrophic penetration.
+AI_MOD_TAIL,꼬리 부속지 상실. 재생 물질 필요.,Tail appendage lost. Regrowth compound required.
+AI_MOD_TRACK_L,좌측 궤도 손상.,Left track damaged.
+AI_MOD_TRACK_L_OUT,좌측 궤도 파괴. 기동 저하.,Left track destroyed. Mobility reduced.
+AI_MOD_TRACK_R,우측 궤도 손상.,Right track damaged.
+AI_MOD_TRACK_R_OUT,우측 궤도 파괴. 기동 저하.,Right track destroyed. Mobility reduced.
+AI_MOD_ENGINE,엔진 손상.,Engine damaged.
+AI_MOD_ENGINE_OUT,엔진 파괴. 가속 불가.,Engine destroyed. Overdrive unavailable.
+AI_MOD_BREECH,포미 손상. 장전 지연.,Breech damaged. Reload delayed.
+AI_MOD_BREECH_OUT,포미 파괴. 장전 극히 지연.,Breech destroyed. Reload severely delayed.
+AI_MOD_TURRET,포탑 구동 손상.,Turret drive damaged.
+AI_MOD_TURRET_OUT,포탑 구동 파괴. 선회 저하.,Turret drive destroyed. Traverse crippled.
+AI_MOD_LASER,레이저 손상.,Laser damaged.
+AI_MOD_LASER_OUT,레이저 파괴. 요격 불가.,Laser destroyed. Interception offline.
 AI_NO_DAMAGE,구역 무손상 통과.,Sector cleared without damage.

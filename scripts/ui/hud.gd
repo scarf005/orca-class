@@ -99,6 +99,7 @@ func _draw() -> void:
 	_draw_threats()
 	_draw_popups()
 	_draw_status()
+	_draw_modules()
 	_draw_weapons()
 	_draw_score()
 	_draw_progress()
@@ -165,6 +166,41 @@ func _draw_status() -> void:
 	_chevrons(m + Vector2(7, 1), -1.0, Palette.PERIWINKLE if rail.throttle == -1 else Palette.STONE)
 	_bar(Rect2(m + Vector2(24, -3), Vector2(112, 8)), rail.meter, meter_color, 12)
 	_chevrons(m + Vector2(146, 1), 1.0, Palette.BUTTER if rail.throttle == 1 else Palette.STONE)
+
+
+func _module_color(state: TankModules.State) -> Color:
+	match state:
+		TankModules.State.DAMAGED:
+			return Palette.BUTTER
+		TankModules.State.DESTROYED:
+			return Palette.RED if fmod(_time, 0.5) < 0.3 else Palette.DUSK
+	return Palette.MINT
+
+
+## Top-down schematic of the tank, front up: ERA bricks, tracks, engine, turret, breech, laser, tail.
+func _draw_modules() -> void:
+	var p := world.player
+	var m := p.modules
+	var origin := Vector2(232, 452)
+	_panel(Rect2(origin, Vector2(64, 76)), Palette.MINT)
+	var c := origin + Vector2(32, 34)
+	draw_rect(Rect2(c + Vector2(-10, -20), Vector2(20, 38)), Palette.DUSK)
+	draw_rect(Rect2(c + Vector2(-16, -18), Vector2(5, 34)), _module_color(m.state("track_l")))
+	draw_rect(Rect2(c + Vector2(11, -18), Vector2(5, 34)), _module_color(m.state("track_r")))
+	draw_rect(Rect2(c + Vector2(-7, 8), Vector2(14, 8)), _module_color(m.state("engine")))
+	draw_circle(c + Vector2(0, -3), 7.0, _module_color(m.state("turret")))
+	draw_rect(Rect2(c + Vector2(-1.5, -24), Vector2(3, 16)), _module_color(m.state("breech")))
+	draw_rect(Rect2(c + Vector2(-6, -3), Vector2(3, 3)), _module_color(m.state("laser")))
+	for i in TankModules.ERA.front:
+		draw_rect(Rect2(c + Vector2(-10 + i * 5, -27), Vector2(4, 3)), Palette.SKY if i < m.era.front else Palette.DUSK)
+	for i in TankModules.ERA.left:
+		draw_rect(Rect2(c + Vector2(-21, -16 + i * 9), Vector2(3, 7)), Palette.SKY if i < m.era.left else Palette.DUSK)
+		draw_rect(Rect2(c + Vector2(18, -16 + i * 9), Vector2(3, 7)), Palette.SKY if i < m.era.right else Palette.DUSK)
+	var tail_color := Palette.FUNGUS if not p.tail.is_hurt() else Palette.CORAL
+	if p.tail.destroyed:
+		tail_color = Palette.RED if fmod(_time, 0.5) < 0.3 else Palette.DUSK
+	for i in 3:
+		draw_rect(Rect2(c + Vector2(-2 + i * 2, 19 + i * 4), Vector2(4, 4)), tail_color)
 
 
 func _coax_label() -> String:

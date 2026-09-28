@@ -19,6 +19,11 @@ var _muzzle := Node3D.new()
 var _eye: MeshInstance3D
 var _eye_material := StandardMaterial3D.new()
 var _hard := false
+## Modules: a tracked hit immobilizes it, a turret hit disarms it; the hull still has to die.
+var tracks_hp := 30.0
+var weapon_hp := 25.0
+var immobile := false
+var disarmed := false
 
 
 func _init() -> void:
@@ -106,15 +111,15 @@ func behave(delta: float) -> void:
 	var target_d := here.x
 	if age < PACE_TIME and world.rail.mode != Rail.Mode.ARENA:
 		target_d = world.rail.d + tank.course_offset + KEEP_AHEAD * (1.2 if weapon == "supply" else 1.0)
-	var speed := 0.0 if is_staggered() else 22.0
-	var move := Vector2(clampf(target_d - here.x, -speed, speed), clampf(_lane - here.y, -6.0, 6.0))
+	var speed := 0.0 if is_staggered() or immobile else 22.0
+	var move := Vector2(clampf(target_d - here.x, -speed, speed), clampf(_lane - here.y, -6.0, 6.0) if not immobile else 0.0)
 	var next := here + move * delta
 	var p := Course.ground_at(next.x, next.y)
 	global_position = p
 	var heading := Vector3(move.y, 0, -maxf(absf(move.x), 1.0) * signf(move.x + 0.01))
 	if heading.length() > 0.1:
 		model.rotation.y = lerp_angle(model.rotation.y, atan2(-heading.x, -heading.z), 4.0 * delta)
-	if weapon == "supply":
+	if weapon == "supply" or disarmed:
 		return
 	# Aim the turret at the tank (turret is child of the model).
 	var local := model.global_transform.affine_inverse() * tank.hit_center()
@@ -152,6 +157,28 @@ func behave(delta: float) -> void:
 		_attack_timer = (3.8 if weapon == "atgm" else 2.4) * (0.75 if _hard else 1.0)
 
 
+func on_damaged(hit: Hit, amount: float) -> void:
+	super(hit, amount)
+	var world := World.current
+	var local := model.global_transform.affine_inverse() * hit.position
+	if not immobile and local.y < 0.8:
+		tracks_hp -= amount
+		if tracks_hp <= 0.0:
+			immobile = true
+			world.fx.debris(global_position + Vector3.UP * 0.4, 8, [Palette.INK, Palette.STONE], 7.0, 0.3)
+			world.fx.burn(global_position + Vector3.UP * 0.6, 30.0, 0.6)
+			world.award(100, global_position, false)
+	elif not disarmed and weapon != "supply" and local.y > 1.3:
+		weapon_hp -= amount
+		if weapon_hp <= 0.0:
+			disarmed = true
+			_cancel()
+			_burst = 0
+			_turret.rotation.x = -0.35
+			world.fx.explosion(_turret.global_position + Vector3.UP * 0.4, 1.0)
+			world.award(100, global_position, false)
+
+
 func _attack() -> void:
 	set_meta("locking", false)
 	_eye_material.albedo_color = Palette.RED
@@ -166,6 +193,7 @@ func _attack() -> void:
 	missile.hit.source = self
 	missile.blast_radius = 2.8
 	missile.blast_damage = 30.0
+	missile.hit.warhead = true
 	missile.homing_target = tank
 	missile.turn_rate = 2.4
 	missile.interceptable = true
