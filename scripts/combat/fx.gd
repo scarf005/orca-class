@@ -406,6 +406,18 @@ func explosion(position: Vector3, damage_radius: float, palette := [Palette.BUTT
 			_delayed.append({"time": (randf_range(0.12, 0.3) + i * 0.1) * BLAST_PACE, "position": position + along + Vector3(randf_range(-1, 1), randf_range(0, 1), randf_range(-1, 1)) * damage_radius * 0.6, "radius": damage_radius * 0.4, "palette": palette, "push": push})
 
 
+## A see-through copy of `meshes` where they stand now, washed in `color`, that dithers away.
+func afterimage(meshes: Array, color: Color, life := 0.45) -> void:
+	for node: Object in meshes:
+		var source := node as MeshInstance3D
+		if source == null or not source.is_visible_in_tree() or source.mesh == null:
+			continue
+		var ghost := _transient(source.mesh, source.global_transform, life, true, Vector2.ONE, 0.0)
+		ghost.layers |= ActorLayer.LAYER # In true colors, like the tank itself.
+		ghost.set_instance_shader_parameter("instance_tint", Color(color, 0.8))
+		ghost.set_instance_shader_parameter("instance_alpha", 0.8)
+
+
 ## Something hits the water: a crown of spray and rings spreading out over the surface.
 func splash(position: Vector3, size: float) -> void:
 	var at := Vector3(position.x, Course.WATER_LEVEL + 0.05, position.z)

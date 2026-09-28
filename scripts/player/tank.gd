@@ -67,6 +67,8 @@ var _ciws_sound_cooldown := 0.0
 
 var invuln := 0.0
 var _blink := 0.0 ## Blinks while the fresh hull's respawn cover lasts; dashes and hits never blink.
+var _ghost_timer := 0.0
+var _ghost_hue := 0.0
 var anchor_cooldown := 0.0
 var _drift := 0.0
 var _drift_dir := 0.0
@@ -146,6 +148,8 @@ func tick(delta: float) -> void:
 	_blink = maxf(0.0, _blink - delta)
 	model.visible = _blink <= 0.0 or fmod(_blink, 0.16) < 0.1
 	tail.visible = model.visible and not tail.destroyed
+	if _drift > 0.0:
+		_dash_trail(delta)
 	_update_movement(delta)
 	_update_aim(delta)
 	_update_weapons(delta)
@@ -268,6 +272,17 @@ func dash(direction: Vector2) -> void:
 	_anchor(direction)
 
 
+## Sandevistan-style: while dashing, the hull leaves a string of afterimages behind it, each a
+## different hue, fading as the next one appears.
+func _dash_trail(delta: float) -> void:
+	_ghost_timer -= delta
+	if _ghost_timer > 0.0:
+		return
+	_ghost_timer = 0.03
+	_ghost_hue = fmod(_ghost_hue + 0.09, 1.0)
+	World.current.fx.afterimage(_meshes, Color.from_hsv(_ghost_hue, 0.65, 1.0))
+
+
 func is_dashing() -> bool:
 	return _drift > 0.0
 
@@ -278,6 +293,8 @@ func _anchor(input: Vector2) -> void:
 		return
 	anchor_cooldown = ANCHOR_COOLDOWN
 	invuln = maxf(invuln, DASH_TIME)
+	_ghost_timer = 0.0
+	world.screen_flash(Palette.CYAN, 0.1)
 	var ground := global_position - global_basis.z * -3.0
 	if absf(input.x) > 0.3:
 		# Pivot drift: the claw bites the ground and the hull whips sideways around it.
