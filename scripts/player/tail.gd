@@ -2,8 +2,8 @@ class_name Tail
 extends Node3D
 ## The Orca-class's five-segment muscular tail. A spring drives the claw toward a goal and a
 ## FABRIK pass bends the segments to follow. Segments stretch and thin when reaching far.
-## Radii taper continuously from root to claw and ball joints fill every bend, so it reads as one
-## limb rather than floating pieces.
+## Radii taper continuously from root to tip and ball joints fill every bend, so it reads as one
+## limb rather than floating pieces. It ends in an orca's two flukes.
 
 signal arrived ## The claw reached its current goal.
 signal missed ## A reach or stab ran out of time before arriving.
@@ -63,7 +63,7 @@ func _ready() -> void:
 	_claw_root.add_child(palm)
 	for side in [-1.0, 1.0]:
 		var pincer := Node3D.new()
-		pincer.position = Vector3(0.14 * side, 0, -0.2)
+		pincer.position = Vector3(0.04 * side, 0, -0.15)
 		_claw_root.add_child(pincer)
 		var mesh := MeshInstance3D.new()
 		mesh.mesh = _pincer_mesh(side)
@@ -232,7 +232,8 @@ func _update_visuals() -> void:
 	_claw_root.global_transform = Transform3D(Basis.looking_at(tip_dir, up), joints[last])
 	for i in _pincers.size():
 		var side := -1.0 if i == 0 else 1.0
-		_pincers[i].rotation.y = side * lerpf(0.05, 0.7, claw_open)
+		# The flukes flex up and down as the tail works, and spread when it strikes.
+		_pincers[i].rotation.z = side * (sin(_time * 5.0) * 0.12 + claw_open * 0.25)
 
 
 ## Radius at joint `index` (0 = root): a straight taper, shared by the segments meeting there.
@@ -256,19 +257,30 @@ func _knuckle_mesh(r: float) -> Mesh:
 
 
 func _palm_mesh() -> Mesh:
+	# The narrow tail stock where the flukes join.
 	var b := LowPoly.new()
-	b.box(Transform3D(Basis(), Vector3(0, 0, 0.05)), Vector3(0.45, 0.3, 0.45), Palette.MAUVE)
+	b.box(Transform3D(Basis(), Vector3(0, 0, -0.05)), Vector3(0.22, 0.2, 0.4), Palette.HULL_LIGHT)
 	return b.mesh()
 
 
+## One fluke of an orca's tail: a broad, flat lobe swept back and out to one side, dark on top
+## and pale underneath, with a notched trailing edge.
 func _pincer_mesh(side: float) -> Mesh:
 	var b := LowPoly.new()
-	var root_a := Vector3(0.0, 0.12, 0)
-	var root_b := Vector3(0.0, -0.12, 0)
-	var outer := Vector3(0.28 * side, 0, -0.45)
-	var tip := Vector3(-0.08 * side, 0, -0.95)
-	b.tri(root_a, outer, tip, Palette.FUNGUS, Vector3.UP)
-	b.tri(root_b, outer, tip, Palette.CORAL, Vector3.DOWN)
-	b.tri(root_a, root_b, tip, Palette.BLUSH, Vector3(-side, 0, 0))
-	b.tri(root_a, root_b, outer, Palette.FUNGUS, Vector3(side, 0, 0.3))
+	var t := 0.05
+	var root_front := Vector3(0.0, 0, -0.12)
+	var root_back := Vector3(0.0, 0, 0.18)
+	var tip := Vector3(0.95 * side, 0, 0.42)
+	var lead := Vector3(0.55 * side, 0, -0.1)
+	var trail := Vector3(0.45 * side, 0, 0.22)
+	var up := Vector3.UP * t
+	for face in [[root_front, lead, tip], [root_front, tip, trail], [root_front, trail, root_back]]:
+		b.tri(face[0] + up, face[1] + up, face[2] + up, Palette.INK, Vector3.UP)
+		b.tri(face[0] - up, face[1] - up, face[2] - up, Palette.CREAM, Vector3.DOWN)
+	# Edges, so the lobe has a little thickness from the side.
+	var outline := [root_front, lead, tip, trail, root_back]
+	for i in outline.size() - 1:
+		var a: Vector3 = outline[i]
+		var c: Vector3 = outline[i + 1]
+		b.quad(a + up, c + up, c - up, a - up, Palette.SLATE, ((a + c) * 0.5 - Vector3(0, 0, 0.1)).normalized())
 	return b.mesh()
