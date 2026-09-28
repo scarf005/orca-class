@@ -185,11 +185,11 @@ func test_overkill_leaves_only_shards() -> void:
 func test_shards_scale_with_the_size_of_what_broke() -> void:
 	var world := stage()
 	var pool: Array = world.fx._pools[Fx.Kind.SOLID]
-	world.fx.shatter(AABB(Vector3.ZERO, Vector3.ONE), [Palette.INK])
+	world.fx.shatter(AABB(Vector3.ZERO, Vector3.ONE), [Fx.Debris.ROCK])
 	var small := pool.size()
 	var small_size: float = pool.map(func(p: Fx.Particle) -> float: return p.size).max()
 	pool.clear()
-	world.fx.shatter(AABB(Vector3.ZERO, Vector3.ONE * 6.0), [Palette.INK])
+	world.fx.shatter(AABB(Vector3.ZERO, Vector3.ONE * 6.0), [Fx.Debris.ROCK])
 	check(pool.size() > small * 5, "a big thing breaks into many more shards")
 	check(pool.map(func(p: Fx.Particle) -> float: return p.size).max() > small_size * 3.0, "and bigger ones")
 	check(pool.all(func(p: Fx.Particle) -> bool: return p.trail.a > 0.0), "every shard trails smoke")

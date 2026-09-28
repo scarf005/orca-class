@@ -482,7 +482,7 @@ func _instantiate(spec: Spec) -> void:
 		prop.drop = spec.drop
 		prop.falls = spec.kind in FALLING
 		prop.fungal = spec.kind in FUNGAL
-		prop.debris_colors = _debris_colors(spec.kind, spec.variant)
+		prop.debris = _debris(spec.kind)
 		# Position before entering the tree: props register into spatial buckets on entry.
 		prop.position = position
 		prop.rotation.y = yaw
@@ -536,24 +536,43 @@ func _link(spec: Spec, prop: Prop) -> void:
 			prop.supports.append(other.node as Prop)
 
 
-func _debris_colors(kind: String, variant: int) -> Array:
+## What each kind of prop breaks into, as Fx.Debris materials.
+func _debris(kind: String) -> Array:
 	match kind:
-		"house", "hall", "infested_house", "church_nave", "church_tower", "church_spire", "school_wing", "school_center":
-			return [PropKit.WALL_COLORS[variant % PropKit.WALL_COLORS.size()], PropKit.ROOF_COLORS[variant % PropKit.ROOF_COLORS.size()], Palette.STONE]
+		"house", "hall", "church_nave", "church_tower", "church_spire", "school_wing", "school_center":
+			return [Fx.Debris.CONCRETE, Fx.Debris.ROOF, Fx.Debris.WOOD, Fx.Debris.GLASS]
+		"infested_house":
+			return [Fx.Debris.CONCRETE, Fx.Debris.ROOF, Fx.Debris.FLESH]
+		"pavilion":
+			return [Fx.Debris.WOOD, Fx.Debris.ROOF]
+		"wall":
+			return [Fx.Debris.CONCRETE]
+		"gate":
+			return [Fx.Debris.CONCRETE, Fx.Debris.METAL]
+		"jars":
+			return [Fx.Debris.CERAMIC]
 		"greenhouse":
-			return [Palette.WHITE, Palette.MIST, Palette.FUNGUS]
+			return [Fx.Debris.VINYL, Fx.Debris.METAL, Fx.Debris.FOLIAGE]
+		"pole":
+			return [Fx.Debris.CONCRETE, Fx.Debris.METAL]
+		"bus_stop":
+			return [Fx.Debris.METAL, Fx.Debris.GLASS, Fx.Debris.CONCRETE]
+		"cultivator", "barrel", "gas_pump":
+			return [Fx.Debris.METAL, Fx.Debris.PAINT]
+		"bale", "reeds":
+			return [Fx.Debris.STRAW]
+		"car", "truck":
+			return [Fx.Debris.PAINT, Fx.Debris.METAL, Fx.Debris.GLASS]
+		"infested_car":
+			return [Fx.Debris.PAINT, Fx.Debris.METAL, Fx.Debris.FLESH]
 		"mushroom", "spore_tower", "fungal_spire", "flesh_mound", "cordyceps", "egg_sacs", "husk_cow":
-			return [Palette.FUNGUS, Palette.LILAC, Palette.CREAM]
-		"bale":
-			return [Palette.WHITE, Palette.STRAW]
-		"car", "truck", "infested_car":
-			return [PropKit.CAR_COLORS[variant % PropKit.CAR_COLORS.size()], Palette.INK, Palette.DUSK]
-		"persimmon", "plane_tree", "reeds", "zelkova_trunk", "zelkova_canopy":
-			return [Palette.PINE, Palette.WOOD, Palette.PEACH]
-		"barrel", "gas_pump":
-			return [Palette.HOT, Palette.AMBER, Palette.INK]
+			return [Fx.Debris.FLESH, Fx.Debris.SPORE]
+		"persimmon", "plane_tree", "zelkova_trunk", "zelkova_canopy":
+			return [Fx.Debris.WOOD, Fx.Debris.FOLIAGE]
 		"gas_station":
-			return [Palette.WHITE, Palette.HOT, Palette.CONCRETE]
+			return [Fx.Debris.CONCRETE, Fx.Debris.METAL, Fx.Debris.GLASS, Fx.Debris.PAINT]
 		"crate":
-			return [Palette.PINE, Palette.OCHRE, Palette.BUTTER]
-	return [Palette.CONCRETE, Palette.STONE, Palette.WOOD]
+			return [Fx.Debris.WOOD]
+		"rock":
+			return [Fx.Debris.ROCK]
+	return [Fx.Debris.CONCRETE, Fx.Debris.WOOD]

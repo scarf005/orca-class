@@ -24,7 +24,7 @@ func _init() -> void:
 	center_height = 0.8
 	stabbable = true
 	score = 120
-	debris_colors = [Palette.FUNGUS, Palette.LILAC, Palette.CREAM]
+	debris = [Fx.Debris.FLESH, Fx.Debris.SPORE]
 	weakness = {Hit.Kind.FIRE: 3.0, Hit.Kind.BLAST: 1.3, Hit.Kind.TAIL: 2.0}
 
 
@@ -140,7 +140,7 @@ func on_death(hit: Hit) -> void:
 	# Killed before bursting: a harmless puff, and it scores.
 	var world := World.current
 	world.fx.spores(hit_center(), 10, 1.0)
-	world.fx.shatter(visual_bounds(), debris_colors, Enemy.kill_push(hit))
+	world.fx.shatter(visual_bounds(), debris, Enemy.kill_push(hit))
 	world.award(score, hit_center(), true)
 	world.kill_style(hit, self)
 	Sfx.play("squelch", hit_center(), 0.0, 1.1)

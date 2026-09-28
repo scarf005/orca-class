@@ -304,7 +304,7 @@ func _anchor(input: Vector2) -> void:
 		return # Never drop what the claw carries just to dig in.
 	tail.set_state(Tail.State.ANCHOR, ground, null, 400.0)
 	world.fx.dust(ground, 10, 1.5, Palette.OCHRE)
-	world.fx.debris(ground, 6, [Palette.OCHRE, Palette.WOOD], 5.0, 0.25)
+	world.fx.debris(ground, 6, [Fx.Debris.DIRT], 5.0, 0.25)
 	world.shake(0.2)
 	get_tree().create_timer(0.35).timeout.connect(func() -> void:
 		if tail.state == Tail.State.ANCHOR:
@@ -559,7 +559,7 @@ func _fire_coax(muzzle: Node3D, caliber: int, spec: Dictionary, target: Entity) 
 	world.shake(0.01 + caliber * 0.001)
 	# Brass spills out of the mantlet and bounces off the deck.
 	var eject := global_basis.x * randf_range(2.0, 4.0) + Vector3.UP * randf_range(3.0, 5.0)
-	world.fx.spawn(Fx.Kind.SOLID, from - dir * 0.6, eject, 0.9, 0.05 + caliber * 0.004, Palette.BUTTER, {"gravity": 22.0, "bounce": true, "spin": 1.0})
+	world.fx.spawn(Fx.Kind.SOLID, from - dir * 0.6, eject, 0.9, 0.15 + caliber * 0.01, Color.WHITE, {"gravity": 22.0, "bounce": true, "spin": 1.0, "material": Fx.Debris.BRASS})
 	Sfx.play(spec.sound, from, -4.0, randf_range(0.95, 1.08))
 
 
@@ -1005,7 +1005,7 @@ func take_hit(hit: Hit) -> void:
 		var facing := facing_of(hit)
 		if modules.consume_era(facing):
 			world.fx.explosion(hit.position, 1.8, [Palette.WHITE, Palette.SKY, Palette.BUTTER])
-			world.fx.debris(hit.position, 8, [Palette.HULL, Palette.INK], 8.0, 0.3)
+			world.fx.debris(hit.position, 8, [Fx.Debris.ARMOR], 8.0, 0.3)
 			world.shake(0.35)
 			world.screen_flash(Palette.SKY, 0.2)
 			Sfx.play("blast_small", hit.position, 2.0, 0.8)
@@ -1055,7 +1055,7 @@ func _damage_modules(hit: Hit, amount: float) -> void:
 func die(_hit: Hit) -> void:
 	var world := World.current
 	world.fx.explosion(global_position + Vector3.UP, 5.0)
-	world.fx.debris(global_position + Vector3.UP, 20, [Palette.HULL, Palette.PINE, Palette.INK], 12.0, 0.5)
+	world.fx.debris(global_position + Vector3.UP, 20, [Fx.Debris.ARMOR, Fx.Debris.METAL], 12.0, 0.5)
 	world.shake(1.0)
 	world.hitstop(0.2)
 	world.screen_flash(Palette.WHITE, 0.8)

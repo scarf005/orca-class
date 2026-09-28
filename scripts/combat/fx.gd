@@ -11,10 +11,17 @@ const DEBRIS_SIZE := 1.8 ## Flat shards are drawn this much bigger than the size
 const DEBRIS_SMOKE := Color("9c93a3") ## Every flying shard trails a thin line of smoke.
 const TRAIL_MIN_SPEED := 4.0 ## Shards stop trailing once they slow down on the ground.
 
-## SOLID: flat, ink-edged 2D shards (debris) that face the camera and tumble in the screen plane.
+## SOLID: flat pixel-art debris sprites that face the camera and tumble in the screen plane.
 ## GLOW: unlit puffs (smoke, dust, spores), dithered. FLAME: fire, sparks and flashes, drawn
 ## without dithering.
 enum Kind { SOLID, GLOW, FLAME }
+
+## What a shard is made of. Each has DEBRIS_VARIANTS sprites in assets/debris, drawn by
+## tools/debris.py; keep the order in step with its MATERIALS list.
+enum Debris { WOOD, CONCRETE, ROOF, GLASS, METAL, PAINT, ARMOR, VINYL, FLESH, SPORE, FOLIAGE, STRAW, CERAMIC, ROCK, BRASS, DIRT }
+const DEBRIS_FILES: Array[String] = ["wood", "concrete", "roof", "glass", "metal", "paint", "armor", "vinyl", "flesh", "spore", "foliage", "straw", "ceramic", "rock", "brass", "dirt"]
+const DEBRIS_VARIANTS := 6
+const STRIDE := {Kind.SOLID: 20, Kind.GLOW: 16, Kind.FLAME: 16} ## Floats per instance; debris adds its sprite layer.
 
 class Particle:
 	var position: Vector3
@@ -32,9 +39,9 @@ class Particle:
 	var trail := Color(0, 0, 0, 0) ## Leaves smoke puffs behind while alive (burning debris).
 	var ground := -INF ## Ground height for bouncing, sampled once: debris lands near where it starts.
 	var trail_timer := 0.0
-	var aspect := Vector2.ONE ## Shards are stretched differently, so one mesh reads as many shapes.
+	var layer := 0 ## Debris sprite in the texture array.
 
-static var _solid_material := _fade_material(true)
+static var _solid_material := _debris_material()
 static var _glow_material := _fade_material(true)
 static var _flame_material := _flame()
 
@@ -55,6 +62,24 @@ var _delayed: Array[Dictionary] = [] ## Secondary blasts waiting to go off.
 var _emitters: Array[Dictionary] = [] ## Burning wrecks: flames and a smoke column for a while.
 
 
+## Every debris sprite stacked into one texture array, so all shards draw in a single call.
+static func _debris_material() -> ShaderMaterial:
+	var images: Array[Image] = []
+	for file in DEBRIS_FILES:
+		for i in DEBRIS_VARIANTS:
+			var image: Image = load("res://assets/debris/%s_%d.png" % [file, i]).get_image()
+			if image.is_compressed():
+				image.decompress()
+			image.convert(Image.FORMAT_RGBA8)
+			images.append(image)
+	var sprites := Texture2DArray.new()
+	sprites.create_from_images(images)
+	var material := ShaderMaterial.new()
+	material.shader = preload("res://shaders/debris_sprite.gdshader")
+	material.set_shader_parameter("sprites", sprites)
+	return material
+
+
 static func _fade_material(glow: bool) -> ShaderMaterial:
 	var material := ShaderMaterial.new()
 	material.shader = preload("res://shaders/dither_fade.gdshader")
@@ -67,6 +92,7 @@ func _ready() -> void:
 		var multimesh := MultiMesh.new()
 		multimesh.transform_format = MultiMesh.TRANSFORM_3D
 		multimesh.use_colors = true
+		multimesh.use_custom_data = kind == Kind.SOLID
 		multimesh.mesh = _particle_mesh(kind)
 		multimesh.instance_count = MAX_PARTICLES
 		multimesh.visible_instance_count = 0
@@ -80,7 +106,7 @@ func _ready() -> void:
 		add_child(instance)
 		_multimeshes[kind] = multimesh
 		var buffer := PackedFloat32Array()
-		buffer.resize(MAX_PARTICLES * 16)
+		buffer.resize(MAX_PARTICLES * STRIDE[kind])
 		_buffers[kind] = buffer
 	for i in 4:
 		var light := OmniLight3D.new()
@@ -93,19 +119,13 @@ func _ready() -> void:
 
 
 static func _particle_mesh(kind: Kind) -> Mesh:
+	if kind == Kind.SOLID:
+		# A flat sprite card; the sprite fills about two thirds of it.
+		var card := QuadMesh.new()
+		card.size = Vector2(1.5, 1.5)
+		return card
 	var builder := LowPoly.new()
-	if kind != Kind.SOLID:
-		builder.blob(Transform3D(), 0.5, Color.WHITE)
-		return builder.mesh()
-	# A flat, jagged shard in the XY plane with an ink rim behind it, like a hand-drawn chip.
-	var outline: Array[Vector3] = []
-	for corner: Vector2 in [Vector2(0.0, 0.5), Vector2(1.3, 0.34), Vector2(2.4, 0.55), Vector2(3.5, 0.3), Vector2(4.8, 0.46)]:
-		outline.append(Vector3(cos(corner.x), sin(corner.x), 0.0) * corner.y)
-	for layer: Array in [[1.3, -0.02, Palette.INK], [1.0, 0.0, Color.WHITE]]:
-		for i in outline.size():
-			var a: Vector3 = outline[i] * layer[0] + Vector3(0, 0, layer[1])
-			var b: Vector3 = outline[(i + 1) % outline.size()] * layer[0] + Vector3(0, 0, layer[1])
-			builder.tri(Vector3(0, 0, layer[1]), a, b, layer[2])
+	builder.blob(Transform3D(), 0.5, Color.WHITE)
 	return builder.mesh()
 
 
@@ -139,7 +159,8 @@ func spawn(kind: Kind, position: Vector3, velocity: Vector3, life: float, size: 
 		p.ground = Course.height_at(position)
 	p.spin = Vector3(randf_range(-8, 8), randf_range(-8, 8), randf_range(-8, 8)) * options.get("spin", 0.0)
 	if kind == Kind.SOLID:
-		p.aspect = Vector2(randf_range(0.6, 1.4), randf_range(0.6, 1.4))
+		var material: Debris = options.get("material", Debris.DIRT)
+		p.layer = material * DEBRIS_VARIANTS + randi() % DEBRIS_VARIANTS
 		p.spin.x = randf() * TAU # Starting roll.
 	pool.append(p)
 
@@ -154,6 +175,7 @@ func _process(delta: float) -> void:
 		var buffer: PackedFloat32Array = _buffers[kind]
 		var alive: Array = []
 		var index := 0
+		var stride: int = STRIDE[kind]
 		for p: Particle in pool:
 			p.life += delta
 			if p.life >= p.max_life:
@@ -166,15 +188,15 @@ func _process(delta: float) -> void:
 					p.velocity = Vector3(p.velocity.x * 0.5, absf(p.velocity.y) * 0.3, p.velocity.z * 0.5)
 			var t := p.life / p.max_life
 			var s := lerpf(p.size, p.end_size, t)
-			# Row-major 3x4 transform followed by the color, as the MultiMesh buffer expects.
-			var o := index * 16
+			# Row-major 3x4 transform, the color, then the custom data, as the MultiMesh buffer expects.
+			var o := index * stride
 			if kind == Kind.SOLID:
 				# Billboard: flat toward the camera, rolling in the screen plane.
 				var roll := p.spin.x + p.spin.z * p.life
 				var c := cos(roll)
 				var r := sin(roll)
-				var bx := (view.x * c + view.y * r) * s * p.aspect.x
-				var by := (view.y * c - view.x * r) * s * p.aspect.y
+				var bx := (view.x * c + view.y * r) * s
+				var by := (view.y * c - view.x * r) * s
 				var bz := view.z * s
 				buffer[o] = bx.x
 				buffer[o + 1] = by.x
@@ -185,6 +207,7 @@ func _process(delta: float) -> void:
 				buffer[o + 8] = bx.z
 				buffer[o + 9] = by.z
 				buffer[o + 10] = bz.z
+				buffer[o + 16] = p.layer
 			elif p.spin != Vector3.ZERO:
 				var basis := Basis.from_euler(p.spin * p.life).scaled(Vector3.ONE * s)
 				buffer[o] = basis.x.x
@@ -355,7 +378,7 @@ func explosion(position: Vector3, damage_radius: float, palette := [Palette.BUTT
 		scorch(Vector3(position.x, ground, position.z), radius * 0.9)
 	smoke(position, int(4 + n * 2), smoke_radius)
 	smoke_column(position, smoke_radius)
-	debris(position, int(4 + n * 2), [Palette.WOOD, Palette.INK, Palette.OCHRE], radius * 2.5, 0.35, push)
+	debris(position, int(4 + n * 2), [Debris.DIRT, Debris.ROCK], radius * 2.5, 0.35, push)
 	for i in int(1 + n * 0.8):
 		var dir := Vector3(randf_range(-1, 1), randf_range(0.8, 1.6), randf_range(-1, 1)).normalized()
 		spawn(Kind.FLAME, position, dir * randf_range(6, 12) * (0.7 + radius * 0.15), randf_range(1.0, 1.8), 0.35, Palette.PEACH, {"gravity": 18.0, "trail": Palette.ASH, "end_size": 0.2, "fade": 0.8})
@@ -414,15 +437,15 @@ func smoke(position: Vector3, count: int, radius := 1.0, colors := [Palette.MIST
 
 
 ## `push` biases the spray along the attack: chunks fly on through, away from the shooter.
-func debris(position: Vector3, count: int, colors: Array, force := 6.0, size := 0.35, push := Vector3.ZERO) -> void:
+func debris(position: Vector3, count: int, materials: Array, force := 6.0, size := 0.35, push := Vector3.ZERO) -> void:
 	for i in count:
 		var dir := (Vector3(randf_range(-1, 1), randf_range(0.5, 1.5), randf_range(-1, 1)).normalized() + push * 1.6).normalized()
-		_shard(position, dir * randf_range(0.4, 1.0) * force, randf_range(0.6, 1.3) * size * DEBRIS_SIZE, colors[i % colors.size()])
+		_shard(position, dir * randf_range(0.4, 1.0) * force, randf_range(0.6, 1.3) * size * DEBRIS_SIZE, materials[i % materials.size()])
 
 
 ## Breaks something apart: shards spread through its box and flung out from its middle (and on
 ## along `push`), as many and as big as the thing was. `share` < 1 when part of it stays behind.
-func shatter(bounds: AABB, colors: Array, push := Vector3.ZERO, share := 1.0) -> void:
+func shatter(bounds: AABB, materials: Array, push := Vector3.ZERO, share := 1.0) -> void:
 	var extent := bounds.size
 	var volume := maxf(extent.x * extent.y * extent.z, 0.05)
 	var count := int(clampf(1.5 * pow(volume, 2.0 / 3.0) * share, 3.0, 70.0))
@@ -431,11 +454,11 @@ func shatter(bounds: AABB, colors: Array, push := Vector3.ZERO, share := 1.0) ->
 	for i in count:
 		var at := bounds.position + extent * Vector3(randf(), randf(), randf())
 		var out := ((at - center).normalized() + Vector3.UP * 0.7 + Vector3(randf_range(-0.4, 0.4), 0.0, randf_range(-0.4, 0.4))).normalized() + push * 1.4
-		_shard(at, out * randf_range(5.0, 12.0), randf_range(0.5, 1.5) * size, colors[i % colors.size()])
+		_shard(at, out * randf_range(5.0, 12.0), randf_range(0.5, 1.5) * size, materials[i % materials.size()])
 
 
-func _shard(position: Vector3, velocity: Vector3, size: float, color: Color) -> void:
-	spawn(Kind.SOLID, position, velocity, randf_range(1.2, 2.4), size, color, {"gravity": 22.0, "bounce": true, "spin": 1.0, "end_size": size * 0.8, "trail": DEBRIS_SMOKE})
+func _shard(position: Vector3, velocity: Vector3, size: float, material: Debris) -> void:
+	spawn(Kind.SOLID, position, velocity, randf_range(1.2, 2.4), size, Color.WHITE, {"gravity": 22.0, "bounce": true, "spin": 1.0, "end_size": size * 0.8, "trail": DEBRIS_SMOKE, "material": material})
 
 
 func sparks(position: Vector3, normal: Vector3, count: int, color := Palette.BUTTER, speed := 10.0) -> void:
@@ -454,7 +477,8 @@ func spores(position: Vector3, count: int, spread := 1.5) -> void:
 	for i in count:
 		var dir := Vector3(randf_range(-1, 1), randf_range(-0.2, 1.0), randf_range(-1, 1)).normalized()
 		var color := [Palette.FUNGUS, Palette.BLUSH, Palette.LILAC][i % 3] as Color
-		spawn(Kind.GLOW if i % 4 == 0 else Kind.SOLID, position + dir * randf() * spread, dir * randf_range(0.5, 3.0) * spread, randf_range(0.8, 1.8), randf_range(0.2, 0.5), color, {"end_size": 0.9, "drag": 2.0, "gravity": -0.3})
+		var kind := Kind.GLOW if i % 4 == 0 else Kind.SOLID
+		spawn(kind, position + dir * randf() * spread, dir * randf_range(0.5, 3.0) * spread, randf_range(0.8, 1.8), randf_range(0.2, 0.5), color if kind == Kind.GLOW else Color.WHITE, {"end_size": 0.9, "drag": 2.0, "gravity": -0.3, "material": Debris.SPORE})
 
 
 func shockwave(position: Vector3, radius: float, color: Color, life := 0.3) -> void:

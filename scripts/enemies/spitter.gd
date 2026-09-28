@@ -21,7 +21,7 @@ func _init() -> void:
 	stabbable = true
 	can_stagger = true
 	score = 350
-	debris_colors = [Palette.LILAC, Palette.FUNGUS, Palette.CREAM, Palette.MAUVE]
+	debris = [Fx.Debris.FLESH, Fx.Debris.SPORE]
 	weakness = {Hit.Kind.FIRE: 2.5, Hit.Kind.TAIL: 1.5}
 
 

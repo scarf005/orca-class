@@ -37,7 +37,7 @@ func _init() -> void:
 	armor = 0.0
 	stabbable = true
 	score = 450
-	debris_colors = [Palette.SLATE, Palette.DUSK, Palette.CORAL, Palette.INK]
+	debris = [Fx.Debris.ARMOR, Fx.Debris.METAL, Fx.Debris.PAINT]
 	weakness = {Hit.Kind.THROWN: 1.5, Hit.Kind.TAIL: 1.3}
 
 
@@ -235,7 +235,7 @@ func on_damaged(hit: Hit, amount: float) -> void:
 		legs_hp -= amount
 		if legs_hp <= 0.0:
 			crippled = true
-			World.current.fx.debris(global_position + Vector3.UP, 8, [Palette.INK, Palette.CORAL], 7.0, 0.3)
+			World.current.fx.debris(global_position + Vector3.UP, 8, [Fx.Debris.METAL], 7.0, 0.3)
 			World.current.award(100, global_position, false)
 
 

@@ -64,7 +64,7 @@ func _init() -> void:
 	can_stagger = true
 	score = 50000
 	despawn_behind = 0.0
-	debris_colors = [Palette.SLATE, Palette.DUSK, Palette.FUNGUS, Palette.INK]
+	debris = [Fx.Debris.ARMOR, Fx.Debris.METAL, Fx.Debris.GLASS, Fx.Debris.FLESH]
 	set_meta("title", "BOSS_GUNSHIP")
 	set_meta("phase_marks", [0.7, 0.34])
 
@@ -383,7 +383,7 @@ func _lose_part(part: Part, direction := Vector3.ZERO) -> void:
 	part.hp = 0.0
 	var push := (at - global_position).normalized() if direction == Vector3.ZERO else direction.normalized()
 	world.fx.explosion(at, 2.5 if part.module else 1.6)
-	world.fx.debris(at, 14, [Palette.STONE, Palette.CORAL, Palette.INK], 14.0, 0.4, push)
+	world.fx.debris(at, 14, [Fx.Debris.ARMOR, Fx.Debris.METAL], 14.0, 0.4, push)
 	world.shake(0.4)
 	world.hitstop(0.06)
 	world.award(1500, at, false)
@@ -735,7 +735,7 @@ func _update_crash(delta: float) -> void:
 
 func on_death(_hit: Hit) -> void:
 	var world := World.current
-	world.fx.debris(global_position, 30, debris_colors, 18.0, 0.7)
+	world.fx.debris(global_position, 30, debris, 18.0, 0.7)
 	world.fx.spores(global_position, 60, 8.0)
 	world.award(score, global_position, true)
 	world.style_event("GIANT", 400.0)

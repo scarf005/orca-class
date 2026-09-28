@@ -37,7 +37,7 @@ func _init() -> void:
 	flying = true
 	score = 500
 	despawn_behind = 0.0
-	debris_colors = [Palette.MIST, Palette.SLATE, Palette.INK]
+	debris = [Fx.Debris.PAINT, Fx.Debris.METAL]
 	weakness = {Hit.Kind.BLAST: 1.4}
 
 
@@ -200,4 +200,4 @@ func _strafe_run(delta: float, tank: Tank, ahead: float) -> void:
 func on_death(hit: Hit) -> void:
 	super(hit)
 	# Wreck spirals down trailing smoke.
-	World.current.fx.debris(hit_center(), 10, [Palette.MIST, Palette.INK], 14.0, 0.5)
+	World.current.fx.debris(hit_center(), 10, [Fx.Debris.PAINT, Fx.Debris.METAL], 14.0, 0.5)

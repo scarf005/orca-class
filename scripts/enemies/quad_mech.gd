@@ -36,7 +36,7 @@ func _init() -> void:
 	armor = 0.0
 	stabbable = true
 	score = 900
-	debris_colors = [Palette.SLATE, Palette.DUSK, Palette.MOSS, Palette.INK]
+	debris = [Fx.Debris.ARMOR, Fx.Debris.METAL]
 	weakness = {Hit.Kind.THROWN: 1.3}
 
 
@@ -237,7 +237,7 @@ func on_damaged(hit: Hit, amount: float) -> void:
 			if best.hp <= 0.0:
 				best.lost = true
 				world.fx.explosion((best.knee as Node3D).global_position, 1.5)
-				world.fx.debris((best.knee as Node3D).global_position, 8, [Palette.DUSK, Palette.INK], 8.0, 0.35)
+				world.fx.debris((best.knee as Node3D).global_position, 8, [Fx.Debris.METAL], 8.0, 0.35)
 				world.award(150, global_position, false)
 				if collapsed():
 					world.shake(0.4, global_position)

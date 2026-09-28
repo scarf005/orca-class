@@ -7,7 +7,7 @@ var velocity := Vector3.ZERO
 var stabbable := false
 var weakness := {} ## Hit.Kind -> damage multiplier.
 var death_radius := 2.0 ## Size of the death blast: half the model's longest side, set once it is built.
-var debris_colors: Array = [Palette.INK, Palette.SLATE, Palette.HULL]
+var debris: Array = [Fx.Debris.ARMOR, Fx.Debris.METAL] ## Fx.Debris materials it breaks into.
 var drop := ""
 var stagger := 0.0
 var burning := 0.0
@@ -113,7 +113,7 @@ func impact_feedback(hit: Hit, amount: float, killed := false) -> void:
 	world.fx.sparks(hit.position, -hit.direction, 14 if heavy else 8, Palette.BUTTER, 18.0 if heavy else 13.0)
 	# Chips of the enemy itself spray back out of the hole.
 	var out := (-hit.direction * 0.6 + Vector3.UP * 0.6).normalized()
-	world.fx.debris(hit.position, 8 if heavy else 3, debris_colors, 12.0 if heavy else 8.0, 0.3 if heavy else 0.2, out)
+	world.fx.debris(hit.position, 8 if heavy else 3, debris, 12.0 if heavy else 8.0, 0.3 if heavy else 0.2, out)
 	if hit.by_player():
 		world.hit_confirmed.emit(killed)
 		Sfx.confirm_hit(killed)
@@ -159,7 +159,7 @@ func on_death(hit: Hit) -> void:
 	world.blast(center, death_radius * 1.4, 35.0, Team.PLAYER if by_player else Team.NEUTRAL, chain, self, [Palette.WHITE, Palette.AMBER, Palette.HOT, Palette.CORAL], push)
 	# A hull that stays whole as a wreck sheds only some of itself; anything else goes to pieces.
 	var remains := wreck_on_death and not overkilled
-	world.fx.shatter(visual_bounds(), debris_colors, push, 0.35 if remains else 1.0)
+	world.fx.shatter(visual_bounds(), debris, push, 0.35 if remains else 1.0)
 	world.fx.smoke_column(center, death_radius, [Palette.DUSK, Palette.INK, Palette.ASH])
 	if remains:
 		# The entity stops ticking after death, so its flash cannot expire on detached wrecks.

@@ -47,7 +47,7 @@ func _land(ground: float) -> void:
 	var world := World.current
 	var at := Vector3(global_position.x, ground + 0.5, global_position.z)
 	if not explodes:
-		world.fx.debris(at, 6, [Palette.INK, Palette.SLATE, Palette.AMBER], 7.0, 0.3, velocity.normalized())
+		world.fx.debris(at, 6, [Fx.Debris.METAL, Fx.Debris.ARMOR], 7.0, 0.3, velocity.normalized())
 		world.fx.dust(at, 4, 1.2, Palette.OCHRE)
 		world.fx.burn(at, 3.0, 0.5)
 		Sfx.play("rubble", at, -4.0, 1.3)
@@ -58,6 +58,6 @@ func _land(ground: float) -> void:
 	world.blast(at, blast_radius, 45.0, Entity.Team.PLAYER if by_player else Entity.Team.NEUTRAL, chain, null, [Palette.WHITE, Palette.AMBER, Palette.HOT, Palette.INK])
 	world.fx.smoke_column(at, blast_radius, [Palette.DUSK, Palette.INK, Palette.SLATE])
 	world.fx.burn(at, 5.0, 0.9)
-	world.fx.debris(at, 10, [Palette.INK, Palette.SLATE, Palette.AMBER], 10.0, 0.45, Vector3(velocity.x, 0.0, velocity.z).normalized())
+	world.fx.debris(at, 10, [Fx.Debris.METAL, Fx.Debris.ARMOR, Fx.Debris.DIRT], 10.0, 0.45, Vector3(velocity.x, 0.0, velocity.z).normalized())
 	world.shake(0.35, at)
 	queue_free()

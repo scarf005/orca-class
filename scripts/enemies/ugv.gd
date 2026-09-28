@@ -36,7 +36,7 @@ func _init() -> void:
 	armor = 0.0
 	stabbable = true
 	score = 400
-	debris_colors = [Palette.SLATE, Palette.INK, Palette.DUSK, Palette.CORAL]
+	debris = [Fx.Debris.ARMOR, Fx.Debris.METAL]
 	weakness = {Hit.Kind.THROWN: 1.5, Hit.Kind.TAIL: 1.5}
 
 
@@ -167,7 +167,7 @@ func on_damaged(hit: Hit, amount: float) -> void:
 		tracks_hp -= amount
 		if tracks_hp <= 0.0:
 			immobile = true
-			world.fx.debris(global_position + Vector3.UP * 0.4, 8, [Palette.INK, Palette.STONE], 7.0, 0.3)
+			world.fx.debris(global_position + Vector3.UP * 0.4, 8, [Fx.Debris.METAL, Fx.Debris.DIRT], 7.0, 0.3)
 			world.fx.burn(global_position + Vector3.UP * 0.6, 10.0, 0.6)
 			world.award(100, global_position, false)
 	elif not disarmed and weapon != "supply" and local.y > 1.3:

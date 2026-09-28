@@ -11,7 +11,7 @@ var kind := ""
 var footprint := 1.0
 var height := 2.0
 var crushable := false
-var debris_colors: Array = [Palette.WOOD, Palette.CONCRETE]
+var debris: Array = [Fx.Debris.WOOD, Fx.Debris.CONCRETE] ## Fx.Debris materials it breaks into.
 var drop := "" ## Pickup id dropped when destroyed.
 var burnable := false
 var explosive := false
@@ -99,7 +99,7 @@ func die(hit: Hit) -> void:
 		if push == Vector3.ZERO:
 			push = Vector3(randf_range(-1, 1), 0, randf_range(-1, 1))
 		var world := World.current
-		world.fx.debris(global_position + Vector3.UP * 0.6, 10, debris_colors, 8.0, 0.25, push)
+		world.fx.debris(global_position + Vector3.UP * 0.6, 10, debris, 8.0, 0.25, push)
 		world.fx.dust(global_position, 4, 1.0, Palette.MIST)
 		Sfx.play("wood", global_position, 0.0, randf_range(0.8, 1.1))
 		if hit != null and hit.by_player():
@@ -173,7 +173,7 @@ func on_death(hit: Hit) -> void:
 	# rubble sheds only some of itself; everything else goes entirely to pieces.
 	var rammed := hit != null and hit.kind == Hit.Kind.RAM
 	var remains := rubble_mesh != null and not overkilled
-	world.fx.shatter(visual_bounds(), debris_colors, push * (2.0 if rammed else 1.0), 0.35 if remains else 1.0)
+	world.fx.shatter(visual_bounds(), debris, push * (2.0 if rammed else 1.0), 0.35 if remains else 1.0)
 	world.fx.dust(global_position, int(clampf(footprint * 3.0, 3, 14)), footprint, Palette.MIST)
 	Sfx.play("rubble" if footprint > 1.5 else "wood", global_position)
 	if footprint > 2.5:
@@ -207,7 +207,7 @@ func on_death(hit: Hit) -> void:
 			world.fx.dust(global_position + Vector3.UP, 16, footprint * 1.2, Palette.MIST)
 	if fungal:
 		world.fx.spores(center, int(5 + footprint * 3), footprint)
-		world.fx.debris(center, int(3 + footprint * 2), [Palette.FUNGUS, Palette.MAUVE, Palette.BLUSH], 7.0, 0.3)
+		world.fx.debris(center, int(3 + footprint * 2), [Fx.Debris.FLESH, Fx.Debris.SPORE], 7.0, 0.3)
 		Sfx.play("squelch", global_position, 0.0, randf_range(0.7, 1.0))
 	elif burnable and hit and hit.incendiary:
 		world.fx.spores(center, 10, footprint)

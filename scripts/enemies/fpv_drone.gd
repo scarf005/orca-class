@@ -30,7 +30,7 @@ func _init() -> void:
 	interceptable = true
 	stabbable = true
 	score = 150
-	debris_colors = [Palette.INK, Palette.SLATE, Palette.BUTTER]
+	debris = [Fx.Debris.METAL, Fx.Debris.PAINT]
 	weakness = {Hit.Kind.BLAST: 1.5, Hit.Kind.FIRE: 2.0}
 
 

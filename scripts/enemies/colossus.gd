@@ -45,7 +45,7 @@ func _init() -> void:
 	stabbable = true
 	score = 20000
 	despawn_behind = 0.0
-	debris_colors = [Palette.MAUVE, Palette.LILAC, Palette.FUNGUS, Palette.CREAM]
+	debris = [Fx.Debris.FLESH, Fx.Debris.SPORE]
 	set_meta("title", "BOSS_COLOSSUS")
 
 

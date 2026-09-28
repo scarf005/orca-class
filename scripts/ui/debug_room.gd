@@ -217,7 +217,7 @@ func _play_stations() -> void:
 			"FIRE ZONE":
 				FireZone.ignite(p)
 			"DEBRIS":
-				fx.debris(p + Vector3.UP, 16, [Palette.HULL, Palette.OCHRE, Palette.INK], 8.0, 0.4)
+				fx.debris(p + Vector3.UP, 16, [Fx.Debris.WOOD, Fx.Debris.CONCRETE, Fx.Debris.METAL], 8.0, 0.4)
 
 
 func _process(delta: float) -> void:

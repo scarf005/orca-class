@@ -27,7 +27,7 @@ func _init() -> void:
 	score = 650
 	wreck_on_death = true
 	weakness = {Hit.Kind.FRAGMENT: 1.5, Hit.Kind.BLAST: 1.4}
-	debris_colors = [Palette.SLATE, Palette.STONE, Palette.INK]
+	debris = [Fx.Debris.ARMOR, Fx.Debris.METAL, Fx.Debris.GLASS]
 
 
 func build() -> void:
