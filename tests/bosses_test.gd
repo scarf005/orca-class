@@ -16,6 +16,17 @@ func _hit_part(boss: Colossus, part: Colossus.Part, kind: Hit.Kind, damage: floa
 	boss.take_hit(hit)
 
 
+func test_colossus_faces_back_up_a_bent_road() -> void:
+	var world := stage()
+	var boss := Colossus.new()
+	boss.position = Course.ground_at(Course.MIDBOSS_D, 0.0)
+	world.add_enemy(boss)
+	var toward_tank := -Course.forward(Course.MIDBOSS_D)
+	check(absf(Course.forward(Course.MIDBOSS_D).x) > 0.3, "the schoolyard runs at an angle to the world axes")
+	var core_side := (boss.global_transform * boss.core.offset - boss.global_position).normalized()
+	check(core_side.dot(toward_tank) > 0.7, "the core faces the approaching tank")
+
+
 func test_colossus_caps_shield_nodes_and_burn_off() -> void:
 	var world := stage()
 	var boss := _colossus(world)

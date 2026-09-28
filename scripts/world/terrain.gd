@@ -7,6 +7,7 @@ const STEP_D := 2.5
 const HALF_WIDTH := 190.0
 const AHEAD := 320.0
 const BEHIND := 80.0
+const BEHIND_BENDS := 480.0 ## How far back chunks may stay loaded while a bend swings them into view.
 
 ## Lateral sample positions: fine near the road, coarse on the far hills.
 static var _columns := _make_columns()
@@ -29,24 +30,51 @@ static func _make_columns() -> PackedFloat32Array:
 
 func _ready() -> void:
 	_water = MeshInstance3D.new()
-	var plane := PlaneMesh.new()
-	plane.size = Vector2(600, 1200)
 	var material := StandardMaterial3D.new()
 	material.albedo_color = Palette.TEAL
 	material.roughness = 0.2
 	material.metallic_specular = 0.8
-	plane.material = material
-	_water.mesh = plane
-	_water.position = Vector3(0, Course.WATER_LEVEL, -2200)
+	_water.mesh = _water_mesh()
+	_water.material_override = material
 	add_child(_water)
 
 
-## Keeps chunks covering [d - BEHIND, d + AHEAD]. Missing chunks are built on worker threads;
-## `wait` builds them immediately instead (used while loading).
+## The reservoir surface: a strip following the bend over the basin, reaching under its banks.
+static func _water_mesh() -> ArrayMesh:
+	var vertices := PackedVector3Array()
+	var d := 1740.0
+	while d < 2700.0:
+		for step in [0.0, 20.0]:
+			var a := Course.to_world(d + step, -8.0, Course.WATER_LEVEL)
+			var b := Course.to_world(d + step, -135.0, Course.WATER_LEVEL)
+			vertices.append(a)
+			vertices.append(b)
+		d += 20.0
+	var triangles := PackedVector3Array()
+	for i in range(0, vertices.size(), 4):
+		triangles.append_array([vertices[i], vertices[i + 1], vertices[i + 3], vertices[i], vertices[i + 3], vertices[i + 2]])
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = triangles
+	var normals := PackedVector3Array()
+	normals.resize(triangles.size())
+	normals.fill(Vector3.UP)
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
+
+
+## Keeps chunks covering [d - BEHIND, d + AHEAD], plus older ones that a bend brings back in front
+## of the rail. Missing chunks are built on worker threads; `wait` builds them immediately instead
+## (used while loading).
 func stream(d: float, wait := false) -> void:
-	var first := int(floorf((d - BEHIND) / CHUNK_LENGTH))
 	var last := int(floorf((d + AHEAD) / CHUNK_LENGTH))
-	for index in range(first, last + 1):
+	var wanted := {}
+	for index in range(int(floorf((d - BEHIND_BENDS) / CHUNK_LENGTH)), last + 1):
+		if (index + 1) * CHUNK_LENGTH >= d - BEHIND or _in_front(index, d):
+			wanted[index] = true
+	for index: int in wanted:
 		if _chunks.has(index) or _pending.has(index):
 			continue
 		if wait:
@@ -60,12 +88,23 @@ func stream(d: float, wait := false) -> void:
 	for index: int in finished:
 		WorkerThreadPool.wait_for_task_completion(_pending[index])
 		_pending.erase(index)
-		if index >= first - 1 and index <= last + 1 and not _chunks.has(index):
+		if wanted.has(index) and not _chunks.has(index):
 			_attach(index, finished[index])
 	for index: int in _chunks.keys():
-		if index < first - 1 or index > last + 1:
+		if not wanted.has(index):
 			_chunks[index].queue_free()
 			_chunks.erase(index)
+
+
+## Whether any corner of chunk `index` lies ahead of the rail's position at d.
+static func _in_front(index: int, d: float) -> bool:
+	var at := Course.to_world(d, 0.0)
+	var forward := Course.forward(d)
+	for cd in [index * CHUNK_LENGTH, (index + 1) * CHUNK_LENGTH]:
+		for u in [-HALF_WIDTH, HALF_WIDTH]:
+			if (Course.to_world(cd, u) - at).dot(forward) > -20.0:
+				return true
+	return false
 
 
 func _exit_tree() -> void:

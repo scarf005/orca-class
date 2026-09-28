@@ -1,6 +1,6 @@
 class_name PropField
 extends Node3D
-## Holds props in buckets along the course so queries only test nearby ones.
+## Holds props in a flat grid of buckets so queries only test nearby ones.
 
 const BUCKET := 12.0
 
@@ -20,18 +20,20 @@ func remove(prop: Prop) -> void:
 		_buckets[key].erase(prop)
 
 
-func _key(p: Vector3) -> int:
-	return int(floorf(-p.z / BUCKET))
+func _key(p: Vector3) -> Vector2i:
+	return Vector2i(floori(p.x / BUCKET), floori(p.z / BUCKET))
 
 
-## Props whose bucket range overlaps [min z, max z] of the given points, padded by `pad`.
+## Props in buckets overlapping the box around the given points, padded by `pad`.
 func near(a: Vector3, b: Vector3, pad: float) -> Array:
 	var result := []
-	var k0 := _key(Vector3(0, 0, maxf(a.z, b.z) + pad))
-	var k1 := _key(Vector3(0, 0, minf(a.z, b.z) - pad))
-	for key in range(k0, k1 + 1):
-		if _buckets.has(key):
-			result.append_array(_buckets[key])
+	var k0 := _key(Vector3(minf(a.x, b.x) - pad, 0, minf(a.z, b.z) - pad))
+	var k1 := _key(Vector3(maxf(a.x, b.x) + pad, 0, maxf(a.z, b.z) + pad))
+	for x in range(k0.x, k1.x + 1):
+		for z in range(k0.y, k1.y + 1):
+			var key := Vector2i(x, z)
+			if _buckets.has(key):
+				result.append_array(_buckets[key])
 	return result
 
 

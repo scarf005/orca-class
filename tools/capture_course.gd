@@ -21,7 +21,7 @@ func run() -> int:
 			# Straight down from high above, road running up the frame, to show its shape.
 			world.environment.fog_enabled = false
 			var center := Course.ground_at(d + 120.0, 0.0)
-			world.camera.global_transform = Transform3D(Basis.looking_at(Vector3.DOWN, Vector3.FORWARD), center + Vector3.UP * 330.0)
+			world.camera.global_transform = Transform3D(Basis.looking_at(Vector3.DOWN, Course.forward(d + 120.0)), center + Vector3.UP * 330.0)
 		else:
 			var eye := Course.ground_at(d - 14.0, float(args.get("u", "0")))
 			eye.y += float(args.get("h", "7"))

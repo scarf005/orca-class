@@ -1,6 +1,6 @@
 class_name Course
-## Stage 1 geography. The course runs toward -Z; `d` is distance along it and `u` is the lateral
-## offset from the road center, so every world point maps to exactly one (d, u).
+## Stage 1 geography. The road starts out toward -Z and winds through bends; `d` is distance along
+## it and `u` the offset to its right, so every point near the road maps to exactly one (d, u).
 
 enum Section { FARM, VILLAGE, SCHOOL, RESERVOIR, OVERPASS, ARENA }
 
@@ -17,14 +17,20 @@ const ARENA_CENTER_D := 3530.0
 const ARENA_RADIUS := 85.0
 const DAM_D := 3640.0
 
-## Road center x at control distances; interpolated with Catmull-Rom. The road winds in S-bends of
-## up to about 30°, and runs straight through the schoolyard, along the highway deck and into the arena.
-const CENTER_POINTS: Array[Vector2] = [
-	Vector2(-200, 0), Vector2(0, 0), Vector2(220, 60), Vector2(460, -50), Vector2(700, -100), Vector2(950, -25),
-	Vector2(1200, 70), Vector2(1400, 45), Vector2(1560, 25), Vector2(1720, 25), Vector2(1950, -60), Vector2(2200, -120),
-	Vector2(2480, -50), Vector2(2720, 30), Vector2(2900, 25), Vector2(3100, 25), Vector2(3300, 8), Vector2(3440, 0),
-	Vector2(3700, 0), Vector2(4000, 0),
+## The road plan as [length, turn in degrees] pieces from d = PLAN_START; positive turns bend right
+## and 0 is a straight. Curvature is smoothed so bends ease in and out. Every bend keeps its
+## radius above the terrain's half width, so the valley never folds over itself. Straight before the
+## start (where the debug room sits), through the schoolyard, under the crossing highway and into
+## the arena.
+const PLAN_START := -500.0
+const PLAN := [
+	[650.0, 0.0], [260.0, 60.0], [90.0, 0.0], [360.0, -90.0], [150.0, 0.0], [320.0, 75.0], [430.0, 0.0],
+	[400.0, -90.0], [90.0, 0.0], [370.0, 90.0], [180.0, 0.0], [250.0, -45.0], [900.0, 0.0],
 ]
+const STEP := 1.0 ## Spacing of the precomputed centerline samples.
+const SMOOTH := 30 ## Curvature box-filter half width, in samples (applied twice).
+const MAP_REACH := 260.0 ## How far from the road `to_course` resolves points through the lookup grid.
+const MAP_CELL := 8.0
 
 ## The debug room swaps the valley for a flat, open floor.
 static var flat := false
@@ -50,37 +56,150 @@ static func section_at(d: float) -> Section:
 	return result
 
 
-static func center_x(d: float) -> float:
-	var i := 1
-	while i < CENTER_POINTS.size() - 3 and d > CENTER_POINTS[i + 1].x:
-		i += 1
-	var p0 := CENTER_POINTS[i - 1]
-	var p1 := CENTER_POINTS[i]
-	var p2 := CENTER_POINTS[i + 1]
-	var p3 := CENTER_POINTS[i + 2]
-	var t := clampf((d - p1.x) / (p2.x - p1.x), 0.0, 1.0)
-	var t2 := t * t
-	var t3 := t2 * t
-	return 0.5 * (2.0 * p1.y + (p2.y - p0.y) * t + (2.0 * p0.y - 5.0 * p1.y + 4.0 * p2.y - p3.y) * t2 + (3.0 * p1.y - p0.y - 3.0 * p2.y + p3.y) * t3)
+## Centerline samples every STEP metres: position (x, z), heading (0 = -Z, positive turns right)
+## and signed curvature.
+static var _points := PackedVector2Array()
+static var _headings := PackedFloat32Array()
+static var _curvature := PackedFloat32Array()
+static var _map_origin := Vector2.ZERO
+static var _map_size := Vector2i.ZERO
+## A coarse world grid holding the nearest course d of each cell, seeding `to_course`.
+static var _map := _build()
+
+
+static func _build() -> PackedFloat32Array:
+	var raw := PackedFloat32Array()
+	for piece: Array in PLAN:
+		var length: float = piece[0]
+		var k: float = deg_to_rad(piece[1]) / length
+		for i in int(length / STEP):
+			raw.append(k)
+	for pass_index in 2:
+		var prefix := PackedFloat32Array([0.0])
+		for k in raw:
+			prefix.append(prefix[-1] + k)
+		var smoothed := PackedFloat32Array()
+		for i in raw.size():
+			smoothed.append((prefix[mini(i + SMOOTH + 1, raw.size())] - prefix[maxi(i - SMOOTH, 0)]) / (SMOOTH * 2 + 1))
+		raw = smoothed
+	_curvature = raw
+	var heading := 0.0
+	var at := Vector2(0.0, -PLAN_START)
+	for i in raw.size():
+		_points.append(at)
+		_headings.append(heading)
+		var mid := heading + raw[i] * STEP * 0.5
+		at += Vector2(sin(mid), -cos(mid)) * STEP
+		heading += raw[i] * STEP
+	# Rasterize the valley ribbon into the lookup grid, nearer-to-road samples winning.
+	var low := Vector2.INF
+	var high := -Vector2.INF
+	for point in _points:
+		low = low.min(point)
+		high = high.max(point)
+	_map_origin = low - Vector2.ONE * (MAP_REACH + MAP_CELL)
+	_map_size = Vector2i(((high - low + Vector2.ONE * (MAP_REACH + MAP_CELL) * 2.0) / MAP_CELL).ceil())
+	var map := PackedFloat32Array()
+	map.resize(_map_size.x * _map_size.y)
+	map.fill(NAN)
+	var nearest := PackedFloat32Array()
+	nearest.resize(map.size())
+	nearest.fill(INF)
+	var i := 0
+	while i < _points.size():
+		var normal := Vector2(cos(_headings[i]), sin(_headings[i]))
+		var inside := 0.9 / maxf(absf(_curvature[i]), 0.0001)
+		var u := -MAP_REACH
+		while u <= MAP_REACH:
+			if absf(u) < inside or signf(u) != signf(_curvature[i]):
+				var cell := Vector2i(((_points[i] + normal * u - _map_origin) / MAP_CELL).floor())
+				var index := cell.y * _map_size.x + cell.x
+				if absf(u) < nearest[index]:
+					nearest[index] = absf(u)
+					map[index] = PLAN_START + i * STEP
+			u += MAP_CELL * 0.7
+		i += int(MAP_CELL * 0.5)
+	return map
+
+
+static func _center(d: float) -> Vector2:
+	var x := clampf((d - PLAN_START) / STEP, 0.0, _points.size() - 1.001)
+	var i := int(x)
+	return _points[i].lerp(_points[i + 1], x - i)
+
+
+static func _heading(d: float) -> float:
+	var x := clampf((d - PLAN_START) / STEP, 0.0, _points.size() - 1.001)
+	var i := int(x)
+	return lerpf(_headings[i], _headings[i + 1], x - i)
+
+
+static func _curvature_at(d: float) -> float:
+	return _curvature[clampi(int((d - PLAN_START) / STEP), 0, _curvature.size() - 1)]
 
 
 ## Unit forward vector of the road at distance d.
 static func forward(d: float) -> Vector3:
-	var slope := (center_x(d + 2.0) - center_x(d - 2.0)) / 4.0
-	return Vector3(slope, 0.0, -1.0).normalized()
+	var heading := _heading(d)
+	return Vector3(sin(heading), 0.0, -cos(heading))
+
+
+## Unit vector pointing to +u (the road's right) at distance d.
+static func right(d: float) -> Vector3:
+	var heading := _heading(d)
+	return Vector3(cos(heading), 0.0, sin(heading))
+
+
+## Yaw that turns a node's -Z to face along the road at d.
+static func yaw_at(d: float) -> float:
+	return -_heading(d)
 
 
 static func to_world(d: float, u: float, y := 0.0) -> Vector3:
-	return Vector3(center_x(d) + u, y, -d)
+	var c := _center(d)
+	var heading := _heading(d)
+	return Vector3(c.x + cos(heading) * u, y, c.y + sin(heading) * u)
 
 
 static func ground_at(d: float, u: float) -> Vector3:
-	return Vector3(center_x(d) + u, height(d, u), -d)
+	var p := to_world(d, u)
+	p.y = height(d, u)
+	return p
 
 
+## Inverse of `to_world` for points within MAP_REACH of the road: a grid lookup seeds d, then a
+## few curvature-corrected projection steps settle it onto the nearest centerline point.
 static func to_course(p: Vector3) -> Vector2:
-	var d := -p.z
-	return Vector2(d, p.x - center_x(d))
+	var flat := Vector2(p.x, p.z)
+	var cell := Vector2i(((flat - _map_origin) / MAP_CELL).floor())
+	var d := NAN
+	if cell.x >= 0 and cell.y >= 0 and cell.x < _map_size.x and cell.y < _map_size.y:
+		d = _map[cell.y * _map_size.x + cell.x]
+	if is_nan(d):
+		d = _nearest_sample(flat)
+	var u := 0.0
+	for i in 3:
+		var c := _center(d)
+		var heading := _heading(d)
+		var offset := flat - c
+		u = offset.dot(Vector2(cos(heading), sin(heading)))
+		var along := offset.dot(Vector2(sin(heading), -cos(heading)))
+		d += along / maxf(1.0 - _curvature_at(d) * u, 0.1)
+	var heading := _heading(d)
+	u = (flat - _center(d)).dot(Vector2(cos(heading), sin(heading)))
+	return Vector2(d, u)
+
+
+## Brute-force fallback for points outside the lookup grid.
+static func _nearest_sample(flat: Vector2) -> float:
+	var best := 0
+	var best_distance := INF
+	for i in range(0, _points.size(), 10):
+		var distance := _points[i].distance_squared_to(flat)
+		if distance < best_distance:
+			best_distance = distance
+			best = i
+	return PLAN_START + best * STEP
 
 
 static func height_at(p: Vector3) -> float:
@@ -127,7 +246,7 @@ static func height(d: float, u: float) -> float:
 	# Reservoir: water on the left of the road, behind a low embankment.
 	if section == Section.RESERVOIR or d > SECTION_STARTS[Section.RESERVOIR] - 60.0:
 		var lake := _band(d, 1760.0, 1840.0, 2560.0, 2680.0)
-		var basin := smoothstep(-16.0, -34.0, u) * (1.0 - smoothstep(-110.0, -150.0, u))
+		var basin := smoothstep(-16.0, -34.0, u) * (1.0 - smoothstep(-95.0, -125.0, u))
 		h = lerpf(h, -6.0, lake * basin)
 	# Highway embankment.
 	var deck := deck_blend(d)

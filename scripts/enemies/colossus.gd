@@ -51,6 +51,8 @@ func _init() -> void:
 
 func build() -> void:
 	_hard = Game.difficulty == Game.Difficulty.HARD
+	# Its weak points are on its face: turn that face back up the road toward the tank.
+	rotation.y = Course.yaw_at(Course.to_course(global_position).x)
 	var b := LowPoly.new()
 	b.blob(Transform3D(Basis().scaled(Vector3(1.4, 1.0, 1.1)), Vector3(0, 4.0, 0)), 6.5, Palette.MAUVE, 1, 0.3, 11)
 	b.blob(Transform3D(Basis(), Vector3(-4.5, 2.5, 2.0)), 3.5, Palette.LILAC, 1, 0.3, 12)
@@ -280,7 +282,7 @@ func _telegraph_sweep() -> void:
 
 func _update_sweep(delta: float, tank: Tank) -> void:
 	var world := World.current
-	var root := global_position + Vector3(0, 3.0, 4.0)
+	var root := global_transform * Vector3(0, 3.0, 4.0)
 	var start_u := 20.0 * _sweep_side if not _sweep_full else 20.0 * _sweep_side
 	var end_u := 0.0 if not _sweep_full else -20.0 * _sweep_side
 	var tip: Vector3

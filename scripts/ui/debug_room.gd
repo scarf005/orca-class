@@ -5,7 +5,7 @@ extends Control
 ## jump between rows with 1-9. Effect stations replay every two seconds.
 ## Run: godot --path . -- --debug-room
 
-const START_D := 120.0
+const START_D := -440.0 ## On the long straight before the stage start, so the rows line up.
 const ROWS := ["TANK", "ENEMIES", "BOSSES", "PICKUPS", "PROPS", "BUILDINGS", "FUNGUS", "PROJECTILES", "VFX"]
 ## Per row: distance ahead of the previous row, camera distance back, camera height.
 const LAYOUT := [[0.0, 16.0, 6.0], [34.0, 34.0, 10.0], [44.0, 48.0, 20.0], [44.0, 16.0, 3.5], [30.0, 30.0, 11.0], [40.0, 46.0, 18.0], [52.0, 42.0, 16.0], [44.0, 17.0, 3.0], [30.0, 62.0, 22.0]]

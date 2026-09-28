@@ -58,6 +58,32 @@ func test_stage_events_are_ordered_and_reach_the_boss() -> void:
 	check(Stage1.events(true).size() > events.size(), "hard adds encounters")
 
 
+func test_course_maps_both_ways_across_the_valley() -> void:
+	var d := -40.0
+	while d < Course.DAM_D + 60.0:
+		for u in [-Terrain.HALF_WIDTH, -60.0, -5.0, 0.0, 7.0, 90.0, Terrain.HALF_WIDTH]:
+			var back := Course.to_course(Course.to_world(d, u))
+			check(absf(back.x - d) < 0.05 and absf(back.y - u) < 0.05, "(%.0f, %.0f) round-trips, got (%.2f, %.2f)" % [d, u, back.x, back.y])
+		d += 7.0
+
+
+func test_course_winds_through_real_bends() -> void:
+	var headings: Array[float] = []
+	var d := 0.0
+	while d < Course.DAM_D:
+		var f := Course.forward(d)
+		check(absf(f.length() - 1.0) < 0.001 and absf(f.y) < 0.001, "forward is a flat unit vector at %.0f" % d)
+		var chord := Course.to_world(d + 1.0, 0.0) - Course.to_world(d - 1.0, 0.0)
+		check(chord.normalized().dot(f) > 0.999, "forward follows the road at %.0f" % d)
+		check(absf(Course.right(d).dot(f)) < 0.001, "right is square to forward at %.0f" % d)
+		check(absf((Course.to_world(d + 1.0, 0.0) - Course.to_world(d, 0.0)).length() - 1.0) < 0.01, "d is arc length at %.0f" % d)
+		headings.append(rad_to_deg(atan2(f.x, -f.z)))
+		d += 10.0
+	check(headings.max() > 50.0 and headings.min() < -40.0, "road turns both ways by more than 40°")
+	for straight: Vector2 in [Course.SCHOOL_YARD, Vector2(Course.SECTION_STARTS[Course.Section.ARENA], Course.DAM_D)]:
+		check(Course.forward(straight.x).dot(Course.forward(straight.y)) > 0.9999, "road runs straight over %s" % straight)
+
+
 func test_course_is_continuous_and_walkable() -> void:
 	var previous := Course.height(0.0, 0.0)
 	var d := 0.0

@@ -525,7 +525,7 @@ func _begin_crash() -> void:
 func _update_crash(delta: float) -> void:
 	var world := World.current
 	_crash -= delta
-	var dam := Course.to_world(Course.DAM_D - 3.0, _crash_from.x - Course.center_x(Course.DAM_D), 12.0)
+	var dam := Course.to_world(Course.DAM_D - 3.0, Course.to_course(_crash_from).y, 12.0)
 	var k := 1.0 - _crash / 3.2
 	global_position = _crash_from.lerp(dam, k * k) + Vector3.UP * sin(k * PI) * 6.0
 	model.rotation.y += delta * (4.0 + k * 10.0)

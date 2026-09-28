@@ -8,6 +8,7 @@ const ALTITUDE := 17.0
 
 var attack := "bomb"
 var _dir := Vector3.BACK
+var _sense := -1.0 ## -1 while flying back down the road toward the tank, +1 after turning.
 var _pass := 0
 var _turn := 0.0
 var _bombs := 0
@@ -63,7 +64,7 @@ func build() -> void:
 	var slot: Vector3 = get_meta("slot", Vector3(0, 0, 0))
 	var d := world.rail.d + 220.0 + slot.z * 0.2
 	global_position = Course.to_world(d, slot.x, Course.height(d, slot.x) + ALTITUDE + slot.y)
-	_dir = -world.rail.forward()
+	_dir = -Course.forward(d)
 	_bombs = 5 if Game.difficulty == Game.Difficulty.HARD else 4
 	_sound = Sfx.loop("jet", self, -4.0)
 
@@ -110,11 +111,12 @@ func behave(delta: float) -> void:
 		_dir = _dir.rotated(Vector3.UP, PI / 2.2 * delta)
 		model.rotation.z = lerpf(model.rotation.z, 0.8, 3.0 * delta)
 		if _turn <= 0.0:
-			_dir = world.rail.forward()
+			_sense = 1.0
 			_pass += 1
 			_bombs = 3
 			_strafe = 0
 	else:
+		_dir = Course.forward(Course.to_course(global_position).x) * _sense
 		model.rotation.z = lerpf(model.rotation.z, 0.0, 3.0 * delta)
 		if ahead < -35.0:
 			if _pass == 0:

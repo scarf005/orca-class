@@ -347,19 +347,19 @@ func _wires() -> void:
 			add("pole", d, u, 0.0)
 			var top := Course.ground_at(d, u) + Vector3.UP * 9.2
 			if previous != Vector3.INF:
-				add_decor(_wire_mesh(previous, top), d, u, 0.0, 0.0)
+				add_decor(_wire_mesh(previous, top, Course.yaw_at(d)), d, u, 0.0, 0.0)
 			previous = top
 			d += 40.0
 
 
-func _wire_mesh(a: Vector3, b: Vector3) -> Mesh:
-	# Wire vertices are stored relative to `b`, which is where the decor is placed.
+func _wire_mesh(a: Vector3, b: Vector3, yaw: float) -> Mesh:
+	# Wire vertices are stored relative to `b`, which is where the decor is placed turned by `yaw`.
 	var builder := LowPoly.new()
 	for offset in [-1.0, 0.0, 1.0]:
 		var points: Array[Vector3] = []
 		for i in 7:
 			var t := i / 6.0
-			var p := a.lerp(b, t) - Vector3(b.x, 0.0, b.z)
+			var p := (a.lerp(b, t) - Vector3(b.x, 0.0, b.z)).rotated(Vector3.UP, -yaw)
 			p.x += offset
 			p.y += -sin(t * PI) * 1.4
 			points.append(p)
@@ -446,14 +446,15 @@ func stream(d: float, budget := 8) -> void:
 
 func _instantiate(spec: Spec) -> void:
 	var y: float = spec.get_meta("y") if spec.has_meta("y") else Course.height(spec.d, spec.u) + spec.lift
-	var position := Vector3(Course.center_x(spec.d) + spec.u, y, -spec.d)
+	var position := Course.to_world(spec.d, spec.u, y)
+	var yaw := spec.yaw + Course.yaw_at(spec.d)
 	if spec.decor:
 		var decor := MeshInstance3D.new()
 		decor.mesh = spec.mesh
 		decor.visibility_range_end = 260.0
 		add_child(decor)
 		decor.global_position = position
-		decor.rotation.y = spec.yaw
+		decor.rotation.y = yaw
 		spec.node = decor
 	else:
 		var cfg: Array = PROPS[spec.kind]
@@ -472,7 +473,7 @@ func _instantiate(spec: Spec) -> void:
 		prop.debris_colors = _debris_colors(spec.kind, spec.variant)
 		# Position before entering the tree: props register into spatial buckets on entry.
 		prop.position = position
-		prop.rotation.y = spec.yaw
+		prop.rotation.y = yaw
 		World.current.props.add_child(prop)
 		spec.node = prop
 		if spec.group >= 0:
