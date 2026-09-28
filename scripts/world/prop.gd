@@ -12,6 +12,7 @@ var debris_colors: Array = [Palette.WOOD, Palette.CONCRETE]
 var drop := "" ## Pickup id dropped when destroyed.
 var burnable := false
 var explosive := false
+var fungal := false ## Bursts into spores and splatter when destroyed.
 var rubble_mesh: Mesh
 var score := 0
 
@@ -115,7 +116,11 @@ func on_death(hit: Hit) -> void:
 			world.fx.dust(global_position + Vector3.UP, 16, footprint * 1.2, Palette.MIST)
 			world.fx.debris(center + Vector3.UP * height * 0.3, 18, debris_colors, 12.0, 0.5)
 			world.hitstop(0.03)
-	if burnable and hit and hit.incendiary:
+	if fungal:
+		world.fx.spores(center, int(8 + footprint * 6), footprint)
+		world.fx.debris(center, int(4 + footprint * 3), [Palette.FUNGUS, Palette.MAUVE, Palette.BLUSH], 7.0, 0.3)
+		Sfx.play("squelch", global_position, 0.0, randf_range(0.7, 1.0))
+	elif burnable and hit and hit.incendiary:
 		world.fx.spores(center, 10, footprint)
 	if rubble_mesh:
 		# Leave a rubble pile behind instead of vanishing.

@@ -29,8 +29,19 @@ const PROPS := {
 	"crate": [1.1, 1.2, 18.0, false, true, false, 50, false, false],
 	"rock": [2.2, 1.6, 400.0, true, false, false, 60, false, false],
 	"gate": [0.8, 3.3, 200.0, true, false, false, 20, false, false],
+	"infested_house": [4.2, 5.0, 150.0, true, false, true, 70, false, true],
+	"infested_car": [2.1, 1.8, 70.0, true, false, true, 50, true, false],
+	"flesh_mound": [2.4, 4.0, 90.0, true, false, true, 80, false, false],
+	"cordyceps": [1.2, 5.0, 30.0, false, true, true, 30, false, false],
+	"husk_cow": [1.4, 2.2, 25.0, false, true, true, 40, false, false],
+	"egg_sacs": [1.4, 2.0, 15.0, false, true, true, 40, false, false],
+	"fungal_spire": [4.0, 14.0, 700.0, true, false, true, 400, false, false],
 	"plane_tree": [0.9, 9.0, 45.0, false, true, true, 10, false, false],
 }
+
+## Plain props that spawn overgrown more often the deeper the stage goes.
+const INFESTED := {"house": "infested_house", "car": "infested_car"}
+const FUNGAL := ["fungal_spire", "infested_house", "infested_car", "flesh_mound", "cordyceps", "husk_cow", "egg_sacs", "mushroom", "spore_tower"]
 
 class Spec:
 	var kind := ""
@@ -58,10 +69,13 @@ func build() -> void:
 	_overpass()
 	_arena()
 	_wires()
+	_spires()
 	specs.sort_custom(func(a: Spec, b: Spec) -> bool: return a.d < b.d)
 
 
 func add(kind: String, d: float, u: float, yaw := INF, variant := -1, drop := "") -> Spec:
+	if INFESTED.has(kind) and _rng.randf() < clampf((d - 300.0) / 2400.0, 0.1, 0.75):
+		kind = INFESTED[kind]
 	var spec := Spec.new()
 	spec.kind = kind
 	spec.d = d
@@ -102,18 +116,29 @@ func _scatter(kind: String, d0: float, d1: float, count: int, u_min: float, u_ma
 			add(kind, d, u, _rng.randf() * TAU)
 
 
+## Overgrowth thickens with distance: lone mushrooms early, heaving flesh and fruiting stalks later.
 func _fungus(d0: float, d1: float, density: float) -> void:
-	var count := int((d1 - d0) / 10.0 * density)
+	var count := int((d1 - d0) / 10.0 * density * 2.5 * (1.0 + (d0 + d1) / 6800.0))
 	for i in count:
 		var d := _rng.randf_range(d0, d1)
-		var u := _rng.randf_range(6.0, 40.0) * (1.0 if _rng.randf() < 0.5 else -1.0)
+		# Most growth crowds the road edges where the camera sees it.
+		var reach := 22.0 if _rng.randf() < 0.7 else 42.0
+		var u := _rng.randf_range(6.5, reach) * (1.0 if _rng.randf() < 0.5 else -1.0)
 		var roll := _rng.randf()
-		if roll < 0.55:
-			add("mushroom", d, u, _rng.randf() * TAU)
-		elif roll < 0.8:
-			add_decor(PropKit.mesh("mycelium", _rng.randi_range(0, 5)), d, u, _rng.randf() * TAU)
+		var yaw := _rng.randf() * TAU
+		if roll < 0.2:
+			add("mushroom", d, u, yaw)
+		elif roll < 0.4:
+			add_decor(PropKit.mesh("veins", _rng.randi_range(0, 5)), d, u, yaw)
+		elif roll < 0.6:
+			add("cordyceps", d, u, yaw)
+		elif roll < 0.75:
+			if absf(u) > 10.0:
+				add("flesh_mound", d, u, yaw)
+		elif roll < 0.88:
+			add("egg_sacs", d, u, yaw)
 		elif absf(u) > 16.0:
-			add("spore_tower", d, u, _rng.randf() * TAU)
+			add("spore_tower", d, u, yaw)
 
 
 func _farm() -> void:
@@ -122,6 +147,8 @@ func _farm() -> void:
 	for d in [120.0, 260.0, 420.0]:
 		add("house", d + _rng.randf_range(-10, 10), 48.0 * (1.0 if int(d) % 2 else -1.0))
 	add("cultivator", 180.0, 6.0, 0.4)
+	for cd in [110.0, 230.0, 340.0, 440.0, 520.0]:
+		add("husk_cow", cd, _rng.randf_range(12.0, 30.0) * (1.0 if int(cd) % 2 else -1.0), _rng.randf() * TAU)
 	add("bus_stop", 300.0, -8.0)
 	add("car", 360.0, 3.0, 0.3, 2)
 	add("crate", 150.0, -4.0, 0.2, 0, "coax")
@@ -224,6 +251,19 @@ func _arena() -> void:
 		add("spore_tower", Course.ARENA_CENTER_D + sin(angle) * 80.0, cos(angle) * 80.0)
 	_scatter("car", 3440.0, 3600.0, 4, 10.0, 60.0)
 	_fungus(3420.0, 3620.0, 1.2)
+
+
+## Giant fungal spires rising from the fields, more often as the stage goes on.
+func _spires() -> void:
+	var d := 300.0
+	var side := 1.0
+	while d < Course.DAM_D - 40.0:
+		var u := side * _rng.randf_range(26.0, 48.0)
+		if Course.section_at(d) == Course.Section.RESERVOIR and side < 0.0:
+			u = side * _rng.randf_range(18.0, 22.0)
+		add("fungal_spire", d, u, _rng.randf() * TAU, _rng.randi_range(0, 5))
+		d += lerpf(170.0, 80.0, d / Course.DAM_D) + _rng.randf_range(-20.0, 20.0)
+		side = -side
 
 
 ## Utility poles along the road with sagging wires between them.
@@ -363,6 +403,7 @@ func _instantiate(spec: Spec) -> void:
 		if cfg[8]:
 			prop.rubble_mesh = PropKit.mesh("rubble", spec.variant)
 		prop.drop = spec.drop
+		prop.fungal = spec.kind in FUNGAL
 		prop.debris_colors = _debris_colors(spec.kind, spec.variant)
 		# Position before entering the tree: props register into spatial buckets on entry.
 		prop.position = position
@@ -374,15 +415,15 @@ func _instantiate(spec: Spec) -> void:
 
 func _debris_colors(kind: String, variant: int) -> Array:
 	match kind:
-		"house", "hall":
+		"house", "hall", "infested_house":
 			return [PropKit.WALL_COLORS[variant % PropKit.WALL_COLORS.size()], PropKit.ROOF_COLORS[variant % PropKit.ROOF_COLORS.size()], Palette.STONE]
 		"greenhouse":
 			return [Palette.WHITE, Palette.MIST, Palette.FUNGUS]
-		"mushroom", "spore_tower":
+		"mushroom", "spore_tower", "fungal_spire", "flesh_mound", "cordyceps", "egg_sacs", "husk_cow":
 			return [Palette.FUNGUS, Palette.LILAC, Palette.CREAM]
 		"bale":
 			return [Palette.WHITE, Palette.STRAW]
-		"car", "truck":
+		"car", "truck", "infested_car":
 			return [PropKit.CAR_COLORS[variant % PropKit.CAR_COLORS.size()], Palette.INK, Palette.DUSK]
 		"persimmon", "plane_tree", "reeds":
 			return [Palette.PINE, Palette.WOOD, Palette.PEACH]

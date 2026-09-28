@@ -38,27 +38,51 @@ starting values for tuning.
 | 100 mm gun | ~1.0 s reload, direct hit and blast, heavy recoil pushes the tank back | The big punch; one shot kills most small enemies and staggers large ones |
 | 8 mm coaxial gun | High rate of fire, low damage, follows the turret | Always-on fire; upgradable (below) |
 | RWS: 200 kW laser CIWS | Automatic; zaps incoming missiles, rockets, shells and FPV drones in a short radius; heats with each engagement | Defensive layer. Saturation attacks can overheat it, and then the player must dodge |
-| Tracks | Ramming crushes small fungi, drones on the ground and wrecks | Aggressive driving is rewarded |
-| Bio tail | Three-segment muscular tail with a pink claw; no weapon | Melee, pickup and mobility tool (below) |
+| Tracks | At speed the tank flattens every building, wreck and ground enemy in its path; only landmarks (the church, the old zelkova, the dam) stand | Aggressive driving is rewarded |
+| Reactive armor | ERA bricks: 4 front, 3 per side, none at the rear | Each brick stops one shaped charge from its facing |
+| Bio tail | Three-segment muscular tail with a pink claw; no weapon; acts on its own | Melee, pickup and defense (below) |
+
+### Modules (War Thunder-style)
+
+The hull has an armor bar for kinetic damage, and internal modules that break separately:
+
+| Module | Damaged / destroyed | Exposed from |
+| --- | --- | --- |
+| Tracks (left, right) | Slower movement | Front, that side |
+| Engine | Slower meter refill / no overdrive | Rear |
+| Breech | Reload ×1.5 / ×3 | Front |
+| Turret drive | Slower traverse | Any |
+| Laser RWS | — / CIWS offline | Sides |
+| Tail | Slower / gone until a regrowth pickup | Rear |
+
+- Shaped-charge warheads (FPV drones, ATGMs) are decided by ERA: a brick on that facing absorbs the hit;
+  where there is none left (always at the rear), the hit is fatal and costs a life.
+- The crew field-repairs damaged modules one step at a time. A lost tail only returns from a regrowth pickup.
+  ERA refills from ERA pickups. A spare hull (a new life) restores everything.
+- Enemies have modules too: a UGV hit low loses its tracks and stops; hit high, it loses its weapon. A UAV hit in
+  its pusher engine glides into the ground.
 
 Orca-class visual identity to keep: grey-green boxy hull, long main gun with a coax beside it, and the
 three-segment biological tail with its pink claw at the rear.
 
 ### Tail
 
-The tail carries no weapon (orca-class's 3 MW tail laser is dropped). It is a fast, physical tool with its own
-short cooldown, and it should feel alive: it whips, coils and lashes with visible muscle and follow-through.
+The tail carries no weapon (orca-class's 3 MW tail laser is dropped). The driver is busy with the hull and the
+turret, so the tail needs no button: it acts on its own, with a short cooldown, and should feel alive, whipping,
+coiling and lashing with visible muscle and follow-through. Priorities:
 
-- **Grab and throw:** snatch a nearby ground enemy, low drone or wreck, then fling it toward the reticle. Thrown
-  objects are projectiles that damage what they hit, so a thrown UGV can take out a crawler pack.
-- **Stab:** a quick jab at an enemy in reach; it staggers large enemies and interrupts telegraphed attacks
-  (e.g. an ATGM lock or a swelling crawler).
-- **Snatch:** yank a power-up in reach straight to the tank, so risky pickups can be taken from a distance.
-- **Anchor:** stab the claw into the ground for a near-instant stop or a sharp pivot drift around the anchor
-  point, which dodges dives and strafing runs. It gouges the terrain visibly.
+1. **Throw:** a held enemy dangles briefly, then is flung at the aimed target (or the nearest enemy ahead).
+   Thrown enemies are projectiles that damage what they hit.
+2. **Swat:** a diving drone or a swelling crawler close to the hull is batted away first (a "deflect").
+3. **Snatch:** a power-up in reach is yanked straight to the tank.
+4. **Grab / stab:** small enemies in reach are grabbed; large ones are stabbed, which staggers them and interrupts
+   telegraphed attacks.
 
-The tail is also a target: bosses can hit it, and a hurt tail is slower until repaired by a pickup. It never
-disappears or stops working entirely.
+The one tail input is the **anchor** (the barrel roll of this game): with a direction, the claw bites the ground
+and the hull drifts sideways while the tail spins around it, lashing anything near; without one, it is a
+near-instant stop. Both give a brief dodge window and gouge the terrain.
+
+The tail is a target: rear hits hurt it, and it can be torn off (see Modules).
 
 ### Coaxial upgrades
 
@@ -102,7 +126,7 @@ closed-down branch school (폐교), a reservoir (저수지) with its dam, and a 
 
 Target length is 8–12 minutes for a first clear. Sections:
 
-1. **Farm road (농로):** a quiet opening; the radio crackles. FPV drones arrive in sparse waves while the player
+1. **Farm road (농로):** a quiet opening; the combat assist boots up. FPV drones arrive in sparse waves while the player
    learns to aim, fire and let the CIWS work. First coax pickup.
 2. **Village:** UGVs come out of alleys; fungal crawlers burst out of greenhouses. Buildings and walls are
    destructible cover. Tempo rises.
@@ -158,14 +182,27 @@ Readable patterns, fair dodge windows, and no damage-sponge phases.
 
 Hitstop on big hits; screen shake scaled by source and with a cap; cannon recoil that moves the camera and the
 tank; muzzle blasts that flatten grass and kick up dust; debris and persistent scorch marks; fungi that pop with
-spores; enemies that stagger. Every weapon has a distinct, punchy sound. Kill-chain combos multiply score and have
-a readable decay timer.
+spores; enemies that stagger. Every weapon has a distinct, punchy sound.
 
-### Ha Yoon and the radio
+Effects in the spirit of Project Landsword and Metal Slug: oversized, glowing projectiles (a white-hot core in a
+dithered colored halo; enemy fire as big red orbs), star-shaped muzzle flashes and muzzle-brake jets, layered
+explosions (flash core, fireball, shock ring, ground dust ring, embers, secondary pops), burning debris that trails
+smoke, lingering smoke columns and burning wrecks.
 
-Short radio lines, in Korean or English, with the orca-class pilot portrait: callouts, warnings and reactions to the player's performance, such as
-low armor, a long combo, or a boss phase change. Lines are few, specific and characterful. There is no exposition
-dump, and the player can always skip them.
+### Mayhem and style
+
+Destruction is the point, as in ULTRAKILL. A style meter ranks play from D to SSS and multiplies score:
+
+- Kills are named by how they happened (crushed, tail whip, thrown, burned, airburst, sky shot, collateral from a
+  wreck the tank set off, multikill, deflect, demolition, close call). Repeating the same trick earns less.
+- Style drains over time and when the tank is hit.
+- From rank B up, mayhem patches the hull a little.
+
+### Combat assist AI
+
+The only voice is the tank's combat assist AI, in the style of the HEV suit in Half-Life: terse, clinical
+announcements in Korean or English. It covers threats, module damage, ERA, section hazards and boss phases. There
+is no character dialogue.
 
 ### Audio
 
@@ -175,19 +212,28 @@ repo.
 
 ### Assets from orca-class
 
-Reuse only the orca-class audio (keeping its `ATTRIBUTION.md`), the DenkiChip Hangul font, and the pilot portrait.
-All 3D models are made new as low-poly for this game; the orca-class voxel models do not fit the style.
+Reuse only the orca-class audio (keeping its `ATTRIBUTION.md`) and the DenkiChip Hangul font. All 3D models are
+made new as low-poly for this game; the orca-class voxel models do not fit the style.
 
 ### HUD and menus
 
-A diegetic-leaning, minimal HUD: armor, CIWS heat, throttle meter, coax tier, special round and count, score,
-combo, tail cooldown. Title screen, pause, settings (language, volume, mouse sensitivity, screen shake, dither intensity, key
-rebinding),
-game over with instant retry, and a results screen.
+A minimal HUD that uses symbols wherever a symbol suffices: shield and tail icons with bars, a top-down module
+schematic (ERA bricks, tracks, engine, turret, breech, laser, tail, colored by state), shell and bullet glyphs for the
+loaded round and coax guns, a laser heat bar, brake/boost chevrons, score, and the style meter. Title screen, pause,
+settings (language, volume, mouse sensitivity, screen shake, dither intensity, key rebinding), game over with
+instant retry, and a results screen.
+
+### Fungus
+
+The infestation must read as grotesque, not as scattered mushrooms: heaving flesh masses with bracket shelves,
+weeping pustules, hanging strands and toothed maws; stalks bursting from the ground; houses and cars with growth
+erupting through roofs and windows; livestock husks with fruiting bodies splitting their backs; vein webs and egg
+sacs; and towering fungal spires visible across the valley. The growth pulses like living tissue and thickens as the
+stage goes on.
 
 ## Replayability
 
-- Score attack: combo multiplier, no-damage section bonuses, a kill-% bonus, and ranks.
+- Score attack: the style multiplier, no-damage section bonuses, a kill-% bonus, and ranks.
 - Local personal bests per section and for the stage.
 - Instant restart; a checkpoint at the mid-boss and at the boss (checkpoint runs are marked as unranked).
 - Difficulty: Normal and Hard. Hard remixes enemy placements and increases aggression, not just health.

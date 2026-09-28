@@ -2,16 +2,23 @@ class_name LowPoly
 extends RefCounted
 ## Builds flat-shaded, vertex-colored meshes from simple primitives.
 ## Faces are oriented away from an "outward" hint, so primitives never render inside out.
-## Glowing parts go to a second, unshaded surface.
+## Glowing parts go to an unshaded surface; `flesh` parts pulse like living tissue.
 
 static var lit_material: StandardMaterial3D = _make_material(false)
 static var glow_material: StandardMaterial3D = _make_material(true)
+static var flesh_material: ShaderMaterial = _make_flesh(false)
+static var flesh_glow_material: ShaderMaterial = _make_flesh(true)
 
-var _lit := PackedVector3Array()
-var _lit_colors := PackedColorArray()
-var _glow := PackedVector3Array()
-var _glow_colors := PackedColorArray()
 var glow := false ## When true, following primitives go to the unshaded surface.
+var flesh := false ## When true, following primitives pulse (combines with `glow`).
+var _surfaces := {} ## (glow, flesh) key -> [points, colors]
+
+
+static func _make_flesh(glowing: bool) -> ShaderMaterial:
+	var material := ShaderMaterial.new()
+	material.shader = preload("res://shaders/flesh.gdshader")
+	material.set_shader_parameter("glow", glowing)
+	return material
 
 
 static func _make_material(unshaded: bool) -> StandardMaterial3D:
@@ -32,10 +39,16 @@ func tri(a: Vector3, b: Vector3, c: Vector3, color: Color, outward := Vector3.ZE
 		b = c
 		c = swap
 	# Godot treats clockwise triangles as front-facing.
-	var points := _glow if glow else _lit
-	var colors := _glow_colors if glow else _lit_colors
+	var key := int(glow) + 2 * int(flesh)
+	if not _surfaces.has(key):
+		_surfaces[key] = [PackedVector3Array(), PackedColorArray()]
+	var surface: Array = _surfaces[key]
+	var points: PackedVector3Array = surface[0]
+	var colors: PackedColorArray = surface[1]
 	points.append_array([a, c, b])
 	colors.append_array([color, color, color])
+	surface[0] = points
+	surface[1] = colors
 
 
 func quad(a: Vector3, b: Vector3, c: Vector3, d: Vector3, color: Color, outward: Vector3) -> void:
@@ -133,8 +146,10 @@ func blob(xf: Transform3D, radius: float, color: Color, detail := 0, lumpy := 0.
 
 func mesh() -> ArrayMesh:
 	var result := ArrayMesh.new()
-	_add_surface(result, _lit, _lit_colors, lit_material)
-	_add_surface(result, _glow, _glow_colors, glow_material)
+	var materials: Array[Material] = [lit_material, glow_material, flesh_material, flesh_glow_material]
+	for key in 4:
+		if _surfaces.has(key):
+			_add_surface(result, _surfaces[key][0], _surfaces[key][1], materials[key])
 	return result
 
 

@@ -22,12 +22,12 @@ godot --path .
 | Aim turret | Mouse | Right stick (with light aim assist) |
 | Coaxial gun (hold) | Left mouse | RT |
 | 100 mm main gun | Right mouse | RB |
-| Tail: snatch pickup / grab, throw / stab / swat | Space | LB |
-| Anchor: hard stop, or drift with a direction | Q | X |
+| Anchor: drift with a direction (tail spin), or hard stop | Q / Space | X / LB |
 | Overdrive / brake (shared meter) | Shift / Ctrl | A / LT |
 | Pause | Esc | Start |
 
-Keyboard and mouse bindings can be changed in Settings → Controls.
+The tail acts on its own: it snatches pickups, grabs and throws small enemies, stabs large ones and swats diving
+drones. Keyboard and mouse bindings can be changed in Settings → Controls.
 
 ## Develop
 

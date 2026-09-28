@@ -22,7 +22,10 @@ static func _xf(pos: Vector3, yaw := 0.0) -> Transform3D:
 
 
 static func house(variant: int, rng: RandomNumberGenerator) -> Mesh:
-	var b := LowPoly.new()
+	return _house(LowPoly.new(), variant, rng).mesh()
+
+
+static func _house(b: LowPoly, variant: int, rng: RandomNumberGenerator) -> LowPoly:
 	var wall := WALL_COLORS[variant % WALL_COLORS.size()]
 	var roof := ROOF_COLORS[variant % ROOF_COLORS.size()]
 	var w := rng.randf_range(7.0, 9.0)
@@ -43,7 +46,7 @@ static func house(variant: int, rng: RandomNumberGenerator) -> Mesh:
 	# Chimney and a satellite dish.
 	b.box(_xf(Vector3(w * 0.3, 4.3, -d * 0.2)), Vector3(0.5, 1.4, 0.5), Palette.STONE)
 	b.prism(Transform3D(Basis(Vector3.RIGHT, 1.2), Vector3(-w * 0.4, 3.3, d * 0.5 + 0.3)), 0.45, 0.1, 6, Palette.WHITE)
-	return b.mesh()
+	return b
 
 
 static func rubble(variant: int, rng: RandomNumberGenerator) -> Mesh:
@@ -210,7 +213,10 @@ static func hall(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
 
 
 static func car(variant: int, rng: RandomNumberGenerator) -> Mesh:
-	var b := LowPoly.new()
+	return _car(LowPoly.new(), variant, rng).mesh()
+
+
+static func _car(b: LowPoly, variant: int, rng: RandomNumberGenerator) -> LowPoly:
 	var color := CAR_COLORS[variant % CAR_COLORS.size()]
 	b.box(_xf(Vector3(0, 0.75, 0)), Vector3(1.8, 0.7, 4.3), color)
 	b.box(_xf(Vector3(0, 1.4, 0.3)), Vector3(1.6, 0.65, 2.2), color)
@@ -222,7 +228,7 @@ static func car(variant: int, rng: RandomNumberGenerator) -> Mesh:
 	# Rust and moss on the hood.
 	b.box(_xf(Vector3(rng.randf_range(-0.4, 0.4), 1.11, -1.4)), Vector3(0.8, 0.02, 0.9), Palette.OCHRE)
 	b.blob(_xf(Vector3(0.5, 1.8, 0.8)), 0.4, Palette.FUNGUS, 0, 0.3, variant)
-	return b.mesh()
+	return b
 
 
 static func truck(variant: int, _rng: RandomNumberGenerator) -> Mesh:
@@ -360,4 +366,172 @@ static func pier(variant: int, _rng: RandomNumberGenerator) -> Mesh:
 	for x in [-2.3, 2.3]:
 		b.prism(_xf(Vector3(x, -0.4, 1.8)), 0.35, 0.6, 6, Palette.WHITE)
 		b.prism(_xf(Vector3(x, -0.4, -1.8)), 0.35, 0.6, 6, Palette.WHITE)
+	return b.mesh()
+
+
+# --- Infestation -------------------------------------------------------------------------------
+
+## A heaving mass of fleshy lobes with bracket shelves, weeping pustules, hanging strands and a
+## ring-toothed maw.
+static func flesh_mound(variant: int, rng: RandomNumberGenerator) -> Mesh:
+	return _flesh_mass(LowPoly.new(), Vector3.ZERO, 1.3 + (variant % 3) * 0.45, rng).mesh()
+
+
+## A towering heap of fused flesh, shelves and fruiting stalks, visible from across the valley.
+static func fungal_spire(variant: int, rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	var y := 0.0
+	for size in [2.6, 2.0, 1.5, 1.1]:
+		_flesh_mass(b, Vector3(rng.randf_range(-0.8, 0.8), y, rng.randf_range(-0.8, 0.8)), size, rng)
+		y += size * 2.2
+	_cordyceps_into(b, Vector3(0, y, 0), 4 + variant % 3, 1.6, rng)
+	return b.mesh()
+
+
+static func _flesh_mass(b: LowPoly, at: Vector3, size: float, rng: RandomNumberGenerator) -> LowPoly:
+	b.flesh = true
+	var colors := [Palette.MAUVE, Palette.BLUSH, Palette.LILAC, Palette.FUNGUS]
+	var lobes := 6
+	for i in lobes:
+		var angle := TAU * i / lobes + rng.randf() * 0.5
+		var r := rng.randf_range(0.5, 1.4) * size
+		var p := at + Vector3(cos(angle) * r, rng.randf_range(0.3, 1.8) * size, sin(angle) * r)
+		b.blob(Transform3D(Basis().scaled(Vector3(1.0, rng.randf_range(0.7, 1.3), 1.0)), p), rng.randf_range(0.8, 1.4) * size, colors[i % colors.size()], 1, 0.35, rng.randi())
+	# Bracket shelves with pale gills underneath.
+	for i in 4:
+		var angle := rng.randf() * TAU
+		var p := at + Vector3(cos(angle) * 1.3, rng.randf_range(1.0, 2.6), sin(angle) * 1.3) * size
+		var tilt := Basis(Vector3(-sin(angle), 0, cos(angle)), rng.randf_range(-0.3, 0.3))
+		b.prism(Transform3D(tilt, p), 0.9 * size, 0.18 * size, 9, Palette.CREAM, 0.25 * size, Palette.PEACH)
+		# Strands hanging from the shelf rim.
+		for k in 3:
+			var hang := p + Vector3(cos(angle + k), 0, sin(angle + k)) * 0.6 * size
+			b.prism(Transform3D(Basis(Vector3.RIGHT, PI), hang), 0.06 * size, rng.randf_range(0.6, 1.4) * size, 4, Palette.BLUSH, 0.01)
+	# A maw: dark pit ringed with pale teeth.
+	var maw := at + Vector3(0, 1.4 * size, 1.1 * size)
+	b.blob(Transform3D(Basis().scaled(Vector3(1, 1, 0.4)), maw), 0.55 * size, Palette.INK, 0)
+	for i in 7:
+		var angle := TAU * i / 7.0
+		var tooth := maw + Vector3(cos(angle) * 0.55, sin(angle) * 0.55, 0.15) * size
+		b.prism(Transform3D(Basis(Vector3(sin(angle), -cos(angle), 0), PI * 0.5), tooth), 0.08 * size, 0.3 * size, 3, Palette.CREAM, 0.0)
+	# Weeping, glowing pustules.
+	b.glow = true
+	for i in 8:
+		var angle := rng.randf() * TAU
+		b.blob(Transform3D(Basis(), at + Vector3(cos(angle) * 1.2, rng.randf_range(0.5, 2.4), sin(angle) * 1.2) * size), rng.randf_range(0.12, 0.26) * size, Palette.FUNGUS if i % 3 else Palette.WHITE)
+	b.glow = false
+	b.flesh = false
+	return b
+
+
+## Stalks burst out of the ground, twisting as they climb, each ending in a swollen glowing club.
+static func cordyceps(variant: int, rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	_cordyceps_into(b, Vector3.ZERO, 3 + variant % 3, 1.0, rng)
+	b.blob(Transform3D(Basis().scaled(Vector3(1.4, 0.3, 1.4)), Vector3(0, 0.1, 0)), 0.9, Palette.DUSK, 0, 0.4, variant)
+	for i in 6:
+		var angle := TAU * i / 6.0
+		b.box(Transform3D(Basis(Vector3.UP, angle), Vector3(cos(angle), 0.06, -sin(angle)) * 1.2), Vector3(1.8, 0.1, 0.14), Palette.MAUVE)
+	return b.mesh()
+
+
+static func _cordyceps_into(b: LowPoly, at: Vector3, stalks: int, scale: float, rng: RandomNumberGenerator) -> void:
+	b.flesh = true
+	for s in stalks:
+		var p := at + Vector3(rng.randf_range(-0.6, 0.6), 0, rng.randf_range(-0.6, 0.6)) * scale
+		var dir := Vector3(rng.randf_range(-0.4, 0.4), 1.0, rng.randf_range(-0.4, 0.4)).normalized()
+		var radius := rng.randf_range(0.14, 0.22) * scale
+		for k in 5:
+			var length := rng.randf_range(0.5, 0.9) * scale
+			var basis := Basis(Vector3.UP.cross(dir).normalized(), Vector3.UP.angle_to(dir)) if dir.cross(Vector3.UP).length() > 0.01 else Basis()
+			b.prism(Transform3D(basis, p), radius, length, 5, Palette.CREAM if k % 2 else Palette.PEACH, radius * 0.85)
+			p += dir * length
+			dir = (dir + Vector3(rng.randf_range(-0.5, 0.5), rng.randf_range(-0.1, 0.3), rng.randf_range(-0.5, 0.5))).normalized()
+			radius *= 0.85
+		b.glow = true
+		b.blob(Transform3D(Basis().scaled(Vector3(1, 1.6, 1)), p), rng.randf_range(0.22, 0.35) * scale, Palette.FUNGUS, 0, 0.3, rng.randi())
+		b.glow = false
+	b.flesh = false
+
+
+## A village house with the fungus bursting through its roof and windows.
+static func infested_house(variant: int, rng: RandomNumberGenerator) -> Mesh:
+	var b := _house(LowPoly.new(), variant, rng)
+	_flesh_mass(b, Vector3(rng.randf_range(-1.5, 1.5), 3.2, 0), 1.1, rng)
+	b.flesh = true
+	# Strands spilling out of the windows and down the walls.
+	for x in [-2.0, 1.5, 2.8]:
+		b.box(Transform3D(Basis(Vector3.RIGHT, 0.12), Vector3(x, 1.0, 2.9)), Vector3(0.7, 1.9, 0.12), Palette.BLUSH)
+		b.blob(Transform3D(Basis(), Vector3(x, 0.2, 3.2)), 0.45, Palette.MAUVE, 0, 0.3, rng.randi())
+	b.flesh = false
+	_cordyceps_into(b, Vector3(-3.0, 3.4, -1.0), 2, 0.8, rng)
+	return b.mesh()
+
+
+## A wreck with stalks growing out of the cabin.
+static func infested_car(variant: int, rng: RandomNumberGenerator) -> Mesh:
+	var b := _car(LowPoly.new(), variant, rng)
+	_cordyceps_into(b, Vector3(0, 1.6, 0.2), 3, 0.8, rng)
+	b.flesh = true
+	b.blob(Transform3D(Basis().scaled(Vector3(1.0, 0.5, 1.6)), Vector3(0, 1.3, -1.2)), 0.8, Palette.MAUVE, 0, 0.35, variant)
+	b.flesh = false
+	return b.mesh()
+
+
+## A farm cow standing where it died, fruiting bodies splitting its back.
+static func husk_cow(variant: int, rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	var hide := Palette.OCHRE if variant % 2 else Palette.WOOD
+	b.box(_xf(Vector3(0, 1.2, 0)), Vector3(1.0, 0.9, 2.1), hide)
+	b.box(Transform3D(Basis(Vector3.RIGHT, 0.5), Vector3(0, 1.15, -1.3)), Vector3(0.55, 0.5, 0.7), hide)
+	b.box(_xf(Vector3(0, 1.0, -1.65)), Vector3(0.45, 0.3, 0.2), Palette.PEACH)
+	for x in [-0.3, 0.3]:
+		b.prism(Transform3D(Basis(Vector3.BACK, -0.9 * signf(x)), Vector3(x, 1.45, -1.35)), 0.05, 0.3, 3, Palette.CREAM, 0.0)
+		for z in [-0.75, 0.75]:
+			b.box(_xf(Vector3(x, 0.4, z)), Vector3(0.2, 0.8, 0.2), hide)
+	_cordyceps_into(b, Vector3(0, 1.6, 0.2), 3, 0.9, rng)
+	b.flesh = true
+	b.blob(Transform3D(Basis(), Vector3(0.5, 1.2, 0.3)), 0.45, Palette.BLUSH, 0, 0.4, variant)
+	b.flesh = false
+	return b.mesh()
+
+
+## Swollen translucent egg sacs on short stalks, glowing from inside.
+static func egg_sacs(variant: int, rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.flesh = true
+	for i in 7 + variant % 4:
+		var p := Vector3(rng.randf_range(-1.1, 1.1), 0, rng.randf_range(-1.1, 1.1))
+		var h := rng.randf_range(0.3, 0.8)
+		b.prism(Transform3D(Basis(), p), 0.08, h, 4, Palette.MAUVE, 0.05)
+		b.glow = true
+		b.blob(Transform3D(Basis().scaled(Vector3(1, 1.5, 1)), p + Vector3.UP * (h + 0.35)), rng.randf_range(0.28, 0.45), Palette.BLUSH, 0, 0.2, i)
+		b.glow = false
+		b.blob(Transform3D(Basis(), p + Vector3.UP * (h + 0.3)), 0.14, Palette.DUSK)
+	b.flesh = false
+	return b.mesh()
+
+
+## Raised veins spreading over the ground from a central pod.
+static func veins(variant: int, rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.flesh = true
+	for i in 7:
+		var angle := TAU * i / 7.0 + rng.randf() * 0.4
+		var p := Vector3.ZERO
+		var dir := Vector3(cos(angle), 0, sin(angle))
+		var width := 0.28
+		for k in 4:
+			var length := rng.randf_range(1.2, 2.2)
+			var next := p + dir * length
+			b.box(Transform3D(Basis.looking_at(dir, Vector3.UP), (p + next) * 0.5 + Vector3.UP * 0.08), Vector3(width, 0.16, length), Palette.BLUSH if k % 2 else Palette.MAUVE)
+			if rng.randf() < 0.4:
+				b.glow = true
+				b.blob(Transform3D(Basis(), next + Vector3.UP * 0.15), 0.18, Palette.FUNGUS)
+				b.glow = false
+			p = next
+			dir = dir.rotated(Vector3.UP, rng.randf_range(-0.6, 0.6))
+			width *= 0.75
+	b.blob(Transform3D(Basis().scaled(Vector3(1, 0.6, 1)), Vector3(0, 0.3, 0)), 0.8 + (variant % 3) * 0.2, Palette.MAUVE, 1, 0.3, variant)
+	b.flesh = false
 	return b.mesh()
