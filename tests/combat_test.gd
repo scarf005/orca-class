@@ -20,8 +20,10 @@ func test_small_calibers_barely_scratch_ugv_armor() -> void:
 	hit15.caliber = 15
 	var heat := Hit.make(Hit.Kind.SHELL, 10.0, ugv.hit_center())
 	heat.pierce = true
-	check_near(ugv.damage_multiplier(hit8), 0.25, 0.001, "8 mm mostly stopped")
-	check_near(ugv.damage_multiplier(hit15), 0.625, 0.001, "15 mm half stopped")
+	check_near(ugv.damage_multiplier(hit8), 1.0, 0.001, "an unarmored UGV takes full coax damage")
+	ugv.armor = 0.5
+	check_near(ugv.damage_multiplier(hit8), 0.5, 0.001, "armor stops its share of 8 mm")
+	check_near(ugv.damage_multiplier(hit15), 0.75, 0.001, "armor stops half its share of 15 mm")
 	check_near(ugv.damage_multiplier(heat), 1.0, 0.001, "HEAT ignores armor")
 	var thrown := Hit.make(Hit.Kind.THROWN, 10.0, ugv.hit_center())
 	check_near(ugv.damage_multiplier(thrown), 1.5, 0.001, "thrown wrecks are extra effective")
