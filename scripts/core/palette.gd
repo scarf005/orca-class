@@ -35,6 +35,11 @@ const WHITE := Color("fffaf5")
 const HOT := Color("ff3565")
 const AMBER := Color("ffb01f")
 const CYAN := Color("2fd3ea")
+## The color language. Nothing else in the scene uses these three for anything else:
+## warm yellow is yours, hot pink-red is theirs, cyan is loot.
+const FRIENDLY := AMBER
+const HOSTILE := HOT
+const LOOT := CYAN
 
 const ALL: Array[Color] = [
 	INK, DUSK, SLATE, MOSS, PINE, SAGE, LEAF, HULL, HULL_LIGHT, MINT, TEAL, SKY, PERIWINKLE, LILAC, MAUVE,

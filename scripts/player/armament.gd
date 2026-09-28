@@ -7,7 +7,7 @@ const COAX_TIERS: Array = [[8], [15], [20], [20, 8], [20, 15], [20, 20, 8]]
 const GUNS := {
 	8: {"interval": 0.065, "damage": 3.4, "speed": 150.0, "spread": 0.014, "color": Palette.AMBER, "sound": "coax8", "blast": 0.0},
 	15: {"interval": 0.09, "damage": 7.5, "speed": 150.0, "spread": 0.011, "color": Palette.AMBER, "sound": "coax15", "blast": 0.0},
-	20: {"interval": 0.115, "damage": 12.0, "speed": 140.0, "spread": 0.009, "color": Palette.HOT, "sound": "coax20", "blast": 1.3},
+	20: {"interval": 0.115, "damage": 12.0, "speed": 140.0, "spread": 0.009, "color": Palette.AMBER, "sound": "coax20", "blast": 1.3},
 }
 
 enum Round { APHE, HEAT, CANISTER, DRAGON, APFSDS, AIRBURST }

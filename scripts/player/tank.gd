@@ -486,7 +486,7 @@ func fire_cannon() -> void:
 		Armament.Round.DRAGON:
 			for i in 34:
 				var dir := (_fire_direction(muzzle, 60.0) + Vector3(randf_range(-1, 1), randf_range(-0.4, 0.8), randf_range(-1, 1)) * 0.16).normalized()
-				var flame := world.spawn_projectile(Team.PLAYER, muzzle, dir * randf_range(38, 62), "fire", [Palette.FUNGUS, Palette.PEACH, Palette.BUTTER, Palette.CORAL][i % 4])
+				var flame := world.spawn_projectile(Team.PLAYER, muzzle, dir * randf_range(38, 62), "fire", [Palette.WHITE, Palette.PEACH, Palette.BUTTER, Palette.AMBER][i % 4])
 				flame.hit = Hit.make(Hit.Kind.FIRE, 9.0, muzzle)
 				flame.hit.incendiary = true
 				flame.gravity = 6.0

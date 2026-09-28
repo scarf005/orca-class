@@ -22,6 +22,7 @@ var interceptable := false
 var intercept_hp := 1.0 ## Laser dwell damage needed to destroy it.
 var radius := 0.0 ## Sweep radius; small for bullets, larger for thrown wrecks.
 var trail := Color(0, 0, 0, 0) ## Smoke trail color; transparent disables.
+var color := Palette.FRIENDLY ## Body color, set from the team when spawned.
 var terrain_only_after := 0.0 ## Ignores entities until this distance (avoids hitting the shooter).
 var ricochet := false ## Small-caliber rounds glance off the ground with sparks.
 var impact_sound := ""

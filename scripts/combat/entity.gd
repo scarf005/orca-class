@@ -10,6 +10,7 @@ enum Team { PLAYER, ENEMY, NEUTRAL }
 const FLASH_TIME := 0.07
 
 static var _flash_material := _make_flash_material()
+var rest_overlay: Material = null ## Overlay the meshes wear between hit flashes.
 
 var team := Team.ENEMY
 var max_hp := 10.0
@@ -135,7 +136,7 @@ func _process(delta: float) -> void:
 		if _flash <= 0.0:
 			for mesh in _meshes:
 				if is_instance_valid(mesh):
-					mesh.material_overlay = null
+					mesh.material_overlay = rest_overlay
 	if not always_tick:
 		if _flash <= 0.0:
 			set_process(false)

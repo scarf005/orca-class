@@ -21,9 +21,13 @@ func _ready() -> void:
 	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_model.add_child(mesh)
 	var ring := MeshInstance3D.new()
-	ring.mesh = _ring_mesh(color())
+	ring.mesh = _ring_mesh(Palette.LOOT)
 	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(ring)
+	var pillar := MeshInstance3D.new()
+	pillar.mesh = _pillar_mesh()
+	pillar.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(pillar)
 	ActorLayer.mark(self)
 	if World.current:
 		World.current.pickups.append(self)
@@ -230,6 +234,20 @@ static func _mini_tank(b: LowPoly, c: Color) -> void:
 	b.blob(Transform3D(Basis(), Vector3(0, 0.1, 1.15)), 0.12, c)
 	b.box(Transform3D(Basis(), Vector3(0, 0.5, 0)), Vector3(0.12, 0.12, 0.12), c)
 	b.glow = false
+
+
+static var _pillar: Mesh
+
+
+## A thin cyan beacon standing up out of the pickup, so loot reads from far off.
+static func _pillar_mesh() -> Mesh:
+	if _pillar == null:
+		var b := LowPoly.new()
+		b.glow = true
+		b.prism(Transform3D(Basis(), Vector3(0, -1.2, 0)), 0.12, 9.0, 4, Palette.LOOT, 0.02)
+		b.prism(Transform3D(Basis(Vector3.UP, PI * 0.25), Vector3(0, -1.2, 0)), 0.3, 0.5, 4, Palette.WHITE, 0.12)
+		_pillar = b.mesh()
+	return _pillar
 
 
 static func _ring_mesh(c: Color) -> Mesh:

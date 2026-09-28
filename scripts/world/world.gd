@@ -246,15 +246,24 @@ func spawn_projectile(team: Entity.Team, position: Vector3, velocity: Vector3, s
 	projectile.team = team
 	projectile.velocity = velocity
 	projectile.hit.source = player if team == Entity.Team.PLAYER else null
-	if color.a == 0.0:
-		color = Palette.AMBER if team == Entity.Team.PLAYER else Palette.HOT
-	for mesh in projectile_visual(shape, color):
+	projectile.color = team_color(team, shape, color)
+	for mesh in projectile_visual(shape, projectile.color):
 		projectile.add_child(mesh)
 	_projectile_container.add_child(projectile)
 	projectile.global_position = position
 	if velocity.length_squared() > 0.01:
 		projectile.look_at(position + velocity, Vector3.UP if absf(velocity.normalized().y) < 0.99 else Vector3.RIGHT)
 	return projectile
+
+
+## Every enemy shot is HOSTILE; the tank's own shots are warm (flames keep their fire colors), so
+## whose fire is whose never depends on the weapon.
+static func team_color(team: Entity.Team, shape: String, requested: Color) -> Color:
+	if team != Entity.Team.PLAYER:
+		return Palette.HOSTILE
+	if shape == "fire" and requested.a > 0.0:
+		return requested
+	return Palette.BUTTER if shape in ["shell", "dart", "pellet"] else Palette.FRIENDLY
 
 
 ## Area damage with linear falloff to 30% at the edge. Hits entities of the opposing team and props.
