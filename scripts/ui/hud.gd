@@ -245,15 +245,34 @@ func _draw_weapons() -> void:
 	_bar(Rect2(origin + Vector2(30, 54), Vector2(170, 8)), p.ciws_heat, heat_color, 13)
 
 
+const STYLE_COLORS: Array[Color] = [Palette.MIST, Palette.SKY, Palette.MINT, Palette.BUTTER, Palette.PEACH, Palette.CORAL, Palette.FUNGUS]
+
+
 func _draw_score() -> void:
 	var stats := world.stats
 	_text(Vector2(16, 32), "%08d" % stats.score, Palette.CREAM, 24)
-	if stats.combo > 1:
-		var mult := stats.multiplier()
-		var color := [Palette.CREAM, Palette.BUTTER, Palette.PEACH, Palette.CORAL, Palette.FUNGUS][mini(mult - 1, 4)] as Color
-		_text(Vector2(16, 60), "×%d" % mult, color, 24)
-		_text(Vector2(64, 58), str(stats.combo), color)
-		draw_rect(Rect2(16, 66, 96 * stats.combo_timer / RunStats.COMBO_WINDOW, 3), color)
+	_draw_style()
+
+
+## ULTRAKILL-style meter on the right: rank letter, rank name, drain bar and the recent tricks.
+func _draw_style() -> void:
+	var stats := world.stats
+	if stats.style <= 0.0 and stats.style_feed.is_empty():
+		return
+	var rank := stats.style_rank()
+	var color := STYLE_COLORS[rank]
+	var origin := Vector2(800, 60)
+	_panel(Rect2(origin, Vector2(144, 58 + stats.style_feed.size() * 14)), color)
+	var jitter := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * rank * 0.5
+	_text(origin + Vector2(8, 34) + jitter, stats.STYLE_LETTERS[rank], color, 36)
+	_text(origin + Vector2(62, 22), tr("STYLE_RANK_%d" % rank), color)
+	_text(origin + Vector2(62, 38), "×%d" % stats.multiplier(), Palette.CREAM)
+	_bar(Rect2(origin + Vector2(8, 44), Vector2(128, 5)), stats.style_progress(), color, 16)
+	for i in stats.style_feed.size():
+		var entry: Dictionary = stats.style_feed[i]
+		var fade := clampf(2.5 - entry.age, 0.0, 1.0)
+		var count: String = " ×%d" % entry.count if entry.count > 1 else ""
+		_text(origin + Vector2(8, 66 + i * 14), "+ " + tr("STYLE_" + entry.name) + count, Color(Palette.CREAM, fade))
 
 
 func _draw_progress() -> void:

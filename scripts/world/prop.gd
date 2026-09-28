@@ -36,6 +36,24 @@ func setup(kind_value: String, mesh: Mesh, footprint_value: float, height_value:
 	return self
 
 
+static var _see_through := _make_see_through()
+
+
+## A screen-door version of the vertex-colored material, shared by every faded prop. It reuses the
+## particle shader, so fading in the middle of a fight compiles nothing new.
+static func _make_see_through() -> ShaderMaterial:
+	var material := ShaderMaterial.new()
+	material.shader = preload("res://shaders/dither_fade.gdshader")
+	material.set_shader_parameter("alpha_scale", 0.35)
+	return material
+
+
+func set_see_through(enabled: bool) -> void:
+	for mesh in _meshes:
+		if is_instance_valid(mesh):
+			mesh.material_override = _see_through if enabled else null
+
+
 func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 	# Vertical cylinder: test in the ground plane, then check the height at the contact point.
 	var base := global_position
@@ -83,10 +101,20 @@ func on_death(hit: Hit) -> void:
 		world.spawn_pickup(drop, global_position + Vector3.UP)
 	if explosive:
 		# Wrecks the player sets off only hurt enemies; stray enemy fire makes them dangerous to everyone.
-		var by_player := hit != null and (hit.kind == Hit.Kind.RAM or hit.source is Tank)
-		world.blast(center, 4.5, 45.0, Team.PLAYER if by_player else Team.NEUTRAL, null, self, [Palette.WHITE, Palette.BUTTER, Palette.CORAL, Palette.INK])
+		var by_player := hit != null and hit.by_player()
+		# Chain blasts carry this prop as their source so kills count as collateral.
+		var chain := Hit.new()
+		chain.source = self if by_player else null
+		world.blast(center, 4.5, 45.0, Team.PLAYER if by_player else Team.NEUTRAL, chain, self, [Palette.WHITE, Palette.BUTTER, Palette.CORAL, Palette.INK])
 	if score > 0:
 		world.award(score, global_position, false)
+	if hit != null and hit.by_player():
+		world.style_event("DEMOLITION", 8.0 + footprint * 6.0)
+		if hit.kind == Hit.Kind.RAM and footprint > 2.5:
+			# Bulldozed buildings go up in a cloud of plaster and roof tiles.
+			world.fx.dust(global_position + Vector3.UP, 16, footprint * 1.2, Palette.MIST)
+			world.fx.debris(center + Vector3.UP * height * 0.3, 18, debris_colors, 12.0, 0.5)
+			world.hitstop(0.03)
 	if burnable and hit and hit.incendiary:
 		world.fx.spores(center, 10, footprint)
 	if rubble_mesh:

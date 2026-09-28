@@ -70,8 +70,31 @@ func follow(delta: float) -> void:
 	_look = _look.lerp(look, k)
 	global_position = _eye
 	look_at(_look, Vector3.UP)
+	_fade_occluders(player.hit_center())
 	rotate_object_local(Vector3.FORWARD, roll)
 	_apply_shake(delta)
+
+
+var _faded: Array[Prop] = []
+
+
+## Props between the camera and the tank turn see-through (the dither pass renders it as a screen door).
+func _fade_occluders(target: Vector3) -> void:
+	var still: Array[Prop] = []
+	for prop: Prop in World.current.props.near(global_position, target, 8.0):
+		if prop.dead:
+			continue
+		var base := prop.global_position
+		var t := Entity.segment_sphere(global_position, target, Vector3(base.x, clampf(target.y, base.y, base.y + prop.height), base.z), prop.footprint + 1.0)
+		var beside := Vector2(base.x - global_position.x, base.z - global_position.z).length() < prop.footprint + 6.0
+		if t >= 0.0 or beside:
+			still.append(prop)
+	for prop in _faded:
+		if is_instance_valid(prop) and prop not in still:
+			prop.set_see_through(false)
+	for prop in still:
+		prop.set_see_through(true)
+	_faded = still
 
 
 func snap() -> void:

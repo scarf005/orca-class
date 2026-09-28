@@ -366,6 +366,7 @@ func on_death(_hit: Hit) -> void:
 	world.fx.explosion(global_position + Vector3.UP * 4.0, 9.0, [Palette.WHITE, Palette.BLUSH, Palette.FUNGUS, Palette.LILAC])
 	world.fx.spores(global_position + Vector3.UP * 4.0, 60, 8.0)
 	world.award(score, global_position + Vector3.UP * 6.0, true)
+	world.style_event("GIANT", 300.0)
 	world.spawn_pickup("coax", Course.ground_at(Course.MIDBOSS_D - 30.0, 6.0) + Vector3.UP)
 	world.spawn_pickup("repair", Course.ground_at(Course.MIDBOSS_D - 30.0, -6.0) + Vector3.UP)
 	world.spawn_pickup("era", Course.ground_at(Course.MIDBOSS_D - 36.0, 0.0) + Vector3.UP)

@@ -49,6 +49,7 @@ func _process(delta: float) -> void:
 		if not entity.flying and entity.global_position.distance_to(global_position) < RADIUS + entity.radius:
 			var burn := Hit.make(Hit.Kind.FIRE, DAMAGE_PER_SECOND * 0.2, global_position)
 			burn.incendiary = true
+			burn.source = World.current.player
 			entity.take_hit(burn)
 	for prop: Prop in world.props.in_radius(global_position, RADIUS):
 		if prop.burnable:

@@ -143,6 +143,7 @@ func on_death(hit: Hit) -> void:
 	world.fx.spores(hit_center(), 10, 1.0)
 	world.fx.debris(hit_center(), 6, debris_colors, 6.0, 0.25)
 	world.award(score, hit_center(), true)
+	world.kill_style(hit, self)
 	Sfx.play("squelch", hit_center(), 0.0, 1.1)
 	if hit and hit.kind == Hit.Kind.FIRE:
 		world.fx.spawn(Fx.Kind.GLOW, hit_center(), Vector3.UP * 3.0, 0.5, 1.2, Palette.PEACH)

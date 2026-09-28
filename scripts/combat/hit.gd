@@ -25,6 +25,18 @@ static func make(kind_value: Kind, damage_value: float, position_value: Vector3,
 	return hit
 
 
+## True when the tank caused this, directly or through something it set off.
+func by_player() -> bool:
+	if kind in [Kind.RAM, Kind.TAIL, Kind.THROWN, Kind.FIRE]:
+		return true
+	return is_instance_valid(source) and (source is Tank or source is Prop)
+
+
+## True for blasts from wrecks the tank set off.
+func is_collateral() -> bool:
+	return is_instance_valid(source) and source is Prop
+
+
 func copy() -> Hit:
 	var hit := Hit.new()
 	hit.damage = damage

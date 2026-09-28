@@ -1,12 +1,20 @@
 class_name RunStats
 extends RefCounted
-## Score, combo and the numbers shown on the results screen.
+## Score, the style meter and the numbers shown on the results screen.
+## Style rises with varied, violent play and drains over time and when the tank gets hit; its
+## rank multiplies every kill's score. Repeating the same trick earns less each time.
 
 const COMBO_WINDOW := 2.6
-const MAX_MULTIPLIER := 8
+const STYLE_RANKS: Array[float] = [0.0, 90.0, 200.0, 340.0, 500.0, 680.0, 880.0] ## D C B A S SS SSS
+const STYLE_LETTERS: Array[String] = ["D", "C", "B", "A", "S", "SS", "SSS"]
+const STYLE_MULTIPLIERS: Array[int] = [1, 2, 3, 4, 5, 6, 8]
+const STYLE_MAX := 1000.0
+const STYLE_DECAY := 14.0 ## Per second at rank D; faster at higher ranks.
+const STYLE_HIT_PENALTY := 70.0
+const RECENT := 6 ## How many recent tricks count against repeats.
 
 var score := 0
-var combo := 0
+var combo := 0 ## Kills in a row without a gap longer than COMBO_WINDOW (results stat).
 var max_combo := 0
 var combo_timer := 0.0
 var kills := 0
@@ -18,6 +26,10 @@ var time := 0.0
 var lives := 3
 var ranked := true ## False after starting from a checkpoint or continuing.
 var section_damage := 0.0 ## Damage taken since the current section began.
+var style := 0.0
+var best_style_rank := 0
+var style_feed: Array[Dictionary] = [] ## Recent tricks for the HUD: {name, points, age}.
+var _recent: Array[String] = []
 
 
 func tick(delta: float) -> void:
@@ -26,10 +38,54 @@ func tick(delta: float) -> void:
 		combo_timer -= delta
 		if combo_timer <= 0.0:
 			combo = 0
+	style = maxf(0.0, style - STYLE_DECAY * (1.0 + style_rank() * 0.35) * delta)
+	for entry in style_feed:
+		entry.age += delta
+	style_feed = style_feed.filter(func(e: Dictionary) -> bool: return e.age < 2.5)
+
+
+func style_rank() -> int:
+	var rank := 0
+	for i in STYLE_RANKS.size():
+		if style >= STYLE_RANKS[i]:
+			rank = i
+	return rank
+
+
+## Progress (0..1) toward the next rank.
+func style_progress() -> float:
+	var rank := style_rank()
+	if rank >= STYLE_RANKS.size() - 1:
+		return clampf((style - STYLE_RANKS[rank]) / (STYLE_MAX - STYLE_RANKS[rank]), 0.0, 1.0)
+	return (style - STYLE_RANKS[rank]) / (STYLE_RANKS[rank + 1] - STYLE_RANKS[rank])
 
 
 func multiplier() -> int:
-	return mini(1 + combo / 6, MAX_MULTIPLIER)
+	return STYLE_MULTIPLIERS[style_rank()]
+
+
+## Adds style for a named trick, halved for each time it appears among the recent ones.
+## Returns the style actually gained.
+func add_style(trick: String, points: float) -> float:
+	var repeats := _recent.count(trick)
+	var gained := points * pow(0.5, repeats)
+	_recent.append(trick)
+	if _recent.size() > RECENT:
+		_recent.pop_front()
+	style = minf(STYLE_MAX, style + gained)
+	best_style_rank = maxi(best_style_rank, style_rank())
+	if not style_feed.is_empty() and style_feed[0].name == trick:
+		style_feed[0].count += 1
+		style_feed[0].age = 0.0
+	else:
+		style_feed.push_front({"name": trick, "count": 1, "age": 0.0})
+		if style_feed.size() > 5:
+			style_feed.pop_back()
+	return gained
+
+
+func lose_style(amount: float) -> void:
+	style = maxf(0.0, style - amount)
 
 
 ## Returns the points actually gained after the multiplier.
@@ -39,7 +95,7 @@ func add_score(points: int, is_kill: bool) -> int:
 		max_combo = maxi(max_combo, combo)
 		combo_timer = COMBO_WINDOW
 		kills += 1
-	var gained := points * (multiplier() if is_kill else 1)
+	var gained := points * multiplier()
 	score += gained
 	return gained
 
@@ -54,7 +110,7 @@ func accuracy() -> float:
 
 ## Rank from score per difficulty plus kill ratio and damage taken.
 func rank() -> String:
-	var points := score / 1000.0
+	var points := score / 4000.0
 	points += kill_ratio() * 60.0
 	points -= damage_taken / 25.0
 	points += accuracy() * 20.0

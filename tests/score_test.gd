@@ -2,24 +2,32 @@ extends TestCase
 ## Score, combo, rank and best records.
 
 
-func test_combo_multiplier_and_decay() -> void:
+func test_style_ranks_multiply_score_and_decay() -> void:
 	var stats := RunStats.new()
-	for i in 5:
-		stats.add_score(100, true)
-	check_eq(stats.multiplier(), 1, "x1 below six kills")
-	check_eq(stats.add_score(100, true), 200, "sixth kill at x2")
-	for i in 60:
-		stats.add_score(1, true)
-	check_eq(stats.multiplier(), RunStats.MAX_MULTIPLIER, "multiplier caps")
-	check_eq(stats.add_score(100, false), 100, "bonuses are not multiplied")
-	stats.tick(RunStats.COMBO_WINDOW + 0.1)
-	check_eq(stats.combo, 0, "combo drops after the window")
-	check(stats.max_combo >= 66, "max combo remembered")
+	check_eq(stats.multiplier(), 1, "rank D is x1")
+	check_eq(stats.add_score(100, true), 100, "base points at D")
+	stats.style = RunStats.STYLE_RANKS[4]
+	check_eq(stats.STYLE_LETTERS[stats.style_rank()], "S", "enough style reaches S")
+	check_eq(stats.add_score(100, true), 100 * RunStats.STYLE_MULTIPLIERS[4], "S multiplies score")
+	stats.tick(5.0)
+	check(stats.style < RunStats.STYLE_RANKS[4], "style drains over time")
+	stats.lose_style(9999.0)
+	check_eq(stats.style, 0.0, "never below zero")
+
+
+func test_repeating_a_trick_pays_less() -> void:
+	var stats := RunStats.new()
+	var first := stats.add_style("CRUSH", 80.0)
+	var second := stats.add_style("CRUSH", 80.0)
+	var varied := stats.add_style("BURNED", 80.0)
+	check_near(second, first * 0.5, 0.01, "second in a row is halved")
+	check_near(varied, 80.0, 0.01, "a different trick pays in full")
+	check_eq(stats.style_feed[0].name, "BURNED", "newest trick leads the feed")
 
 
 func test_rank_rewards_score_and_punishes_damage() -> void:
 	var good := RunStats.new()
-	good.score = 180000
+	good.score = 600000
 	good.kills = 200
 	good.spawned = 210
 	good.shots = 100

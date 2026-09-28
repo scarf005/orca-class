@@ -130,6 +130,7 @@ func on_death(hit: Hit) -> void:
 	world.fx.explosion(center, death_radius)
 	world.fx.debris(center, int(4 + death_radius * 3), debris_colors, 6.0 + death_radius * 2.0, 0.25 + death_radius * 0.08)
 	world.award(score, center, true)
+	world.kill_style(hit, self)
 	if death_radius >= 3.0:
 		world.hitstop(0.05)
 	if not drop.is_empty():

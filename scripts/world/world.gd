@@ -29,6 +29,7 @@ var pickups: Array[Pickup] = []
 var boss: Entity
 
 var _hitstop := 0.0
+var _kill_times: Array[float] = []
 var _enemy_container := Node3D.new()
 var _projectile_container := Node3D.new()
 
@@ -230,6 +231,58 @@ func spawn_pickup(id: String, position: Vector3) -> Pickup:
 func award(points: int, position: Vector3, is_kill := true) -> void:
 	var gained := stats.add_score(points, is_kill)
 	scored.emit(gained, position, stats.combo)
+
+
+## Style for a trick. From rank B up, mayhem patches the hull a little (like blood in ULTRAKILL).
+func style_event(trick: String, points: float) -> void:
+	var gained := stats.add_style(trick, points)
+	if stats.style_rank() >= 2 and player and not player.dead:
+		player.hp = minf(player.max_hp, player.hp + gained * 0.03)
+
+
+## Style for a kill, named after how it died; three kills in half a second add a multikill.
+func kill_style(hit: Hit, victim: Entity) -> void:
+	if hit == null or not hit.by_player():
+		return
+	var trick := "DIRECT"
+	var points := 35.0
+	match hit.kind:
+		Hit.Kind.RAM:
+			trick = "CRUSH"
+			points = 70.0
+		Hit.Kind.TAIL:
+			trick = "TAILWHIP"
+			points = 55.0
+		Hit.Kind.THROWN:
+			trick = "THROWN"
+			points = 75.0
+		Hit.Kind.FIRE:
+			trick = "BURNED"
+			points = 50.0
+		Hit.Kind.FRAGMENT:
+			trick = "AIRBURST"
+			points = 50.0
+		Hit.Kind.LASER:
+			trick = "ZAPPED"
+			points = 35.0
+		Hit.Kind.BULLET:
+			trick = "COAX"
+			points = 20.0
+		Hit.Kind.BLAST:
+			trick = "COLLATERAL" if hit.is_collateral() else "SPLASH"
+			points = 70.0 if hit.is_collateral() else 40.0
+		Hit.Kind.SHELL:
+			if victim.flying:
+				trick = "SKYSHOT"
+				points = 60.0
+	if hit.incendiary and hit.kind != Hit.Kind.FIRE:
+		trick = "BURNED"
+	style_event(trick, points)
+	_kill_times.append(stats.time)
+	_kill_times = _kill_times.filter(func(t: float) -> bool: return stats.time - t < 0.5)
+	if _kill_times.size() >= 3:
+		_kill_times.clear()
+		style_event("MULTIKILL", 90.0)
 
 
 func shake(amount: float, source := Vector3.INF) -> void:

@@ -24,6 +24,9 @@ const ANCHOR_COOLDOWN := 1.1
 const RESPAWN_DELAY := 1.8
 const RESPAWN_INVULN := 2.6
 const HOLD_TIME := 0.35 ## A grabbed enemy dangles this long before it is thrown.
+const CRUSH_SPEED := 5.0 ## Ground speed above which buildings and wrecks give way.
+const INDESTRUCTIBLE := 1e8 ## Landmarks (church, zelkova) have more HP than this.
+const RAM_DAMAGE := 150.0
 
 var model := TankModel.new()
 var tail := Tail.new()
@@ -172,6 +175,7 @@ func _update_movement(delta: float) -> void:
 	course_offset = clampf(course_offset, FORWARD_LIMIT.x, FORWARD_LIMIT.y)
 	lateral_velocity = local_velocity.x
 	_collide_props(delta)
+	_ram_enemies()
 	_place(rail.d)
 	model.animate_tracks(delta, rail.speed + local_velocity.y, rail.speed + local_velocity.y)
 
@@ -204,6 +208,7 @@ func _move_arena(delta: float, input: Vector2) -> void:
 		hull_yaw = rotate_toward(hull_yaw, target_yaw, 3.2 * delta)
 	_set_pose(Course.ground_at(c.x, c.y), hull_yaw)
 	_collide_props(delta)
+	_ram_enemies()
 	model.animate_tracks(delta, current.length(), current.length())
 
 
@@ -241,15 +246,18 @@ func _anchor(input: Vector2) -> void:
 func _collide_props(delta: float) -> void:
 	var world := World.current
 	for prop: Prop in world.props.in_radius(global_position, HULL_RADIUS):
-		if prop.crushable:
-			var ram := Hit.make(Hit.Kind.RAM, 9999.0, prop.global_position)
+		# Sixty tons at speed flattens anything that is not a landmark.
+		if prop.crushable or (prop.max_hp < INDESTRUCTIBLE and _ground_speed() > CRUSH_SPEED):
+			var ram := Hit.make(Hit.Kind.RAM, 99999.0, prop.global_position)
+			ram.source = self
 			prop.take_hit(ram)
-			world.shake(0.08)
+			world.shake(0.08 if prop.footprint < 2.0 else 0.35)
 			continue
 		if not prop.solid:
 			continue
 		# Bulldoze: heavy ram damage to the prop while it shoves the tank aside and back.
 		var ram := Hit.make(Hit.Kind.RAM, 260.0 * delta, prop.global_position)
+		ram.source = self
 		prop.take_hit(ram)
 		if prop.dead:
 			world.shake(0.3)
@@ -264,6 +272,33 @@ func _collide_props(delta: float) -> void:
 			var push := away.normalized() * overlap
 			global_position += push
 		world.shake(0.04)
+
+
+func _ground_speed() -> float:
+	if World.current.rail.mode == Rail.Mode.ARENA:
+		return local_velocity.length()
+	return World.current.rail.speed + local_velocity.y
+
+
+## Ramming ground enemies: crawlers pop, UGVs and spitters take a crushing hit.
+func _ram_enemies() -> void:
+	var world := World.current
+	if _ground_speed() < CRUSH_SPEED:
+		return
+	for entity: Entity in world.enemies.duplicate():
+		if entity.flying or not entity is Enemy or entity is Colossus:
+			continue
+		var offset := entity.global_position - global_position
+		offset.y = 0.0
+		if offset.length() < HULL_RADIUS + entity.radius:
+			var ram := Hit.make(Hit.Kind.RAM, RAM_DAMAGE, entity.hit_center(), (-global_basis.z))
+			ram.source = self
+			ram.stagger = 1.5
+			entity.take_hit(ram)
+			world.shake(0.3)
+			world.hitstop(0.04)
+			world.fx.sparks(entity.hit_center(), -global_basis.z, 14, Palette.BUTTER, 12.0)
+			Sfx.play("impact", entity.global_position)
 
 
 func _place(d: float) -> void:
@@ -670,6 +705,8 @@ func swat(start_state := true) -> void:
 	Sfx.play("whip", mount, 0.0, 0.8)
 	for entity in world.enemies.duplicate():
 		if entity.hit_center().distance_to(global_position) < 7.5 + entity.radius:
+			if _is_imminent(entity):
+				world.style_event("DEFLECT", 80.0)
 			var hit := Hit.make(Hit.Kind.TAIL, 30.0, entity.hit_center(), (entity.hit_center() - global_position).normalized())
 			hit.stagger = 0.6
 			hit.source = self
@@ -684,7 +721,9 @@ func _on_tail_arrived() -> void:
 	var world := World.current
 	match tail.state:
 		Tail.State.REACH:
-			if _grab_target is Pickup:
+			if not is_instance_valid(_grab_target):
+				tail.set_state(Tail.State.IDLE)
+			elif _grab_target is Pickup:
 				var pickup := _grab_target as Pickup
 				tail.held = pickup
 				tail.set_state(Tail.State.RETURN, Vector3.ZERO, null, 200.0)
@@ -692,6 +731,7 @@ func _on_tail_arrived() -> void:
 				var enemy := _grab_target as Enemy
 				tail.held = enemy.grab()
 				world.award(enemy.score / 2, enemy.global_position, true)
+				world.style_event("SNATCH", 45.0)
 				enemy.die_silently()
 				tail.set_state(Tail.State.HOLD, Vector3.ZERO, null, 120.0)
 				world.shake(0.15)
@@ -868,6 +908,7 @@ func take_hit(hit: Hit) -> void:
 			world.screen_flash(Palette.SKY, 0.2)
 			Sfx.play("blast_small", hit.position, 2.0, 0.8)
 			world.radio.emit(&"AI_ERA" if modules.era[facing] > 0 else &"AI_ERA_GONE")
+			world.style_event("CLOSE_CALL", 40.0)
 			invuln = 0.15
 			return
 		world.radio.emit(&"AI_PENETRATION")
@@ -881,6 +922,7 @@ func on_damaged(hit: Hit, amount: float) -> void:
 	var world := World.current
 	world.stats.damage_taken += amount
 	world.stats.section_damage += amount
+	world.stats.lose_style(RunStats.STYLE_HIT_PENALTY * clampf(amount / 15.0, 0.3, 1.5))
 	world.shake(clampf(amount / 25.0, 0.1, 0.6))
 	world.screen_flash(Palette.CORAL, clampf(amount / 40.0, 0.12, 0.45))
 	world.fx.sparks(hit.position, -hit.direction, 6, Palette.CORAL)

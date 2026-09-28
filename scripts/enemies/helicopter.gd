@@ -548,4 +548,5 @@ func on_death(_hit: Hit) -> void:
 	world.fx.debris(global_position, 30, debris_colors, 18.0, 0.7)
 	world.fx.spores(global_position, 60, 8.0)
 	world.award(score, global_position, true)
+	world.style_event("GIANT", 400.0)
 	Sfx.play("blast", global_position, 6.0, 0.7)
