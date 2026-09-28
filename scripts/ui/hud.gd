@@ -25,8 +25,9 @@ var _last_armor := 100.0
 var _time := 0.0
 var _storm := 0.0
 # Wireframe x-ray views of the real models.
-var _tank_view := WireView.new(Vector2i(128, 104), Vector3(7.0, 9.0, 7.0), Vector3(0, 0.8, 0.3), 9.0)
-var _life_view := WireView.new(Vector2i(44, 28), Vector3(7.0, 6.0, 7.0), Vector3(0, 1.0, 0.3), 8.5)
+# Straight down, front of the tank at the top of the view.
+var _tank_view := WireView.new(Vector2i(84, 108), Vector3(0.6, 20.0, -0.6), Vector3(0.6, 0.0, -0.6), 16.0, Vector3.FORWARD)
+var _life_view := WireView.new(Vector2i(20, 30), Vector3(0, 20.0, -1.5), Vector3(0, 0.0, -1.5), 14.0, Vector3.FORWARD)
 var _round_view := WireView.new(Vector2i(44, 26), Vector3(0, 0.2, 4.0), Vector3(0, 0.1, 0), 1.3)
 var _coax_view := WireView.new(Vector2i(72, 34), Vector3(4.0, 0.3, -0.8), Vector3(0, 0, -0.8), 2.2)
 var _laser_view := WireView.new(Vector2i(30, 26), Vector3(1.6, 1.6, -1.8), Vector3(0, 0.35, 0), 1.3)
@@ -172,12 +173,12 @@ func _draw_status() -> void:
 	var origin := Vector2(16, 416) + shake
 	_panel(Rect2(origin, Vector2(210, 112)), Palette.MINT)
 	_update_xray(delta_time())
-	draw_texture(_tank_view.get_texture(), origin + Vector2(2, 4))
+	draw_texture(_tank_view.get_texture(), origin + Vector2(8, 2))
 	var armor := p.hp / p.max_hp
-	_bar(Rect2(origin + Vector2(134, 12), Vector2(68, 8)), armor, _armor_color(armor), 8)
-	_bar(Rect2(origin + Vector2(134, 28), Vector2(68, 5)), p.tail.hp / Tail.MAX_HP, _tail_color(), 8)
-	draw_texture(_life_view.get_texture(), origin + Vector2(132, 74))
-	_text(origin + Vector2(176, 98), "×%d" % world.stats.lives, Palette.CREAM)
+	_bar(Rect2(origin + Vector2(104, 12), Vector2(96, 8)), armor, _armor_color(armor), 10)
+	_bar(Rect2(origin + Vector2(104, 28), Vector2(96, 5)), p.tail.hp / Tail.MAX_HP, _tail_color(), 10)
+	for i in world.stats.lives:
+		draw_texture(_life_view.get_texture(), origin + Vector2(104 + i * 24, 76))
 	# Throttle meter between brake and boost chevrons.
 	var rail := world.rail
 	var m := Vector2(392, 508)

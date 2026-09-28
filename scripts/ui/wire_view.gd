@@ -9,7 +9,7 @@ var root := Node3D.new()
 var camera := Camera3D.new()
 
 
-func _init(view_size: Vector2i, camera_position: Vector3, look_at_point: Vector3, ortho_size: float) -> void:
+func _init(view_size: Vector2i, camera_position: Vector3, look_at_point: Vector3, ortho_size: float, up := Vector3.UP) -> void:
 	size = view_size
 	own_world_3d = true
 	transparent_bg = true
@@ -23,7 +23,7 @@ func _init(view_size: Vector2i, camera_position: Vector3, look_at_point: Vector3
 	clear.background_mode = Environment.BG_CLEAR_COLOR
 	camera.environment = clear
 	add_child(camera)
-	camera.transform = Transform3D(Basis.looking_at(look_at_point - camera_position, Vector3.UP), camera_position)
+	camera.transform = Transform3D(Basis.looking_at(look_at_point - camera_position, up), camera_position)
 
 
 ## An unlit line color shared by every view.
