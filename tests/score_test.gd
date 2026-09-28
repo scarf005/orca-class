@@ -25,6 +25,26 @@ func test_repeating_a_trick_pays_less() -> void:
 	check_eq(stats.style_feed[0].name, "BURNED", "newest trick leads the feed")
 
 
+func test_other_tricks_do_not_refresh_a_repeat() -> void:
+	var stats := RunStats.new()
+	stats.add_style("MULTIKILL", 80.0)
+	for i in 8:
+		stats.add_style("DEMOLITION", 10.0)
+	check_near(stats.add_style("MULTIKILL", 80.0), 40.0, 0.01, "still halved after many other tricks")
+
+
+func test_spammed_trick_bottoms_out_and_recovers_with_rest() -> void:
+	var stats := RunStats.new()
+	for i in 20:
+		stats.add_style("COAX", 80.0)
+	check_near(stats.add_style("COAX", 80.0), 80.0 * pow(0.5, RunStats.FATIGUE_MAX), 0.01, "spam still pays the floor")
+	stats.tick(RunStats.FATIGUE_MAX / RunStats.FATIGUE_RECOVERY * 0.5)
+	var partial := stats.add_style("COAX", 80.0)
+	check(partial > 10.0 and partial < 80.0, "a short rest brings part of it back")
+	stats.tick(RunStats.FATIGUE_MAX / RunStats.FATIGUE_RECOVERY + 0.1)
+	check_near(stats.add_style("COAX", 80.0), 80.0, 0.01, "a full rest pays in full")
+
+
 func test_rank_rewards_score_and_punishes_damage() -> void:
 	var good := RunStats.new()
 	good.score = 600000
