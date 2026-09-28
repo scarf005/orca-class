@@ -63,10 +63,21 @@ func test_kill_confirms_once_and_stops_time() -> void:
 
 
 func test_followup_hits_preserve_kill_marker() -> void:
+	var world := stage()
 	var hud := Hud.new()
+	hud.world = world
+	world.add_child(hud)
 	hud._on_hit_confirmed(true)
 	var duration := hud._kill_marker
 	hud._on_hit_confirmed(false)
 	check_eq(hud._kill_marker, duration, "a later hit does not replace the kill marker")
 	check(hud._hit_marker > 0.0, "the later hit still refreshes its own marker")
-	hud.free()
+
+
+func test_detached_wreck_does_not_keep_hit_flash() -> void:
+	var world := stage()
+	var enemy := _target(world)
+	var meshes := enemy._meshes.duplicate()
+	enemy.take_hit(_shot(world, enemy, 1000.0))
+	for mesh: GeometryInstance3D in meshes:
+		check(mesh.material_overlay != Entity._flash_material, "detached wreck restores its material before the enemy stops ticking")

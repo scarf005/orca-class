@@ -145,6 +145,10 @@ func on_death(hit: Hit) -> void:
 	world.fx.debris(center, int(4 + death_radius * 3), debris_colors, 6.0 + death_radius * 2.0, 0.25 + death_radius * 0.08, push)
 	world.fx.smoke_column(center, death_radius, [Palette.DUSK, Palette.INK, Palette.ASH])
 	if wreck_on_death:
+		# The entity stops ticking after death, so its flash cannot expire on detached wrecks.
+		for mesh in _meshes:
+			if is_instance_valid(mesh):
+				mesh.material_overlay = rest_overlay
 		# Remains are no longer a threat: drop the hostile outline.
 		ActorLayer.unmark(model, ActorLayer.HOSTILE)
 		for part in pop_parts:
