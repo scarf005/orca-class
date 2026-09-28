@@ -2,7 +2,7 @@ class_name Colossus
 extends Enemy
 ## Mid-boss rooted in the schoolyard. Three glowing nodes hide under spongy caps that burn off
 ## with fire (or wear down under heavy fire). With every node destroyed the core opens.
-## One cannon shell pops a cap or bursts a bare node, and takes a third of the open core.
+## Hits retain their weapon damage; damage left after breaking a cap reaches the node below.
 ## Attacks: half-corridor tendril sweeps, spore barrages and crawler spawns; the exposed core
 ## adds a full sweep that must be dodged with an anchor drift.
 
@@ -11,7 +11,6 @@ enum Attack { NONE, SWEEP, BARRAGE, SPAWN }
 const NODE_HP := 100.0
 const CAP_HP := 100.0
 const CORE_HP := 600.0
-const CANNON_CORE_SHARE := 0.34
 
 class Part:
 	var name := ""
@@ -73,7 +72,7 @@ func build() -> void:
 		parts.append(_make_part(spec[0], spec[1], 1.7, NODE_HP, CAP_HP))
 	core = _make_part("core", Vector3(0, 4.5, 5.2), 2.4, CORE_HP, 0.0)
 	core.mesh.visible = false
-	max_hp = NODE_HP * 3.0 + CORE_HP
+	max_hp = _total_hp()
 	hp = max_hp
 	set_meta("phase_marks", [CORE_HP / max_hp])
 	for i in 9:
@@ -153,13 +152,15 @@ func take_hit(hit: Hit) -> void:
 			world.fx.spawn(Fx.Kind.FLAME, hit.position, Vector3.UP * 2.0, 0.4, 0.6, Palette.PEACH)
 		return
 	var amount := hit.damage
-	if hit.kind == Hit.Kind.BULLET:
-		amount *= 0.35 # Spongy mass soaks machine-gun fire.
+	var health_before := _total_hp()
 	if hit.kind == Hit.Kind.SHELL and hit.caliber >= 100:
-		amount = CORE_HP * CANNON_CORE_SHARE if best == core else maxf(amount, NODE_HP)
 		world.hitstop(0.05)
 	if best.cap > 0.0:
-		best.cap -= amount * (4.0 if hit.kind == Hit.Kind.FIRE or hit.incendiary else 1.0)
+		# Fire still burns caps four times faster; only the damage spent on the cap is absorbed.
+		var multiplier := 4.0 if hit.kind == Hit.Kind.FIRE or hit.incendiary else 1.0
+		var absorbed := minf(amount, best.cap / multiplier)
+		best.cap = maxf(0.0, best.cap - absorbed * multiplier)
+		amount -= absorbed
 		best.cap_mesh.scale = Vector3.ONE * clampf(0.5 + best.cap / CAP_HP * 0.5, 0.5, 1.0)
 		if best.cap <= 0.0:
 			best.cap_mesh.visible = false
@@ -167,14 +168,13 @@ func take_hit(hit: Hit) -> void:
 			world.fx.spores(global_transform * best.offset, 20, 2.0)
 			Sfx.play("roar", global_position, -4.0, 1.3)
 			world.shake(0.3)
-		impact_feedback(hit, amount)
-		return
 	if hit.kind == Hit.Kind.SHELL and hit.pierce and hit.caliber < 100:
 		amount *= 1.5
-	best.hp -= amount
+	best.hp = maxf(0.0, best.hp - amount)
 	hp = _total_hp()
-	impact_feedback(hit, amount, core.hp <= 0.0)
-	world.fx.spores(hit.position, 3, 0.5)
+	impact_feedback(hit, health_before - hp, core.hp <= 0.0)
+	if amount > 0.0:
+		world.fx.spores(hit.position, 3, 0.5)
 	if best.hp <= 0.0:
 		best.mesh.visible = false
 		world.fx.explosion(global_transform * best.offset, 3.5, [Palette.WHITE, Palette.BLUSH, Palette.FUNGUS, Palette.LILAC])
@@ -193,7 +193,7 @@ func take_hit(hit: Hit) -> void:
 func _total_hp() -> float:
 	var total := maxf(core.hp, 0.0)
 	for part in parts:
-		total += maxf(part.hp, 0.0)
+		total += maxf(part.hp, 0.0) + maxf(part.cap, 0.0)
 	return total
 
 

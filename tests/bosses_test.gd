@@ -31,13 +31,81 @@ func test_colossus_caps_shield_nodes_and_burn_off() -> void:
 	var world := stage()
 	var boss := _colossus(world)
 	var node: Colossus.Part = boss.parts[0]
+	check_eq(boss.max_hp, 1200.0, "health bar includes all three caps, nodes and the core")
 	_hit_part(boss, node, Hit.Kind.SHELL, 60.0)
 	check_eq(node.hp, Colossus.NODE_HP, "capped node takes no damage")
-	check(node.cap < Colossus.CAP_HP, "cap wears down")
+	check_near(node.cap, 40.0, 0.01, "cap absorbs the hit")
+	check_near(boss.hp, boss.max_hp - 60.0, 0.01, "cap damage immediately lowers the health bar")
 	_hit_part(boss, node, Hit.Kind.FIRE, Colossus.CAP_HP / 4.0, true)
 	check(node.cap <= 0.0, "fire burns the cap off fast (4x)")
+	check_near(node.hp, Colossus.NODE_HP - 15.0, 0.01, "10 fire damage burns the remaining cap; 15 reaches the node")
+	check_near(boss.hp, boss.max_hp - 115.0, 0.01, "health bar includes both burned cap and node damage")
 	_hit_part(boss, node, Hit.Kind.SHELL, 50.0)
-	check_near(node.hp, Colossus.NODE_HP - 50.0, 0.01, "exposed node takes damage")
+	check_near(node.hp, Colossus.NODE_HP - 65.0, 0.01, "exposed node takes full damage")
+
+
+func test_colossus_coax_damage_is_not_reduced() -> void:
+	var world := stage()
+	var boss := _colossus(world)
+	for i in 3:
+		var node: Colossus.Part = boss.parts[i]
+		var hit := Hit.make(Hit.Kind.BULLET, 40.0, Vector3.ZERO)
+		hit.caliber = [8, 15, 20][i]
+		_hit_part_with(boss, node, hit)
+		check_near(node.cap, 60.0, 0.01, "%d mm deals full damage to the cap" % hit.caliber)
+		hit.damage = 80.0
+		_hit_part_with(boss, node, hit)
+		check_eq(node.cap, 0.0, "cap is depleted")
+		check_near(node.hp, 80.0, 0.01, "remaining bullet damage reaches the node without reduction")
+	check_near(boss.hp, boss.max_hp - 360.0, 0.01, "health bar loses all the accepted bullet damage")
+
+
+func test_colossus_exact_cap_break_and_small_cannon_hits() -> void:
+	var world := stage()
+	var boss := _colossus(world)
+	var node: Colossus.Part = boss.parts[0]
+	var hit := _shell(Vector3.ZERO)
+	hit.damage = 1.0
+	_hit_part_with(boss, node, hit)
+	check_eq(node.cap, 99.0, "100 mm caliber does not fabricate minimum damage")
+	hit.damage = 99.0
+	_hit_part_with(boss, node, hit)
+	check_eq(node.cap, 0.0, "exact cap damage breaks it")
+	check_eq(node.hp, Colossus.NODE_HP, "exact cap break has no surplus damage")
+	check(not node.cap_mesh.visible, "broken cap disappears")
+	check_near(boss.hp, boss.max_hp - Colossus.CAP_HP, 0.01, "exact break is counted once")
+
+
+func test_colossus_incendiary_overflow_keeps_cap_only_fire_bonus() -> void:
+	var world := stage()
+	var boss := _colossus(world)
+	var node: Colossus.Part = boss.parts[0]
+	_hit_part(boss, node, Hit.Kind.FRAGMENT, 40.0, true)
+	check_eq(node.cap, 0.0, "incendiary fragments also burn caps four times faster")
+	check_near(node.hp, 85.0, 0.01, "25 damage burns the cap; remaining 15 is not multiplied")
+
+
+func test_colossus_ignored_hits_do_not_damage_caps_or_confirm_hits() -> void:
+	var world := stage()
+	var boss := _colossus(world)
+	var node: Colossus.Part = boss.parts[0]
+	var confirmations: Array[bool] = []
+	world.hit_confirmed.connect(func(killed: bool) -> void: confirmations.append(killed))
+	var hit := _shell(Vector3.ZERO)
+	hit.source = world.player
+	for amount in [0.0, -10.0]:
+		hit.damage = amount
+		_hit_part_with(boss, node, hit)
+	hit.damage = Armament.SHELL_DAMAGE
+	boss.invulnerable = true
+	_hit_part_with(boss, node, hit)
+	boss.invulnerable = false
+	hit.position = boss.global_position + Vector3.UP * 50.0
+	boss.take_hit(hit)
+	check_eq(node.cap, Colossus.CAP_HP, "zero, negative, invulnerable and off-target hits spare the cap")
+	check_eq(node.hp, Colossus.NODE_HP, "ignored hits spare the node")
+	check_eq(boss.hp, boss.max_hp, "ignored hits leave the health bar full")
+	check(confirmations.is_empty(), "ignored hits do not emit hit confirmation")
 
 
 func test_colossus_core_opens_then_dies() -> void:
@@ -202,20 +270,31 @@ func test_gunship_ignores_zero_damage_and_invulnerable_hits() -> void:
 	check(boss._live("rotor_l"), "invulnerability protects modules")
 
 
-func test_colossus_cannon_sized() -> void:
+func test_colossus_cannon_uses_full_damage_through_caps_and_on_core() -> void:
 	var world := stage()
 	var boss := _colossus(world)
 	var node: Colossus.Part = boss.parts[0]
 	_hit_part_with(boss, node, _shell(Vector3.ZERO))
-	check(node.cap <= 0.0 and node.hp == Colossus.NODE_HP, "one shell pops a cap")
-	_hit_part_with(boss, node, _shell(Vector3.ZERO))
-	check(node.hp <= 0.0, "one shell bursts a bare node")
+	check_eq(node.cap, 0.0, "110 damage pops the cap")
+	check_near(node.hp, 90.0, 0.01, "remaining 10 damage reaches the node")
+	var hit := _shell(Vector3.ZERO)
+	hit.damage = Armament.SHELL_DAMAGE
 	for part: Colossus.Part in boss.parts:
-		part.cap = 0.0
-		part.hp = 0.0
-	for i in 2:
-		_hit_part_with(boss, boss.core, _shell(Vector3.ZERO))
-	check_near(boss.core.hp, Colossus.CORE_HP * (1.0 - 2.0 * Colossus.CANNON_CORE_SHARE), 0.5, "each shell takes a third of the core")
+		_hit_part_with(boss, part, hit)
+		check(part.cap == 0.0 and part.hp == 0.0, "full-power shell destroys cap and node together")
+		check_eq(boss.core.hp, Colossus.CORE_HP, "node overkill does not bypass the core phase")
+	check(boss.core.mesh.visible, "destroying all nodes still exposes the core")
+	check_eq(boss.hp, Colossus.CORE_HP, "remaining health is exactly the exposed core")
+	var marks: Array = boss.get_meta("phase_marks")
+	check_near(boss.hp / boss.max_hp, marks[0], 0.001, "core phase mark includes the caps")
+	_hit_part_with(boss, boss.core, _shell(Vector3.ZERO))
+	check_near(boss.core.hp, Colossus.CORE_HP - 110.0, 0.01, "core takes actual shell damage instead of a fixed share")
+	_hit_part(boss, boss.core, Hit.Kind.BULLET, 40.0)
+	check_near(boss.core.hp, Colossus.CORE_HP - 150.0, 0.01, "core takes full machine-gun damage too")
+	hit.pierce = true
+	_hit_part_with(boss, boss.core, hit)
+	check_eq(boss.hp, 0.0, "full-power shell kills the exposed core")
+	check(boss._dying > 0.0, "lethal damage retains the collapse sequence")
 
 
 func _hit_part_with(boss: Colossus, part: Colossus.Part, hit: Hit) -> void:
@@ -247,7 +326,7 @@ func test_flares_catch_shells() -> void:
 	check(flares.all(func(e: Entity) -> bool: return e.team == Entity.Team.ENEMY), "flares are targets for shells")
 
 
-func test_bosses_shrug_off_machine_guns() -> void:
+func test_gunship_resists_machine_guns_and_is_weak_to_fragments() -> void:
 	var world := stage("boss")
 	var boss := _gunship(world)
 	var coax := Hit.make(Hit.Kind.BULLET, 10.0, boss.global_position)
@@ -255,8 +334,3 @@ func test_bosses_shrug_off_machine_guns() -> void:
 	var fragment := Hit.make(Hit.Kind.FRAGMENT, 10.0, boss.global_position)
 	check_near(boss.damage_multiplier(coax), 0.4, 0.001, "20 mm coax only scratches the gunship")
 	check_near(boss.damage_multiplier(fragment), 1.5, 0.001, "airburst fragments shred it")
-	var colossus := _colossus(world)
-	var node: Colossus.Part = colossus.parts[0]
-	node.cap = 0.0
-	_hit_part(colossus, node, Hit.Kind.BULLET, 100.0)
-	check_near(node.hp, Colossus.NODE_HP - 35.0, 0.01, "the colossus soaks machine-gun fire")
