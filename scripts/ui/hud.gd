@@ -478,7 +478,7 @@ func _draw_reticle() -> void:
 	if p.dead:
 		return
 	var cam := world.camera
-	var c := p.aim_screen * SCALE
+	var cursor := p.aim_screen * SCALE
 	var ready := p.reload <= 0.0
 	if ready and not _was_ready:
 		_ready_flash = 0.35
@@ -486,6 +486,20 @@ func _draw_reticle() -> void:
 	_ready_flash = maxf(0.0, _ready_flash - get_process_delta_time())
 	var target := p.coax_target
 	var color := Palette.HOSTILE if is_instance_valid(target) else (Palette.CYAN if ready else Palette.MIST)
+	# Like Star Fox's two sights, both marks sit on the line the barrel points along: the ring close
+	# in front of the muzzle, the chevron out at the range the sight rests on. Lined up, they show
+	# where the gun fires; the mouse only leaves a small cursor the turret swings toward.
+	var muzzle := p.model.muzzle.global_position
+	var barrel_dir := -p.model.barrel.global_basis.z
+	var range_m := muzzle.distance_to(p.aim_point)
+	var far := muzzle + barrel_dir * maxf(range_m, 30.0)
+	var near := muzzle + barrel_dir * 14.0
+	draw_circle(cursor, 2.0, Palette.WHITE)
+	draw_arc(cursor, 4.0, 0, TAU, 10, Palette.INK, 1.0)
+	if cam.is_position_behind(far) or cam.is_position_behind(near):
+		return
+	var c := cam.unproject_position(far) * SCALE
+	var n := cam.unproject_position(near) * SCALE
 	# Chevron and stadia.
 	draw_polyline(PackedVector2Array([c + Vector2(-9, 9), c, c + Vector2(9, 9)]), color, 2.0)
 	for side in [-1.0, 1.0]:
@@ -495,7 +509,6 @@ func _draw_reticle() -> void:
 			draw_line(c + Vector2(x, -3), c + Vector2(x, 3), color, 1.0)
 	draw_line(c + Vector2(0, 14), c + Vector2(0, 26), color, 2.0)
 	# Range to whatever the sight rests on.
-	var range_m := p.model.muzzle.global_position.distance_to(p.aim_point)
 	_text(c + Vector2(50, -4), "%04d" % int(range_m), color, 12)
 	_text(c + Vector2(50, 10), ROUND_CODES[p.current_round], Armament.ROUND_COLORS[p.current_round], 12)
 	# Reload ring: twelve segments fill; a READY flash when the gun is loaded.
@@ -503,16 +516,9 @@ func _draw_reticle() -> void:
 	for k in 12:
 		var a0 := -PI * 0.5 + TAU * k / 12.0 + 0.06
 		var filled := float(k) / 12.0 < reload
-		draw_arc(c, 34, a0, a0 + TAU / 12.0 - 0.12, 4, Armament.ROUND_COLORS[p.current_round] if filled else Color(Palette.STONE, 0.5), 3.0 if filled else 1.0)
+		draw_arc(n, 30, a0, a0 + TAU / 12.0 - 0.12, 4, Armament.ROUND_COLORS[p.current_round] if filled else Color(Palette.STONE, 0.5), 3.0 if filled else 1.0)
 	if _ready_flash > 0.0 and fmod(_ready_flash, 0.1) < 0.06:
-		_text(c + Vector2(0, -48), "READY", Palette.WHITE, 12, HORIZONTAL_ALIGNMENT_CENTER, 0)
-	# Where the barrel actually points right now (it lags while the turret traverses).
-	var barrel := p.model.muzzle.global_position - p.model.barrel.global_basis.z * maxf(range_m, 20.0)
-	if not cam.is_position_behind(barrel):
-		var b := cam.unproject_position(barrel) * SCALE
-		if b.distance_to(c) > 6.0:
-			draw_circle(b, 3.0, Palette.WHITE)
-			draw_arc(b, 6.0, 0, TAU, 12, Palette.INK, 1.0)
+		_text(n + Vector2(0, -40), "READY", Palette.WHITE, 12, HORIZONTAL_ALIGNMENT_CENTER, 0)
 	# Lock: brackets snap in from wide when a new target is acquired.
 	if target != _lock:
 		_lock = target
