@@ -22,6 +22,12 @@ const MODULE_HP := {"rotor_l": 150.0, "rotor_r": 150.0, "chin": 90.0, "pod_l": 1
 const GATLINGS := ["gatling_l", "gatling_r"]
 const PART_LABELS := {"rotor_l": "ROTOR L", "rotor_r": "ROTOR R", "chin": "ATGM", "pod_l": "RACK L", "pod_r": "RACK R",
 	"gatling_l": "GUN L", "gatling_r": "GUN R", "nose_gun": "CANNON", "bay": "BOMBS"}
+const GUN_SPEED := 180.0
+const ROCKET_SPEED := 85.0
+const ATGM_SPEED := 45.0
+const BOMB_FLIGHT := 0.9 ## Seconds from the bay to the ground for the first bomb.
+const CANNON_SPEED := 1500.0 ## The nose cannon's shells arrive almost at once, so each shot is warned first.
+const CANNON_AIM := 0.7 ## Seconds of warning before each cannon shot.
 const PART_PRIORITY := 3.0 ## A module this close behind the airframe skin still takes the hit.
 const ROTORS := ["rotor_l", "rotor_r"]
 const ROTOR_RADIUS := 8.5
@@ -713,10 +719,10 @@ func _gun(delta: float, tank: Tank) -> void:
 			_end_attack()
 			return
 		var from: Vector3 = (live[_shots % live.size()] as Node3D).global_transform * Vector3(0, 0, -2.0)
-		var lead := tank.hit_center() + tank.velocity * (from.distance_to(tank.hit_center()) / 110.0) * 0.7
+		var lead := tank.hit_center() + tank.velocity * (from.distance_to(tank.hit_center()) / GUN_SPEED) * 0.7
 		var wild := 1.0 if _live("rotor_l") and _live("rotor_r") else 2.0
 		# 40 mm high-explosive rounds: each one hits hard and bursts where it lands.
-		var shot := fire_at("orb", from, lead + Vector3(randf_range(-1.5, 1.5), randf_range(-0.5, 0.5), randf_range(-1.5, 1.5)) * wild, 110.0, 9.0)
+		var shot := fire_at("orb", from, lead + Vector3(randf_range(-1.5, 1.5), randf_range(-0.5, 0.5), randf_range(-1.5, 1.5)) * wild, GUN_SPEED, 9.0)
 		shot.hit.caliber = 40
 		shot.blast_radius = 2.2
 		shot.blast_damage = 5.0
@@ -752,7 +758,7 @@ func _rockets(delta: float, tank: Tank) -> void:
 			var angle := _shots * 0.7
 			target = tank.global_position + Vector3(cos(angle), 0, sin(angle)) * (4.0 + _shots * 0.4)
 		target.y = Course.height_at(target)
-		var rocket := fire_at("rocket", from, target, 55.0, 0.0)
+		var rocket := fire_at("rocket", from, target, ROCKET_SPEED, 0.0)
 		rocket.hit = Hit.make(Hit.Kind.SHELL, 0.0, from)
 		rocket.hit.source = self
 		rocket.blast_radius = 4.0
@@ -767,32 +773,38 @@ func _rockets(delta: float, tank: Tank) -> void:
 		_end_attack()
 
 
-## Nose cannon: its barrel glows and a sight line settles on the tank, then three heavy shells
-## thump out one after another.
+## Nose cannon: three shells that arrive almost the instant they are fired, so each is warned
+## first: the barrel glows hotter, a warning tone sounds and a sight line settles on where the
+## shell will land, then it fires.
 func _cannon(delta: float, tank: Tank) -> void:
 	var world := World.current
 	var muzzle: Vector3 = model.global_transform * (parts.nose_gun.offset + Vector3(0, 0, -4.2))
-	if _attack_time < 0.9:
-		if fmod(_attack_time, 0.1) < 0.05:
-			world.fx.beam(muzzle, tank.hit_center(), Palette.HOT, 0.08, 0.05)
-		world.fx.spawn(Fx.Kind.FLAME, muzzle, Vector3.ZERO, 0.06, 0.3 + _attack_time, Palette.HOT)
-		return
-	_shot_timer -= delta
-	if _shot_timer <= 0.0 and _shots < 3:
-		_shots += 1
-		_shot_timer = 0.4
-		var lead := tank.hit_center() + tank.velocity * (muzzle.distance_to(tank.hit_center()) / 75.0)
-		var shell := fire_at("shell", muzzle, lead, 75.0, 0.0)
-		shell.hit = Hit.make(Hit.Kind.SHELL, 10.0, muzzle)
-		shell.hit.source = self
-		shell.blast_radius = 4.5
-		shell.blast_damage = 30.0
-		shell.interceptable = true
-		shell.intercept_hp = 1.0
-		_velocity -= (lead - muzzle).normalized() * 3.0
-		Sfx.play("cannon", muzzle, 0.0, 1.3)
-	elif _shots >= 3 and _shot_timer <= 0.0:
+	var cycle := CANNON_AIM + 0.25
+	var index := int(_attack_time / cycle)
+	if index >= 3:
 		_end_attack()
+		return
+	if _shots > index:
+		return
+	var aiming := _attack_time - index * cycle
+	var lead := tank.hit_center() + tank.velocity * (muzzle.distance_to(tank.hit_center()) / CANNON_SPEED)
+	if aiming < CANNON_AIM:
+		if aiming < delta:
+			Sfx.play("lock", muzzle, 4.0, 1.3)
+		if fmod(aiming, 0.1) < 0.06:
+			world.fx.beam(muzzle, lead, Palette.HOT, 0.06 + aiming * 0.15, 0.05)
+		world.fx.spawn(Fx.Kind.FLAME, muzzle, Vector3.ZERO, 0.06, 0.3 + aiming * 1.2, Palette.HOT)
+		return
+	_shots += 1
+	var shell := fire_at("shell", muzzle, lead, CANNON_SPEED, 0.0)
+	shell.hit = Hit.make(Hit.Kind.SHELL, 10.0, muzzle)
+	shell.hit.source = self
+	shell.blast_radius = 4.5
+	shell.blast_damage = 30.0
+	shell.interceptable = true
+	shell.intercept_hp = 10.0 # Ten times what the laser could burn through before.
+	_velocity -= (lead - muzzle).normalized() * 3.0
+	Sfx.play("cannon", muzzle, 0.0, 1.3)
 
 
 ## Bomb bay: red circles walk along the tank's path, then the bombs fall onto them.
@@ -806,7 +818,7 @@ func _bombs(tank: Tank) -> void:
 	var count := [6, 8, 10][phase] as int
 	_shots = count
 	for i in count:
-		var flight := 1.4 + i * 0.12
+		var flight := BOMB_FLIGHT + i * 0.08
 		var target := tank.global_position + tank.velocity * flight + Vector3(randf_range(-4, 4), 0, randf_range(-4, 4))
 		target.y = Course.height_at(target)
 		var velocity_out := (target - from) / flight
@@ -826,7 +838,7 @@ func _bombs(tank: Tank) -> void:
 
 func _launch_atgm(tank: Tank, index: int) -> void:
 	var from := _chin.global_position + model.global_basis.x * (index - 1) * 1.5
-	var missile := fire_at("atgm", from, from + Vector3.UP * 2.0 + model.global_basis.x * (index - 1) * 4.0 + (tank.hit_center() - from).normalized() * 4.0, 30.0, 0.0)
+	var missile := fire_at("atgm", from, from + Vector3.UP * 2.0 + model.global_basis.x * (index - 1) * 4.0 + (tank.hit_center() - from).normalized() * 4.0, ATGM_SPEED, 0.0)
 	missile.hit = Hit.make(Hit.Kind.SHELL, 0.0, from)
 	missile.hit.source = self
 	missile.blast_radius = 4.0
