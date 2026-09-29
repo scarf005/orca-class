@@ -57,7 +57,8 @@ func _ready() -> void:
 	world.add_child(_gunner)
 	_gunner.process_mode = Node.PROCESS_MODE_DISABLED
 	_gunner.visible = false
-	_gunner._engine_sound.stop()
+	if _gunner._engine_sound:
+		_gunner._engine_sound.stop()
 	var crosshair := Label.new()
 	crosshair.text = "+"
 	crosshair.set_anchors_and_offsets_preset(Control.PRESET_CENTER)

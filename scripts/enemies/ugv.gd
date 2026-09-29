@@ -14,8 +14,8 @@ var _attack_timer := 2.0
 var _telegraph := 0.0
 var _burst := 0
 var _burst_timer := 0.0
-var _turret := Node3D.new()
-var _muzzle := Node3D.new()
+var _turret: Node3D
+var _muzzle: Node3D
 var _eye: MeshInstance3D
 var _eye_material := StandardMaterial3D.new()
 var _hard := false
@@ -41,7 +41,6 @@ func _init() -> void:
 
 
 func build() -> void:
-	pop_parts = [_turret]
 	_hard = Game.difficulty == Game.Difficulty.HARD
 	if weapon == "atgm":
 		max_hp = 16.0
@@ -69,6 +68,9 @@ func build() -> void:
 	body.mesh = b.mesh()
 	model.add_child(body)
 	if weapon != "supply":
+		_turret = Node3D.new()
+		_muzzle = Node3D.new()
+		pop_parts = [_turret]
 		_turret.position = Vector3(0, 1.35, 0)
 		model.add_child(_turret)
 		var t := LowPoly.new()

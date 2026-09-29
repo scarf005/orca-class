@@ -71,6 +71,8 @@ func _ready() -> void:
 
 
 func stream(name: String) -> AudioStream:
+	if Game.silent:
+		return null
 	if not _streams.has(name):
 		var spec: Array = SOUNDS.get(name, [])
 		_streams[name] = load(spec[0]) if not spec.is_empty() and ResourceLoader.exists(spec[0]) else null
@@ -140,6 +142,8 @@ func gun(name: String, pitch := 1.0) -> void:
 
 ## Feedback stays audible at long range and never cuts off radio or menu sounds.
 func confirm_hit(killed: bool) -> void:
+	if Game.silent:
+		return
 	var now := Time.get_ticks_msec()
 	if not killed and now - _last_hit_sound < 35:
 		return
@@ -164,6 +168,8 @@ func ui(name: String, volume_db := 0.0, pitch := 1.0) -> void:
 
 ## A looping sound attached to a node; returns the player so callers can modulate it.
 func loop(name: String, parent: Node3D, volume_db := 0.0) -> AudioStreamPlayer3D:
+	if Game.silent:
+		return null
 	var audio := stream(name)
 	if audio == null:
 		return null
@@ -185,6 +191,9 @@ func loop(name: String, parent: Node3D, volume_db := 0.0) -> AudioStreamPlayer3D
 
 
 func play_music(path: String, loop := true, volume_db := 0.0) -> void:
+	if Game.silent:
+		stop_music()
+		return
 	if path == _music_path and music.playing:
 		return
 	_music_path = path
@@ -202,3 +211,4 @@ func play_music(path: String, loop := true, volume_db := 0.0) -> void:
 func stop_music() -> void:
 	_music_path = ""
 	music.stop()
+	music.stream = null
