@@ -325,18 +325,24 @@ func _hit_part_with(boss: Colossus, part: Colossus.Part, hit: Hit) -> void:
 	boss.take_hit(hit)
 
 
-func test_gunship_crash_clears_stage() -> void:
+func test_gunship_crash_clears_stage_once_the_breach_has_played_out() -> void:
 	var world := stage("boss")
 	var boss := _gunship(world)
 	var cleared := [false]
+	var fell := [false]
 	world.stage_cleared.connect(func() -> void: cleared[0] = true)
+	boss.died.connect(func(_e: Entity) -> void: fell[0] = true)
 	boss.hp = 1.0
 	var hit := Hit.make(Hit.Kind.SHELL, 50.0, boss.global_position)
 	hit.pierce = true
 	boss.take_hit(hit)
 	check(boss._crash > 0.0, "zero hp starts the crash")
-	var ok := await wait_until(func() -> bool: return cleared[0], 60 * 9)
+	check(await wait_until(func() -> bool: return fell[0], 60 * 6), "the gunship hits the dam")
+	await frames(60 * 4)
+	check(not cleared[0], "the stage does not clear while the dam is still breaking")
+	var ok := await wait_until(func() -> bool: return cleared[0], 60 * 5)
 	check(ok, "crash into the dam clears the stage")
+	check_near(Director.BOSS_CLEAR_DELAY, 6.5, 0.01, "a long breather after the boss falls")
 
 
 func test_gunship_crashes_into_the_dam_face_in_plain_view() -> void:
@@ -360,8 +366,47 @@ func test_gunship_crashes_into_the_dam_face_in_plain_view() -> void:
 	boss._crash = 0.01
 	boss._update_crash(0.1)
 	check(world.fx._transients.size() > before + 10, "the impact throws a heap of fireballs and shockwaves")
-	check(world.fx._delayed.size() >= chained + 8, "blasts chain on after the first")
+	check(world.fx._delayed.size() >= chained + 7, "blasts chain on after the first")
 	check(boss.dead, "the crash kills the gunship")
+
+
+func test_crash_breaks_the_dam_near_the_impact_and_floods_the_arena() -> void:
+	var world := stage("boss")
+	var boss := _gunship(world)
+	await frames(2)
+	var dam := Dam.current
+	check(dam.pieces.size() > 20 and dam.pieces.size() < 100, "the dam is tens of blocks, not hundreds")
+	check(dam.pieces.all(func(p: Dam.Piece) -> bool: return p.state == Dam.State.STANDING), "it stands whole before the crash")
+	check(dam.torrent == null and dam.flood == null, "no water yet")
+	boss.global_position = Course.to_world(Course.ARENA_CENTER_D, -40.0, 20.0)
+	var hit := Hit.make(Hit.Kind.SHELL, 5000.0, boss.global_position)
+	hit.pierce = true
+	boss.take_hit(hit)
+	var impact := boss._crash_to
+	boss._crash = 0.01
+	boss._update_crash(0.1)
+	check(dam.breached, "the impact breaches the dam")
+	var column := int(floorf(dam.to_local(impact).x / Dam.COLUMN_WIDTH + Dam.COLUMNS * 0.5))
+	var broken := dam.pieces.filter(func(p: Dam.Piece) -> bool: return p.state != Dam.State.STANDING)
+	check(broken.size() >= 9 and broken.size() < 30, "a section breaks out, not the whole wall (%d blocks)" % broken.size())
+	check(dam.pieces.filter(func(p: Dam.Piece) -> bool: return absi(p.column - column) <= 1).all(func(p: Dam.Piece) -> bool: return p.state != Dam.State.STANDING), "every block at the impact is broken through to the ground")
+	check(dam.pieces.filter(func(p: Dam.Piece) -> bool: return absi(p.column - column) >= 6).all(func(p: Dam.Piece) -> bool: return p.state == Dam.State.STANDING), "the rest of the wall stands")
+	var tops := broken.filter(func(p: Dam.Piece) -> bool: return p.tier == 2 and absi(p.column - column) >= 2)
+	check(not tops.is_empty(), "the crest collapses beyond the gap too, leaving a jagged edge")
+	var far_tops := dam.pieces.filter(func(p: Dam.Piece) -> bool: return p.tier == 2 and absi(p.column - column) >= 5)
+	check(far_tops.all(func(p: Dam.Piece) -> bool: return p.state == Dam.State.STANDING), "and stops short of the ends")
+	check(is_instance_valid(dam.torrent) and is_instance_valid(dam.flood), "the torrent and the flood exist after the crash")
+	await frames(90)
+	check(broken.all(func(p: Dam.Piece) -> bool: return p.state in [Dam.State.FLYING, Dam.State.LANDED] and p.node.position != p.center), "broken blocks have flown off")
+	check(dam.torrent.visible and dam.torrent.mesh.get_surface_count() == 1, "water pours through the breach")
+	var reach := dam.flood_reach()
+	await frames(120)
+	check(dam.flood_reach() > reach, "the flood keeps spreading")
+	check(dam.flood.mesh.get_aabb().size.z > 10.0, "over the arena floor")
+	check(dam.flood.mesh.get_aabb().position.y > 0.0 and dam.flood.mesh.get_aabb().end.y < 3.0, "at a modest depth")
+	await frames(60 * 7)
+	check(dam.flood_reach() > Dam.FLOOD_REACH * 0.95, "reaching out towards the middle of the arena")
+	check(world.player.hp > 0.0 and not world.player.dead, "the flood does not hurt the tank")
 
 
 func test_flares_catch_shells() -> void:

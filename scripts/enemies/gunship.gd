@@ -921,19 +921,19 @@ func _crash_blast(at: Vector3) -> void:
 	var fx := world.fx
 	var ground := Vector3(at.x, Course.height_at(at), at.z)
 	var out := -Course.forward(Course.DAM_D) # From the face, into the arena.
-	for i in 6:
+	for i in 4:
 		fx.explosion(at + Vector3(randf_range(-9, 9), randf_range(-4, 8), randf_range(-6, 6)), 6.0 + i % 3, [Palette.WHITE, Palette.BUTTER, Palette.AMBER, Palette.CORAL], out * 0.3)
 	for i in 4:
 		fx.fireball(at + Vector3(randf_range(-8, 8), randf_range(-3, 7), randf_range(-4, 6)), 4.0, randf_range(13.0, 19.0), randf_range(0.9, 1.3))
-	for i in 8:
-		fx.explosion_after(0.12 + i * 0.12 + randf() * 0.08, at + Vector3(randf_range(-14, 14), randf_range(-6, 10), randf_range(-8, 8)), randf_range(4.5, 8.0))
+	for i in 7:
+		fx.explosion_after(0.14 + i * 0.14 + randf() * 0.08, at + Vector3(randf_range(-14, 14), randf_range(-6, 10), randf_range(-8, 8)), randf_range(4.5, 8.0))
 	fx.shockwave(at, 70.0, Palette.BUTTER, 0.6)
 	fx.shockwave(at, 110.0, Palette.WHITE, 0.9)
 	fx.shockwave(ground, 95.0, Palette.MIST, 1.2)
 	fx.dust(ground, 45, 14.0, Palette.MIST)
 	fx.dust(ground, 30, 10.0, Palette.OCHRE)
-	fx.debris(at, 40, debris + [Fx.Debris.CONCRETE, Fx.Debris.ROCK], 30.0, 0.9, out * 0.3)
-	fx.shatter(AABB(at - Vector3(10, 8, 6), Vector3(20, 16, 12)), [Fx.Debris.CONCRETE, Fx.Debris.ROCK], out * 0.3, 0.3)
+	fx.debris(at, 28, debris + [Fx.Debris.CONCRETE, Fx.Debris.ROCK], 30.0, 0.9, out * 0.3)
+	fx.shatter(AABB(at - Vector3(10, 8, 6), Vector3(20, 16, 12)), [Fx.Debris.CONCRETE, Fx.Debris.ROCK], out * 0.3, 0.2)
 	for i in 20:
 		var dir := (Vector3(randf_range(-1, 1), randf_range(0.5, 1.6), randf_range(-1, 1)).normalized() + out * 0.4).normalized()
 		fx.spawn(Fx.Kind.FLAME, at, dir * randf_range(10, 26), randf_range(1.2, 2.4), randf_range(0.5, 0.9), Palette.PEACH, {"gravity": 18.0, "trail": Palette.ASH, "end_size": 0.2, "fade": 0.8})
@@ -947,6 +947,8 @@ func _crash_blast(at: Vector3) -> void:
 	world.screen_flash(Palette.WHITE, 0.9)
 	Sfx.play("blast", at, 8.0, 0.55)
 	Sfx.play("blast", at, 4.0, 0.8)
+	if is_instance_valid(Dam.current):
+		Dam.current.breach(at)
 
 
 func on_death(_hit: Hit) -> void:

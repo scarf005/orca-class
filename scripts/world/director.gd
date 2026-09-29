@@ -26,6 +26,8 @@ const MIDBOSS_RESUME := 0.6 ## Seconds after the mid-boss dies before the rail r
 ## Swarm enemies come in bigger numbers than the stage script lists: mayhem needs fodder.
 const FODDER := {"fpv": 1.5, "crawler": 1.6}
 
+const BOSS_CLEAR_DELAY := 6.5 ## After the boss falls, so the dam's breach and flood play out.
+
 ## Checkpoint name -> rail distance to start from.
 const CHECKPOINTS := {"": 0.0, "midboss": Course.MIDBOSS_D - 110.0, "boss": Course.SECTION_STARTS[Course.Section.ARENA] - 40.0}
 
@@ -219,5 +221,5 @@ func _start_boss(event: Dictionary) -> void:
 	world.boss_changed.emit(boss)
 	boss.died.connect(func(_e: Entity) -> void:
 		world.boss_changed.emit(null)
-		get_tree().create_timer(4.0).timeout.connect(func() -> void: world.stage_cleared.emit()))
+		get_tree().create_timer(BOSS_CLEAR_DELAY).timeout.connect(world.stage_cleared.emit))
 	Sfx.play_music("res://assets/music/boss.ogg")
