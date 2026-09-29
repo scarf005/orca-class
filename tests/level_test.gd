@@ -19,8 +19,13 @@ func test_waves_from_behind_are_announced_and_overtake() -> void:
 	world.director.incoming.connect(func(from: Vector3) -> void: warned.append(from))
 	var spawned: Array[Enemy] = world.director.spawn_wave({"d": world.rail.d, "kind": "ugv", "count": 1, "formation": "behind", "spacing": 8.0})
 	check(warned.size() == 1, "the HUD is told a wave is coming from behind")
-	var ugv := spawned[0]
+	var ugv := spawned[0] as Ugv
 	world.player.tail.destroyed = true # Keep the claw from snatching it as it passes.
+	# Keep the invulnerable probe out of the tank's ram path so hitstop cannot stall the chase.
+	var lane := Tank.lateral_limit(world.rail.d)
+	world.player.course_u = -lane
+	ugv._lane = lane * 0.8
+	ugv._lane_timer = 10.0
 	check(Course.to_course(ugv.global_position).x < world.rail.d, "it starts behind the rail")
 	ugv.invulnerable = true
 	var passed := await wait_until(func() -> bool: return is_instance_valid(ugv) and Course.to_course(ugv.global_position).x > world.rail.d + world.player.course_offset + 5.0, 60 * 8)
