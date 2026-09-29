@@ -15,7 +15,7 @@ func _init(view_size: Vector2i, camera_position: Vector3, look_at_point: Vector3
 	transparent_bg = true
 	debug_draw = Viewport.DEBUG_DRAW_WIREFRAME
 	msaa_3d = Viewport.MSAA_DISABLED
-	render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	render_target_update_mode = SubViewport.UPDATE_ONCE
 	add_child(root)
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
 	camera.size = ortho_size
@@ -24,6 +24,10 @@ func _init(view_size: Vector2i, camera_position: Vector3, look_at_point: Vector3
 	camera.environment = clear
 	add_child(camera)
 	camera.transform = Transform3D(Basis.looking_at(look_at_point - camera_position, up), camera_position)
+
+
+func refresh() -> void:
+	render_target_update_mode = SubViewport.UPDATE_ONCE
 
 
 ## An unlit line color shared by every view.
@@ -53,4 +57,5 @@ func show_mesh(mesh: Mesh, color: Color) -> MeshInstance3D:
 	instance.mesh = mesh
 	instance.material_override = line(color)
 	root.add_child(instance)
+	refresh()
 	return instance

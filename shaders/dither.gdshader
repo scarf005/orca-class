@@ -2,8 +2,8 @@ shader_type canvas_item;
 // Ordered-dither palette quantization of the low-resolution 3D view.
 // The Bayer matrix is indexed by source pixel, so the pattern stays fixed to the screen grid.
 
-uniform vec3 palette_lab[32];
-uniform vec3 palette_rgb[32];
+uniform vec3 palette_lab[33];
+uniform vec3 palette_rgb[33];
 uniform int palette_size = 1;
 uniform float spread = 0.08;
 uniform float strength : hint_range(0.0, 1.0) = 1.0;
@@ -15,6 +15,7 @@ uniform sampler2D actor_mask : filter_nearest; // Alpha > 0 where actors and fla
 uniform sampler2D hostile_mask : filter_nearest;
 uniform sampler2D loot_mask : filter_nearest;
 uniform vec4 outline_colors[2];
+uniform vec2 mask_active = vec2(1.0);
 
 float coverage(sampler2D mask, vec2 uv, vec2 texel, float radius) {
 	float hit = 0.0;
@@ -62,6 +63,9 @@ void fragment() {
 		vec2 texel = 1.0 / vec2(textureSize(hostile_mask, 0));
 		float glow_dither = BAYER[(px.x & 3) + (px.y & 3) * 4] / 16.0;
 		for (int k = 0; k < 2; k++) {
+			if (mask_active[k] < 0.5) {
+				continue;
+			}
 			float rim = k == 0 ? coverage(hostile_mask, UV, texel, 1.0) : coverage(loot_mask, UV, texel, 1.0);
 			float halo = k == 0 ? coverage(hostile_mask, UV, texel, 2.5) : coverage(loot_mask, UV, texel, 2.5);
 			if (rim > 0.5) {

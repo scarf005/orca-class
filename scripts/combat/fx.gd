@@ -179,10 +179,10 @@ func _process(delta: float) -> void:
 		var pool: Array = _pools[kind]
 		var multimesh: MultiMesh = _multimeshes[kind]
 		var buffer: PackedFloat32Array = _buffers[kind]
-		var alive: Array = []
 		var index := 0
 		var stride: int = STRIDE[kind]
-		for p: Particle in pool:
+		for read in pool.size():
+			var p: Particle = pool[read]
 			p.life += delta
 			if p.life >= p.max_life:
 				continue
@@ -250,9 +250,11 @@ func _process(delta: float) -> void:
 				if p.trail_timer <= 0.0 and (kind != Kind.SOLID or p.velocity.length_squared() > TRAIL_MIN_SPEED * TRAIL_MIN_SPEED):
 					p.trail_timer = 0.05 if kind == Kind.FLAME else 0.08
 					trails.append(p)
-			alive.append(p)
+			if index != read:
+				pool[index] = p
 			index += 1
-		_pools[kind] = alive
+		if index < pool.size():
+			pool.resize(index)
 		_buffers[kind] = buffer
 		if index > 0:
 			multimesh.buffer = buffer
@@ -600,4 +602,3 @@ func scorch(position: Vector3, radius: float) -> void:
 	_scorches.append(mark)
 	if _scorches.size() > MAX_SCORCH:
 		_scorches.pop_front().queue_free()
-

@@ -56,6 +56,7 @@ func _ready() -> void:
 	var life := TankModel.new()
 	_life_view.root.add_child(life)
 	WireView.paint.call_deferred(life, Palette.HULL_LIGHT)
+	_life_view.refresh.call_deferred()
 	_laser_view.show_mesh(TankModel._rws_mesh(), Palette.MINT)
 	world.radio.connect(_on_radio)
 	world.scored.connect(_on_scored)
@@ -262,6 +263,7 @@ func _paint(node: Node, color: Color) -> void:
 	if _painted.get(node) != color:
 		_painted[node] = color
 		WireView.paint(node, color)
+		(node.get_viewport() as WireView).refresh()
 
 
 ## A static schematic of the player's tank: coax fit, ERA left and every module in its state
@@ -279,7 +281,11 @@ func _update_xray() -> void:
 		_tail_posed = true
 		for _i in 60:
 			_xray_tail.update(1.0 / 60.0, _xray.global_basis, 0.0)
-	_xray_tail.visible = not p.tail.destroyed or fmod(_time, 0.5) < 0.3
+		_tank_view.refresh()
+	var tail_visible := not p.tail.destroyed or fmod(_time, 0.5) < 0.3
+	if _xray_tail.visible != tail_visible:
+		_xray_tail.visible = tail_visible
+		_tank_view.refresh()
 	var hull := _armor_color(p.hp / p.max_hp)
 	if m.state("engine") != TankModules.State.OK and fmod(_time, 0.6) < 0.3:
 		hull = _module_color(m.state("engine"))
@@ -303,6 +309,7 @@ func _rebuild_coax_view(calibers: Array) -> void:
 		gun.position = Vector3(0, 0.35 - i * 0.35, 0)
 		gun.material_override = WireView.line(Armament.GUNS[caliber].color)
 		_coax_view.root.add_child(gun)
+	_coax_view.refresh()
 
 
 func _coax_label() -> String:

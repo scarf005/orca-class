@@ -19,6 +19,7 @@ var class_masks: Array[SubViewport] = []
 var _class_cameras: Array[Camera3D] = []
 var _material := ShaderMaterial.new()
 var _flash := Color(0, 0, 0, 0)
+var _mask_active := [true, true]
 
 
 func _ready() -> void:
@@ -87,6 +88,22 @@ func _process(delta: float) -> void:
 			copy.fov = camera.fov
 			copy.near = camera.near
 		_mask_camera.far = camera.far
+	var world := World.current
+	var hostile := world != null and not world.enemies.is_empty()
+	if world and not hostile:
+		for projectile in world.projectiles:
+			if projectile.team != Entity.Team.PLAYER and not projectile.is_queued_for_deletion():
+				hostile = true
+				break
+	var active := [hostile, world != null and not world.pickups.is_empty()]
+	var changed := false
+	for i in active.size():
+		if active[i] != _mask_active[i]:
+			_mask_active[i] = active[i]
+			class_masks[i].render_target_update_mode = SubViewport.UPDATE_ALWAYS if active[i] else SubViewport.UPDATE_DISABLED
+			changed = true
+	if changed:
+		_material.set_shader_parameter("mask_active", Vector2(float(active[0]), float(active[1])))
 	_material.set_shader_parameter("strength", Game.settings.dither)
 	_flash.a = move_toward(_flash.a, 0.0, delta * 3.0)
 	_material.set_shader_parameter("flash", _flash)

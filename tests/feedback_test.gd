@@ -99,3 +99,17 @@ func test_dash_afterimage_skips_torn_off_meshes() -> void:
 	tank._meshes.append(torn)
 	torn.free()
 	check_eq(ghosts.call(), intact, "a freed mesh in the list is skipped, the rest still ghost")
+
+
+func test_particle_compaction_keeps_survivors_visible() -> void:
+	var world := stage()
+	var fx := world.fx
+	for i in 100:
+		fx.spawn(Fx.Kind.GLOW, Vector3(i, 2, 0), Vector3.ZERO, 0.05 if i % 2 == 0 else 1.0, 1.0, Palette.MIST)
+	fx._process(0.1)
+	var mesh: MultiMesh = fx._multimeshes[Fx.Kind.GLOW]
+	check_eq(mesh.visible_instance_count, 50, "expired particles leave the visible range")
+	check_eq(fx._pools[Fx.Kind.GLOW][0].position.x, 1.0, "the first surviving particle stays in order")
+	check_eq(fx._pools[Fx.Kind.GLOW][-1].position.x, 99.0, "the last surviving particle stays in order")
+	fx._process(1.0)
+	check_eq(mesh.visible_instance_count, 0, "expired particles are hidden")

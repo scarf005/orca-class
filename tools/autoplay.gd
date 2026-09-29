@@ -1,13 +1,16 @@
 extends Node
 ## Plays the stage with a simple bot and saves screenshots, for smoke tests and visual checks.
 ## Usage: xvfb-run -a godot --path . -- --run=res://tools/autoplay.gd --seconds=30 --shots=5,10 \
-##        [--checkpoint=boss] [--out=builds/auto] [--god] [--scale=1]
+##        [--checkpoint=boss] [--out=builds/auto] [--god] [--scale=1] [--seed=1]
+##        [--range=3000,3300] # print frame times within a course-distance interval
 
 var screen: GameScreen
 
 
 func run() -> int:
 	var args: Dictionary = preload("res://scripts/main.gd").args()
+	if args.has("seed"):
+		seed(int(args.seed))
 	var out: String = args.get("out", "builds/auto")
 	DirAccess.make_dir_recursive_absolute(out)
 	var seconds := float(args.get("seconds", "20"))
@@ -25,6 +28,9 @@ func run() -> int:
 	var frames := 0
 	var slow_frames := 0
 	var worst := 0.0
+	var frame_times := PackedFloat32Array()
+	var range_bounds := String(args.get("range", "")).split(",", false)
+	var range_times := PackedFloat32Array()
 	var boss_start := -1.0
 	var boss_end := -1.0
 	while elapsed < seconds:
@@ -35,6 +41,9 @@ func run() -> int:
 		elapsed += delta
 		frames += 1
 		if frames > 30:
+			frame_times.append(frame_ms)
+			if range_bounds.size() == 2 and world.rail.d >= float(range_bounds[0]) and world.rail.d < float(range_bounds[1]):
+				range_times.append(frame_ms)
 			worst = maxf(worst, frame_ms)
 			if frame_ms > 20.0:
 				slow_frames += 1
@@ -61,6 +70,12 @@ func run() -> int:
 	var stats := world.stats
 	if boss_start >= 0.0:
 		print("AUTOPLAY boss_fight=%.1fs" % ((boss_end if boss_end >= 0.0 else elapsed) - boss_start))
+	if not frame_times.is_empty():
+		frame_times.sort()
+		print("BENCH median=%.2fms p95=%.2fms samples=%d" % [frame_times[frame_times.size() / 2], frame_times[int(frame_times.size() * 0.95)], frame_times.size()])
+	if not range_times.is_empty():
+		range_times.sort()
+		print("RANGE d=%s median=%.2fms p95=%.2fms samples=%d" % [args.range, range_times[range_times.size() / 2], range_times[int(range_times.size() * 0.95)], range_times.size()])
 	print("AUTOPLAY d=%.0f score=%d kills=%d/%d lives=%d hp=%.0f enemies=%d projectiles=%d frames=%d slow=%d worst=%.1fms" % [
 		world.rail.d, stats.score, stats.kills, stats.spawned, stats.lives, world.player.hp, world.enemies.size(),
 		world.projectiles.size(), frames, slow_frames, worst])

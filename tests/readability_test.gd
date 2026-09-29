@@ -44,3 +44,27 @@ func test_actors_are_outlined_by_class_and_pickups_stand_in_a_beacon() -> void:
 	check(view.class_masks.size() == 2, "the final pass has an outline mask for enemies and for pickups")
 	check(view.viewport.size == Vector2i(960, 540), "the 3D view renders at 960x540")
 	view.queue_free()
+
+
+func test_outline_masks_sleep_until_their_class_is_present() -> void:
+	_world = World.new()
+	add_child(_world)
+	var world := _world
+	var view := DitherView.new()
+	add_child(view)
+	view._process(0.0)
+	check_eq(view.class_masks[0].render_target_update_mode, SubViewport.UPDATE_DISABLED, "empty hostile mask does not render")
+	check_eq(view.class_masks[1].render_target_update_mode, SubViewport.UPDATE_DISABLED, "empty loot mask does not render")
+	var shot := world.spawn_projectile(Entity.Team.ENEMY, Vector3.ZERO, Vector3.FORWARD, "orb")
+	view._process(0.0)
+	check_eq(view.class_masks[0].render_target_update_mode, SubViewport.UPDATE_ALWAYS, "enemy shots wake the hostile mask")
+	var pickup := world.spawn_pickup("heat", Vector3.ZERO)
+	view._process(0.0)
+	check_eq(view.class_masks[1].render_target_update_mode, SubViewport.UPDATE_ALWAYS, "pickups wake the loot mask")
+	shot.queue_free()
+	pickup.queue_free()
+	await frames(1)
+	view._process(0.0)
+	check_eq(view.class_masks[0].render_target_update_mode, SubViewport.UPDATE_DISABLED, "hostile mask sleeps after its last shot")
+	check_eq(view.class_masks[1].render_target_update_mode, SubViewport.UPDATE_DISABLED, "loot mask sleeps after its last pickup")
+	view.queue_free()
