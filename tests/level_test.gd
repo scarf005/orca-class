@@ -229,3 +229,21 @@ func test_first_uav_pass_and_the_quad_duel_stand_alone() -> void:
 		if other != quad:
 			check(absf(other.d - quad.d) >= 100.0, "nothing spawns within 100 m of the quad duel (%s at %d)" % [other.kind, other.d])
 
+
+func test_telegraphed_blasts_hit_hard_enough_to_matter() -> void:
+	var world := stage()
+	var tank := world.player
+	var uav := Uav.new()
+	world.add_enemy(uav)
+	uav._bomb_run(0.0, tank, 30.0)
+	var quad := QuadMech.new()
+	quad.weapon = "mortar"
+	world.add_enemy(quad)
+	quad._attack(tank)
+	var spitter := Spitter.new()
+	world.add_enemy(spitter)
+	spitter._volley(tank)
+	var damage := world.projectiles.filter(func(p: Projectile) -> bool: return p.blast_damage > 0.0).map(func(p: Projectile) -> float: return p.blast_damage)
+	check(30.0 in damage, "the UAV bomb does 30")
+	check(24.0 in damage, "the quad mortar does 24")
+	check(20.0 in damage, "the spitter spore does 20")

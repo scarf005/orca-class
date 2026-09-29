@@ -101,7 +101,7 @@ func _volley(tank: Tank) -> void:
 		mortar.hit = Hit.make(Hit.Kind.SPORE, 0.0, from)
 		mortar.hit.source = self
 		mortar.blast_radius = 3.2
-		mortar.blast_damage = 12.0
+		mortar.blast_damage = 20.0
 		mortar.blast_colors = [Palette.WHITE, Palette.BLUSH, Palette.FUNGUS, Palette.LILAC]
 		mortar.interceptable = true
 		mortar.intercept_hp = 1.0

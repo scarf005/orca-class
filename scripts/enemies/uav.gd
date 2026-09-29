@@ -164,7 +164,7 @@ func _bomb_run(delta: float, tank: Tank, ahead: float) -> void:
 	bomb.hit = Hit.make(Hit.Kind.BLAST, 0.0, from)
 	bomb.hit.source = self
 	bomb.blast_radius = 3.6
-	bomb.blast_damage = 18.0
+	bomb.blast_damage = 30.0
 	bomb.interceptable = true
 	bomb.intercept_hp = 0.8
 	bomb.life = flight + 1.0

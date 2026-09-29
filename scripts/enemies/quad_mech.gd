@@ -182,7 +182,7 @@ func _attack(tank: Tank) -> void:
 		shell.hit = Hit.make(Hit.Kind.SHELL, 0.0, from)
 		shell.hit.source = self
 		shell.blast_radius = 3.4
-		shell.blast_damage = 14.0
+		shell.blast_damage = 24.0
 		shell.interceptable = true
 		shell.intercept_hp = 1.0
 		shell.life = flight + 1.0
