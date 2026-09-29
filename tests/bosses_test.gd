@@ -224,6 +224,18 @@ func test_gunship_modules_change_the_fight() -> void:
 		boss._end_attack()
 
 
+func test_gunship_gatling_warns_after_chin_wreck_is_freed() -> void:
+	var world := stage("boss")
+	var boss := _gunship(world)
+	boss._lose_part(boss.parts.chin)
+	boss._chin.free()
+	boss._attack = Gunship.Attack.GUN
+	boss._attack_time = 0.13
+	var before := world.fx._transients.size()
+	boss._gun(0.01, world.player)
+	check(world.fx._transients.size() > before, "a live gatling still draws its warning after the chin wreck is gone")
+
+
 func test_gunship_rotors_are_independent_and_both_lost_crash() -> void:
 	var world := stage("boss")
 	var boss := _gunship(world)

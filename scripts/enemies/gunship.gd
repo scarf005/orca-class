@@ -717,10 +717,15 @@ func _end_attack() -> void:
 
 func _gun(delta: float, tank: Tank) -> void:
 	var world := World.current
+	var live: Array = _barrels.filter(func(b: Node3D) -> bool: return is_instance_valid(b))
+	if live.is_empty():
+		_end_attack()
+		return
 	if _attack_time < 0.6:
 		# Telegraph: sight beam sweeping onto the tank.
 		if fmod(_attack_time, 0.12) < 0.06:
-			world.fx.beam(_chin.global_position, tank.hit_center() + Vector3(0, 0, 0), Palette.CORAL, 0.04, 0.05)
+			var sight: Node3D = _chin if _live("chin") else live[0]
+			world.fx.beam(sight.global_position, tank.hit_center(), Palette.CORAL, 0.04, 0.05)
 		return
 	_shot_timer -= delta
 	var total := [14, 18, 24][phase] as int
@@ -728,10 +733,6 @@ func _gun(delta: float, tank: Tank) -> void:
 		_shots += 1
 		_shot_timer = 0.07
 		# The shoulder gatlings take turns, so the stream visibly comes from both sides.
-		var live: Array = _barrels.filter(func(b: Node3D) -> bool: return b != null)
-		if live.is_empty():
-			_end_attack()
-			return
 		var from: Vector3 = (live[_shots % live.size()] as Node3D).global_transform * Vector3(0, 0, -2.0)
 		var lead := tank.hit_center() + tank.velocity * (from.distance_to(tank.hit_center()) / GUN_SPEED) * 0.7
 		var wild := 1.0 if _live("rotor_l") and _live("rotor_r") else 2.0
