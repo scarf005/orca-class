@@ -9,7 +9,6 @@ const MAX_SCORCH := 60
 const FLASH_LIGHTS := 12 ## Pooled lights for blasts, muzzles and fires; the dimmest one is reused.
 const BLAST_PACE := 0.8 ## Explosions play out in this fraction of their original time.
 const DEBRIS_SIZE := 1.8 ## Flat shards are drawn this much bigger than the size callers ask for.
-const DEBRIS_SMOKE := Color("9c93a3") ## Every flying shard trails a thin line of smoke.
 const RICOCHET_SPEED := Vector2(0.4, 0.6) ## Share of its speed a glancing round keeps.
 const RICOCHET_DEFAULT_SPEED := 100.0 ## For a hit that carries no speed.
 const RICOCHET_LIFE := Vector2(0.25, 0.4)
@@ -25,6 +24,26 @@ enum Kind { SOLID, GLOW, FLAME }
 ## tools/debris.py; keep the order in step with its MATERIALS list.
 enum Debris { WOOD, CONCRETE, ROOF, GLASS, METAL, PAINT, ARMOR, VINYL, FLESH, SPORE, FOLIAGE, STRAW, CERAMIC, ROCK, BRASS, DIRT }
 const DEBRIS_FILES: Array[String] = ["wood", "concrete", "roof", "glass", "metal", "paint", "armor", "vinyl", "flesh", "spore", "foliage", "straw", "ceramic", "rock", "brass", "dirt"]
+## The thin line each flying shard trails, by Debris material: what it is made of, as dust or soot.
+## Transparent for the ones that leave nothing (glass, brass).
+static var DEBRIS_TRAILS: Array[Color] = [
+	Palette.WOOD.lerp(Palette.ASH, 0.5), # WOOD
+	Palette.MIST.lerp(Palette.CONCRETE, 0.5), # CONCRETE
+	Palette.SLATE, # ROOF
+	Color(0, 0, 0, 0), # GLASS
+	Palette.INK.lerp(Palette.DUSK, 0.5), # METAL
+	Palette.DUSK, # PAINT
+	Palette.INK.lerp(Palette.DUSK, 0.5), # ARMOR
+	Palette.ASH, # VINYL
+	Palette.MAUVE.lerp(Palette.BLUSH, 0.5), # FLESH
+	Palette.LILAC, # SPORE
+	Palette.SAGE, # FOLIAGE
+	Palette.STRAW.lerp(Palette.OCHRE, 0.5), # STRAW
+	Palette.MIST.lerp(Palette.CONCRETE, 0.5), # CERAMIC
+	Palette.MIST.lerp(Palette.CONCRETE, 0.5), # ROCK
+	Color(0, 0, 0, 0), # BRASS
+	Palette.OCHRE, # DIRT
+]
 const DEBRIS_VARIANTS := 6
 const STRIDE := 20 ## Transform, color and shader data: size/rotation (and debris sprite layer).
 
@@ -602,7 +621,7 @@ func shatter(bounds: AABB, materials: Array, push := Vector3.ZERO, share := 1.0)
 ## `heft` 1 for a big chunk: it lingers, tumbles slowly and drops harder.
 func _shard(position: Vector3, velocity: Vector3, size: float, material: Debris, heft := 0.0) -> void:
 	var life := randf_range(2.2, 3.6) if heft > 0.0 else randf_range(0.9, 2.6)
-	spawn(Kind.SOLID, position, velocity, life, size, Color.WHITE, {"gravity": 22.0 + 6.0 * heft, "bounce": true, "spin": randf_range(0.7, 1.7) * (0.4 if heft > 0.0 else 1.0), "end_size": size * 0.8, "trail": DEBRIS_SMOKE, "material": material})
+	spawn(Kind.SOLID, position, velocity, life, size, Color.WHITE, {"gravity": 22.0 + 6.0 * heft, "bounce": true, "spin": randf_range(0.7, 1.7) * (0.4 if heft > 0.0 else 1.0), "end_size": size * 0.8, "trail": DEBRIS_TRAILS[material], "material": material})
 
 
 func sparks(position: Vector3, normal: Vector3, count: int, color := Palette.BUTTER, speed := 10.0) -> void:

@@ -124,3 +124,47 @@ func test_ground_units_splash_into_the_reservoir() -> void:
 	drone.wade(0.016, Vector3.ZERO, 1.0)
 	check(not drone._wet, "flying units never wade")
 	cleanup()
+
+
+func _trail_of(fx: Fx, material: Fx.Debris) -> Color:
+	fx._pools[Fx.Kind.SOLID].clear()
+	fx._shard(Vector3(0, 20, 0), Vector3(3, 5, 0), 0.4, material)
+	return (fx._pools[Fx.Kind.SOLID][-1] as Fx.Particle).trail
+
+
+func test_debris_trails_follow_the_material() -> void:
+	var fx := Fx.new()
+	add_child(fx)
+	check_eq(Fx.DEBRIS_TRAILS.size(), Fx.Debris.size(), "every debris material has a trail entry")
+	check_eq(_trail_of(fx, Fx.Debris.WOOD), Palette.WOOD.lerp(Palette.ASH, 0.5), "a wood shard trails brown-grey dust")
+	check_eq(_trail_of(fx, Fx.Debris.ROOF), Palette.SLATE, "a roof slate shard trails slate")
+	check_eq(_trail_of(fx, Fx.Debris.FOLIAGE), Palette.SAGE, "foliage trails sage")
+	check_eq(_trail_of(fx, Fx.Debris.SPORE), Palette.LILAC, "spores trail lilac")
+	check_eq(_trail_of(fx, Fx.Debris.DIRT), Palette.OCHRE, "dirt trails ochre dust")
+	check_eq(_trail_of(fx, Fx.Debris.GLASS).a, 0.0, "a glass shard leaves no trail")
+	check_eq(_trail_of(fx, Fx.Debris.BRASS).a, 0.0, "nor does brass")
+	var seen := {}
+	for material in Fx.Debris.values():
+		var trail := _trail_of(fx, material)
+		if trail.a > 0.0:
+			seen[trail.to_html()] = true
+	check(seen.size() >= 8, "the trails are not all one color (%d distinct)" % seen.size())
+	fx.queue_free()
+
+
+func test_flying_shards_puff_their_own_color() -> void:
+	var fx := Fx.new()
+	add_child(fx)
+	fx._pools[Fx.Kind.GLOW].clear()
+	fx._shard(Vector3(0, 30, 0), Vector3(8, 6, 0), 0.4, Fx.Debris.FOLIAGE)
+	for i in 12:
+		fx._process(0.05)
+	var puffs: Array = fx._pools[Fx.Kind.GLOW]
+	check(not puffs.is_empty() and puffs.all(func(p: Fx.Particle) -> bool: return p.color == Palette.SAGE), "a foliage shard leaves sage puffs (%d)" % puffs.size())
+	fx._pools[Fx.Kind.GLOW].clear()
+	fx._pools[Fx.Kind.SOLID].clear()
+	fx._shard(Vector3(0, 30, 0), Vector3(8, 6, 0), 0.4, Fx.Debris.GLASS)
+	for i in 12:
+		fx._process(0.05)
+	check(fx._pools[Fx.Kind.GLOW].is_empty(), "a glass shard leaves no puffs")
+	fx.queue_free()
