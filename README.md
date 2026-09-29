@@ -31,6 +31,23 @@ Linux, Windows, and macOS builds and updates the `html` and `desktop` channels. 
 
 ## Develop
 
+### Common actions
+
+Install [just](https://just.systems), then run `just` to list recipes in the [justfile](justfile).
+
+```sh
+just play          # skip the title screen
+just test          # run all tests; just test tail runs only matching files
+just serve         # export and serve the web build; just serve 8080 changes the port
+just export        # export web, Linux, Windows, and macOS builds
+just login         # authenticate butler once
+just upload        # rebuild, validate, and push the html and desktop itch.io channels
+```
+
+Exports need the matching Godot export templates. Uploads need [butler](https://itch.io/docs/butler/),
+using `just login` or `BUTLER_API_KEY`. `just validate` checks existing builds without uploading.
+Set `GODOT`, `BUTLER`, or `ITCH_PROJECT` to override the executable paths or `scarf005/orca-class` target.
+
 ### Run Test
 
 ```sh
