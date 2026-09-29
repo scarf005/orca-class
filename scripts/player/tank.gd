@@ -1017,7 +1017,7 @@ func useful_pickup(id: String) -> String:
 	for want in ["repair", "era", "tail", "coax"]:
 		if needs(want):
 			return want
-	var rounds: Array = Armament.ROUND_IDS.keys().filter(func(r: Armament.Round) -> bool: return r != Armament.Round.APHE and r != current_round)
+	var rounds: Array = Armament.OFFERED.filter(func(r: Armament.Round) -> bool: return r != current_round)
 	return Armament.ROUND_IDS[rounds.pick_random()]
 
 

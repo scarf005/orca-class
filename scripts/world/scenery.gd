@@ -271,7 +271,7 @@ func _school() -> void:
 	add_decor(PropKit.mesh("flagpole", 0), 1640.0, -30.0, 0.0)
 	for i in 8:
 		add("plane_tree", 1570.0 + i * 22.0, 60.0 * (1.0 if i % 2 else -1.0) + _rng.randf_range(-4, 4))
-	add_pickup("heat", 1520.0, 0.0)
+	add_pickup("dragon", 1520.0, 0.0)
 	_fungus(1560.0, 1760.0, 1.4)
 
 
@@ -319,10 +319,10 @@ func _overpass() -> void:
 	for td in [3040.0, 3140.0, 3220.0, 3300.0]:
 		add("truck" if _rng.randf() < 0.5 else "car", td, _rng.randf_range(-9.0, 9.0), _rng.randf_range(-0.4, 0.4))
 	_scatter("car", 2680.0, 2890.0, 10, 0.0, 12.0)
-	add_pickup("apfsds", 2700.0, 0.0)
+	add_pickup("canister", 2700.0, 0.0)
 	add_pickup("era", 2950.0, -3.0)
 	add_pickup("tail", 3050.0, 4.0)
-	add_pickup("heat", 3180.0, 4.0)
+	add_pickup("airburst", 3180.0, 4.0)
 	_fungus(2660.0, 2900.0, 1.8)
 
 

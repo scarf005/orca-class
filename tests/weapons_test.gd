@@ -115,3 +115,19 @@ func test_heat_hits_harder_and_wider_on_the_same_reload() -> void:
 	var dead: Array = await _cannon_volley(world, Armament.Round.HEAT, 7.0, 14.0)
 	check_eq(dead, [true, true, false], "HEAT's blast reaches past APHE's")
 	check_near(world.player.reload, Armament.RELOAD, 0.01, "HEAT loads as fast as APHE")
+
+
+func test_the_stage_hands_out_no_heat_or_apfsds() -> void:
+	var world := stage()
+	var held_back := ["heat", "apfsds"]
+	var placed: Array = world.director.scenery.specs.map(func(spec: Scenery.Spec) -> String: return spec.pickup).filter(func(id: String) -> bool: return not id.is_empty())
+	check(not placed.is_empty(), "the stage places pickups")
+	check(not placed.any(func(id: String) -> bool: return id in held_back), "no HEAT or APFSDS crate is placed")
+	var tank := world.player
+	tank.set_coax_tier(Armament.COAX_TIERS.size() - 1)
+	# With nothing else needed, a spare pickup turns into a special round.
+	check(tank.useful_pickup("coax") in Armament.ROUND_IDS.values(), "a spare coax turns into a round")
+	for i in 40:
+		var id := tank.useful_pickup("coax" if i % 2 == 0 else "repair")
+		check(id not in held_back, "a spare pickup never becomes %s" % id)
+		tank.load_round(Armament.round_from_id(id))

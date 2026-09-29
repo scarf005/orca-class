@@ -17,6 +17,9 @@ const ROUND_IDS := {
 	Round.APFSDS: "apfsds", Round.AIRBURST: "airburst",
 }
 
+## Special rounds the stage hands out. HEAT and APFSDS are held back for now.
+const OFFERED: Array[Round] = [Round.CANISTER, Round.DRAGON, Round.AIRBURST]
+
 ## Rounds loaded per special-round pickup.
 const MAGAZINE := {Round.HEAT: 6, Round.CANISTER: 6, Round.DRAGON: 6, Round.APFSDS: 6, Round.AIRBURST: 6}
 
