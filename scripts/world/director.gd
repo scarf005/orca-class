@@ -21,6 +21,8 @@ const ENEMY_SCRIPTS := {
 	"gunship": "res://scripts/enemies/gunship.gd",
 }
 
+const MIDBOSS_RESUME := 0.6 ## Seconds after the mid-boss dies before the rail runs again.
+
 ## Swarm enemies come in bigger numbers than the stage script lists: mayhem needs fodder.
 const FODDER := {"fpv": 1.5, "crawler": 1.6}
 
@@ -204,7 +206,7 @@ func _start_midboss(event: Dictionary) -> void:
 	boss.died.connect(func(_e: Entity) -> void:
 		world.boss = null
 		world.boss_changed.emit(null)
-		get_tree().create_timer(1.5).timeout.connect(func() -> void: world.rail.mode = Rail.Mode.RAIL))
+		get_tree().create_timer(MIDBOSS_RESUME).timeout.connect(func() -> void: world.rail.mode = Rail.Mode.RAIL))
 
 
 func _start_boss(event: Dictionary) -> void:

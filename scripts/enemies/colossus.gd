@@ -11,6 +11,9 @@ enum Attack { NONE, SWEEP, BARRAGE, SPAWN }
 const NODE_HP := 100.0
 const CAP_HP := 100.0
 const CORE_HP := 600.0
+const DYING_TIME := 1.0 ## Seconds from the killing blow to the final blast.
+const DEATH_BLAST_RATE := 19.0 ## Random blasts a second while dying, as dense as the old 8 a second over 2.4 s.
+const DEATH_SINK := 0.6 ## How much of its height it sinks by then.
 const PART_LABELS := {"left": "NODE L", "right": "NODE R", "top": "NODE TOP", "core": "CORE"}
 
 class Part:
@@ -242,11 +245,11 @@ func behave(delta: float) -> void:
 	_body_mesh.scale = Vector3(1.0 + sin(age * 1.3) * 0.02, 1.0 + sin(age * 1.1) * 0.03, 1.0)
 	if _dying > 0.0:
 		_dying -= delta
-		if randf() < delta * 8.0:
+		if randf() < delta * DEATH_BLAST_RATE:
 			var p := global_position + Vector3(randf_range(-7, 7), randf_range(1, 11), randf_range(-5, 5))
 			world.fx.explosion(p, randf_range(1.5, 3.0), [Palette.WHITE, Palette.BLUSH, Palette.FUNGUS])
 			Sfx.play("blast_small", p)
-		model.scale.y = maxf(0.2, model.scale.y - delta * 0.25)
+		model.scale.y = maxf(0.2, model.scale.y - delta * DEATH_SINK / DYING_TIME)
 		if _dying <= 0.0:
 			die(Hit.make(Hit.Kind.BLAST, 9999.0, global_position))
 		return
@@ -395,7 +398,7 @@ func _spawn_crawlers() -> void:
 
 
 func _begin_death() -> void:
-	_dying = 2.4
+	_dying = DYING_TIME
 	hp = 0.0
 	_end_attack()
 	World.current.shake(0.8)

@@ -34,6 +34,58 @@ func test_midboss_holds_rail_until_dead() -> void:
 	check(released, "rail resumes after the mid-boss dies")
 
 
+func test_midboss_dies_in_about_a_second_and_the_rail_follows() -> void:
+	var world := stage("midboss")
+	world.rail.d = Course.MIDBOSS_D - 111.0
+	await wait_until(func() -> bool: return world.boss is Colossus, 120)
+	var boss := world.boss as Colossus
+	await frames(30)
+	for part: Colossus.Part in boss.parts:
+		part.cap = 0.0
+		part.hp = 0.0
+	boss.core.hp = 1.0
+	var pickups := world.pickups.size()
+	boss.take_hit(Hit.make(Hit.Kind.SHELL, 10.0, boss.global_transform * boss.core.offset))
+	check(boss._dying > 0.0 and not boss.dead, "the killing blow starts the death throes")
+	var clock := 0.0
+	var died_at := -1.0
+	var released_at := -1.0
+	for i in 240:
+		await frames(1)
+		clock += get_process_delta_time()
+		if died_at < 0.0 and (not is_instance_valid(boss) or boss.dead):
+			died_at = clock
+		if released_at < 0.0 and world.rail.mode == Rail.Mode.RAIL:
+			released_at = clock
+			break
+	check(died_at > 0.0 and died_at <= 1.1, "it is dead within 1.1 s of the killing blow (%.2f s)" % died_at)
+	check(released_at > 0.0 and released_at - died_at <= 0.8, "and the rail runs again within 0.8 s (%.2f s later)" % (released_at - died_at))
+	check(released_at - died_at >= 0.4, "not before the final blast has had a beat (%.2f s)" % (released_at - died_at))
+	check(world.pickups.size() >= pickups + 3, "the coax, repair and ERA pickups still drop (%d new)" % (world.pickups.size() - pickups))
+	check(world.stats.score >= 20000, "and the kill still scores")
+
+
+func test_midboss_death_throes_stay_dense_and_sink_to_the_same_height() -> void:
+	var world := stage()
+	var boss := Colossus.new()
+	boss.position = Course.ground_at(world.rail.d + 100.0, 0.0)
+	world.add_enemy(boss)
+	await frames(2)
+	seed(4)
+	boss._begin_death()
+	var time := 0.0
+	while boss._dying > 0.0 and not boss.dead:
+		var scale_before := boss.model.scale.y
+		boss.behave(1.0 / 60.0)
+		time += 1.0 / 60.0
+		check(boss.model.scale.y <= scale_before, "it only sinks")
+		if time > 2.0:
+			break
+	check_near(time, Colossus.DYING_TIME, 0.05, "it dies in the set time")
+	check_near(boss.model.scale.y, 1.0 - Colossus.DEATH_SINK, 0.03, "sunk to the same final height as before")
+	check(Colossus.DEATH_BLAST_RATE * Colossus.DYING_TIME >= 8.0 * 2.4 * 0.95, "with as many blasts as the old 2.4 s of 8 a second")
+
+
 func test_game_over_after_last_life() -> void:
 	var world := stage()
 	var over := [false]
