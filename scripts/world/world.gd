@@ -130,7 +130,7 @@ const PROJECTILE_SHAPES := {
 	"dart": ["streak", 0.22, 10.0, 2.4],
 	"orb": ["streak", 0.5, 3.2, 2.4],
 	"mortar": ["orb", 0.5, 0.0, 1.5],
-	"fire": ["orb", 0.4, 0.0, 1.7],
+	"fire": ["orb", 0.55, 0.0, 2.0],
 	"rocket": ["missile", 0.2, 1.1, 2.0],
 	"atgm": ["missile", 0.24, 1.3, 2.2],
 	"bomb": ["missile", 0.3, 0.9, 1.8],

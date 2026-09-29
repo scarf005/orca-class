@@ -20,6 +20,7 @@ var homing_target: Node3D
 var turn_rate := 0.0 ## Radians per second toward the homing target.
 var homing_lead := false ## Steers to where the target will be on arrival, from the target's `velocity`.
 var lead_response := 3.0 ## Per second the estimate of that velocity catches up with a change of course.
+var flame_trail := false ## Leaves a stream of flame behind: white-hot young, red where it ends.
 var interceptable := false
 var intercept_hp := 1.0 ## Laser dwell damage needed to destroy it.
 var radius := 0.0 ## Sweep radius; small for bullets, larger for thrown wrecks.
@@ -32,6 +33,8 @@ var ricochet := false ## Small-caliber rounds glance off the ground with sparks.
 var impact_sound := ""
 var halo: MeshInstance3D ## Enemy shots twinkle: this glow flickers, each shot out of step.
 
+const FLAME_TRAIL_INTERVAL := 0.05
+const FLAME_TRAIL_LIFE := 0.3
 const FLICKER_RATE := 70.0 ## Radians per second of the enemy shot halo flicker.
 
 var _traveled := 0.0
@@ -86,6 +89,8 @@ func step(delta: float) -> void:
 		look_at(to + velocity, Vector3.UP if absf(velocity.normalized().y) < 0.99 else Vector3.RIGHT)
 	if trail.a > 0.0:
 		_burn_motor(delta, to)
+	if flame_trail:
+		_stream_flame(delta, to)
 
 
 ## Where the homing shot steers: the target, or with `homing_lead` the intercept point for this
@@ -104,6 +109,18 @@ func _homing_point(delta: float) -> Vector3:
 	var b := 2.0 * relative.dot(v)
 	var t := (-b - sqrt(b * b - 4.0 * a * relative.length_squared())) / (2.0 * a)
 	return at + v * minf(t, life)
+
+
+## One flame puff every so often along the path, shifting from white-hot to red and swelling as
+## the shot nears the end of its life, so a jet of these reads to its tip.
+func _stream_flame(delta: float, at: Vector3) -> void:
+	_trail_timer -= delta
+	if _trail_timer > 0.0:
+		return
+	_trail_timer = FLAME_TRAIL_INTERVAL
+	var age := _age / (_age + life)
+	var heat: Color = [Palette.WHITE, Palette.BUTTER, Palette.AMBER, Palette.HOT][mini(int(age * 4.0), 3)]
+	World.current.fx.spawn(Fx.Kind.FLAME, at, Vector3.UP * randf_range(0.5, 2.0), FLAME_TRAIL_LIFE, 0.7 + age * 0.9, heat, {"drag": 3.0, "end_size": 1.2 + age * 1.6})
 
 
 ## A rocket motor: a flickering light that washes over the ground below, a jet of flame out the

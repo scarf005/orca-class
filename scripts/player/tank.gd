@@ -711,32 +711,7 @@ func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO) -> void:
 				world.fx.beam(muzzle, end, Palette.BUTTER, 0.18, 0.14)
 				world.fx.spawn(Fx.Kind.FLAME, end, Vector3.UP * 2.0, 0.12, 0.5, Palette.BUTTER)
 		Armament.Round.DRAGON:
-			# A roaring cone of burning magnesium: a fireball right ahead and a long gout of flame.
-			var aim_dir: Vector3 = shot_dir.call(60.0)
-			var burst := _cannon_hit()
-			burst.incendiary = true
-			world.blast(muzzle + aim_dir * 9.0, 7.0, 220.0, Team.PLAYER, burst, null, [Palette.WHITE, Palette.BUTTER, Palette.AMBER, Palette.HOT], aim_dir)
-			# The gout itself: a cone of flame from white-hot at the muzzle to red at its ragged end,
-			# already filling its length the moment it fires, with black smoke rolling off the top.
-			for i in 140:
-				var reach := randf()
-				var dir := (aim_dir + Vector3(randf_range(-1, 1), randf_range(-0.3, 0.6), randf_range(-1, 1)) * (0.05 + reach * 0.16)).normalized()
-				var color: Color = [Palette.WHITE, Palette.BUTTER, Palette.AMBER, Palette.HOT][mini(int(reach * 4.0), 3)]
-				world.fx.spawn(Fx.Kind.FLAME, muzzle + dir * reach * 26.0, dir * randf_range(25.0, 45.0) + Vector3.UP * reach * 4.0, randf_range(0.35, 0.7), 0.5 + reach * 1.6, color, {"drag": 3.0, "end_size": 0.8 + reach * 2.6, "gravity": -4.0})
-			for i in 24:
-				var reach := randf_range(0.3, 1.0)
-				world.fx.spawn(Fx.Kind.GLOW, muzzle + aim_dir * reach * 26.0 + Vector3.UP * (1.0 + reach * 2.0), aim_dir * 10.0 + Vector3.UP * 4.0, randf_range(1.0, 1.8), 1.2 + reach, [Palette.INK, Palette.DUSK, Palette.SLATE][i % 3], {"end_size": 4.0, "drag": 1.5, "fade": 0.3})
-			world.fx.light_flash(muzzle + aim_dir * 10.0, 26.0, Palette.AMBER, 40.0)
-			for i in 52:
-				var dir := (aim_dir + Vector3(randf_range(-1, 1), randf_range(-0.4, 0.8), randf_range(-1, 1)) * 0.18).normalized()
-				var flame := world.spawn_projectile(Team.PLAYER, muzzle, dir * randf_range(45, 75), "fire", [Palette.WHITE, Palette.PEACH, Palette.BUTTER, Palette.AMBER][i % 4])
-				flame.hit = Hit.make(Hit.Kind.FIRE, 45.0, muzzle)
-				flame.hit.source = self
-				flame.hit.incendiary = true
-				flame.gravity = 6.0
-				flame.life = randf_range(0.6, 0.95)
-				flame.radius = 0.6
-				flame.impacted.connect(_on_flame_impact)
+			DragonBreath.fire(self, shot_dir.call(DragonBreath.MEAN_SPEED), from)
 		_:
 			var speed := Armament.SHELL_SPEED
 			var shape := "dart" if round == Armament.Round.APFSDS else "shell"
@@ -841,12 +816,6 @@ func _count_hit(projectile: Projectile, point: Vector3, target: Entity) -> void:
 		world.hitstop(0.045)
 		world.fx.light_flash(point, 16.0, Palette.WHITE, 22.0)
 		world.fx.sparks(point, projectile.splash_direction(), 18, Palette.WHITE, 18.0)
-
-
-## Dragon's breath sets the ground alight where flames land.
-func _on_flame_impact(_projectile: Projectile, point: Vector3, target: Entity) -> void:
-	if target == null and randf() < 0.3:
-		FireZone.ignite(point)
 
 
 func _update_ciws(delta: float) -> void:

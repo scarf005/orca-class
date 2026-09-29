@@ -3,19 +3,20 @@ extends Node3D
 ## A patch of burning ground left by dragon's breath. Burns enemies and fungus inside it.
 
 const MAX_ZONES := 40
-const RADIUS := 2.6
-const DAMAGE_PER_SECOND := 14.0
+const RADIUS := 3.5
+const DAMAGE_PER_SECOND := 20.0
+const LIFE := 6.0
 
 static var _zones: Array[FireZone] = []
 
-var life := 4.5
+var life := LIFE
 var _tick := 0.0
 
 
 static func ignite(point: Vector3) -> void:
 	for zone in _zones:
 		if is_instance_valid(zone) and zone.global_position.distance_to(point) < RADIUS:
-			zone.life = maxf(zone.life, 4.5)
+			zone.life = maxf(zone.life, LIFE)
 			return
 	var zone := FireZone.new()
 	World.current.add_child(zone)
@@ -25,6 +26,12 @@ static func ignite(point: Vector3) -> void:
 		var oldest: FireZone = _zones.pop_front()
 		if is_instance_valid(oldest):
 			oldest.queue_free()
+
+
+## Dragon's breath sets the ground alight wherever a flame lands.
+static func on_flame_impact(_projectile: Projectile, point: Vector3, target: Entity) -> void:
+	if target == null:
+		ignite(point)
 
 
 func _exit_tree() -> void:
