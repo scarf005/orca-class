@@ -138,7 +138,7 @@ closed-down branch school (폐교), a reservoir (저수지) with its dam, and a 
 
 Target length is 8–12 minutes for a first clear. Sections:
 
-1. **Farm road (농로):** a quiet opening; the combat assist boots up. FPV drones arrive in sparse waves while the player
+1. **Farm road (농로):** a quiet opening. FPV drones arrive in sparse waves while the player
    learns to aim, fire and let the CIWS work. First coax pickup.
 2. **Village:** UGVs come out of alleys; fungal crawlers burst out of greenhouses. Buildings and walls are
    destructible cover. Tempo rises.
@@ -223,12 +223,6 @@ ring). Projectiles use these saturated accents with ink outlines so they cut thr
   wreck the tank set off, multikill, deflect, demolition, close call). Repeating the same trick earns less.
 - Style drains over time and when the tank is hit.
 - From rank B up, mayhem patches the hull a little.
-
-### Combat assist AI
-
-The only voice is the tank's combat assist AI, in the style of the HEV suit in Half-Life: terse, clinical
-announcements in Korean or English. It covers threats, module damage, ERA, section hazards and boss phases. There
-is no character dialogue.
 
 ### Audio
 
