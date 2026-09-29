@@ -30,6 +30,7 @@ const PROPS := {
 	"car": [2.1, 1.8, 35.0, false, false, 40, true, false],
 	"truck": [3.2, 3.5, 80.0, false, false, 80, true, false],
 	"mushroom": [0.9, 3.0, 7.5, true, true, 20, false, false],
+	"veins": [1.5, 0.5, 4.0, true, true, 5, false, false],
 	"spore_tower": [1.7, 8.0, 60.0, false, true, 150, false, false],
 	"reeds": [1.3, 2.4, 4.0, true, true, 5, false, false],
 	"crate": [1.1, 1.2, 9.0, true, false, 50, false, false],
@@ -201,7 +202,7 @@ func _fungus(d0: float, d1: float, density: float) -> void:
 		if roll < 0.2:
 			add("mushroom", d, u, yaw)
 		elif roll < 0.4:
-			add_decor(PropKit.mesh("veins", _rng.randi_range(0, 5)), d, u, yaw)
+			add("veins", d, u, yaw, _rng.randi_range(0, 5))
 		elif roll < 0.6:
 			add("cordyceps", d, u, yaw)
 		elif roll < 0.75:
@@ -513,6 +514,7 @@ func _instantiate(spec: Spec) -> void:
 		prop.falls = spec.kind in FALLING
 		prop.vehicle = spec.kind in VEHICLES
 		prop.fungal = spec.kind in FUNGAL
+		prop.flattens = spec.kind == "veins"
 		prop.debris = _debris(spec.kind)
 		# Position before entering the tree: props register into spatial buckets on entry.
 		prop.position = position
@@ -596,7 +598,7 @@ func _debris(kind: String) -> Array:
 			return [Fx.Debris.PAINT, Fx.Debris.METAL, Fx.Debris.GLASS]
 		"infested_car":
 			return [Fx.Debris.PAINT, Fx.Debris.METAL, Fx.Debris.FLESH]
-		"mushroom", "spore_tower", "fungal_spire", "flesh_mound", "cordyceps", "egg_sacs", "husk_cow":
+		"mushroom", "spore_tower", "fungal_spire", "flesh_mound", "cordyceps", "egg_sacs", "husk_cow", "veins":
 			return [Fx.Debris.FLESH, Fx.Debris.SPORE]
 		"persimmon", "plane_tree", "zelkova_trunk", "zelkova_canopy":
 			return [Fx.Debris.WOOD, Fx.Debris.FOLIAGE]

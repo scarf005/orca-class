@@ -16,6 +16,7 @@ var burnable := false
 var explosive := false
 var blast_size := 4.5 ## Radius of the explosion when an explosive prop goes up.
 var fungal := false ## Bursts into spores and splatter when destroyed.
+var flattens := false ## Destroyed, it squelches and leaves a dark flattened stain of itself (ground veins).
 var supports: Array[Prop] = [] ## Pieces resting on this one; they topple when it breaks.
 var falls := false
 var vehicle := false ## Run over, it is squashed, knocked flying or burst apart, but never blows up.
@@ -55,6 +56,16 @@ func setup(kind_value: String, mesh: Mesh, footprint_value: float, height_value:
 
 
 static var _see_through := _make_see_through()
+static var _stain_material := _make_stain()
+
+
+## The vertex-colored material darkened to a wine-mauve, for what has been trodden flat.
+static func _make_stain() -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.vertex_color_use_as_albedo = true
+	material.albedo_color = Palette.MAUVE.darkened(0.55)
+	material.roughness = 1.0
+	return material
 
 
 ## A screen-door version of the vertex-colored material, shared by every faded prop. It reuses the
@@ -182,6 +193,24 @@ func _run_over(world: World, push: Vector3) -> void:
 	world.style_event("CRUSH", 12.0)
 
 
+## A squelch, a puff of spores and flesh bits, and the same shape pressed flat and darkened where
+## it grew, as scenery that can no longer be hit.
+func _flatten(world: World) -> void:
+	var center := global_position + Vector3.UP * height * 0.4
+	Sfx.play("squelch", global_position, 0.0, randf_range(0.6, 1.25))
+	world.fx.spores(center, 5, footprint)
+	world.fx.debris(center, 4, [Fx.Debris.FLESH, Fx.Debris.SPORE], 5.0, 0.25)
+	if score > 0:
+		world.award(score, global_position, false)
+	var stain := MeshInstance3D.new()
+	stain.mesh = (get_node("Mesh") as MeshInstance3D).mesh
+	stain.material_override = _stain_material
+	stain.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	stain.visibility_range_end = DRAW_DISTANCE
+	stain.transform = global_transform.scaled_local(Vector3(1.1, 0.22, 1.1))
+	world.props.add_child(stain)
+
+
 func damage_multiplier(hit: Hit) -> float:
 	if hit.kind == Hit.Kind.FIRE:
 		return 3.0 if burnable else 0.3
@@ -197,6 +226,9 @@ func on_death(hit: Hit) -> void:
 	var rammed := hit != null and hit.kind == Hit.Kind.RAM
 	if vehicle and _rammed(hit):
 		_run_over(world, push)
+		return
+	if flattens:
+		_flatten(world)
 		return
 	var remains := rubble_mesh != null and not overkilled
 	world.fx.shatter(visual_bounds(), debris, push * (2.0 if rammed else 1.0), 0.35 if remains else 1.0)
