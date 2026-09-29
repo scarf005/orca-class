@@ -795,7 +795,7 @@ func _gun(delta: float, tank: Tank) -> void:
 		var lead := tank.hit_center() + tank.velocity * (from.distance_to(tank.hit_center()) / GUN_SPEED) * 0.7
 		var wild := 1.0 if _live("rotor_l") and _live("rotor_r") else 2.0
 		# 40 mm high-explosive rounds: each one hits hard and bursts where it lands.
-		var shot := fire_along("orb", muzzle, GUN_SPEED, 9.0, Palette.HOT, lead - from, 3.0, GUN_SPREAD * wild)
+		var shot := fire_along("orb", muzzle, GUN_SPEED, 9.0, Palette.HOT, lead - from, 3.0, GUN_SPREAD * wild, Muzzle.AUTO)
 		shot.hit.caliber = 40
 		shot.blast_radius = 2.2
 		shot.blast_damage = 5.0

@@ -155,9 +155,8 @@ func behave(delta: float) -> void:
 		if _burst_timer <= 0.0:
 			_burst -= 1
 			_burst_timer = 0.07
-			var shot := fire_along("orb", _muzzle, 90.0, 4.0, Palette.HOT, _flak_aim(tank) - _muzzle.global_position, 3.0, GUN_SPREAD)
+			var shot := fire_along("orb", _muzzle, 90.0, 4.0, Palette.HOT, _flak_aim(tank) - _muzzle.global_position, 3.0, GUN_SPREAD, Muzzle.AUTO)
 			shot.hit.caliber = 20
-			world.fx.muzzle_flash(_muzzle.global_position, (tank.hit_center() - _muzzle.global_position).normalized(), 0.8, Palette.HOT)
 			Sfx.play("enemy_gun", _muzzle.global_position, -2.0, 0.85)
 		return
 	if _telegraph > 0.0:
@@ -183,7 +182,7 @@ func _attack(tank: Tank) -> void:
 		return
 	var world := World.current
 	var from := _muzzle.global_position
-	muzzle_blast(from, -_muzzle.global_basis.z, true)
+	muzzle_blast(from, -_muzzle.global_basis.z, Muzzle.HEAVY, "mortar")
 	for i in (4 if _hard else 3):
 		var flight := 1.7 + i * 0.12
 		var target := _mortar_target(tank, i)
@@ -204,7 +203,6 @@ func _attack(tank: Tank) -> void:
 		shell.intercept_hp = 1.0
 		shell.life = air + 1.0
 		world.fx.marker(target, 3.4, air, Palette.HOT)
-	world.fx.muzzle_flash(from, -_muzzle.global_basis.z, 1.5, Palette.AMBER)
 	Sfx.play("launch", from, 2.0, 0.6)
 
 

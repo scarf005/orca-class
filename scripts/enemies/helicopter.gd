@@ -188,7 +188,7 @@ func _fire(tank: Tank) -> void:
 	var muzzle := _pod_muzzles[_burst % 2] if _rockets else _chin_muzzle
 	var from := muzzle.global_position
 	var wanted := _aim_point(tank) - from
-	var shot := fire_along("rocket", muzzle, 55.0, 0.0, Palette.HOT, wanted, 3.0, ROCKET_SPREAD) if _rockets else fire_along("orb", muzzle, 100.0, 4.0, Palette.HOT, wanted, 3.0, GUN_SPREAD)
+	var shot := fire_along("rocket", muzzle, 55.0, 0.0, Palette.HOT, wanted, 3.0, ROCKET_SPREAD) if _rockets else fire_along("orb", muzzle, 100.0, 4.0, Palette.HOT, wanted, 3.0, GUN_SPREAD, Muzzle.AUTO)
 	shot.hit.caliber = 30
 	if _rockets:
 		shot.hit.kind = Hit.Kind.SHELL

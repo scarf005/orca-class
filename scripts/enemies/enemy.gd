@@ -210,26 +210,50 @@ static func kill_push(hit: Hit) -> Vector3:
 	return dir * 0.25
 
 
-const HEAVY_SHOTS := ["rocket", "atgm", "mortar"]
+enum Muzzle { DERIVE, LIGHT, AUTO, HEAVY } ## Weapon class: what a shot's muzzle blast looks like. DERIVE reads it off the shape.
+
+const HEAVY_SHOTS := ["rocket", "atgm", "mortar", "shell"]
+const LAUNCHED_SHOTS := ["rocket", "atgm"] ## These leave a backblast behind the tube.
+const FLASH_SIZE := {Muzzle.LIGHT: 1.8, Muzzle.AUTO: 1.8, Muzzle.HEAVY: 3.75}
+const GROUND_DUST_HEIGHT := 4.0 ## A muzzle this close to the ground kicks up dust.
 
 
-## Every enemy shot leaves the barrel in a hot flash and a puff of gun smoke; launches and mortars
-## kick out a bigger cloud and light up the ground.
-func muzzle_blast(from: Vector3, dir: Vector3, heavy: bool) -> void:
+static func muzzle_class(shape: String) -> Muzzle:
+	return Muzzle.HEAVY if shape in HEAVY_SHOTS else Muzzle.LIGHT
+
+
+## Every enemy shot leaves the barrel in a hot flash and gun smoke, by weapon class: light guns a
+## big flash and a short puff; autocannons and gatlings the same plus a brief cone of fire; heavy
+## weapons a huge star flash, a thick smoke cloud, a light flash, backblast for launchers and dust
+## when the muzzle is near the ground.
+func muzzle_blast(from: Vector3, dir: Vector3, weapon: Muzzle, shape := "") -> void:
 	var fx := World.current.fx
-	fx.muzzle_flash(from + dir * 0.3, dir, 1.5 if heavy else 0.9, Palette.HOT)
-	fx.smoke(from + dir * 0.5, 4 if heavy else 2, 0.8 if heavy else 0.35, [Palette.ASH, Palette.STONE, Palette.MIST])
-	if heavy:
-		fx.smoke(from - dir * 1.2, 3, 0.8, [Palette.ASH, Palette.MIST])
-		fx.light_flash(from, 6.0, Palette.CORAL, 10.0)
+	fx.muzzle_flash(from + dir * 0.3, dir, FLASH_SIZE[weapon], Palette.HOT)
+	match weapon:
+		Muzzle.LIGHT:
+			fx.smoke(from + dir * 0.5, 2, 0.5, [Palette.ASH, Palette.STONE, Palette.MIST])
+		Muzzle.AUTO:
+			for i in 3:
+				fx.spawn(Fx.Kind.FLAME, from + dir * 0.6, (dir + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 0.18).normalized() * randf_range(14, 24), 0.09, 0.5, [Palette.BUTTER, Palette.AMBER][i % 2], {"drag": 4.0})
+			fx.smoke(from + dir * 0.5, 2, 0.6, [Palette.ASH, Palette.STONE, Palette.MIST])
+		Muzzle.HEAVY:
+			fx.impact_star(from + dir * 0.8, 3.0, Palette.WHITE)
+			fx.smoke(from + dir * 0.8, 6, 1.6, [Palette.ASH, Palette.STONE, Palette.MIST])
+			fx.light_flash(from, 8.0, Palette.CORAL, 12.0)
+			if shape in LAUNCHED_SHOTS:
+				fx.muzzle_flash(from - dir * 0.8, -dir, 2.4, Palette.AMBER)
+				fx.smoke(from - dir * 1.5, 4, 1.2, [Palette.ASH, Palette.MIST])
+			var ground := Course.height_at(from)
+			if from.y - ground < GROUND_DUST_HEIGHT:
+				fx.dust(Vector3(from.x, ground + 0.3, from.z), 5, 2.5, Palette.STRAW)
 
 
-func fire_at(shape: String, from: Vector3, target: Vector3, speed: float, damage: float, color := Palette.HOT) -> Projectile:
-	return _launch(shape, from, (target - from).normalized(), speed, damage, color)
+func fire_at(shape: String, from: Vector3, target: Vector3, speed: float, damage: float, color := Palette.HOT, weapon := Muzzle.DERIVE) -> Projectile:
+	return _launch(shape, from, (target - from).normalized(), speed, damage, color, weapon)
 
 
-func _launch(shape: String, from: Vector3, dir: Vector3, speed: float, damage: float, color: Color) -> Projectile:
-	muzzle_blast(from, dir, shape in HEAVY_SHOTS)
+func _launch(shape: String, from: Vector3, dir: Vector3, speed: float, damage: float, color: Color, weapon: Muzzle) -> Projectile:
+	muzzle_blast(from, dir, muzzle_class(shape) if weapon == Muzzle.DERIVE else weapon, shape)
 	var projectile := World.current.spawn_projectile(Team.ENEMY, from, dir * speed, shape, color)
 	projectile.hit = Hit.make(Hit.Kind.BULLET, damage, from)
 	projectile.hit.source = self
@@ -265,8 +289,9 @@ static func bore_direction(muzzle: Node3D, wanted := Vector3.ZERO, max_degrees :
 
 
 ## Fires from a barrel: the round leaves the `muzzle` node along its -Z, corrected toward `wanted`
-## by at most `max_degrees`, scattered by `spread` (a cone of about that many radians).
-func fire_along(shape: String, muzzle: Node3D, speed: float, damage: float, color := Palette.HOT, wanted := Vector3.ZERO, max_degrees := 3.0, spread := 0.0) -> Projectile:
+## by at most `max_degrees`, scattered by `spread` (a cone of about that many radians). `weapon` is
+## its class for the muzzle blast.
+func fire_along(shape: String, muzzle: Node3D, speed: float, damage: float, color := Palette.HOT, wanted := Vector3.ZERO, max_degrees := 3.0, spread := 0.0, weapon := Muzzle.DERIVE) -> Projectile:
 	var dir := bore_direction(muzzle, wanted, max_degrees)
 	dir = (dir + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * spread).normalized()
-	return _launch(shape, muzzle.global_position, dir, speed, damage, color)
+	return _launch(shape, muzzle.global_position, dir, speed, damage, color, weapon)
