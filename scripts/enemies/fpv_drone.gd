@@ -27,6 +27,7 @@ func _init() -> void:
 	hp = 4.0
 	radius = 0.9
 	flying = true
+	trails = true
 	interceptable = true
 	stabbable = true
 	score = 150

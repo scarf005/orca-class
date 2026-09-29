@@ -24,6 +24,7 @@ func _init() -> void:
 	hp = max_hp
 	radius = 2.5
 	flying = true
+	trails = true
 	score = 650
 	wreck_on_death = true
 	weakness = {Hit.Kind.FRAGMENT: 1.5, Hit.Kind.BLAST: 1.4}

@@ -30,6 +30,27 @@ func run() -> int:
 			timings.append((Time.get_ticks_usec() - start) / 1000.0)
 	_report("particles_%d" % fx.particle_count(), timings)
 	fx.free()
+	# Thirty flyers in flight, each with its trail (an FPV wave and then some).
+	var movers: Array[Node3D] = []
+	var trails: Array[FlyerTrail] = []
+	for i in 30:
+		var mover := Node3D.new()
+		add_child(mover)
+		var trail := FlyerTrail.new()
+		trail.source = mover
+		trail.setup(mover.position, 0.25)
+		add_child(trail)
+		movers.append(mover)
+		trails.append(trail)
+	timings.clear()
+	for frame in 300:
+		var start := Time.get_ticks_usec()
+		for i in 30:
+			movers[i].position = Vector3(frame * 0.5, 10.0 + i, sin(frame * 0.1 + i) * 8.0)
+			trails[i]._process(1.0 / 60.0)
+		if frame >= 60:
+			timings.append((Time.get_ticks_usec() - start) / 1000.0)
+	_report("flyer_trails_30", timings)
 	return 0
 
 

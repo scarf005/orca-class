@@ -77,6 +77,7 @@ func _init() -> void:
 	armor = 0.6
 	center_height = 0.0
 	flying = true
+	trails = true
 	can_stagger = true
 	score = 50000
 	despawn_behind = 0.0

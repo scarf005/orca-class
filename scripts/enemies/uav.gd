@@ -35,6 +35,7 @@ func _init() -> void:
 	hp = 12.0
 	radius = 2.4
 	flying = true
+	trails = true
 	score = 500
 	despawn_behind = 0.0
 	debris = [Fx.Debris.PAINT, Fx.Debris.METAL]

@@ -17,6 +17,7 @@ var drop := ""
 var stagger := 0.0
 var burning := 0.0
 var can_stagger := true
+var trails := false ## Flyers leave a fading trail (FlyerTrail).
 var despawn_behind := 30.0 ## Removed once this far behind the rail; 0 keeps it.
 var _shudder := 0.0 ## Seconds of hit shudder left.
 var wreck_on_death := false ## Vehicles: the hull is blown into the air and blows up again on landing.
@@ -36,6 +37,8 @@ func _ready() -> void:
 	add_child(model)
 	build()
 	track_meshes(model)
+	if trails:
+		FlyerTrail.follow(self)
 	var extent := visual_bounds().size
 	if extent != Vector3.ZERO:
 		death_radius = maxf(extent.x, maxf(extent.y, extent.z)) * 0.5
