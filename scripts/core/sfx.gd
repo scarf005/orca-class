@@ -19,7 +19,6 @@ const SOUNDS := {
 	"skid": ["res://assets/audio/skid.ogg", -3.0],
 	"engine": ["res://assets/audio/engine.ogg", 0.0],
 	"track": ["res://assets/audio/track.ogg", 0.0],
-	"radio": ["res://assets/audio/radio.ogg", -8.0],
 	"launch": ["res://assets/audio/smoke.ogg", 0.0],
 	"whip": ["res://assets/audio/synth/whip.wav", 0.0],
 	"grab": ["res://assets/audio/synth/grab.wav", 0.0],
@@ -40,7 +39,6 @@ const SOUNDS := {
 	"ui_move": ["res://assets/audio/synth/ui_move.wav", -8.0],
 	"ui_select": ["res://assets/audio/synth/ui_select.wav", -4.0],
 	"shout": ["res://assets/audio/synth/shout.wav", -2.0],
-	"ai": ["res://assets/audio/synth/ai.wav", -6.0],
 	"combo": ["res://assets/audio/synth/combo.wav", -8.0],
 	"roar": ["res://assets/audio/synth/roar.wav", 0.0],
 }
@@ -140,7 +138,7 @@ func gun(name: String, pitch := 1.0) -> void:
 	player.play()
 
 
-## Feedback stays audible at long range and never cuts off radio or menu sounds.
+## Feedback stays audible at long range and never cuts off menu sounds.
 func confirm_hit(killed: bool) -> void:
 	if Game.silent:
 		return

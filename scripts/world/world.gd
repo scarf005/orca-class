@@ -3,7 +3,6 @@ extends Node3D
 ## Root of a running stage: lighting, terrain, registries of everything that fights, and the shared
 ## combat helpers (blasts, projectile spawning, score, shake and hitstop).
 
-signal radio(line: StringName)
 signal scored(points: int, position: Vector3, combo: int)
 signal boss_changed(boss: Entity) ## Null when the boss bar should hide.
 signal stage_cleared

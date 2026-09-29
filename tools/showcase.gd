@@ -43,7 +43,6 @@ func run() -> int:
 			tank.modules.damage("track_r", 999.0)
 			tank.modules.damage("breech", 40.0)
 			tank.tail.damage(70.0)
-			world.radio.emit(&"AI_MOD_TRACK_R_OUT")
 			_stage_vfx(world)
 		"fungus":
 			world.player.model.visible = true
@@ -89,7 +88,6 @@ func _stage_vfx(world: World) -> void:
 		barrel.position = Course.ground_at(base + 30.0 + i * 1.2, -4.0 + (i % 2) * 1.5)
 		world.props.add_child(barrel)
 	world.fx.burn(Course.ground_at(base + 26.0, -9.0), 20.0, 1.3)
-	world.radio.emit(&"AI_REAR")
 	world.player.load_round(Armament.Round.HEAT)
 	world.player.set_coax_tier(4)
 

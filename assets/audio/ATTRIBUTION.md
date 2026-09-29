@@ -8,7 +8,6 @@ The Freesound records below are marked **CC0** on their source pages. The checke
 - `track.ogg` — christerljung, [tracks moving](https://freesound.org/people/christerljung/sounds/849062/), CC0. Full 3.550 s track recording, looped in-game.
 - `blast.ogg` — Joth, [Chunky Explosion](https://opengameart.org/content/chunky-explosion), CC0. Direct 5.616 s MP3 converted to OGG.
 - `laser.ogg` — john129pats, [Laser Cannon](https://freesound.org/people/john129pats/sounds/147908/), CC0. 0.65 s attack excerpt from the 8.232 s preview.
-- `radio.ogg` — simone_ds, [radio static.wav](https://freesound.org/people/simone_ds/sounds/366082/), CC0. First 1.0 s excerpt from the 16.340 s preview.
 - `smoke.ogg` — qubodup, [M203 Grenade Launcher 1](https://freesound.org/people/qubodup/sounds/162402/), CC0. Full 0.527 s launch recording.
 - `rubble.ogg` — Sadiquecat, [Bag of rubble impact](https://freesound.org/people/Sadiquecat/sounds/691985/), CC0. Full 0.959 s impact recording.
 - `wood.ogg` — dorian.mastin, [snd_ImpactSmallWood01.wav](https://freesound.org/people/dorian.mastin/sounds/381617/), CC0. Full 0.625 s impact recording.

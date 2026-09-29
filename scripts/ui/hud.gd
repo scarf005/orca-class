@@ -1,16 +1,12 @@
 class_name Hud
 extends Control
 ## In-game HUD drawn by hand at 960×540: armor, weapons, laser heat, throttle, score and combo,
-## the reticle with lead marker, radio chatter, boss bar, threat arrows and score popups.
+## the reticle with lead marker, boss bar, threat arrows and score popups.
 
 const SCALE := 960.0 / DitherView.RESOLUTION.x ## Screen pixels per 3D-view pixel.
-const RADIO_TIME := 3.6
 
 var world: World
 var font: Font
-var _radio_queue: Array[StringName] = []
-var _radio_line := &""
-var _radio_time := 0.0
 var _popups: Array[Dictionary] = []
 var _incoming: Array[Dictionary] = [] ## {position, time}: waves arriving from outside the view.
 var _intercepts := 0
@@ -58,7 +54,6 @@ func _ready() -> void:
 	WireView.paint.call_deferred(life, Palette.HULL_LIGHT)
 	_life_view.refresh.call_deferred()
 	_laser_view.show_mesh(TankModel._rws_mesh(), Palette.MINT)
-	world.radio.connect(_on_radio)
 	world.scored.connect(_on_scored)
 	world.intercepted.connect(_on_intercepted)
 	world.hit_confirmed.connect(_on_hit_confirmed)
@@ -88,12 +83,6 @@ func set_storm(amount: float) -> void:
 	_storm = amount
 
 
-func _on_radio(line: StringName) -> void:
-	if line == _radio_line or line in _radio_queue:
-		return
-	_radio_queue.append(line)
-
-
 func _on_scored(points: int, position: Vector3, combo: int) -> void:
 	if points <= 0:
 		return
@@ -102,12 +91,10 @@ func _on_scored(points: int, position: Vector3, combo: int) -> void:
 		Sfx.ui("combo", 0.0, 1.0 + combo / 60.0)
 
 
-## Every laser kill says so where it happened, and the first one explains what the laser does.
+## Every laser kill says so where it happened.
 func _on_intercepted(position: Vector3) -> void:
 	_intercepts += 1
 	_popups.append({"text": tr("CALLOUT_INTERCEPT"), "position": position, "time": 0.0, "combo": 0, "color": Palette.MINT})
-	if _intercepts == 1:
-		world.radio.emit(&"AI_CIWS")
 
 
 func _on_hit_confirmed(killed: bool) -> void:
@@ -146,11 +133,6 @@ func _process(delta: float) -> void:
 	_kill_marker = maxf(0.0, _kill_marker - delta)
 	_banner_time -= delta
 	_shout_time -= delta
-	_radio_time -= delta
-	if _radio_time <= 0.0 and not _radio_queue.is_empty():
-		_radio_line = _radio_queue.pop_front()
-		_radio_time = RADIO_TIME
-		Sfx.ui("ai")
 	for popup in _popups:
 		popup.time += delta
 	_popups = _popups.filter(func(p: Dictionary) -> bool: return p.time < 0.9)
@@ -180,7 +162,6 @@ func _draw() -> void:
 	_draw_score()
 	_draw_progress()
 	_draw_boss()
-	_draw_radio()
 	_draw_banner()
 	_draw_shout()
 
@@ -443,25 +424,6 @@ func _draw_boss() -> void:
 		_bar(Rect2(at + Vector2(3, 14), Vector2(width - 6, 3)), health, color, 8)
 		if health <= 0.0:
 			draw_line(at + Vector2(4, 6), at + Vector2(width - 4, 6), Palette.STONE, 1.0)
-
-
-## Combat assist announcements: a terse terminal line beside a waveform, typed out.
-func _draw_radio() -> void:
-	if _radio_time <= 0.0 or _radio_line == &"":
-		return
-	var text := tr(_radio_line)
-	var shown := int(clampf((RADIO_TIME - _radio_time) * 45.0, 0.0, text.length()))
-	var warning := text.begins_with("경고") or text.begins_with("Warning")
-	var accent := Palette.CORAL if warning else Palette.MINT
-	var origin := Vector2(16, 374)
-	var slide := clampf((RADIO_TIME - _radio_time) * 8.0, 0.0, 1.0) * clampf(_radio_time * 6.0, 0.0, 1.0)
-	origin.x -= (1.0 - slide) * 380.0
-	_panel(Rect2(origin, Vector2(370, 34)), accent)
-	for i in 8:
-		var h := absf(sin(_time * 22.0 + i * 1.7)) * 16.0 * (1.0 if shown < text.length() else 0.25) + 2.0
-		draw_rect(Rect2(origin + Vector2(8 + i * 3, 19 - h * 0.5), Vector2(2, h)), accent)
-	var caret := "_" if fmod(_time, 0.5) < 0.25 else ""
-	_text(origin + Vector2(40, 23), text.substr(0, shown) + caret, Palette.PEACH if warning else Palette.CREAM, 12, HORIZONTAL_ALIGNMENT_LEFT, 322)
 
 
 func _draw_shout() -> void:

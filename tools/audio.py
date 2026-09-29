@@ -212,11 +212,6 @@ def sfx():
     boom = sweep(120, 45, 0.35) * env(int(0.35 * RATE), 0.001, 0.3)
     write_wav("shout", pad([(0, lowpass(stab, 3000) * 0.5), (0, crack), (0, boom)], 0.55))
 
-    # Combat assist chime: a clean two-tone blip, then a soft data chirp.
-    blip = pad([(0, tone(1175, 0.07, "square", 4) * env(int(0.07 * RATE), 0.002, 0.03)), (0.08, tone(1568, 0.09, "square", 4) * env(int(0.09 * RATE), 0.002, 0.05))], 0.35)
-    chirp = pad([(0.2, sweep(2400, 3200, 0.08) * env(int(0.08 * RATE), 0.002, 0.05) * 0.3)], 0.35)
-    write_wav("ai", blip + chirp, 0.6)
-
     # Roar: detuned low saws with a growl envelope and a pitch sag.
     t = t_axis(1.0)
     growl = sum(sweep(70 * d, 52 * d, 1.0, "saw") for d in (1.0, 1.013, 0.987, 1.5))

@@ -886,7 +886,6 @@ func _update_ciws(delta: float) -> void:
 		ciws_overheated = true
 		ciws_target = null
 		Sfx.play("overheat", origin)
-		world.radio.emit(&"AI_OVERHEAT")
 
 
 ## The tail acts on its own so the driver only drives and shoots. Priorities: swat anything about
@@ -1128,11 +1127,9 @@ func take_hit(hit: Hit) -> void:
 			world.shake(0.35)
 			world.screen_flash(Palette.SKY, 0.2)
 			Sfx.play("blast_small", hit.position, 2.0, 0.8)
-			world.radio.emit(&"AI_ERA" if modules.era[facing] > 0 else &"AI_ERA_GONE")
 			world.style_event("CLOSE_CALL", 40.0)
 			invuln = 0.15
 			return
-		world.radio.emit(&"AI_PENETRATION")
 		world.stats.damage_taken += hp
 		die(hit)
 		return
@@ -1183,8 +1180,6 @@ func on_damaged(hit: Hit, amount: float) -> void:
 	Sfx.play("hurt", global_position, 0.0, randf_range(0.9, 1.1))
 	_damage_modules(hit, amount)
 	invuln = maxf(invuln, 0.12)
-	if hp < MAX_ARMOR * 0.3 and hp + amount >= MAX_ARMOR * 0.3:
-		world.radio.emit(&"AI_LOW_ARMOR")
 
 
 ## Heavy hits knock out the modules exposed on the facing they come from.
@@ -1193,13 +1188,12 @@ func _damage_modules(hit: Hit, amount: float) -> void:
 	var facing := facing_of(hit)
 	if facing == "rear" and tail.damage(amount * 1.2):
 		world.fx.explosion(tail.mount.global_position, 1.5, [Palette.WHITE, Palette.FUNGUS, Palette.BLUSH])
-		world.radio.emit(&"AI_MOD_TAIL")
 	# A sensor that is already gone cannot be hit again.
 	var exposed: Array = TankModules.EXPOSED[facing].filter(func(name: String) -> bool: return modules.state(name) != TankModules.State.DESTROYED or name not in TankModules.KNOCKED_OFF)
 	damage_module(exposed[randi() % exposed.size()], amount * 1.3)
 
 
-## Hurts a module, calling it out on the radio. A roof sensor destroyed is knocked clean off and
+## Hurts a module. A roof sensor destroyed is knocked clean off and
 ## cartwheels away in flames.
 func damage_module(name: String, amount: float) -> bool:
 	if not modules.damage(name, amount):
@@ -1209,8 +1203,6 @@ func damage_module(name: String, amount: float) -> bool:
 	if out and name in TankModules.KNOCKED_OFF:
 		var piece := model.detach(model.rws if name == "laser" else model.fcs)
 		Wreck.launch(piece, piece.global_position, 0.8, false, (piece.global_position - hit_center()).normalized() * 8.0, false)
-	if name != "fcs":
-		world.radio.emit(StringName("AI_MOD_" + name.to_upper() + ("_OUT" if out else "")))
 	world.fx.sparks(hit_center(), Vector3.UP, 14, Palette.BUTTER, 10.0)
 	return true
 
@@ -1241,7 +1233,6 @@ func die(_hit: Hit) -> void:
 		world.game_over.emit()
 		return
 	_respawn = RESPAWN_DELAY
-	world.radio.emit(&"AI_LIFE_LOST")
 
 
 func _finish_respawn() -> void:

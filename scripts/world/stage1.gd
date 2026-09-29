@@ -5,40 +5,30 @@ class_name Stage1
 
 static func events(hard: bool) -> Array[Dictionary]:
 	var e: Array[Dictionary] = []
-	var radio := func(d: float, line: String) -> void: e.append({"d": d, "type": "radio", "line": line})
 	var wave := func(d: float, kind: String, extra: Dictionary) -> void:
 		var event := {"d": d, "type": "wave", "kind": kind}
 		event.merge(extra)
 		e.append(event)
 
 	# Farm road (quiet -> build): FPVs alone while the CIWS learns its job, then the first ground contact.
-	radio.call(5.0, "AI_BOOT")
-	radio.call(40.0, "AI_ROUTE")
 	wave.call(90.0, "fpv", {"count": 2, "formation": "line", "height": 9.0, "spacing": 7.0, "hover": 26.0})
-	radio.call(100.0, "AI_FPV")
 	wave.call(170.0, "fpv", {"count": 4, "formation": "v", "height": 8.0, "spacing": 5.0})
 	wave.call(250.0, "fpv", {"count": 5, "formation": "ring", "height": 10.0, "spacing": 8.0, "stagger": 0.25})
 	wave.call(330.0, "crawler", {"count": 4, "formation": "sides", "spacing": 16.0, "ahead": 70.0})
 	# Release 330-460: nothing spawns.
 	wave.call(460.0, "fpv", {"count": 3, "formation": "behind", "height": 6.0, "spacing": 6.0, "hover": 14.0, "approach": 1.2})
-	radio.call(462.0, "AI_REAR")
 	wave.call(510.0, "ugv", {"count": 2, "u": 5.0, "spacing": 8.0, "ahead": 100.0})
-	radio.call(515.0, "AI_UGV")
 	wave.call(540.0, "ugv", {"count": 2, "formation": "behind", "spacing": 10.0})
-	radio.call(541.0, "AI_REAR")
 
 	# Village, a ground war. Intro: UGVs in the lanes. Build: a lone bombing run, walkers, a crawler flank.
 	# Release 945-1085. Peak 1085-1195: helicopter, UGV column, missile walkers, crawlers, FPVs from behind.
 	# Release to the mid-boss, broken only by a quad duel.
 	wave.call(600.0, "ugv", {"count": 4, "formation": "sides", "spacing": 8.0, "ahead": 95.0})
 	wave.call(650.0, "crawler", {"count": 4, "formation": "scatter", "spacing": 18.0, "ahead": 60.0, "u": 0.0})
-	radio.call(655.0, "AI_BIO")
 	wave.call(705.0, "fpv", {"count": 4, "formation": "line", "height": 9.0, "spacing": 6.0})
-	radio.call(762.0, "AI_UAV")
 	wave.call(770.0, "uav", {"count": 2, "formation": "line", "spacing": 10.0, "props": {"attack": "bomb"}})
 	wave.call(840.0, "walker", {"count": 4, "formation": "behind", "spacing": 9.0})
 	wave.call(890.0, "spitter", {"count": 4, "formation": "sides", "spacing": 15.0, "ahead": 80.0})
-	radio.call(895.0, "AI_SPITTER")
 	wave.call(945.0, "crawler", {"count": 6, "formation": "flank", "u": -1.0, "spacing": 6.0, "ahead": 10.0})
 	wave.call(1085.0, "helicopter", {"count": 1, "height": 13.0, "ahead": 110.0, "u": -10.0})
 	wave.call(1100.0, "ugv", {"count": 3, "formation": "column", "spacing": 14.0, "ahead": 100.0, "u": 4.0, "drop": "coax"})
@@ -47,7 +37,6 @@ static func events(hard: bool) -> Array[Dictionary]:
 	wave.call(1175.0, "fpv", {"count": 4, "formation": "behind", "height": 6.0, "spacing": 5.0, "hover": 14.0, "approach": 1.0})
 	wave.call(1195.0, "ugv", {"count": 2, "formation": "sides", "spacing": 10.0, "ahead": 90.0, "props": {"weapon": "atgm"}})
 	wave.call(1300.0, "quad", {"count": 1, "u": 0.0, "ahead": 100.0, "props": {"weapon": "mortar"}})
-	radio.call(1420.0, "AI_BIO_LARGE")
 
 	# Branch school: the mid-boss holds the rail.
 	e.append({"d": 1470.0, "type": "checkpoint", "name": "midboss"})
@@ -57,16 +46,13 @@ static func events(hard: bool) -> Array[Dictionary]:
 	# Reservoir, an air war over the water (ground units stay a minority). Intro: drones rise out of the reeds.
 	# Build: UAV passes, a helicopter, spitters on the bank. Release 2050-2185. Peak 2185-2400 with the storm:
 	# bombers from behind, helicopters, a reed ring, ATGM UGVs. Release to the overpass, only the supply UGV.
-	radio.call(1790.0, "AI_REEDS")
 	wave.call(1830.0, "fpv", {"count": 4, "formation": "scatter", "height": 1.5, "spacing": 3.0, "u": -17.0, "ahead": 60.0})
 	wave.call(1885.0, "fpv", {"count": 4, "formation": "scatter", "height": 1.5, "spacing": 3.0, "u": -17.0, "ahead": 60.0})
 	wave.call(1940.0, "uav", {"count": 4, "formation": "v", "spacing": 10.0, "props": {"attack": "strafe"}})
 	wave.call(1995.0, "helicopter", {"count": 1, "formation": "line", "height": 14.0, "spacing": 24.0, "ahead": 105.0})
 	wave.call(2050.0, "spitter", {"count": 5, "formation": "line", "spacing": 4.0, "u": 20.0, "ahead": 85.0})
 	e.append({"d": 2185.0, "type": "storm", "duration": 22.0})
-	radio.call(2188.0, "AI_STORM")
 	wave.call(2185.0, "uav", {"count": 3, "formation": "line", "spacing": 12.0, "props": {"attack": "bomb", "from_behind": true}})
-	radio.call(2190.0, "AI_REAR")
 	wave.call(2215.0, "fpv", {"count": 10, "formation": "ring", "height": 1.5, "spacing": 4.0, "u": -17.0, "stagger": 0.18})
 	wave.call(2245.0, "helicopter", {"count": 2, "formation": "sides", "height": 14.0, "spacing": 22.0, "ahead": 65.0})
 	wave.call(2270.0, "ugv", {"count": 2, "formation": "line", "spacing": 8.0, "u": 4.0, "ahead": 100.0, "props": {"weapon": "atgm"}})
@@ -90,8 +76,6 @@ static func events(hard: bool) -> Array[Dictionary]:
 	wave.call(3175.0, "fpv", {"count": 8, "formation": "ring", "height": 9.0, "spacing": 9.0, "stagger": 0.15})
 	wave.call(3205.0, "uav", {"count": 3, "formation": "line", "spacing": 10.0, "props": {"attack": "bomb", "from_behind": true}})
 	wave.call(3235.0, "walker", {"count": 3, "formation": "line", "spacing": 6.0, "ahead": 80.0, "props": {"weapon": "missile"}})
-	radio.call(3340.0, "AI_AREA_CLEAR")
-	radio.call(3385.0, "AI_ROTOR")
 	e.append({"d": 3395.0, "type": "checkpoint", "name": "boss"})
 	e.append({"d": 3465.0, "type": "boss", "kind": "gunship"})
 

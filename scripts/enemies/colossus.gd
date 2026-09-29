@@ -199,7 +199,6 @@ func take_hit(hit: Hit) -> void:
 		Sfx.play("roar", global_position, 0.0, 0.8)
 		if best != core and _core_phase():
 			core.mesh.visible = true
-			world.radio.emit(&"AI_CORE")
 			stagger = 2.0
 	if core.hp <= 0.0:
 		_begin_death()
@@ -319,8 +318,6 @@ func _telegraph_sweep() -> void:
 		var u := _sweep_side * (2.0 + i * 2.6) if not _sweep_full else -15.0 + i * 5.0
 		world.fx.marker(Course.ground_at(_sweep_d, u), 2.2, 1.3, Palette.RED if not _sweep_full else Palette.BUTTER)
 	Sfx.play("warn", Course.ground_at(_sweep_d, 0.0), 0.0, 0.7)
-	if _sweep_full:
-		world.radio.emit(&"AI_SWEEP")
 
 
 func _update_sweep(delta: float, tank: Tank) -> void:

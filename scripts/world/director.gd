@@ -80,7 +80,6 @@ func _finish_section() -> void:
 	var world := World.current
 	if world.stats.section_damage <= 0.0:
 		world.award(5000, world.player.global_position, false)
-		world.radio.emit(&"AI_NO_DAMAGE")
 	world.stats.section_damage = 0.0
 
 
@@ -99,8 +98,6 @@ func _play_section_music() -> void:
 func _fire(event: Dictionary) -> void:
 	var world := World.current
 	match event.type:
-		"radio":
-			world.radio.emit(StringName(event.line))
 		"wave":
 			spawn_wave(event)
 		"pickup":
@@ -204,11 +201,9 @@ func _start_midboss(event: Dictionary) -> void:
 	world.add_enemy(boss)
 	world.boss = boss
 	world.boss_changed.emit(boss)
-	world.radio.emit(&"AI_MIDBOSS")
 	boss.died.connect(func(_e: Entity) -> void:
 		world.boss = null
 		world.boss_changed.emit(null)
-		world.radio.emit(&"AI_BIO_DOWN")
 		get_tree().create_timer(1.5).timeout.connect(func() -> void: world.rail.mode = Rail.Mode.RAIL))
 
 
@@ -219,7 +214,6 @@ func _start_boss(event: Dictionary) -> void:
 	boss.position = Course.to_world(Course.ARENA_CENTER_D + 70.0, 0.0, 45.0)
 	world.add_enemy(boss)
 	world.boss = boss
-	world.radio.emit(&"AI_BOSS")
 	world.boss_changed.emit(boss)
 	boss.died.connect(func(_e: Entity) -> void:
 		world.boss_changed.emit(null)

@@ -499,13 +499,11 @@ func _update_phase() -> void:
 	var lost := MODULE_HP.keys().filter(func(name: String) -> bool: return not _live(name)).size()
 	if phase == Phase.HUNTER and (ratio < 0.7 or lost >= 3 or PLATES.all(func(plate: String) -> bool: return not _live(plate))):
 		phase = Phase.STRIPPED
-		world.radio.emit(&"AI_BOSS_PHASE2")
 		_resupply()
 		_grow_fungus(6)
 		_next_attack = 1.0
 	elif phase == Phase.STRIPPED and (ratio < 0.34 or lost >= 6):
 		phase = Phase.INFECTED
-		world.radio.emit(&"AI_BOSS_PHASE3")
 		_resupply()
 		_grow_fungus(14)
 		world.screen_flash(Palette.FUNGUS, 0.4)
@@ -889,7 +887,6 @@ func _begin_crash() -> void:
 	world.shake(0.7)
 	world.hitstop(0.25)
 	world.screen_flash(Palette.WHITE, 0.7)
-	world.radio.emit(&"AI_CLEAR")
 	Sfx.play("blast", global_position)
 	for side in ["pod_l", "pod_r"]:
 		if _live(side):
