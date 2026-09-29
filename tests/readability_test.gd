@@ -21,6 +21,34 @@ func test_spawned_projectiles_follow_the_language() -> void:
 	check(shell.color != Palette.HOSTILE, "a HEAT shell never looks like enemy fire")
 
 
+func test_enemy_shot_cores_are_white_hot_and_bigger_than_the_tanks() -> void:
+	var core_color := func(mesh: Mesh) -> Color:
+		var best := Color.BLACK
+		for c: Color in mesh.surface_get_arrays(0)[Mesh.ARRAY_COLOR]:
+			best = c if c.get_luminance() > best.get_luminance() else best
+		return best
+	for shape in ["bullet", "orb"]:
+		var enemy := World._projectile_meshes(shape, Palette.HOSTILE, true)[0]
+		var friendly := World._projectile_meshes(shape, Palette.HOSTILE, false)[0]
+		var brightest: Color = core_color.call(enemy)
+		check(brightest.r > 0.9 and brightest.g > 0.8 and brightest.b > 0.8, "%s enemy core is white-ish (%s)" % [shape, brightest])
+		check(enemy.get_aabb().size.x > friendly.get_aabb().size.x * 1.3, "%s enemy core is noticeably larger" % shape)
+
+
+func test_enemy_shot_halos_flicker_out_of_step() -> void:
+	var world := stage()
+	var sky := Vector3(0.0, 400.0, 0.0)
+	var a := world.spawn_projectile(Entity.Team.ENEMY, sky, Vector3.ZERO, "bullet")
+	var b := world.spawn_projectile(Entity.Team.ENEMY, sky, Vector3.ZERO, "bullet")
+	var scales: Array[float] = []
+	for _i in 12:
+		a.step(0.02)
+		scales.append(a.halo.scale.x)
+		await frames(1)
+	check(scales.max() - scales.min() > 0.1, "the halo pulses over time")
+	check(not is_equal_approx(a._phase, b._phase), "each shot has its own phase")
+
+
 func test_actors_are_outlined_by_class_and_pickups_stand_in_a_beacon() -> void:
 	var world := stage()
 	var ugv := Ugv.new()
@@ -37,7 +65,12 @@ func test_actors_are_outlined_by_class_and_pickups_stand_in_a_beacon() -> void:
 	check(on.call(pickup, ActorLayer.LOOT), "pickups are on the loot outline layer")
 	check(pickup.get_children().any(func(n: Node) -> bool: return n is MeshInstance3D and (n as MeshInstance3D).mesh == Pickup._pillar_mesh()), "pickups stand in a cyan beacon")
 	var shot := world.spawn_projectile(Entity.Team.ENEMY, Vector3.ZERO, Vector3.FORWARD, "orb")
-	check((shot.get_child(0) as MeshInstance3D).layers & ActorLayer.HOSTILE, "enemy shots are outlined hostile too")
+	var core := shot.get_child(0) as MeshInstance3D
+	check(not (core.layers & ActorLayer.HOSTILE), "enemy shots carry no hostile rim, only enemies do")
+	check(core.layers & ActorLayer.LAYER, "enemy shots stay on the actor layer, undithered")
+	check(shot.halo != null, "enemy shots have a flickering halo")
+	var player_shot := world.spawn_projectile(Entity.Team.PLAYER, Vector3.ZERO, Vector3.FORWARD, "orb")
+	check(player_shot.halo == null, "the tank's shots do not twinkle")
 	var view := DitherView.new()
 	add_child(view)
 	await frames(1)

@@ -28,8 +28,13 @@ var color := Palette.FRIENDLY ## Body color, set from the team when spawned.
 var terrain_only_after := 0.0 ## Ignores entities until this distance (avoids hitting the shooter).
 var ricochet := false ## Small-caliber rounds glance off the ground with sparks.
 var impact_sound := ""
+var halo: MeshInstance3D ## Enemy shots twinkle: this glow flickers, each shot out of step.
+
+const FLICKER_RATE := 70.0 ## Radians per second of the enemy shot halo flicker.
 
 var _traveled := 0.0
+var _phase := randf() * TAU
+var _age := 0.0
 var _hit_entities: Array[Entity] = []
 var _trail_timer := 0.0
 var _motor_light: OmniLight3D
@@ -46,6 +51,11 @@ func _exit_tree() -> void:
 
 
 func step(delta: float) -> void:
+	_age += delta
+	if halo:
+		var wave := sin(_age * FLICKER_RATE + _phase)
+		halo.set_instance_shader_parameter(&"instance_alpha", 0.75 + 0.25 * wave)
+		halo.scale = Vector3.ONE * (1.0 + 0.2 * wave)
 	life -= delta
 	if life <= 0.0:
 		if fuse_distance > 0.0:

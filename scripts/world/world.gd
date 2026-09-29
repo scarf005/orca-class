@@ -136,6 +136,7 @@ const PROJECTILE_SHAPES := {
 	"atgm": ["missile", 0.24, 1.3, 2.2],
 	"bomb": ["missile", 0.3, 0.9, 1.8],
 }
+const HOSTILE_CORE := 1.8 ## Enemy shot core size relative to a player round's.
 static var _shape_meshes := {}
 static var _halo_material := _make_halo_material()
 static var _core_material := _make_core_material()
@@ -159,8 +160,8 @@ static func _make_halo_material() -> ShaderMaterial:
 	return material
 
 
-static func _projectile_meshes(shape: String, color: Color) -> Array[Mesh]:
-	var key := "%s_%s" % [shape, color.to_html()]
+static func _projectile_meshes(shape: String, color: Color, hostile := false) -> Array[Mesh]:
+	var key := "%s_%s_%s" % [shape, color.to_html(), hostile]
 	if _shape_meshes.has(key):
 		return _shape_meshes[key]
 	var spec: Array = PROJECTILE_SHAPES[shape]
@@ -168,7 +169,9 @@ static func _projectile_meshes(shape: String, color: Color) -> Array[Mesh]:
 	var length: float = spec[2]
 	var halo_scale: float = spec[3]
 	# A white-hot head, a saturated tail tapering to nothing, and a dithered glow around it all.
-	var hot := color.lerp(Palette.WHITE, 0.55)
+	# Enemy shots read by form, not rim: a much bigger white-hot core inside the hot halo.
+	var hot := color.lerp(Palette.WHITE, 0.92 if hostile else 0.55)
+	var head := HOSTILE_CORE if hostile else 1.0
 	var core := LowPoly.new()
 	var halo := LowPoly.new()
 	core.glow = true
@@ -178,14 +181,14 @@ static func _projectile_meshes(shape: String, color: Color) -> Array[Mesh]:
 		"streak":
 			# A tracer: a short pointed head along -Z (the flight direction) and a long tapered tail.
 			var r := width * 0.5
-			core.tube(Transform3D(forward, Vector3.ZERO), r, width * 0.9, 6, hot, 0.0)
-			core.tube(Transform3D(Basis(), Vector3.ZERO), r, width * 0.8, 6, hot, r * 0.8)
+			core.tube(Transform3D(forward, Vector3.ZERO), r * head, width * 0.9 * head, 6, hot, 0.0)
+			core.tube(Transform3D(Basis(), Vector3.ZERO), r * head, width * 0.8 * head, 6, hot, r * 0.8 * head)
 			core.tube(Transform3D(Basis(), Vector3(0, 0, width * 0.8)), r * 0.8, length, 6, color, 0.0)
 			halo.tube(Transform3D(forward, Vector3.ZERO), r * halo_scale, width * 1.2, 6, color, 0.0)
 			halo.tube(Transform3D(Basis(), Vector3.ZERO), r * halo_scale, length * 1.1, 6, color, 0.0)
 		"orb":
 			core.blob(Transform3D(), width, color, 1, 0.1, 5)
-			core.blob(Transform3D(), width * 0.55, hot, 0, 0.1, 5)
+			core.blob(Transform3D(), width * 0.55 * head, hot, 0, 0.1, 5)
 			halo.blob(Transform3D(), width * halo_scale, color, 0, 0.2, 6)
 		"missile":
 			# Round body with a pointed nose, a colored band and four tail fins; glowing motor behind.
@@ -197,17 +200,17 @@ static func _projectile_meshes(shape: String, color: Color) -> Array[Mesh]:
 			for k in 4:
 				core.box(Transform3D(Basis(Vector3.BACK, k * PI * 0.5 + PI * 0.25), Vector3(0, 0, length * 0.85)), Vector3(width * 2.4, 0.03, width * 1.4), Palette.DUSK)
 			core.glow = true
-			core.tube(Transform3D(Basis(), Vector3(0, 0, length)), r * 0.8, width * 1.5, 6, hot, 0.0)
+			core.tube(Transform3D(Basis(), Vector3(0, 0, length)), r * 0.8 * head, width * 1.5 * head, 6, hot, 0.0)
 			halo.blob(Transform3D(Basis(), Vector3(0, 0, length + 0.3)), width * halo_scale, color, 0, 0.2, 7)
 	var meshes: Array[Mesh] = [core.mesh(), halo.mesh()]
 	_shape_meshes[key] = meshes
 	return meshes
 
 
-## Mesh instances for a projectile look: core and glow halo. `hostile` shots also go on the
-## hostile layer, so the final pass rings them in red.
+## Mesh instances for a projectile look: core and glow halo. `hostile` shots get a bigger white
+## core and stay off the hostile outline layer, so only enemies wear the red rim.
 static func projectile_visual(shape: String, color: Color, hostile := false) -> Array[MeshInstance3D]:
-	var meshes := _projectile_meshes(shape, color)
+	var meshes := _projectile_meshes(shape, color, hostile)
 	var result: Array[MeshInstance3D] = []
 	for i in meshes.size():
 		var mesh := MeshInstance3D.new()
@@ -216,8 +219,6 @@ static func projectile_visual(shape: String, color: Color, hostile := false) -> 
 		mesh.layers |= ActorLayer.LAYER
 		if i == 0:
 			mesh.material_override = _core_material
-			if hostile:
-				mesh.layers |= ActorLayer.HOSTILE
 		else:
 			mesh.material_override = _halo_material
 		result.append(mesh)
@@ -230,8 +231,12 @@ func spawn_projectile(team: Entity.Team, position: Vector3, velocity: Vector3, s
 	projectile.velocity = velocity
 	projectile.hit.source = player if team == Entity.Team.PLAYER else null
 	projectile.color = team_color(team, shape, color)
-	for mesh in projectile_visual(shape, projectile.color, team != Entity.Team.PLAYER):
+	var hostile := team != Entity.Team.PLAYER
+	var visuals := projectile_visual(shape, projectile.color, hostile)
+	for mesh in visuals:
 		projectile.add_child(mesh)
+	if hostile:
+		projectile.halo = visuals[1]
 	_projectile_container.add_child(projectile)
 	projectile.global_position = position
 	if velocity.length_squared() > 0.01:
