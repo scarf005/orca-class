@@ -7,6 +7,10 @@ extends Enemy
 const KEEP_AHEAD := 55.0
 const PACE_TIME := 16.0
 const LEG_HP := 8.0
+const BARREL_SLEW := 2.5 ## Radians per second the gun (or mortar tube) turns onto its aim.
+const GUN_SPREAD := 0.03 ## Radians of scatter on every flak round.
+const MORTAR_CORRECTION := 8.0 ## Degrees a shell may leave off the tube: it then lands where it actually flies.
+const MORTAR_GRAVITY := 20.0
 
 var weapon := "flak" ## "flak" or "mortar".
 var turret_hp := 10.0
@@ -20,7 +24,8 @@ var _burst_timer := 0.0
 var _phase := 0.0
 var _body := Node3D.new()
 var _turret := Node3D.new()
-var _barrels := Node3D.new()
+var _gun := Node3D.new() ## Pivot the flak barrels or the mortar tube turn on; its -Z is the bore.
+var _barrels := Node3D.new() ## The spinning flak cluster inside `_gun`.
 var _muzzle := Node3D.new()
 var _legs: Array[Dictionary] = [] ## {hip, knee, corner, hp, lost}
 var _hard := false
@@ -59,12 +64,11 @@ func build() -> void:
 	_body.add_child(_turret)
 	var t := LowPoly.new()
 	t.prism(Transform3D(), 0.9, 0.6, 8, Palette.DUSK, 0.8, Palette.SLATE)
-	if weapon == "mortar":
-		t.tube(Transform3D(Basis(Vector3.RIGHT, -0.9) * Basis.from_euler(Vector3(0, PI, 0)), Vector3(0, 0.5, 0)), 0.3, 1.6, 8, Palette.MOSS)
 	_add_mesh(_turret, t.mesh())
-	_barrels.position = Vector3(0, 0.6, -0.5)
-	_turret.add_child(_barrels)
+	_turret.add_child(_gun)
+	_gun.add_child(_barrels)
 	if weapon == "flak":
+		_gun.position = Vector3(0, 0.6, -0.5)
 		var r := LowPoly.new()
 		r.box(Transform3D(Basis(), Vector3(0, 0, 0.3)), Vector3(0.9, 0.6, 0.8), Palette.MOSS)
 		for x in [-0.25, 0.25]:
@@ -72,9 +76,14 @@ func build() -> void:
 				r.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3(x, y, 0)), 0.07, 1.8, 6, Palette.INK)
 		_add_mesh(_barrels, r.mesh())
 		_muzzle.position = Vector3(0, 0, -1.9)
+		_barrels.add_child(_muzzle)
 	else:
-		_muzzle.position = Vector3(0, 1.4, -1.0)
-	_barrels.add_child(_muzzle)
+		_gun.position = Vector3(0, 0.5, 0)
+		var m := LowPoly.new()
+		m.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3.ZERO), 0.3, 1.6, 8, Palette.MOSS)
+		_add_mesh(_gun, m.mesh())
+		_muzzle.position = Vector3(0, 0, -1.6)
+		_gun.add_child(_muzzle)
 	# Four legs: hip up and out, a long shin down to a splayed foot.
 	for corner in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
 		var hip := Node3D.new()
@@ -136,13 +145,17 @@ func behave(delta: float) -> void:
 		return
 	var local := model.global_transform.affine_inverse() * tank.hit_center()
 	_turret.rotation.y = lerp_angle(_turret.rotation.y, atan2(-local.x, -local.z), 2.5 * delta)
+	if weapon == "flak":
+		aim_barrel(_gun, _flak_aim(tank), BARREL_SLEW, delta)
+	else:
+		slew_barrel(_gun, _lob(_muzzle.global_position, _mortar_target(tank, 0), 1.7), BARREL_SLEW, delta)
 	if _burst > 0:
 		_burst_timer -= delta
 		_barrels.rotation.z += delta * 30.0
 		if _burst_timer <= 0.0:
 			_burst -= 1
 			_burst_timer = 0.07
-			var shot := fire_at("orb", _muzzle.global_position, tank.hit_center() + tank.velocity * 0.4 + Vector3(randf_range(-2, 2), randf_range(-0.5, 1.5), randf_range(-2, 2)), 90.0, 4.0)
+			var shot := fire_along("orb", _muzzle, 90.0, 4.0, Palette.HOT, _flak_aim(tank) - _muzzle.global_position, 3.0, GUN_SPREAD)
 			shot.hit.caliber = 20
 			world.fx.muzzle_flash(_muzzle.global_position, (tank.hit_center() - _muzzle.global_position).normalized(), 0.8, Palette.HOT)
 			Sfx.play("enemy_gun", _muzzle.global_position, -2.0, 0.85)
@@ -170,25 +183,48 @@ func _attack(tank: Tank) -> void:
 		return
 	var world := World.current
 	var from := _muzzle.global_position
-	muzzle_blast(from, Vector3.UP, true)
+	muzzle_blast(from, -_muzzle.global_basis.z, true)
 	for i in (4 if _hard else 3):
 		var flight := 1.7 + i * 0.12
-		var target := tank.global_position + tank.velocity * flight + Vector3(randf_range(-5, 5), 0, randf_range(-5, 5)) * float(i > 0)
-		target.y = Course.height_at(target)
-		var velocity_out := (target - from) / flight
-		velocity_out.y += 0.5 * 20.0 * flight
+		var target := _mortar_target(tank, i)
+		var lob := _lob(from, target, flight)
+		# The shell leaves the tube along its bore (the tube may be a few degrees off this arc) and
+		# lands where that flight actually ends.
+		var velocity_out := bore_direction(_muzzle, lob, MORTAR_CORRECTION) * lob.length()
+		var rise := velocity_out.y * velocity_out.y + 2.0 * MORTAR_GRAVITY * (from.y - target.y)
+		var air := (velocity_out.y + sqrt(maxf(rise, 0.0))) / MORTAR_GRAVITY
+		target = Vector3(from.x + velocity_out.x * air, target.y, from.z + velocity_out.z * air)
 		var shell := world.spawn_projectile(Team.ENEMY, from, velocity_out, "mortar", Palette.HOT)
-		shell.gravity = 20.0
+		shell.gravity = MORTAR_GRAVITY
 		shell.hit = Hit.make(Hit.Kind.SHELL, 0.0, from)
 		shell.hit.source = self
 		shell.blast_radius = 3.4
 		shell.blast_damage = 24.0
 		shell.interceptable = true
 		shell.intercept_hp = 1.0
-		shell.life = flight + 1.0
-		world.fx.marker(target, 3.4, flight, Palette.HOT)
-	world.fx.muzzle_flash(from, Vector3.UP, 1.5, Palette.AMBER)
+		shell.life = air + 1.0
+		world.fx.marker(target, 3.4, air, Palette.HOT)
+	world.fx.muzzle_flash(from, -_muzzle.global_basis.z, 1.5, Palette.AMBER)
 	Sfx.play("launch", from, 2.0, 0.6)
+
+
+## Where flak is aimed: the tank, a little ahead of where it is going.
+func _flak_aim(tank: Tank) -> Vector3:
+	return tank.hit_center() + tank.velocity * 0.4
+
+
+## Where mortar shell `index` of a volley is meant to come down: the tank's path, the later ones scattered.
+func _mortar_target(tank: Tank, index: int) -> Vector3:
+	var target := tank.global_position + tank.velocity * (1.7 + index * 0.12) + Vector3(randf_range(-5, 5), 0, randf_range(-5, 5)) * float(index > 0)
+	target.y = Course.height_at(target)
+	return target
+
+
+## The launch velocity that lands a shell on `target` after `flight` seconds.
+func _lob(from: Vector3, target: Vector3, flight: float) -> Vector3:
+	var velocity_out := (target - from) / flight
+	velocity_out.y += 0.5 * MORTAR_GRAVITY * flight
+	return velocity_out
 
 
 ## Settles into a mid-stride stance without running any AI (debug room).
@@ -247,7 +283,7 @@ func on_damaged(hit: Hit, amount: float) -> void:
 		turret_hp -= amount
 		if turret_hp <= 0.0:
 			disarmed = true
-			_barrels.rotation.x = 0.5
+			_gun.rotation.x = 0.5
 			world.fx.explosion(_turret.global_position + Vector3.UP * 0.5, 1.6)
 			world.fx.burn(_turret.global_position + Vector3.UP * 0.5, 8.0, 0.7)
 			world.award(150, global_position, false)

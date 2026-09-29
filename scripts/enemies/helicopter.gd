@@ -4,10 +4,16 @@ extends Enemy
 
 const KEEP_AHEAD := 55.0
 const PACE_TIME := 12.0
+const BARREL_SLEW := 2.5 ## Radians per second the chin gun and the rocket pods turn onto the tank.
+const GUN_SPREAD := 0.01 ## Radians of scatter on every gun round.
+const ROCKET_SPREAD := 0.015
 
 var _rotor := Node3D.new()
 var _tail_rotor := Node3D.new()
 var _chin := Node3D.new()
+var _chin_muzzle := Node3D.new()
+var _pods: Array[Node3D] = [] ## Rocket pods on the stub wings; they train onto the tank like the chin gun.
+var _pod_muzzles: Array[Node3D] = []
 var _lane := 0.0
 var _height := 13.0
 var _attack_timer := 1.8
@@ -83,11 +89,20 @@ func build() -> void:
 	var chin_mesh := MeshInstance3D.new()
 	chin_mesh.mesh = c.mesh()
 	_chin.add_child(chin_mesh)
+	_chin_muzzle.position = Vector3(0, 0, -1.8)
+	_chin.add_child(_chin_muzzle)
 	for side in [-1.0, 1.0]:
+		var pivot := Node3D.new()
+		pivot.position = Vector3(side * 2.6, -0.4, 0.2)
+		model.add_child(pivot)
 		var pod := MeshInstance3D.new()
 		pod.mesh = _pod_mesh()
-		pod.position = Vector3(side * 2.6, -0.4, 0.2)
-		model.add_child(pod)
+		pivot.add_child(pod)
+		var muzzle := Node3D.new()
+		muzzle.position = Vector3(0, 0, -1.2)
+		pivot.add_child(muzzle)
+		_pods.append(pivot)
+		_pod_muzzles.append(muzzle)
 	pop_parts = [_rotor, _tail_rotor]
 	Sfx.loop("rotor", self, -5.0)
 
@@ -132,7 +147,10 @@ func behave(delta: float) -> void:
 	var to_tank := tank.hit_center() - global_position
 	model.rotation.y = lerp_angle(model.rotation.y, atan2(-to_tank.x, -to_tank.z), delta * 3.0)
 	model.rotation.z = sin(age * 0.8) * 0.12
-	_chin.look_at(tank.hit_center(), Vector3.UP)
+	var aim := _aim_point(tank)
+	aim_barrel(_chin, aim, BARREL_SLEW, delta)
+	for pod in _pods:
+		aim_barrel(pod, aim, BARREL_SLEW, delta)
 	if age > PACE_TIME + 12.0:
 		despawn()
 		return
@@ -160,12 +178,17 @@ func behave(delta: float) -> void:
 			Sfx.play("warn", global_position, -4.0)
 
 
+## Where the next round is meant to land: the tank, led a little for the shot's flight time.
+func _aim_point(tank: Tank) -> Vector3:
+	var speed := 55.0 if _rockets else 100.0
+	return tank.hit_center() + tank.velocity * (global_position.distance_to(tank.hit_center()) / speed) * 0.6
+
+
 func _fire(tank: Tank) -> void:
-	var from := _chin.global_position
-	if _rockets:
-		from = model.to_global(Vector3(-2.6 if _burst % 2 == 0 else 2.6, -0.4, -0.8))
-	var target := tank.hit_center() + tank.velocity * (from.distance_to(tank.hit_center()) / (55.0 if _rockets else 100.0)) * 0.6
-	var shot := fire_at("rocket" if _rockets else "orb", from, target, 55.0 if _rockets else 100.0, 0.0 if _rockets else 4.0)
+	var muzzle := _pod_muzzles[_burst % 2] if _rockets else _chin_muzzle
+	var from := muzzle.global_position
+	var wanted := _aim_point(tank) - from
+	var shot := fire_along("rocket", muzzle, 55.0, 0.0, Palette.HOT, wanted, 3.0, ROCKET_SPREAD) if _rockets else fire_along("orb", muzzle, 100.0, 4.0, Palette.HOT, wanted, 3.0, GUN_SPREAD)
 	shot.hit.caliber = 30
 	if _rockets:
 		shot.hit.kind = Hit.Kind.SHELL

@@ -225,9 +225,48 @@ func muzzle_blast(from: Vector3, dir: Vector3, heavy: bool) -> void:
 
 
 func fire_at(shape: String, from: Vector3, target: Vector3, speed: float, damage: float, color := Palette.HOT) -> Projectile:
-	muzzle_blast(from, (target - from).normalized(), shape in HEAVY_SHOTS)
-	var projectile := World.current.spawn_projectile(Team.ENEMY, from, (target - from).normalized() * speed, shape, color)
+	return _launch(shape, from, (target - from).normalized(), speed, damage, color)
+
+
+func _launch(shape: String, from: Vector3, dir: Vector3, speed: float, damage: float, color: Color) -> Projectile:
+	muzzle_blast(from, dir, shape in HEAVY_SHOTS)
+	var projectile := World.current.spawn_projectile(Team.ENEMY, from, dir * speed, shape, color)
 	projectile.hit = Hit.make(Hit.Kind.BULLET, damage, from)
 	projectile.hit.source = self
 	projectile.life = 3.0
 	return projectile
+
+
+## Turns a gun's `barrel` pivot (its bore is local -Z) toward the world direction `dir` by at most
+## `rate` radians per second, whatever its parent is doing. Returns the angle still to go.
+func slew_barrel(barrel: Node3D, dir: Vector3, rate: float, delta: float) -> float:
+	var frame := barrel.get_parent_node_3d().global_basis.orthonormalized().inverse()
+	var want := (frame * dir).normalized()
+	var have := -barrel.basis.z.normalized()
+	var angle := have.angle_to(want)
+	if angle < 0.0001:
+		return 0.0
+	var step := minf(angle, rate * delta)
+	var next := have.slerp(want, step / angle)
+	barrel.basis = Basis.looking_at(next, Vector3.UP if absf(next.y) < 0.99 else Vector3.RIGHT)
+	return angle - step
+
+
+## `slew_barrel` toward a point in the world.
+func aim_barrel(barrel: Node3D, point: Vector3, rate: float, delta: float) -> float:
+	return slew_barrel(barrel, point - barrel.global_position, rate, delta)
+
+
+## Which way a round leaves `muzzle`: along its bore. The fire computer may correct toward
+## `wanted` by at most `max_degrees` (a gun still traversing never fires where it does not point).
+static func bore_direction(muzzle: Node3D, wanted := Vector3.ZERO, max_degrees := 3.0) -> Vector3:
+	var bore := -muzzle.global_basis.z.normalized()
+	return bore if wanted == Vector3.ZERO else Tank.along_barrel(bore, wanted.normalized(), max_degrees)
+
+
+## Fires from a barrel: the round leaves the `muzzle` node along its -Z, corrected toward `wanted`
+## by at most `max_degrees`, scattered by `spread` (a cone of about that many radians).
+func fire_along(shape: String, muzzle: Node3D, speed: float, damage: float, color := Palette.HOT, wanted := Vector3.ZERO, max_degrees := 3.0, spread := 0.0) -> Projectile:
+	var dir := bore_direction(muzzle, wanted, max_degrees)
+	dir = (dir + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * spread).normalized()
+	return _launch(shape, muzzle.global_position, dir, speed, damage, color)

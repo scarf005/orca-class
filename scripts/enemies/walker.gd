@@ -7,6 +7,9 @@ extends Enemy
 const KEEP_AHEAD := 42.0
 const PACE_TIME := 14.0
 const SKATE_SPEED := 18.0
+const BARREL_SLEW := 3.0 ## Radians per second the arm gun and the pod turn onto the tank.
+const POD_LOFT := Vector3(0, 6, 0) ## The pod aims above the tank: its missiles pop up, then steer down onto it.
+const GUN_SPREAD := 0.03 ## Radians of scatter on every arm gun round.
 
 var weapon := "gun" ## "gun" or "missile".
 var legs_hp := 8.0
@@ -23,6 +26,7 @@ var _legs: Array[Dictionary] = [] ## {hip, knee, ankle, wheel}
 var _arm := Node3D.new()
 var _muzzle := Node3D.new()
 var _pod := Node3D.new()
+var _pod_muzzle := Node3D.new()
 var _eye_material := StandardMaterial3D.new()
 var _hard := false
 
@@ -85,6 +89,8 @@ func build() -> void:
 			p.box(Transform3D(Basis(), Vector3(x, y, -0.41)), Vector3(0.12, 0.12, 0.02), Palette.HOT)
 			p.glow = false
 	_add_mesh(_pod, p.mesh())
+	_pod_muzzle.position = Vector3(0, 0, -0.6)
+	_pod.add_child(_pod_muzzle)
 	# Reverse-jointed legs ending in wheeled feet.
 	for side in [-1.0, 1.0]:
 		var hip := Node3D.new()
@@ -152,12 +158,14 @@ func behave(delta: float) -> void:
 	if crippled or is_staggered():
 		_telegraph = 0.0
 		return
+	aim_barrel(_arm, tank.hit_center(), BARREL_SLEW, delta)
+	aim_barrel(_pod, tank.hit_center() + POD_LOFT, BARREL_SLEW, delta)
 	if _burst > 0:
 		_burst_timer -= delta
 		if _burst_timer <= 0.0:
 			_burst -= 1
 			_burst_timer = 0.08
-			var shot := fire_at("orb", _muzzle.global_position, tank.hit_center() + Vector3(randf_range(-1.2, 1.2), randf_range(-0.3, 0.8), randf_range(-1.2, 1.2)), 100.0, 3.0)
+			var shot := fire_along("orb", _muzzle, 100.0, 3.0, Palette.HOT, tank.hit_center() - _muzzle.global_position, 3.0, GUN_SPREAD)
 			shot.hit.caliber = 15
 			world.fx.muzzle_flash(_muzzle.global_position, (tank.hit_center() - _muzzle.global_position).normalized(), 0.5, Palette.HOT)
 			Sfx.play("enemy_gun", _muzzle.global_position, -4.0, 1.2)
@@ -184,8 +192,8 @@ func _attack(tank: Tank) -> void:
 		_burst_timer = 0.0
 		return
 	for i in 2:
-		var from := _pod.global_position + Vector3(0, 0.2, 0)
-		var missile := fire_at("rocket", from, from + Vector3(randf_range(-1.5, 1.5), 0.5, 0) + (tank.hit_center() - from).normalized() * 3.0, 34.0, 0.0)
+		var from := _pod_muzzle.global_position
+		var missile := fire_along("rocket", _pod_muzzle, 34.0, 0.0, Palette.HOT, Vector3.ZERO, 3.0, 0.06)
 		missile.hit = Hit.make(Hit.Kind.SHELL, 0.0, from)
 		missile.hit.source = self
 		missile.blast_radius = 2.4
@@ -197,7 +205,7 @@ func _attack(tank: Tank) -> void:
 		missile.intercept_hp = 0.7
 		missile.trail = Projectile.ROCKET_SMOKE
 		missile.life = 5.0
-	Sfx.play("launch", _pod.global_position, 0.0, 1.3)
+	Sfx.play("launch", _pod_muzzle.global_position, 0.0, 1.3)
 
 
 ## Settles into the planted crouch without running any AI (debug room).

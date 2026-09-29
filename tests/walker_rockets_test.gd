@@ -20,6 +20,7 @@ func _volley(world: World, strafe: float, lead := true) -> float:
 		world.add_enemy(walker)
 		walker._attack_timer = INF
 		var before := world.projectiles.duplicate()
+		walker.aim_barrel(walker._pod, tank.hit_center() + Walker.POD_LOFT, 100.0, 1.0) # The pod has finished training onto the tank.
 		walker._attack(tank)
 		for rocket in world.projectiles:
 			if rocket in before:

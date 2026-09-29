@@ -29,6 +29,13 @@ const BOMB_FLIGHT := 0.9 ## Seconds from the bay to the ground for the first bom
 const CANNON_SPEED := 450.0 ## The nose cannon's shells arrive almost at once, so each shot is warned first.
 const CANNON_AIM := 0.7 ## Seconds of warning before each cannon shot.
 const CANNON_LOCK := 0.35 ## For the last of the warning the aim holds still: move now and it misses.
+const CANNON_BRAKE := 8.0 ## Per second the airframe sheds its drift while the cannon takes its shots.
+const GATLING_SLEW := 3.0 ## Radians per second the shoulder guns, the chin drum and the racks turn onto their aim.
+const CHIN_SLEW := 2.0
+const RACK_SLEW := 4.0
+const CANNON_SLEW := 6.0 ## The nose cannon traverses onto its target while the line follows; the lock then holds it.
+const GUN_SPREAD := 0.025 ## Radians of scatter on a gatling round (doubled with a rotor gone).
+const RACK_CELLS := [Vector2(-0.45, -0.9), Vector2(0.45, 0.0), Vector2(-0.45, 0.9), Vector2(0.45, -0.9), Vector2(-0.45, 0.0), Vector2(0.45, 0.9)]
 const MIN_CLEARANCE := 9.0 ## Its belly and underslung guns hang this far below it: never lower than this over the ground.
 const PART_PRIORITY := 3.0 ## A module this close behind the airframe skin still takes the hit.
 const ROTORS := ["rotor_l", "rotor_r"]
@@ -57,7 +64,13 @@ var _rotors: Dictionary = {}
 var _discs: Array[MeshInstance3D] = []
 var _gatlings: Array[Node3D] = [] ## Shoulder turrets that track the tank; barrels spin while firing.
 var _barrels: Array[Node3D] = []
+var _gatling_muzzles: Array[Node3D] = []
 var _chin := Node3D.new()
+var _chin_muzzles: Array[Node3D] = [] ## One per launch tube of the ATGM drum.
+var _rack_muzzles := {} ## Rack part name -> muzzle node; it steps from cell to cell.
+var _rack_aim := {} ## Rack part name -> world point its next rocket is meant for.
+var _nose_muzzle := Node3D.new()
+var _cannon_hold := Vector3.ZERO ## While locked, the world direction the cannon barrel holds.
 var _fungus := Node3D.new()
 var _shots := 0
 var _shot_timer := 0.0
@@ -184,8 +197,12 @@ func build() -> void:
 		var spin := MeshInstance3D.new()
 		spin.mesh = g.mesh()
 		barrels.add_child(spin)
+		var muzzle := Node3D.new()
+		muzzle.position = Vector3(0, 0, -2.8)
+		turret.add_child(muzzle)
 		_gatlings.append(turret)
 		_barrels.append(barrels)
+		_gatling_muzzles.append(muzzle)
 		var gatling := "gatling_l" if side < 0.0 else "gatling_r"
 		_add_part(gatling, turret.position, 1.1, MODULE_HP[gatling], null)
 		parts[gatling].node = turret
@@ -200,6 +217,11 @@ func build() -> void:
 	var chin_mesh := MeshInstance3D.new()
 	chin_mesh.mesh = c.mesh()
 	_chin.add_child(chin_mesh)
+	for x in [-0.45, 0.0, 0.45]:
+		var tube := Node3D.new()
+		tube.position = Vector3(x, 0, -1.6)
+		_chin.add_child(tube)
+		_chin_muzzles.append(tube)
 	_add_part("era_left", Vector3(-2.6, 0.0, -1.2), 2.0, ERA_HP, _panel_mesh(-1.0))
 	_add_part("era_right", Vector3(2.6, 0.0, -1.2), 2.0, ERA_HP, _panel_mesh(1.0))
 	_add_part("era_front", Vector3(0, 0.4, -6.9), 1.6, ERA_HP, _nose_mesh())
@@ -208,6 +230,13 @@ func build() -> void:
 	_add_part("chin", _chin.position, 1.1, MODULE_HP.chin, null)
 	parts.chin.node = _chin
 	_add_part("nose_gun", Vector3(0, -1.3, -7.6), 1.0, MODULE_HP.nose_gun, _nose_gun_mesh())
+	for side in ["pod_l", "pod_r"]:
+		var rack_muzzle := Node3D.new()
+		rack_muzzle.position = Vector3(0, 0, -2.9)
+		(parts[side].node as Node3D).add_child(rack_muzzle)
+		_rack_muzzles[side] = rack_muzzle
+	(parts.nose_gun.node as Node3D).add_child(_nose_muzzle)
+	_nose_muzzle.position = Vector3(0, 0, -4.2)
 	_add_part("bay", Vector3(0, -2.6, 2.0), 1.6, MODULE_HP.bay, _bay_mesh())
 	for part: Part in parts.values():
 		part.module = MODULE_HP.has(part.name)
@@ -567,6 +596,9 @@ func behave(delta: float) -> void:
 	goal.y = maxf(goal.y, Course.height_at(goal) + MIN_CLEARANCE)
 	var accel := (goal - global_position) * 1.6 - _velocity * 1.4
 	_velocity += accel * delta
+	if _attack == Attack.CANNON:
+		# Steadies itself for the shot: a bore held still only hits if the muzzle stays put too.
+		_velocity = _velocity.lerp(Vector3.ZERO, 1.0 - exp(-CANNON_BRAKE * delta))
 	global_position += _velocity * delta
 	# However hard it is knocked about, it stays in the air until it actually crashes.
 	var floor_y := Course.height_at(global_position) + MIN_CLEARANCE
@@ -576,7 +608,8 @@ func behave(delta: float) -> void:
 	# Nose at the tank, bank into the turn.
 	var to_tank := tank.global_position - global_position
 	var yaw := atan2(-to_tank.x, -to_tank.z)
-	model.rotation.y = lerp_angle(model.rotation.y, yaw, 2.5 * delta)
+	if _cannon_hold == Vector3.ZERO:
+		model.rotation.y = lerp_angle(model.rotation.y, yaw, 2.5 * delta)
 	var lateral := _velocity.dot(model.global_basis.x)
 	var damaged_bank := 0.0
 	if not _live("rotor_l"):
@@ -585,15 +618,33 @@ func behave(delta: float) -> void:
 		damaged_bank = -0.3
 	model.rotation.z = lerpf(model.rotation.z, clampf(-lateral * 0.04, -0.15, 0.15) + damaged_bank, 3.0 * delta)
 	model.rotation.x = lerpf(model.rotation.x, -_velocity.dot(-model.global_basis.z) * 0.02 - 0.08, 3.0 * delta)
-	if _live("chin"):
-		_chin.look_at(tank.hit_center(), Vector3.UP)
-	for gatling in _gatlings:
-		if gatling:
-			gatling.look_at(tank.hit_center(), Vector3.UP)
+	_aim_weapons(delta, tank)
 	for barrels in _barrels:
 		if barrels:
 			barrels.rotation.z += delta * (30.0 if _attack == Attack.GUN else 2.0)
 	_update_attack(delta, tank)
+
+
+## Every barrel turns toward its aim at its own slew rate: the chin drum and gatlings follow the
+## tank, the racks the point their next rocket is meant for, and the nose cannon its lead (held
+## dead still once the aim locks).
+func _aim_weapons(delta: float, tank: Tank) -> void:
+	if _live("chin"):
+		aim_barrel(_chin, tank.hit_center(), CHIN_SLEW, delta)
+	for i in _gatlings.size():
+		var gatling := _gatlings[i]
+		if gatling:
+			var lead := tank.hit_center() + tank.velocity * (gatling.global_position.distance_to(tank.hit_center()) / GUN_SPEED) * 0.7
+			aim_barrel(gatling, lead, GATLING_SLEW, delta)
+	for side: String in _rack_muzzles:
+		if _live(side):
+			aim_barrel(parts[side].node, _rack_aim.get(side, tank.global_position), RACK_SLEW, delta)
+	if _live("nose_gun"):
+		var gun: Node3D = parts.nose_gun.node
+		if _cannon_hold != Vector3.ZERO:
+			slew_barrel(gun, _cannon_hold, CANNON_SLEW * 4.0, delta)
+		else:
+			aim_barrel(gun, _cannon_aim if _attack == Attack.CANNON and _cannon_aim != Vector3.ZERO else tank.hit_center(), CANNON_SLEW, delta)
 
 
 ## Fire and smoke from the stumps of wrecked modules.
@@ -710,6 +761,8 @@ func _choose_attack() -> void:
 
 func _end_attack() -> void:
 	_attack = Attack.NONE
+	_cannon_hold = Vector3.ZERO
+	_rack_aim.clear()
 	set_meta("locking", false)
 	var pause := [2.2, 1.6, 1.1][phase] as float
 	_next_attack = pause * (0.8 if _hard else 1.0) + randf() * 0.6
@@ -717,14 +770,14 @@ func _end_attack() -> void:
 
 func _gun(delta: float, tank: Tank) -> void:
 	var world := World.current
-	var live: Array = _barrels.filter(func(b: Node3D) -> bool: return is_instance_valid(b))
+	var live := range(_barrels.size()).filter(func(i: int) -> bool: return is_instance_valid(_barrels[i]))
 	if live.is_empty():
 		_end_attack()
 		return
 	if _attack_time < 0.6:
 		# Telegraph: sight beam sweeping onto the tank.
 		if fmod(_attack_time, 0.12) < 0.06:
-			var sight: Node3D = _chin if _live("chin") else live[0]
+			var sight: Node3D = _chin if _live("chin") else _gatlings[live[0]]
 			world.fx.beam(sight.global_position, tank.hit_center(), Palette.CORAL, 0.04, 0.05)
 		return
 	_shot_timer -= delta
@@ -733,11 +786,12 @@ func _gun(delta: float, tank: Tank) -> void:
 		_shots += 1
 		_shot_timer = 0.07
 		# The shoulder gatlings take turns, so the stream visibly comes from both sides.
-		var from: Vector3 = (live[_shots % live.size()] as Node3D).global_transform * Vector3(0, 0, -2.0)
+		var muzzle := _gatling_muzzles[live[_shots % live.size()]]
+		var from := muzzle.global_position
 		var lead := tank.hit_center() + tank.velocity * (from.distance_to(tank.hit_center()) / GUN_SPEED) * 0.7
 		var wild := 1.0 if _live("rotor_l") and _live("rotor_r") else 2.0
 		# 40 mm high-explosive rounds: each one hits hard and bursts where it lands.
-		var shot := fire_at("orb", from, lead + Vector3(randf_range(-1.5, 1.5), randf_range(-0.5, 0.5), randf_range(-1.5, 1.5)) * wild, GUN_SPEED, 9.0)
+		var shot := fire_along("orb", muzzle, GUN_SPEED, 9.0, Palette.HOT, lead - from, 3.0, GUN_SPREAD * wild)
 		shot.hit.caliber = 40
 		shot.blast_radius = 2.2
 		shot.blast_damage = 5.0
@@ -755,8 +809,11 @@ func _rockets(delta: float, tank: Tank) -> void:
 	if _attack_time < 0.8:
 		for side in ["pod_l", "pod_r"]:
 			var part: Part = parts[side]
-			if part.hp > 0.0 and fmod(_attack_time, 0.16) < 0.08:
-				flash()
+			if part.hp > 0.0:
+				# The racks train onto their first targets while they warn.
+				_rack_aim[side] = _rocket_target(tank, 0 if side == "pod_l" else 1)
+				if fmod(_attack_time, 0.16) < 0.08:
+					flash()
 		return
 	_shot_timer -= delta
 	var total := [12, 14, 20][phase] as int
@@ -766,14 +823,14 @@ func _rockets(delta: float, tank: Tank) -> void:
 			side = "pod_r" if side == "pod_l" else "pod_l"
 		_shots += 1
 		_shot_timer = 0.09 if phase != Phase.INFECTED else 0.06
-		var from: Vector3 = model.global_transform * (parts[side].offset + Vector3(0, 0, -1.0))
-		var spread := 7.0 if phase != Phase.INFECTED else 11.0
-		var target := tank.global_position + tank.velocity * 0.8 + Vector3(randf_range(-spread, spread), 0, randf_range(-spread, spread))
-		if phase == Phase.INFECTED:
-			var angle := _shots * 0.7
-			target = tank.global_position + Vector3(cos(angle), 0, sin(angle)) * (4.0 + _shots * 0.4)
-		target.y = Course.height_at(target)
-		var rocket := fire_at("rocket", from, target, ROCKET_SPEED, 0.0)
+		# The rocket leaves the next cell of the rack, along the rack, and the rack turns on to the next target.
+		var muzzle: Node3D = _rack_muzzles[side]
+		var cell: Vector2 = RACK_CELLS[_shots % RACK_CELLS.size()]
+		muzzle.position = Vector3(cell.x, cell.y, -2.9)
+		var from := muzzle.global_position
+		var target: Vector3 = _rack_aim.get(side, _rocket_target(tank, _shots))
+		_rack_aim[side] = _rocket_target(tank, _shots + 2)
+		var rocket := fire_along("rocket", muzzle, ROCKET_SPEED, 0.0, Palette.HOT, target - from, 4.0, 0.01)
 		rocket.hit = Hit.make(Hit.Kind.SHELL, 0.0, from)
 		rocket.hit.source = self
 		rocket.blast_radius = 4.0
@@ -788,12 +845,25 @@ func _rockets(delta: float, tank: Tank) -> void:
 		_end_attack()
 
 
+## Where rocket number `shot` of a volley is meant to come down: around the tank's path, or in a
+## widening spiral in the infected phase.
+func _rocket_target(tank: Tank, shot: int) -> Vector3:
+	var spread := 7.0 if phase != Phase.INFECTED else 11.0
+	var target := tank.global_position + tank.velocity * 0.8 + Vector3(randf_range(-spread, spread), 0, randf_range(-spread, spread))
+	if phase == Phase.INFECTED:
+		var angle := shot * 0.7
+		target = tank.global_position + Vector3(cos(angle), 0, sin(angle)) * (4.0 + shot * 0.4)
+	target.y = Course.height_at(target)
+	return target
+
+
 ## Nose cannon: three shells that arrive almost the instant they are fired, so each is warned
 ## first: the barrel glows hotter, a warning tone sounds and a sight line settles on where the
-## shell will land, then it fires.
+## shell will land, then it fires. The barrel follows the line and, once it locks, stays put: the
+## shell leaves along that bore.
 func _cannon(delta: float, tank: Tank) -> void:
 	var world := World.current
-	var muzzle: Vector3 = model.global_transform * (parts.nose_gun.offset + Vector3(0, 0, -4.2))
+	var muzzle := _nose_muzzle.global_position
 	var cycle := CANNON_AIM + 0.25
 	var index := int(_attack_time / cycle)
 	if index >= 3:
@@ -811,22 +881,23 @@ func _cannon(delta: float, tank: Tank) -> void:
 			world.fx.beam(muzzle, _cannon_aim, Palette.HOT, 0.06 + aiming * 0.15, 0.05)
 	if aiming < CANNON_AIM:
 		if aiming >= CANNON_AIM - CANNON_LOCK:
-			# Locked: the line goes solid and stops following. This is the moment to dash.
-			if aiming - delta < CANNON_AIM - CANNON_LOCK:
+			# Locked: the line goes solid and stops following, and so does the barrel. This is the moment to dash.
+			if _cannon_hold == Vector3.ZERO:
+				_cannon_hold = -_nose_muzzle.global_basis.z.normalized()
 				Sfx.play("warn", muzzle, 4.0, 1.6)
-			world.fx.beam(muzzle, _cannon_aim, Palette.HOT, 0.2, 0.03)
+			world.fx.beam(muzzle, muzzle - _nose_muzzle.global_basis.z.normalized() * muzzle.distance_to(_cannon_aim), Palette.HOT, 0.2, 0.03)
 		world.fx.spawn(Fx.Kind.FLAME, muzzle, Vector3.ZERO, 0.06, 0.3 + aiming * 1.2, Palette.HOT)
 		return
-	var lead := _cannon_aim
 	_shots += 1
-	var shell := fire_at("shell", muzzle, lead, CANNON_SPEED, 0.0)
+	_cannon_hold = Vector3.ZERO
+	var shell := fire_along("shell", _nose_muzzle, CANNON_SPEED, 0.0)
 	shell.hit = Hit.make(Hit.Kind.SHELL, 10.0, muzzle)
 	shell.hit.source = self
 	shell.blast_radius = 4.5
 	shell.blast_damage = 30.0
 	shell.interceptable = true
 	shell.intercept_hp = 10.0 # Ten times what the laser could burn through before.
-	_velocity -= (lead - muzzle).normalized() * 3.0
+	_velocity -= shell.velocity.normalized() * 3.0
 	Sfx.play("cannon", muzzle, 0.0, 1.3)
 
 
@@ -860,8 +931,10 @@ func _bombs(tank: Tank) -> void:
 
 
 func _launch_atgm(tank: Tank, index: int) -> void:
-	var from := _chin.global_position + model.global_basis.x * (index - 1) * 1.5
-	var missile := fire_at("atgm", from, from + Vector3.UP * 2.0 + model.global_basis.x * (index - 1) * 4.0 + (tank.hit_center() - from).normalized() * 4.0, ATGM_SPEED, 0.0)
+	var muzzle := _chin_muzzles[index]
+	var from := muzzle.global_position
+	# Out of the tube along the drum, then it steers: the tubes splay a little so the three fan out.
+	var missile := fire_along("atgm", muzzle, ATGM_SPEED, 0.0, Palette.HOT, Vector3.ZERO, 3.0, 0.06)
 	missile.hit = Hit.make(Hit.Kind.SHELL, 0.0, from)
 	missile.hit.source = self
 	missile.blast_radius = 4.0

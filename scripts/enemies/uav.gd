@@ -8,6 +8,7 @@ const HEAD_ON_SPEED := 20.0 ## First pass, toward the tank: slow enough to shoot
 const OVERTAKE := 8.0 ## Later passes creep past the tank this much faster than the rail.
 const LEAVE := 40.0
 const ALTITUDE := 17.0
+const BARREL_SLEW := 2.5 ## Radians per second the strafing gun turns onto the next point of its line.
 
 var attack := "bomb"
 var from_behind := false ## Arrives from behind the tank on an overtaking pass.
@@ -23,6 +24,8 @@ var _strafe_timer := 0.0
 var _strafe_point := Vector3.ZERO
 var _strafe_step := Vector3.ZERO
 var _prop: Node3D
+var _gun: Node3D ## Strafers hang a cannon under the nose; it turns onto the line it walks along the road.
+var _muzzle: Node3D
 var _sound: AudioStreamPlayer3D
 var engine_hp := 5.0 ## A hit on the pusher engine sends it gliding into the ground.
 var _falling := false
@@ -64,6 +67,18 @@ func build() -> void:
 	(_prop as MeshInstance3D).mesh = p.mesh()
 	_prop.position = Vector3(0, 0, 1.9)
 	model.add_child(_prop)
+	if attack == "strafe":
+		_gun = Node3D.new()
+		_gun.position = Vector3(0, -0.35, -0.9)
+		model.add_child(_gun)
+		var g := LowPoly.new()
+		g.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3.ZERO), 0.07, 1.4, 6, Palette.INK)
+		var gun_mesh := MeshInstance3D.new()
+		gun_mesh.mesh = g.mesh()
+		_gun.add_child(gun_mesh)
+		_muzzle = Node3D.new()
+		_muzzle.position = Vector3(0, 0, -1.5)
+		_gun.add_child(_muzzle)
 	# Enter far ahead and fly back down the road toward the tank.
 	var world := World.current
 	var slot: Vector3 = get_meta("slot", Vector3(0, 0, 0))
@@ -183,6 +198,9 @@ func _strafe_run(delta: float, tank: Tank, ahead: float) -> void:
 		_strafe_step = along * 2.4
 	if _strafe <= 0:
 		return
+	var line := _strafe_point + _strafe_step
+	line.y = Course.height_at(line)
+	aim_barrel(_gun, line, BARREL_SLEW, delta)
 	_strafe_timer -= delta
 	if _strafe_timer > 0.0:
 		return
@@ -191,7 +209,7 @@ func _strafe_run(delta: float, tank: Tank, ahead: float) -> void:
 	_strafe_point += _strafe_step
 	var ground := _strafe_point + Vector3(randf_range(-0.8, 0.8), 0, randf_range(-0.8, 0.8))
 	ground.y = Course.height_at(ground)
-	var shot := fire_at("orb", global_position + Vector3.DOWN * 0.5, ground, 150.0, 5.0)
+	var shot := fire_along("orb", _muzzle, 150.0, 5.0, Palette.HOT, ground - _muzzle.global_position, 4.0)
 	shot.hit.caliber = 23
 	Sfx.play("enemy_gun", global_position, -4.0, 1.2)
 	if _strafe == 0:

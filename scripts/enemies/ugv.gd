@@ -6,6 +6,8 @@ extends Enemy
 
 const KEEP_AHEAD := 48.0
 const PACE_TIME := 13.0 ## After this long it stops pacing the rail and falls behind.
+const BARREL_SLEW := 3.0 ## Radians per second the gun turns onto the tank.
+const GUN_SPREAD := 0.03 ## Radians of scatter on every round.
 
 var weapon := "gun"
 var _lane := 0.0
@@ -15,6 +17,7 @@ var _telegraph := 0.0
 var _burst := 0
 var _burst_timer := 0.0
 var _turret: Node3D
+var _barrel: Node3D ## Gun or launcher pivot on the turret; its -Z is the bore.
 var _muzzle: Node3D
 var _eye: MeshInstance3D
 var _eye_material := StandardMaterial3D.new()
@@ -69,23 +72,32 @@ func build() -> void:
 	model.add_child(body)
 	if weapon != "supply":
 		_turret = Node3D.new()
+		_barrel = Node3D.new()
 		_muzzle = Node3D.new()
 		pop_parts = [_turret]
 		_turret.position = Vector3(0, 1.35, 0)
 		model.add_child(_turret)
 		var t := LowPoly.new()
 		t.box(Transform3D(Basis(), Vector3(0, 0.25, 0.1)), Vector3(1.0, 0.5, 1.2), Palette.DUSK)
-		if weapon == "gun":
-			t.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3(0.0, 0.3, -0.4)), 0.08, 1.8, 6, Palette.INK)
-			_muzzle.position = Vector3(0, 0.3, -2.3)
-		else:
-			for x in [-0.28, 0.28]:
-				t.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3(x, 0.55, 0.5)), 0.16, 1.4, 6, Palette.MOSS)
-			_muzzle.position = Vector3(0.28, 0.55, -1.0)
 		var turret_mesh := MeshInstance3D.new()
 		turret_mesh.mesh = t.mesh()
 		_turret.add_child(turret_mesh)
-		_turret.add_child(_muzzle)
+		# The gun (or launcher tubes) is its own pivot: it slews onto the tank and rounds leave along it.
+		var g := LowPoly.new()
+		if weapon == "gun":
+			g.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3.ZERO), 0.08, 1.8, 6, Palette.INK)
+			_barrel.position = Vector3(0, 0.3, -0.4)
+			_muzzle.position = Vector3(0, 0, -1.9)
+		else:
+			for x in [-0.28, 0.28]:
+				g.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3(x, 0, 0)), 0.16, 1.4, 6, Palette.MOSS)
+			_barrel.position = Vector3(0, 0.55, 0.5)
+			_muzzle.position = Vector3(0.28, 0, -1.5)
+		var barrel_mesh := MeshInstance3D.new()
+		barrel_mesh.mesh = g.mesh()
+		_barrel.add_child(barrel_mesh)
+		_barrel.add_child(_muzzle)
+		_turret.add_child(_barrel)
 	_eye = MeshInstance3D.new()
 	var e := LowPoly.new()
 	e.glow = true
@@ -128,6 +140,7 @@ func behave(delta: float) -> void:
 	# Aim the turret at the tank (turret is child of the model).
 	var local := model.global_transform.affine_inverse() * tank.hit_center()
 	_turret.rotation.y = lerp_angle(_turret.rotation.y, atan2(-local.x, -local.z), 5.0 * delta)
+	aim_barrel(_barrel, tank.hit_center(), BARREL_SLEW, delta)
 	if is_staggered():
 		_cancel()
 		return
@@ -137,7 +150,7 @@ func behave(delta: float) -> void:
 		if _burst_timer <= 0.0:
 			_burst -= 1
 			_burst_timer = 0.11
-			var shot := fire_at("orb", _muzzle.global_position, tank.hit_center() + Vector3(randf_range(-1.5, 1.5), randf_range(-0.5, 1.0), randf_range(-1.5, 1.5)), 95.0, 4.0)
+			var shot := fire_along("orb", _muzzle, 95.0, 4.0, Palette.HOT, tank.hit_center() - _muzzle.global_position, 3.0, GUN_SPREAD)
 			shot.hit.caliber = 30
 			world.fx.spawn(Fx.Kind.FLAME, _muzzle.global_position, Vector3.ZERO, 0.06, 0.5, Palette.CORAL)
 			Sfx.play("enemy_gun", _muzzle.global_position, -2.0)
@@ -192,7 +205,7 @@ func _attack() -> void:
 		_burst_timer = 0.0
 		return
 	var from := _muzzle.global_position
-	var missile := fire_at("atgm", from, from + Vector3.UP * 3.0 + (tank.hit_center() - from).normalized() * 6.0, 32.0, 0.0)
+	var missile := fire_along("atgm", _muzzle, 32.0, 0.0, Palette.HOT, Vector3.ZERO, 3.0, 0.02)
 	missile.hit = Hit.make(Hit.Kind.SHELL, 0.0, from)
 	missile.hit.source = self
 	missile.blast_radius = 2.8
