@@ -195,8 +195,8 @@ Readable patterns, fair dodge windows, and no damage-sponge phases.
   with ordered (Bayer) dithering. Use dithered fog, shadows, transparency and fade-outs. Keep dither stable in screen
   space and avoid crawling shimmer when the camera moves.
 - **Actors pop off the scenery:** enemies, the tank and pickups are drawn in their true saturated colors (never
-  quantized to the pastel palette) with a glowing outline around the whole rendered object: hot red for enemies and
-  their shots, white for pickups; the tank has none. Outlines show through cover, so nothing hides behind a house.
+  quantized to the pastel palette) with a glowing outline around the whole rendered object: hot red for enemies,
+  orange for their shots, white for pickups; the tank has none. Outlines show through cover, so nothing hides behind a house.
 - Lighting: late-afternoon sun, long dithered shadows, spore haze. The boss arena shifts toward dusk.
 
 ### Game feel
@@ -219,8 +219,8 @@ blow up again where they land; every death blast hurts what is packed around it,
 and gas stations line the road; swarm enemies come in large numbers; weapon pickups and mission start and clear
 are announced with huge arcade call-outs. Blasts, debris and wrecks carry on along the attack that caused them;
 turrets blow off and cartwheel away. A strict color language makes sides readable at a glance: the tank's fire
-is warm yellow, every enemy shot and the rim on every enemy is hot pink-red, and loot is cyan (a beacon pillar and
-ring). Projectiles use these saturated accents with ink outlines so they cut through the pastel scene. A style meter ranks play from D to SSS and multiplies score:
+is warm yellow, every enemy shot is hot pink-red with an orange rim, the rim on every enemy is hot pink-red, and loot
+is cyan (a beacon pillar and ring). Projectiles use these saturated accents with ink outlines so they cut through the pastel scene. A style meter ranks play from D to SSS and multiplies score:
 
 - Kills are named by how they happened (crushed, tail whip, thrown, burned, airburst, sky shot, collateral from a
   wreck the tank set off, multikill, deflect, demolition, close call). Repeating the same trick earns less.

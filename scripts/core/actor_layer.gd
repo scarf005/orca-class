@@ -1,6 +1,6 @@
 class_name ActorLayer
 ## Render layers that sort what is on screen. Everything on LAYER (the player, enemies, projectiles,
-## pickups and flames) is mostly spared from dithering. The three class layers each get their own
+## pickups and flames) is mostly spared from dithering. The class layers each get their own
 ## mask viewport: the final pass draws a glowing outline around every enemy, the tank and every
 ## pickup, and shows them in their true, saturated colors instead of the pastel palette.
 
@@ -8,7 +8,8 @@ const LAYER := 2 ## Bit value of render layer 2.
 const HOSTILE := 4 ## Layer 3: enemies and their shots.
 const FRIENDLY := 8 ## Layer 4: the tank and its tail.
 const LOOT := 16 ## Layer 5: pickups.
-const CLASSES := [HOSTILE, FRIENDLY, LOOT]
+const HOSTILE_SHOT := 32 ## Layer 6: enemy projectiles.
+const CLASSES := [HOSTILE, FRIENDLY, LOOT, HOSTILE_SHOT]
 
 
 ## Adds the actor layer, and `extra` class bits, to every visual under `root` (and `root` itself).

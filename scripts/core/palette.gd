@@ -35,10 +35,12 @@ const WHITE := Color("fffaf5")
 const HOT := Color("ff3565")
 const AMBER := Color("ffb01f")
 const CYAN := Color("2fd3ea")
-## The color language. Nothing else in the scene uses these three for anything else:
-## warm yellow is yours, hot pink-red is theirs, cyan is loot.
+## The color language. Nothing else in the scene uses these for anything else: warm yellow is yours,
+## hot pink-red is theirs (enemy shots add a red-orange rim, apart from your amber), cyan is loot.
+## The rim is drawn by the final pass, so it is not in ALL.
 const FRIENDLY := AMBER
 const HOSTILE := HOT
+const HOSTILE_SHOT_RIM := Color("ff6a1a")
 const LOOT := CYAN
 
 const ALL: Array[Color] = [

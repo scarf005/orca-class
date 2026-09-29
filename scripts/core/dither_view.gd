@@ -3,10 +3,11 @@ extends TextureRect
 ## Shows a low-resolution SubViewport through the palette dither shader, scaled with nearest filtering.
 
 const RESOLUTION := Vector2i(960, 540)
-## Classes that get a glowing outline, and its color: enemies in red, pickups in white. The masks
-## that find their silhouettes render at half resolution; the outline only needs their shape.
-const OUTLINED := [ActorLayer.HOSTILE, ActorLayer.LOOT]
-const OUTLINE_COLORS := [Palette.HOSTILE, Palette.WHITE]
+## Classes that get a glowing outline, and its color: enemies in red, pickups in white, enemy shots
+## in orange. The masks that find their silhouettes render at half resolution; the outline only
+## needs their shape.
+const OUTLINED := [ActorLayer.HOSTILE, ActorLayer.LOOT, ActorLayer.HOSTILE_SHOT]
+const OUTLINE_COLORS := [Palette.HOSTILE, Palette.WHITE, Palette.HOSTILE_SHOT_RIM]
 const MASK_RESOLUTION := RESOLUTION / 2
 
 var viewport := SubViewport.new()
@@ -14,12 +15,12 @@ var viewport := SubViewport.new()
 ## pass should hold back. It shares the 3D world with `viewport`.
 var mask := SubViewport.new()
 var _mask_camera := Camera3D.new()
-## One mask per outlined class (enemies, pickups): alpha marks where that class is drawn.
+## One mask per outlined class (enemies, pickups, enemy shots): alpha marks where that class is drawn.
 var class_masks: Array[SubViewport] = []
 var _mask_cameras: Array[Camera3D] = [_mask_camera]
 var _material := ShaderMaterial.new()
 var _flash := Color(0, 0, 0, 0)
-var _mask_active := [true, true]
+var _mask_active := [true, true, true]
 var _strength := -1.0
 var _sent_flash := Color(0, 0, 0, 0)
 
@@ -78,6 +79,7 @@ func _ready() -> void:
 	_material.set_shader_parameter("actor_mask", mask.get_texture())
 	_material.set_shader_parameter("hostile_mask", class_masks[0].get_texture())
 	_material.set_shader_parameter("loot_mask", class_masks[1].get_texture())
+	_material.set_shader_parameter("shot_mask", class_masks[2].get_texture())
 	_material.set_shader_parameter("outline_colors", PackedColorArray(OUTLINE_COLORS))
 	material = _material
 
@@ -93,13 +95,13 @@ func _process(delta: float) -> void:
 				copy.near = camera.near
 		_mask_camera.far = camera.far
 	var world := World.current
-	var hostile := world != null and not world.enemies.is_empty()
-	if world and not hostile:
+	var shots := false
+	if world:
 		for projectile in world.projectiles:
 			if projectile.team != Entity.Team.PLAYER and not projectile.is_queued_for_deletion():
-				hostile = true
+				shots = true
 				break
-	var active := [hostile, world != null and not world.pickups.is_empty()]
+	var active := [world != null and not world.enemies.is_empty(), world != null and not world.pickups.is_empty(), shots]
 	var changed := false
 	for i in active.size():
 		if active[i] != _mask_active[i]:
@@ -107,7 +109,7 @@ func _process(delta: float) -> void:
 			class_masks[i].render_target_update_mode = SubViewport.UPDATE_ALWAYS if active[i] else SubViewport.UPDATE_DISABLED
 			changed = true
 	if changed:
-		_material.set_shader_parameter("mask_active", Vector2(float(active[0]), float(active[1])))
+		_material.set_shader_parameter("mask_active", Vector3(float(active[0]), float(active[1]), float(active[2])))
 	if _strength != Game.settings.dither:
 		_strength = Game.settings.dither
 		_material.set_shader_parameter("strength", _strength)

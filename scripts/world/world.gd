@@ -207,7 +207,7 @@ static func _projectile_meshes(shape: String, color: Color, hostile := false) ->
 
 
 ## Mesh instances for a projectile look: core and glow halo. `hostile` shots get a bigger white
-## core and stay off the hostile outline layer, so only enemies wear the red rim.
+## core and the orange shot rim; only enemies wear the red one.
 static func projectile_visual(shape: String, color: Color, hostile := false) -> Array[MeshInstance3D]:
 	var meshes := _projectile_meshes(shape, color, hostile)
 	var result: Array[MeshInstance3D] = []
@@ -215,7 +215,7 @@ static func projectile_visual(shape: String, color: Color, hostile := false) -> 
 		var mesh := MeshInstance3D.new()
 		mesh.mesh = meshes[i]
 		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		mesh.layers |= ActorLayer.LAYER
+		mesh.layers |= ActorLayer.LAYER | (ActorLayer.HOSTILE_SHOT if hostile else 0)
 		if i == 0:
 			mesh.material_override = _core_material
 		else:

@@ -11,11 +11,12 @@ uniform vec4 flash = vec4(0.0); // Full-screen tint for hits and big blasts; alp
 uniform sampler2D actor_mask : filter_nearest; // Alpha > 0 where actors and flames are drawn.
 // Actors (the tank, enemies, pickups, shots, flames) are shown in their true colors, never quantized
 // to the pastel palette, so they stand out from the scenery. Enemies and pickups also get a glowing
-// outline; their half-resolution masks only give the silhouette.
+// outline; their half-resolution masks only give the silhouette. Enemy shots get a rim without a glow.
 uniform sampler2D hostile_mask : filter_nearest;
 uniform sampler2D loot_mask : filter_nearest;
-uniform vec4 outline_colors[2];
-uniform vec2 mask_active = vec2(1.0);
+uniform sampler2D shot_mask : filter_nearest;
+uniform vec4 outline_colors[3];
+uniform vec3 mask_active = vec3(1.0);
 
 float coverage(sampler2D mask, vec2 uv, vec2 texel, float radius) {
 	for (int i = 0; i < 8; i++) {
@@ -63,14 +64,14 @@ void fragment() {
 		// Around each outlined actor, a solid rim and a dithered glow beyond it.
 		vec2 texel = 1.0 / vec2(textureSize(hostile_mask, 0));
 		float glow_dither = BAYER[(px.x & 3) + (px.y & 3) * 4] / 16.0;
-		for (int k = 0; k < 2; k++) {
+		for (int k = 0; k < 3; k++) {
 			if (mask_active[k] < 0.5) {
 				continue;
 			}
-			float rim = k == 0 ? coverage(hostile_mask, UV, texel, 1.0) : coverage(loot_mask, UV, texel, 1.0);
+			float rim = k == 0 ? coverage(hostile_mask, UV, texel, 1.0) : (k == 1 ? coverage(loot_mask, UV, texel, 1.0) : coverage(shot_mask, UV, texel, 1.5));
 			if (rim > 0.5) {
 				result = outline_colors[k].rgb;
-			} else if (glow_dither < 0.5) {
+			} else if (k < 2 && glow_dither < 0.5) {
 				// Half the Bayer cells never show a halo; rims also hide it completely.
 				float halo = k == 0 ? coverage(hostile_mask, UV, texel, 2.5) : coverage(loot_mask, UV, texel, 2.5);
 				if (halo > 0.5) {
