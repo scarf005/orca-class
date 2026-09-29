@@ -30,6 +30,7 @@ const CANNON_SPEED := 450.0 ## The nose cannon's shells arrive almost at once, s
 const CANNON_AIM := 0.7 ## Seconds of warning before each cannon shot.
 const CANNON_LOCK := 0.35 ## For the last of the warning the aim holds still: move now and it misses.
 const CANNON_BRAKE := 8.0 ## Per second the airframe sheds its drift while the cannon takes its shots.
+const GATLING_TRACER := 22.0 ## Length of the bright streak each gatling round draws.
 const GATLING_SLEW := 3.0 ## Radians per second the shoulder guns, the chin drum and the racks turn onto their aim.
 const CHIN_SLEW := 2.0
 const RACK_SLEW := 4.0
@@ -73,6 +74,7 @@ var _nose_muzzle := Node3D.new()
 var _cannon_hold := Vector3.ZERO ## While locked, the world direction the cannon barrel holds.
 var _fungus := Node3D.new()
 var _shots := 0
+var _spin := 2.0 ## Radians per second the gatling barrels turn.
 var _shot_timer := 0.0
 var _flare_cooldown := 0.0
 var _spore_timer := 0.0
@@ -619,9 +621,11 @@ func behave(delta: float) -> void:
 	model.rotation.z = lerpf(model.rotation.z, clampf(-lateral * 0.04, -0.15, 0.15) + damaged_bank, 3.0 * delta)
 	model.rotation.x = lerpf(model.rotation.x, -_velocity.dot(-model.global_basis.z) * 0.02 - 0.08, 3.0 * delta)
 	_aim_weapons(delta, tank)
+	# The gatling barrels wind up during the warning and spool down after the burst.
+	_spin = move_toward(_spin, 34.0 if _attack == Attack.GUN else 2.0, 45.0 * delta)
 	for barrels in _barrels:
 		if barrels:
-			barrels.rotation.z += delta * (30.0 if _attack == Attack.GUN else 2.0)
+			barrels.rotation.z += delta * _spin
 	_update_attack(delta, tank)
 
 
@@ -795,8 +799,10 @@ func _gun(delta: float, tank: Tank) -> void:
 		shot.hit.caliber = 40
 		shot.blast_radius = 2.2
 		shot.blast_damage = 5.0
+		# Every round draws a bright tracer streak down the bore, so the stream reads from across the arena.
+		world.fx.beam(from, from + shot.velocity.normalized() * GATLING_TRACER, Palette.HOT, 0.22, 0.09)
 		world.fx.spawn(Fx.Kind.FLAME, from, Vector3.ZERO, 0.05, 0.4, Palette.CORAL)
-		Sfx.play("enemy_gun", from, 4.0, 0.55)
+		Sfx.play("enemy_gun", from, 6.0, 0.7)
 	elif _shots >= total:
 		_end_attack()
 

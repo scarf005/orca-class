@@ -241,3 +241,37 @@ func test_gunship_cannon_barrel_turns_then_holds_still_through_the_lock() -> voi
 	for i in range(1, held.size()):
 		drift = maxf(drift, rad_to_deg(held[0].angle_to(held[i])))
 	check(drift < 0.5, "the cannon barrel does not move during the lock (%.2f deg)" % drift)
+
+
+func test_gunship_gatlings_fire_visibly_from_both_barrels() -> void:
+	var world := stage("boss")
+	var boss := _gunship(world)
+	var chosen := {}
+	for phase in [Gunship.Phase.HUNTER, Gunship.Phase.STRIPPED, Gunship.Phase.INFECTED]:
+		boss.phase = phase
+		chosen[phase] = 0
+		for _i in 300:
+			boss._choose_attack()
+			chosen[phase] += int(boss._attack == Gunship.Attack.GUN)
+			boss._end_attack()
+		check(chosen[phase] > 20, "gun runs come up in phase %d (%d of 300)" % [phase, chosen[phase]])
+	boss.phase = Gunship.Phase.HUNTER
+	boss._attack = Gunship.Attack.GUN
+	boss._attack_time = 0.0
+	var seen := world.projectiles.duplicate()
+	var from_side := [0, 0]
+	var streaks := 0
+	var spin := 0.0
+	for _i in 200:
+		var transients := world.fx._transients.size()
+		await get_tree().process_frame
+		spin = maxf(spin, boss._spin)
+		for p in world.projectiles:
+			if p in seen or p.team != Entity.Team.ENEMY:
+				continue
+			seen.append(p)
+			from_side[0 if p.global_position.distance_to(boss._gatling_muzzles[0].global_position) < p.global_position.distance_to(boss._gatling_muzzles[1].global_position) else 1] += 1
+			streaks += int(world.fx._transients.size() > transients)
+	check(from_side[0] >= 5 and from_side[1] >= 5, "both gatlings spit rounds (%s)" % str(from_side))
+	check(streaks >= 10, "each burst draws tracer streaks (%d)" % streaks)
+	check(spin > 30.0, "the barrels wind up")
