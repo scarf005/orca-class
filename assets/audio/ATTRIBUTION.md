@@ -2,7 +2,6 @@
 
 The Freesound records below are marked **CC0** on their source pages. The checked-in OGG files are 44.1 kHz stereo derivatives of the public `-hq.mp3` previews; no account or login was used.
 
-- `cannon.ogg` — qubodup, [Cannon Shot](https://freesound.org/people/qubodup/sounds/187767/), CC0. First 3.15 s one-shot extracted from the 12.346 s preview.
 - `ciws.ogg` — qubodup, [50 Cal MG](https://freesound.org/people/qubodup/sounds/239138/), CC0. First 0.12 s single-round excerpt extracted from the 3.713 s preview.
 - `engine.ogg` — qubodup, [Driving Tank Engine](https://freesound.org/people/qubodup/sounds/187676/), CC0. Full 5.694 s engine recording.
 - `track.ogg` — christerljung, [tracks moving](https://freesound.org/people/christerljung/sounds/849062/), CC0. Full 3.550 s track recording, looped in-game.

@@ -246,6 +246,25 @@ def guns():
         write_wav(f"coax{caliber}", np.tanh((crack * 1.3 + blast * 1.1 + thump * 1.5 * weight + clack * 0.5) * 2.2), 0.95)
 
 
+def cannon():
+    """The 100 mm main gun: a broadband crack that peaks within a few ms, a deep falling boom, a
+    mid-band blast, a muzzle-brake hiss and a valley tail with two faint early reflections. Nothing
+    is silent before the attack. Uses its own noise so adding it leaves the other effects unchanged."""
+    local = np.random.default_rng(100)
+    t = t_axis(1.8)
+    white = lambda: local.uniform(-1, 1, len(t))
+    rise = lambda ms: 1 - np.exp(-t / (ms / 1000))
+    crack = highpass(white(), 1800) * np.exp(-t * 420) * np.maximum(rise(0.4), 0.2)
+    boom = sweep(80, 35, 0.6, curve=0.5) * np.exp(-t_axis(0.6) * 6.5)
+    boom = np.pad(boom, (0, len(t) - len(boom))) * rise(2.5)
+    blast = lowpass(white(), 1300) * np.exp(-t * 14) * rise(1.0)
+    hiss = highpass(lowpass(white(), 7000), 2500) * np.exp(-t * 22) * rise(15) * 0.35
+    tail = lowpass(lowpass(white(), 260), 260) * np.exp(-t * 2.6) * rise(25) * 6.0
+    direct = crack * 2.4 + boom * 1.4 + blast * 1.1 + hiss + tail * 0.8
+    echoes = pad([(0.15, direct * 0.22), (0.35, lowpass(direct, 900) * 0.14)], 1.8)
+    write_wav("cannon", np.tanh((direct + echoes) * 1.2), 0.95)
+
+
 # --- Music ---------------------------------------------------------------------------------
 
 NOTE_NAMES = {"C": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3, "E": 4, "F": 5, "F#": 6, "Gb": 6, "G": 7,
@@ -914,7 +933,10 @@ if __name__ == "__main__":
     if "sfx" in parts:
         sfx()
         guns()
+        cannon()
     elif "guns" in parts:
         guns()
+    elif "cannon" in parts:
+        cannon()
     if "music" in parts:
         music()

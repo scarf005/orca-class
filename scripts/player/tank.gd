@@ -827,7 +827,7 @@ func _cannon_feedback(muzzle: Vector3, dir: Vector3) -> void:
 	ground.y = Course.height_at(muzzle)
 	if muzzle.y - ground.y < 4.0:
 		world.fx.dust(ground, 8, 2.5, Palette.STRAW)
-	Sfx.play("cannon", muzzle, 0.0, randf_range(0.95, 1.05))
+	Sfx.gun("cannon", randf_range(0.95, 1.05))
 
 
 ## Main-gun impacts. A shell landing on an enemy freezes the frame for a beat and bucks the camera.

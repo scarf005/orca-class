@@ -3,7 +3,7 @@ extends Node
 ## sounds and music.
 
 const SOUNDS := {
-	"cannon": ["res://assets/audio/cannon.ogg", 2.0],
+	"cannon": ["res://assets/audio/synth/cannon.wav", 0.0],
 	"blast": ["res://assets/audio/blast.ogg", 0.0],
 	"blast_small": ["res://assets/audio/blast.ogg", -5.0, 1.45],
 	"impact": ["res://assets/audio/rubble.ogg", -2.0, 0.7],
