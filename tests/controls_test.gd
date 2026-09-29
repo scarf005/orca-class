@@ -97,4 +97,4 @@ func test_one_main_gun_shell_wrecks_a_vehicle() -> void:
 	shell.caliber = 100
 	ugv.take_hit(shell)
 	check(ugv.dead, "a direct 100 mm hit is a kill")
-	check_near(Armament.RELOAD, 3.0, 0.001, "at the cost of a three-second reload")
+	check(Armament.RELOAD <= 1.5, "and cycles fast enough to thin a wave")

@@ -690,7 +690,8 @@ func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO) -> void:
 			shell.impacted.connect(_count_hit, CONNECT_ONE_SHOT)
 			match round:
 				Armament.Round.APHE:
-					shell.blast_radius = 12.0
+					# A small filler: it wrecks what it hits and what is right beside it, not the wave.
+					shell.blast_radius = 5.0
 					shell.blast_damage = 600.0
 				Armament.Round.HEAT:
 					shell.hit.damage = Armament.SHELL_DAMAGE * 1.5
@@ -726,7 +727,7 @@ func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO) -> void:
 		if round_count <= 0:
 			current_round = Armament.Round.APHE
 		round_changed.emit()
-	reload = (Armament.HEAT_RELOAD if round == Armament.Round.HEAT else Armament.RELOAD) * modules.reload_factor()
+	reload = Armament.RELOAD * modules.reload_factor()
 	_cannon_feedback(muzzle, barrel_dir)
 
 

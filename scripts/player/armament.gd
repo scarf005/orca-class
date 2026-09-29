@@ -18,13 +18,13 @@ const ROUND_IDS := {
 }
 
 ## Rounds loaded per special-round pickup.
-const MAGAZINE := {Round.HEAT: 4, Round.CANISTER: 4, Round.DRAGON: 4, Round.APFSDS: 4, Round.AIRBURST: 4}
+const MAGAZINE := {Round.HEAT: 6, Round.CANISTER: 6, Round.DRAGON: 6, Round.APFSDS: 6, Round.AIRBURST: 6}
 
-## A real 100 mm gun: a three-second reload, and a shell that wrecks any ordinary vehicle outright.
-const RELOAD := 3.0
+## A real 100 mm gun: a shell that wrecks any ordinary vehicle outright. The autoloader cycles fast
+## enough that the gun, not the coax, is the main way to thin a wave.
+const RELOAD := 1.2
 const SHELL_SPEED := 1700.0 ## Main-gun rounds are hitscan; this only sets their lead (none, in effect).
 const SHELL_RANGE := 420.0
-const HEAT_RELOAD := 3.0
 const SHELL_DAMAGE := 1500.0
 
 const ROUND_COLORS := {

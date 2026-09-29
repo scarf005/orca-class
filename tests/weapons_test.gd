@@ -82,3 +82,36 @@ func test_airburst_detonates_at_fuse_distance() -> void:
 	var burst: Vector3 = fragments[0].global_position if fragments.size() > 0 else muzzle
 	check_near(muzzle.distance_to(burst), muzzle.distance_to(tank.aim_point) - 2.0, 1.0, "fuse bursts just short of the aim point")
 	check(burst.y > Course.height_at(burst) + 1.0, "the burst is in the air")
+
+
+## Two UGVs beside the one the shot lands on: one at `near`, one at `far` meters across the road.
+func _cannon_volley(world: World, round: Armament.Round, near: float, far: float) -> Array:
+	var tank := world.player
+	var d := world.rail.d + 60.0
+	var ugvs: Array[Ugv] = []
+	for u in [0.0, near, far]:
+		var ugv := Ugv.new()
+		ugv.position = Course.ground_at(d, u)
+		ugv.immobile = true
+		world.add_enemy(ugv)
+		ugvs.append(ugv)
+	await frames(1)
+	tank.load_round(round)
+	tank.reload = 0.0
+	var target := ugvs[0].hit_center()
+	tank.fire_cannon(target + Vector3.UP * 20.0, Vector3.DOWN)
+	return ugvs.map(func(ugv: Ugv) -> bool: return ugv.dead)
+
+
+func test_aphe_wrecks_its_target_and_its_neighbor_not_the_wave() -> void:
+	var world := stage()
+	var dead: Array = await _cannon_volley(world, Armament.Round.APHE, 3.0, 9.0)
+	check_eq(dead, [true, true, false], "APHE kills what it hits and what is right beside it")
+	check_near(world.player.reload, Armament.RELOAD, 0.01, "then cycles for the next round")
+
+
+func test_heat_hits_harder_and_wider_on_the_same_reload() -> void:
+	var world := stage()
+	var dead: Array = await _cannon_volley(world, Armament.Round.HEAT, 7.0, 14.0)
+	check_eq(dead, [true, true, false], "HEAT's blast reaches past APHE's")
+	check_near(world.player.reload, Armament.RELOAD, 0.01, "HEAT loads as fast as APHE")
