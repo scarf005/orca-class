@@ -462,6 +462,24 @@ func splash(position: Vector3, size: float) -> void:
 		spawn(Kind.GLOW, at, dir * randf_range(3.0, 7.0) * (0.6 + size * 0.5), randf_range(0.4, 0.8), randf_range(0.15, 0.3) * (1.0 + size), [Palette.WHITE, Palette.SKY, Palette.CREAM][i % 3], {"gravity": 18.0, "end_size": 0.05, "fade": 0.6})
 
 
+## Something ploughing through the water: a bow wave thrown out to both sides and a ring spreading
+## behind it. Standing still, it only leaves slow ripples.
+func wake(position: Vector3, velocity: Vector3, size: float) -> void:
+	var at := Vector3(position.x, Course.WATER_LEVEL + 0.05, position.z)
+	var flat := Vector3(velocity.x, 0.0, velocity.z)
+	var pace := clampf(flat.length() / 20.0, 0.0, 1.0)
+	# Moving, rings are laid close together: small and brief, so they read as a trail, not a sheet.
+	_transient(_cached("ring", Palette.CREAM, _ring_builder), Transform3D(Basis(), at), lerpf(1.4, 0.5, pace), true, Vector2(size * 0.3, size * lerpf(2.0, 0.9, pace)), 0.2, false)
+	if pace < 0.1:
+		return
+	var ahead := flat.normalized()
+	var side := ahead.cross(Vector3.UP)
+	for i in int(2 + size * 2.0 * pace):
+		var out := 1.0 if i % 2 == 0 else -1.0
+		var push := side * out * randf_range(2.0, 5.0) + Vector3.UP * randf_range(3.0, 7.0) + flat * 0.4
+		spawn(Kind.GLOW, at + ahead * size * 0.7 + side * out * size * 0.5, push * (0.5 + pace * 0.5), randf_range(0.35, 0.6), randf_range(0.15, 0.3) * (1.0 + size * 0.5), [Palette.WHITE, Palette.SKY, Palette.CREAM][i % 3], {"gravity": 18.0, "end_size": 0.05, "fade": 0.6})
+
+
 static func _ring_builder(b: LowPoly, c: Color) -> void:
 	for i in 16:
 		var o0 := Vector3(cos(TAU * i / 16.0), 0, sin(TAU * i / 16.0))

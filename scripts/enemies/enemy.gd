@@ -59,6 +59,7 @@ func tick(delta: float) -> void:
 	show_damage(delta, death_radius)
 	velocity = (global_position - _last_position) / maxf(delta, 0.0001)
 	_last_position = global_position
+	wade(delta, velocity, death_radius)
 	if despawn_behind > 0.0:
 		var world := World.current
 		if world.rail.mode != Rail.Mode.ARENA and Course.to_course(global_position).x < world.rail.d - despawn_behind:

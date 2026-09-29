@@ -161,6 +161,7 @@ func tick(delta: float) -> void:
 	model.rotation.x = move_toward(model.rotation.x, 0.0, delta * 0.8)
 	velocity = (global_position - _last_position) / maxf(delta, 0.0001)
 	_last_position = global_position
+	wade(delta, velocity, HULL_RADIUS)
 	if _engine_sound:
 		_engine_sound.pitch_scale = 0.8 + clampf(velocity.length() / 25.0, 0.0, 0.6)
 

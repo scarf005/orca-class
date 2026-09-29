@@ -88,3 +88,39 @@ func test_capacity_stops_at_the_particle_limit() -> void:
 	var data: PackedFloat32Array = fx._buffers[Fx.Kind.GLOW]
 	check_near(data[(Fx.MAX_PARTICLES - 1) * Fx.STRIDE + 3], Fx.MAX_PARTICLES - 1, 0.00001, "the last particle is uploaded without truncation")
 	fx.free()
+
+
+func test_wake_throws_spray_only_while_moving() -> void:
+	var fx := Fx.new()
+	add_child(fx)
+	fx.wake(Vector3(0, -5, 0), Vector3.ZERO, 2.0)
+	check_eq(fx._transients.size(), 1, "standing still leaves a ripple ring")
+	check(fx._pools[Fx.Kind.GLOW].is_empty(), "standing still throws no spray")
+	var ring: MeshInstance3D = fx._transients[0].node
+	check_near(ring.position.y, Course.WATER_LEVEL + 0.05, 0.0001, "ripples lie on the water surface")
+	fx.wake(Vector3(0, -5, 0), Vector3(0, 3, -20), 2.0)
+	check_eq(fx._transients.size(), 2, "moving leaves a ring too")
+	var spray: Array = fx._pools[Fx.Kind.GLOW]
+	check(spray.size() >= 4, "moving throws a bow wave")
+	check(spray.any(func(p: Fx.Particle) -> bool: return p.velocity.x > 0.0) and spray.any(func(p: Fx.Particle) -> bool: return p.velocity.x < 0.0), "the bow wave spreads to both sides")
+	fx.free()
+
+
+func test_ground_units_splash_into_the_reservoir() -> void:
+	var world := stage()
+	var dry := world.player.global_position
+	world.player.wade(0.016, Vector3.ZERO, 2.0)
+	check(not world.player._wet, "the road is dry")
+	var transients := world.fx._transients.size()
+	world.rail.d = 2100.0
+	world.player.course_u = -30.0
+	await frames(3)
+	check(world.player.global_position.y < Course.WATER_LEVEL, "the tank can drive into the reservoir")
+	check(world.player._wet, "the tank knows it is wading")
+	check(world.fx._transients.size() > transients + 3, "driving in splashes and leaves a wake")
+	var drone := FpvDrone.new()
+	drone.position = Vector3(dry.x, Course.WATER_LEVEL - 1.0, dry.z)
+	world.add_enemy(drone)
+	drone.wade(0.016, Vector3.ZERO, 1.0)
+	check(not drone._wet, "flying units never wade")
+	cleanup()
