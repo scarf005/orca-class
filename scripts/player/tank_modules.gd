@@ -4,21 +4,21 @@ extends RefCounted
 ## Modules degrade to DAMAGED then DESTROYED; the crew field-repairs them one step at a time.
 ## ERA blocks each stop one shaped-charge warhead from their facing. The tail is tracked by
 ## `Tail` itself and only comes back from a pickup. The RWS ("laser") is only there once an RWS
-## pickup mounts it, and it is knocked off when destroyed: not field-repaired, and only an RWS
-## pickup puts it back (a spare hull comes without one).
+## pickup mounts it, and the roof sensors (RWS, FCS) are knocked off when destroyed: they are not
+## field-repaired, and only a spare hull, a repair pickup (FCS) or an RWS pickup puts them back.
 
 enum State { OK, DAMAGED, DESTROYED }
 
-const MAX := {"track_l": 60.0, "track_r": 60.0, "engine": 70.0, "breech": 60.0, "turret": 60.0, "laser": 40.0}
+const MAX := {"track_l": 60.0, "track_r": 60.0, "engine": 70.0, "breech": 60.0, "turret": 60.0, "laser": 40.0, "fcs": 30.0}
 const ERA := {"front": 4, "left": 3, "right": 3, "rear": 0}
 const REPAIR_TIME := 7.0 ## Seconds for the crew to fix one step of damage on a module.
-const KNOCKED_OFF := ["laser"] ## Roof gear: destroyed means gone, not broken.
+const KNOCKED_OFF := ["laser", "fcs"] ## Roof sensors: destroyed means gone, not broken.
 
 ## Which modules a hit from each facing can reach.
 const EXPOSED := {
-	"front": ["breech", "turret", "track_l", "track_r"],
-	"left": ["track_l", "turret", "laser"],
-	"right": ["track_r", "turret", "laser"],
+	"front": ["breech", "turret", "track_l", "track_r", "fcs"],
+	"left": ["track_l", "turret", "laser", "fcs"],
+	"right": ["track_r", "turret", "laser", "fcs"],
 	"rear": ["engine", "turret"],
 }
 
@@ -122,6 +122,16 @@ func traverse_factor() -> float:
 
 func laser_online() -> bool:
 	return state("laser") != State.DESTROYED
+
+
+## Soft-lock radius scale: the sight halves when damaged and is gone when destroyed.
+func lock_factor() -> float:
+	return _factor("fcs", 0.5, 0.0)
+
+
+## Rounds only lead a moving target while the FCS is whole.
+func lead_online() -> bool:
+	return state("fcs") == State.OK
 
 
 func overdrive_online() -> bool:

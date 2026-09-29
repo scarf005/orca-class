@@ -29,13 +29,18 @@ const DASH_SPEED := 2.0 * DASH_DISTANCE / DASH_TIME ## Starts this fast and ease
 ## In the input vector's convention: +y is forward (Vector2.UP would be backward here).
 const TAP_DIRECTIONS := {&"move_left": Vector2(-1, 0), &"move_right": Vector2(1, 0), &"move_forward": Vector2(0, 1), &"move_back": Vector2(0, -1)}
 const COAX_RANGE := 140.0
-const SOFT_LOCK_RADIUS := 56.0 ## Screen pixels (3D view) around the reticle.
+const SOFT_LOCK_RADIUS := 56.0 ## Screen pixels (3D view) around the reticle; the FCS scales it.
 const PART_LOCK_RADIUS := 90.0 ## Screen pixels: on a target made of modules, the nearest one within this is locked.
 const RESPAWN_DELAY := 1.8
 const RESPAWN_INVULN := 2.6
 const CRUSH_SPEED := 5.0 ## Ground speed above which the tank runs down ground enemies.
 const RAM_DAMAGE := 150.0
 const CANISTER_RANGE := 70.0
+const SMALL_ARMS_CALIBER := 40 ## Bullets below this glance off the armor; only the exposed sensors feel them.
+## How close (angle from the hull's center) a small-arms hit must land to a roof sensor to break it.
+## Enemy fire arrives low, the sensors sit high on the roof: this wide cone is what makes about one
+## in seven of the rounds that reach the hull count (see small_arms_test).
+const SENSOR_STRIKE_ANGLE := deg_to_rad(82.0)
 
 var model := TankModel.new()
 var tail := Tail.new()
@@ -115,14 +120,15 @@ func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 	return super.hit_test(from, to, extra_radius)
 
 
-## The RWS shows only while mounted.
-func _sync_rws() -> void:
+## The roof sensors show only while mounted.
+func _sync_sensors() -> void:
 	model.rws.visible = modules.laser_online()
+	model.fcs.visible = modules.state("fcs") != TankModules.State.DESTROYED
 
 
 func mount_rws() -> void:
 	modules.mount_rws()
-	_sync_rws()
+	_sync_sensors()
 
 
 func set_coax_tier(tier: int) -> void:
@@ -155,7 +161,7 @@ func tick(delta: float) -> void:
 	anchor_cooldown = maxf(0.0, anchor_cooldown - delta)
 	reload = maxf(0.0, reload - delta)
 	modules.update(delta)
-	_sync_rws()
+	_sync_sensors()
 	_blink = maxf(0.0, _blink - delta)
 	model.visible = _blink <= 0.0 or fmod(_blink, 0.16) < 0.1
 	tail.visible = model.visible and not tail.destroyed
@@ -531,7 +537,7 @@ func _fire_direction(from: Vector3, speed: float) -> Vector3:
 ## Where to aim so a round at `speed` meets `target`: a few passes settle the flight time.
 ## Where to shoot to hit `target` (at `spot` on it, or its middle) as it moves.
 func lead_point(from: Vector3, speed: float, target: Entity, spot := Vector3.INF) -> Vector3:
-	var enemy_velocity := (target as Enemy).velocity if target is Enemy else Vector3.ZERO
+	var enemy_velocity := (target as Enemy).velocity if target is Enemy and modules.lead_online() else Vector3.ZERO
 	var p := target.hit_center() if spot == Vector3.INF else spot
 	var aim := p
 	for i in 3:
@@ -589,11 +595,13 @@ func _pick_part(target: Entity) -> String:
 
 
 func _pick_coax_target() -> Entity:
+	if modules.lock_factor() <= 0.0:
+		return null # The sight is gone: the guns go where the reticle points.
 	if is_instance_valid(aim_target) and not aim_target.dead:
 		return aim_target
 	var cam := World.current.camera
 	var best: Entity = null
-	var best_distance := SOFT_LOCK_RADIUS
+	var best_distance := SOFT_LOCK_RADIUS * modules.lock_factor()
 	for enemy in World.current.enemies:
 		if enemy.dead or enemy is Flare or cam.is_position_behind(enemy.hit_center()):
 			continue
@@ -1095,8 +1103,6 @@ func damage_multiplier(hit: Hit) -> float:
 	if invuln > 0.0 or _respawn > 0.0:
 		return 0.0
 	var multiplier := 1.0
-	if hit.kind == Hit.Kind.BULLET and hit.caliber < 20:
-		multiplier *= 0.35
 	# Frontal armor is thick, the rear is weak.
 	match facing_of(hit):
 		"front":
@@ -1109,6 +1115,9 @@ func damage_multiplier(hit: Hit) -> float:
 ## Shaped charges are decided by ERA: a block on that facing eats it, otherwise it is fatal.
 func take_hit(hit: Hit) -> void:
 	if dead or invulnerable or _respawn > 0.0:
+		return
+	if is_small_arms(hit):
+		_glance_off(hit)
 		return
 	if hit.warhead and invuln <= 0.0:
 		var world := World.current
@@ -1128,6 +1137,39 @@ func take_hit(hit: Hit) -> void:
 		die(hit)
 		return
 	super(hit)
+
+
+static func is_small_arms(hit: Hit) -> bool:
+	return hit.kind == Hit.Kind.BULLET and hit.caliber < SMALL_ARMS_CALIBER
+
+
+## Small arms do nothing to the hull (no damage taken, no flash): they whine off the armor, unless
+## they land on an exposed roof sensor, which takes the hit.
+func _glance_off(hit: Hit) -> void:
+	var world := World.current
+	world.fx.sparks(hit.position, -hit.direction, 5, Palette.WHITE, 12.0)
+	Sfx.play("hit_confirm", hit.position, -8.0, randf_range(1.7, 2.1))
+	var sensor := struck_sensor(hit)
+	if invuln <= 0.0 and not sensor.is_empty():
+		damage_module(sensor, hit.damage)
+
+
+## The mounted roof sensor ("laser" or "fcs") a hit lands on: the one whose direction from the
+## hull's center is within SENSOR_STRIKE_ANGLE of the hit's, nearest first; "" for bare armor.
+func struck_sensor(hit: Hit) -> String:
+	var toward := hit.position - hit_center()
+	if toward.length() < 0.01:
+		return ""
+	var best := ""
+	var best_angle := SENSOR_STRIKE_ANGLE
+	for name: String in TankModules.KNOCKED_OFF:
+		if modules.state(name) == TankModules.State.DESTROYED:
+			continue
+		var angle := toward.angle_to(model.sensor_position(name) - hit_center())
+		if angle < best_angle:
+			best = name
+			best_angle = angle
+	return best
 
 
 func on_damaged(hit: Hit, amount: float) -> void:
@@ -1152,14 +1194,12 @@ func _damage_modules(hit: Hit, amount: float) -> void:
 	if facing == "rear" and tail.damage(amount * 1.2):
 		world.fx.explosion(tail.mount.global_position, 1.5, [Palette.WHITE, Palette.FUNGUS, Palette.BLUSH])
 		world.radio.emit(&"AI_MOD_TAIL")
-	if hit.kind == Hit.Kind.BULLET and hit.caliber < 20:
-		return
-	# An RWS that is already gone cannot be hit again.
+	# A sensor that is already gone cannot be hit again.
 	var exposed: Array = TankModules.EXPOSED[facing].filter(func(name: String) -> bool: return modules.state(name) != TankModules.State.DESTROYED or name not in TankModules.KNOCKED_OFF)
 	damage_module(exposed[randi() % exposed.size()], amount * 1.3)
 
 
-## Hurts a module, calling it out on the radio. A destroyed RWS is knocked clean off and
+## Hurts a module, calling it out on the radio. A roof sensor destroyed is knocked clean off and
 ## cartwheels away in flames.
 func damage_module(name: String, amount: float) -> bool:
 	if not modules.damage(name, amount):
@@ -1167,9 +1207,10 @@ func damage_module(name: String, amount: float) -> bool:
 	var world := World.current
 	var out := modules.state(name) == TankModules.State.DESTROYED
 	if out and name in TankModules.KNOCKED_OFF:
-		var piece := model.detach(model.rws)
+		var piece := model.detach(model.rws if name == "laser" else model.fcs)
 		Wreck.launch(piece, piece.global_position, 0.8, false, (piece.global_position - hit_center()).normalized() * 8.0, false)
-	world.radio.emit(StringName("AI_MOD_" + name.to_upper() + ("_OUT" if out else "")))
+	if name != "fcs":
+		world.radio.emit(StringName("AI_MOD_" + name.to_upper() + ("_OUT" if out else "")))
 	world.fx.sparks(hit_center(), Vector3.UP, 14, Palette.BUTTER, 10.0)
 	return true
 
@@ -1206,7 +1247,7 @@ func die(_hit: Hit) -> void:
 func _finish_respawn() -> void:
 	hp = max_hp
 	modules.restore()
-	_sync_rws()
+	_sync_sensors()
 	tail.regrow()
 	invuln = RESPAWN_INVULN
 	_blink = RESPAWN_INVULN

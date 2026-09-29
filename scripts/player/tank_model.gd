@@ -1,7 +1,7 @@
 class_name TankModel
 extends Node3D
 ## The Orca-class's low-poly body: hull and tracks, a turret with the 100 mm gun, coaxial guns
-## that change with the upgrade tier, and the laser RWS on the roof. The tail is built by `Tail`.
+## that change with the upgrade tier, the laser RWS and the gunner's FCS sight on the roof. The tail is built by `Tail`.
 
 const COAX_SLOTS: Array[Vector3] = [Vector3(0.62, 0.12, -0.35), Vector3(-0.62, 0.12, -0.35), Vector3(0.0, 0.62, -0.1)]
 
@@ -12,6 +12,7 @@ var barrel := Node3D.new()
 var muzzle := Node3D.new()
 var rws := Node3D.new()
 var rws_lens := Node3D.new()
+var fcs := Node3D.new()
 var coax_root := Node3D.new()
 var coax_muzzles: Array[Node3D] = []
 var tail_mount := Node3D.new()
@@ -43,6 +44,9 @@ func _ready() -> void:
 	_mesh(rws, _rws_mesh())
 	rws_lens.position = Vector3(0, 0.42, -0.45)
 	rws.add_child(rws_lens)
+	fcs.position = Vector3(0.85, 0.95, 1.25)
+	turret.add_child(fcs)
+	_mesh(fcs, _fcs_mesh())
 	tail_mount.position = Vector3(0, 1.45, 3.45)
 	hull.add_child(tail_mount)
 	set_coax_guns([8])
@@ -55,7 +59,12 @@ func _mesh(parent: Node3D, mesh: Mesh) -> MeshInstance3D:
 	return instance
 
 
-## Copies the RWS into the world as a loose piece at its own pose and hides the mounted one;
+## World position of a roof sensor's middle ("laser" is the RWS, "fcs" the sight).
+func sensor_position(name: String) -> Vector3:
+	return (rws if name == "laser" else fcs).to_global(Vector3(0, 0.4, 0))
+
+
+## Copies a roof sensor into the world as a loose piece at its own pose and hides the mounted one;
 ## the caller throws it.
 func detach(part: Node3D) -> Node3D:
 	var piece := part.duplicate() as Node3D
@@ -219,3 +228,14 @@ static func _rws_mesh() -> Mesh:
 	b.box(Transform3D(Basis(), Vector3(0, 0.42, -0.53)), Vector3(0.16, 0.16, 0.02), Palette.MINT)
 	return b.mesh()
 
+
+## The gunner's sight: a boxy periscope head with a glowing lens and a rangefinder window.
+static func _fcs_mesh() -> Mesh:
+	var b := LowPoly.new()
+	b.prism(Transform3D(), 0.26, 0.2, 6, Palette.HULL)
+	b.box(Transform3D(Basis(), Vector3(0, 0.42, 0)), Vector3(0.6, 0.4, 0.55), Palette.HULL_LIGHT)
+	b.box(Transform3D(Basis(), Vector3(0, 0.7, 0.05)), Vector3(0.5, 0.08, 0.4), Palette.PINE)
+	b.glow = true
+	b.box(Transform3D(Basis(), Vector3(-0.14, 0.44, -0.29)), Vector3(0.2, 0.18, 0.02), Palette.SKY)
+	b.box(Transform3D(Basis(), Vector3(0.16, 0.44, -0.29)), Vector3(0.12, 0.12, 0.02), Palette.BUTTER)
+	return b.mesh()

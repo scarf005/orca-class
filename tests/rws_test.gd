@@ -27,6 +27,7 @@ func test_the_tank_starts_without_an_rws() -> void:
 	await frames(2)
 	check(not tank.modules.laser_online(), "no laser")
 	check(not tank.model.rws.visible, "no model on the roof")
+	check(tank.model.fcs.visible, "but the FCS is there")
 	check(tank.needs("rws"), "it needs one")
 	var rocket := _rocket(world, tank)
 	var got := []
@@ -106,6 +107,7 @@ func test_losing_a_life_loses_the_rws() -> void:
 	check(not tank.modules.laser_online(), "the spare hull has no RWS")
 	check(not tank.model.rws.visible, "the roof is bare")
 	check_eq(tank.modules.state("track_l"), TankModules.State.OK, "everything else is restored")
+	check_eq(tank.modules.state("fcs"), TankModules.State.OK, "including the FCS")
 
 
 func test_a_spare_pickup_turns_into_an_rws_when_it_is_missing() -> void:

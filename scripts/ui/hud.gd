@@ -296,8 +296,11 @@ func _update_xray() -> void:
 	_paint(_xray.barrel, _module_color(m.state("breech")))
 	_paint(_xray.coax_root, Palette.AMBER)
 	_paint(_xray.rws, _module_color(m.state("laser")))
-	if _xray.rws.visible != m.laser_online():
-		_xray.rws.visible = m.laser_online()
+	_paint(_xray.fcs, _module_color(m.state("fcs")))
+	var sensors := [m.laser_online(), m.state("fcs") != TankModules.State.DESTROYED]
+	if _xray.rws.visible != sensors[0] or _xray.fcs.visible != sensors[1]:
+		_xray.rws.visible = sensors[0]
+		_xray.fcs.visible = sensors[1]
 		_tank_view.refresh()
 	_paint(_xray_tail, _tail_color())
 
@@ -532,7 +535,8 @@ func _draw_reticle() -> void:
 			draw_line(c + Vector2(x, -3), c + Vector2(x, 3), color, 1.0)
 	draw_line(c + Vector2(0, 14), c + Vector2(0, 26), color, 2.0)
 	# Range to whatever the sight rests on.
-	_text(c + Vector2(50, -4), "%04d" % int(range_m), color, 12)
+	if p.modules.lock_factor() > 0.0:
+		_text(c + Vector2(50, -4), "%04d" % int(range_m), color, 12)
 	_text(c + Vector2(50, 10), ROUND_CODES[p.current_round], Armament.ROUND_COLORS[p.current_round], 12)
 	# Reload ring: twelve segments fill; a READY flash when the gun is loaded.
 	var reload := clampf(1.0 - p.reload / (Armament.RELOAD * p.modules.reload_factor()), 0.0, 1.0)
@@ -571,7 +575,9 @@ func _draw_reticle() -> void:
 	if k >= 1.0:
 		var distance := int(focus.distance_to(p.global_position))
 		_text(center + Vector2(0, s + 14), "%s  %dm" % [name, distance], Palette.HOSTILE, 12, HORIZONTAL_ALIGNMENT_CENTER, 0)
-		# Lead diamond for the main gun.
+		# Lead diamond for the main gun, while the FCS can still compute one.
+		if not p.modules.lead_online():
+			return
 		var lead := p.lead_point(p.model.muzzle.global_position, Armament.SHELL_SPEED, target, focus)
 		if not cam.is_position_behind(lead):
 			var lp := cam.unproject_position(lead) * SCALE

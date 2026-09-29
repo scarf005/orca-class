@@ -55,13 +55,16 @@ The hull has an armor bar for kinetic damage, and internal modules that break se
 | Engine | Slower meter refill / no overdrive | Rear |
 | Breech | Reload ×1.5 / ×3 | Front |
 | Turret drive | Slower traverse | Any |
-| Laser RWS | — / knocked off: CIWS gone until another RWS pickup | Sides |
+| Laser RWS | — / knocked off: CIWS gone until another RWS pickup | Sides, and small arms that strike it |
+| FCS (gunner's sight) | Soft-lock radius halved, no lead / knocked off: no soft lock, no lead, no range readout | Front, sides, and small arms that strike it |
 | Tail | Slower / gone until a regrowth pickup | Rear |
 
 - Shaped-charge warheads (FPV drones, ATGMs) are decided by ERA: a brick on that facing absorbs the hit;
   where there is none left (always at the rear), the hit is fatal and costs a life.
-- A knocked-off RWS flies away in flames and is not field-repaired or replaced by a repair pickup: only another RWS
-  pickup mounts one (a spare hull comes without it).
+- Small arms (bullets under 40 mm: all enemy machine guns and cannons except the gunship's chin gun) ricochet off the
+  armor for no damage, unless they strike the RWS or FCS on the roof. A knocked-off RWS or FCS flies away in flames
+  and is not field-repaired: the FCS comes back with a repair pickup or a spare hull, the RWS only with an RWS pickup
+  (a spare hull comes without one).
 - The crew field-repairs damaged modules one step at a time. A lost tail only returns from a regrowth pickup.
   ERA refills from ERA pickups. A spare hull (a new life) restores everything.
 - Enemies have modules too: a UGV hit low loses its tracks and stops; hit high, it loses its weapon. A UAV hit in
