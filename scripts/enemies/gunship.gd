@@ -32,7 +32,7 @@ const CANNON_LOCK := 0.35 ## For the last of the warning the aim holds still: mo
 const MIN_CLEARANCE := 9.0 ## Its belly and underslung guns hang this far below it: never lower than this over the ground.
 const PART_PRIORITY := 3.0 ## A module this close behind the airframe skin still takes the hit.
 const ROTORS := ["rotor_l", "rotor_r"]
-const ROTOR_RADIUS := 8.5
+const ROTOR_RADIUS := 11.5
 const ROTOR_TILT := 0.22 ## Each mast leans outward, so the two rotors mesh like an eggbeater.
 const MODEL_SCALE := 1.8 ## The whole airframe is drawn this much bigger than its model-space layout.
 const PLATES := ["era_front", "era_left", "era_right"]
@@ -126,25 +126,25 @@ func build() -> void:
 		b.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(side * 2.5, -1.4, 3.65)), 0.5, 0.05, 8, Palette.AMBER)
 		b.glow = false
 	# Mast pylon on the spine that carries both rotor heads.
-	b.box(Transform3D(Basis(), Vector3(0, 3.0, 0.2)), Vector3(2.8, 1.4, 2.4), Palette.STONE)
+	b.box(Transform3D(Basis(), Vector3(0, 3.2, 0.2)), Vector3(3.4, 1.5, 2.6), Palette.STONE)
 	var body := MeshInstance3D.new()
 	body.mesh = b.mesh()
 	model.add_child(body)
 	# Intermeshing rotors: each head leans outward on its mast and spins the opposite way.
 	for side in [-1.0, 1.0]:
 		var part_name := "rotor_l" if side < 0.0 else "rotor_r"
-		var hub := Vector3(side * 1.0, 4.9, 0.2)
+		var hub := Vector3(side * 1.3, 5.2, 0.2)
 		_add_part(part_name, hub, 1.4, MODULE_HP[part_name], _mast_mesh())
 		var mast: Node3D = parts[part_name].node
 		mast.rotation.z = -side * ROTOR_TILT
 		var rotor := Node3D.new()
 		mast.add_child(rotor)
 		var r := LowPoly.new()
-		r.prism(Transform3D(), 0.55, 0.45, 8, Palette.INK)
+		r.prism(Transform3D(), 0.75, 0.55, 8, Palette.INK)
 		for i in 2:
 			var xf := Transform3D(Basis(Vector3.UP, PI * i), Vector3.ZERO)
-			r.box(xf.translated_local(Vector3(ROTOR_RADIUS * 0.5, 0.3, 0)), Vector3(ROTOR_RADIUS, 0.12, 0.8), Palette.SLATE)
-			r.box(xf.translated_local(Vector3(ROTOR_RADIUS - 0.5, 0.37, 0)), Vector3(1.0, 0.04, 0.8), Palette.BUTTER)
+			r.box(xf.translated_local(Vector3(ROTOR_RADIUS * 0.5, 0.3, 0)), Vector3(ROTOR_RADIUS, 0.16, 1.0), Palette.SLATE)
+			r.box(xf.translated_local(Vector3(ROTOR_RADIUS - 0.65, 0.39, 0)), Vector3(1.3, 0.04, 1.0), Palette.BUTTER)
 		var blades := MeshInstance3D.new()
 		blades.mesh = r.mesh()
 		rotor.add_child(blades)
@@ -225,8 +225,8 @@ func _ready() -> void:
 ## A rotor head: the swashplate and hub on a short mast (the mast rises from the spine pylon).
 func _mast_mesh() -> Mesh:
 	var b := LowPoly.new()
-	b.prism(Transform3D(Basis(), Vector3(0, -1.6, 0)), 0.35, 1.6, 8, Palette.INK, 0.28)
-	b.prism(Transform3D(Basis(), Vector3(0, -0.3, 0)), 0.75, 0.35, 8, Palette.STONE, 0.6)
+	b.prism(Transform3D(Basis(), Vector3(0, -1.8, 0)), 0.42, 1.8, 8, Palette.INK, 0.28)
+	b.prism(Transform3D(Basis(), Vector3(0, -0.3, 0)), 0.95, 0.4, 8, Palette.STONE, 0.6)
 	return b.mesh()
 
 
