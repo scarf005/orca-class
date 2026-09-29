@@ -5,7 +5,7 @@ extends Node3D
 const COLLECT_RADIUS := 4.5
 const MAGNET_RADIUS := 40.0 ## Within this, every pickup flies to the tank on its own.
 const MAGNET_SPEED := 60.0
-const IDS := ["coax", "heat", "canister", "dragon", "apfsds", "airburst", "repair", "life", "era", "tail"]
+const IDS := ["coax", "heat", "canister", "dragon", "apfsds", "airburst", "repair", "life", "era", "tail", "rws"]
 
 var id := "coax"
 var collected := false
@@ -51,6 +51,7 @@ static func color_of(kind: String) -> Color:
 		"life": return Palette.FUNGUS
 		"era": return Palette.SKY
 		"tail": return Palette.BLUSH
+		"rws": return Palette.LILAC
 	return Armament.ROUND_COLORS[Armament.round_from_id(kind)]
 
 
@@ -105,6 +106,8 @@ static func mesh_of(kind: String) -> Mesh:
 				_tail_coil(b, c)
 			"life":
 				_mini_tank(b, c)
+			"rws":
+				_rws_mount(b, c)
 			_:
 				_round(b, kind, c)
 		_meshes[kind] = b.mesh()
@@ -242,6 +245,19 @@ static func _mini_tank(b: LowPoly, c: Color) -> void:
 	b.glow = true
 	b.blob(Transform3D(Basis(), Vector3(0, 0.1, 1.15)), 0.12, c)
 	b.box(Transform3D(Basis(), Vector3(0, 0.5, 0)), Vector3(0.12, 0.12, 0.12), c)
+	b.glow = false
+
+
+## A remote weapon station on a crate: turret ring, sensor head and a glowing laser aperture.
+static func _rws_mount(b: LowPoly, c: Color) -> void:
+	b.box(Transform3D(Basis(), Vector3(0, -0.5, 0)), Vector3(1.0, 0.3, 0.8), Palette.PINE, Palette.MOSS)
+	b.prism(Transform3D(Basis(), Vector3(0, -0.35, 0)), 0.34, 0.2, 6, Palette.HULL)
+	b.box(Transform3D(Basis(), Vector3(0, -0.02, 0)), Vector3(0.62, 0.42, 0.9), Palette.HULL_LIGHT, Palette.HULL)
+	b.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3(0, 0.0, -0.45)), 0.15, 0.4, 8, Palette.SLATE)
+	b.box(Transform3D(Basis(), Vector3(0.0, 0.26, 0.15)), Vector3(0.16, 0.12, 0.3), Palette.PINE)
+	b.glow = true
+	b.box(Transform3D(Basis(), Vector3(0, 0.0, -0.66)), Vector3(0.2, 0.2, 0.03), c)
+	b.box(Transform3D(Basis(), Vector3(0, 0.34, 0.15)), Vector3(0.08, 0.06, 0.08), Palette.WHITE)
 	b.glow = false
 
 

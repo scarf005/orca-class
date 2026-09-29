@@ -1,7 +1,7 @@
 class_name Tank
 extends Entity
 ## The player's Orca-class. Moves within the rail frame (or freely in the arena), aims the turret
-## at the reticle, fires the coax and 100 mm gun, runs the laser CIWS and drives the tail.
+## at the reticle, fires the coax and 100 mm gun, runs the laser CIWS (once an RWS is mounted) and drives the tail.
 
 signal pickup_collected(id: String)
 signal round_changed
@@ -115,6 +115,16 @@ func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 	return super.hit_test(from, to, extra_radius)
 
 
+## The RWS shows only while mounted.
+func _sync_rws() -> void:
+	model.rws.visible = modules.laser_online()
+
+
+func mount_rws() -> void:
+	modules.mount_rws()
+	_sync_rws()
+
+
 func set_coax_tier(tier: int) -> void:
 	coax_tier = clampi(tier, 0, Armament.COAX_TIERS.size() - 1)
 	var calibers := Armament.tier_calibers(coax_tier)
@@ -145,6 +155,7 @@ func tick(delta: float) -> void:
 	anchor_cooldown = maxf(0.0, anchor_cooldown - delta)
 	reload = maxf(0.0, reload - delta)
 	modules.update(delta)
+	_sync_rws()
 	_blink = maxf(0.0, _blink - delta)
 	model.visible = _blink <= 0.0 or fmod(_blink, 0.16) < 0.1
 	tail.visible = model.visible and not tail.destroyed
@@ -799,6 +810,8 @@ func _update_ciws(delta: float) -> void:
 	_ciws_sound_cooldown = maxf(0.0, _ciws_sound_cooldown - delta)
 	if not modules.laser_online():
 		ciws_target = null
+		ciws_heat = 0.0
+		ciws_overheated = false
 		return
 	if ciws_overheated:
 		ciws_heat = maxf(0.0, ciws_heat - CIWS_COOL_RATE * delta)
@@ -999,11 +1012,13 @@ func _update_pickups() -> void:
 func needs(id: String) -> bool:
 	match id:
 		"repair":
-			return hp < max_hp or TankModules.MAX.keys().any(func(name: String) -> bool: return modules.state(name) != TankModules.State.OK)
+			return hp < max_hp or TankModules.MAX.keys().any(modules.repairable)
 		"era":
 			return modules.era != TankModules.ERA
 		"tail":
 			return tail.destroyed or tail.hp < Tail.MAX_HP
+		"rws":
+			return not modules.laser_online()
 		"coax":
 			return coax_tier < Armament.COAX_TIERS.size() - 1
 	return true
@@ -1014,7 +1029,7 @@ func needs(id: String) -> bool:
 func useful_pickup(id: String) -> String:
 	if needs(id):
 		return id
-	for want in ["repair", "era", "tail", "coax"]:
+	for want in ["repair", "era", "tail", "rws", "coax"]:
 		if needs(want):
 			return want
 	var rounds: Array = Armament.OFFERED.filter(func(r: Armament.Round) -> bool: return r != current_round)
@@ -1044,6 +1059,8 @@ func collect(pickup: Pickup) -> void:
 				tail.regrow()
 			else:
 				tail.repair(Tail.MAX_HP)
+		"rws":
+			mount_rws()
 		"life":
 			world.stats.lives += 1
 		_:
@@ -1137,11 +1154,24 @@ func _damage_modules(hit: Hit, amount: float) -> void:
 		world.radio.emit(&"AI_MOD_TAIL")
 	if hit.kind == Hit.Kind.BULLET and hit.caliber < 20:
 		return
-	var exposed: Array = TankModules.EXPOSED[facing]
-	var name: String = exposed[randi() % exposed.size()]
-	if modules.damage(name, amount * 1.3):
-		world.radio.emit(StringName("AI_MOD_" + name.to_upper() + ("_OUT" if modules.state(name) == TankModules.State.DESTROYED else "")))
-		world.fx.sparks(hit_center(), Vector3.UP, 14, Palette.BUTTER, 10.0)
+	# An RWS that is already gone cannot be hit again.
+	var exposed: Array = TankModules.EXPOSED[facing].filter(func(name: String) -> bool: return modules.state(name) != TankModules.State.DESTROYED or name not in TankModules.KNOCKED_OFF)
+	damage_module(exposed[randi() % exposed.size()], amount * 1.3)
+
+
+## Hurts a module, calling it out on the radio. A destroyed RWS is knocked clean off and
+## cartwheels away in flames.
+func damage_module(name: String, amount: float) -> bool:
+	if not modules.damage(name, amount):
+		return false
+	var world := World.current
+	var out := modules.state(name) == TankModules.State.DESTROYED
+	if out and name in TankModules.KNOCKED_OFF:
+		var piece := model.detach(model.rws)
+		Wreck.launch(piece, piece.global_position, 0.8, false, (piece.global_position - hit_center()).normalized() * 8.0, false)
+	world.radio.emit(StringName("AI_MOD_" + name.to_upper() + ("_OUT" if out else "")))
+	world.fx.sparks(hit_center(), Vector3.UP, 14, Palette.BUTTER, 10.0)
+	return true
 
 
 ## Losing all armor costs a life instead of removing the tank.
@@ -1176,6 +1206,7 @@ func die(_hit: Hit) -> void:
 func _finish_respawn() -> void:
 	hp = max_hp
 	modules.restore()
+	_sync_rws()
 	tail.regrow()
 	invuln = RESPAWN_INVULN
 	_blink = RESPAWN_INVULN

@@ -62,6 +62,7 @@ S = {
     "PICKUP_REPAIR": ("수리", "REPAIR"),
     "PICKUP_ERA": ("반응장갑", "REACTIVE ARMOR"),
     "PICKUP_TAIL": ("꼬리 재생", "TAIL REGROWTH"),
+    "PICKUP_RWS": ("레이저 RWS 장착", "RWS MOUNTED"),
     "PICKUP_LIFE": ("예비 차체", "SPARE HULL"),
     "STYLE_CRUSH": ("깔아뭉개기", "CRUSHED"),
     "STYLE_TAILWHIP": ("꼬리치기", "TAILWHIP"),

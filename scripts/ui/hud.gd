@@ -296,6 +296,9 @@ func _update_xray() -> void:
 	_paint(_xray.barrel, _module_color(m.state("breech")))
 	_paint(_xray.coax_root, Palette.AMBER)
 	_paint(_xray.rws, _module_color(m.state("laser")))
+	if _xray.rws.visible != m.laser_online():
+		_xray.rws.visible = m.laser_online()
+		_tank_view.refresh()
 	_paint(_xray_tail, _tail_color())
 
 
@@ -349,7 +352,7 @@ func _draw_weapons() -> void:
 	draw_texture(_coax_view.get_texture(), origin + Vector2(4, 34))
 	for i in Armament.COAX_TIERS.size():
 		draw_rect(Rect2(origin + Vector2(120 + i * 15, 46), Vector2(11, 6)), Palette.BUTTER if i <= p.coax_tier else Palette.DUSK)
-	# Laser CIWS: the RWS model and its heat.
+	# Laser CIWS: the RWS model and its heat; empty and dim until an RWS is mounted.
 	var heat_color := Palette.MINT
 	if p.ciws_overheated:
 		heat_color = Palette.RED if fmod(_time, 0.3) < 0.15 else Palette.CORAL
@@ -362,7 +365,7 @@ func _draw_weapons() -> void:
 	if p.ciws_target != null and not p.ciws_overheated and fmod(_time, 0.1) < 0.06:
 		draw_line(origin + Vector2(30, 78), origin + Vector2(40, 78), Palette.WHITE, 2.0)
 	_bar(Rect2(origin + Vector2(42, 76), Vector2(130, 8)), p.ciws_heat, heat_color, 10)
-	_text(origin + Vector2(178, 86), "×%d" % _intercepts, Palette.MINT, 12)
+	_text(origin + Vector2(178, 86), "×%d" % _intercepts, Palette.MINT if p.modules.laser_online() else Palette.DUSK, 12)
 
 
 func _chevrons(at: Vector2, direction: float, color: Color) -> void:

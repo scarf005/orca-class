@@ -55,6 +55,16 @@ func _mesh(parent: Node3D, mesh: Mesh) -> MeshInstance3D:
 	return instance
 
 
+## Copies the RWS into the world as a loose piece at its own pose and hides the mounted one;
+## the caller throws it.
+func detach(part: Node3D) -> Node3D:
+	var piece := part.duplicate() as Node3D
+	World.current.add_child(piece)
+	piece.global_transform = part.global_transform
+	part.visible = false
+	return piece
+
+
 ## Rebuilds the coaxial guns for an upgrade tier, e.g. [20, 15].
 func set_coax_guns(calibers: Array) -> void:
 	for child in coax_root.get_children():
@@ -208,3 +218,4 @@ static func _rws_mesh() -> Mesh:
 	b.glow = true
 	b.box(Transform3D(Basis(), Vector3(0, 0.42, -0.53)), Vector3(0.16, 0.16, 0.02), Palette.MINT)
 	return b.mesh()
+

@@ -40,7 +40,7 @@ starting values for tuning.
 | Hull | Armored tracked hull; high front armor, weak rear; shield/HP bar | Front-facing damage is reduced, so the player learns to face threats |
 | 100 mm gun | ~1.0 s reload, direct hit and blast, heavy recoil pushes the tank back | The big punch; one shot kills most small enemies and staggers large ones |
 | 8 mm coaxial gun | High rate of fire, low damage, follows the turret | Always-on fire; upgradable (below) |
-| RWS: 200 kW laser CIWS | Automatic; zaps incoming missiles, rockets, shells and FPV drones in a short radius; heats with each engagement | Defensive layer. Saturation attacks can overheat it, and then the player must dodge |
+| RWS: 200 kW laser CIWS | Not fitted at the start: an RWS pickup (the first sits before the first FPV wave) mounts it. Automatic; zaps incoming missiles, rockets, shells and FPV drones in a short radius; heats with each engagement | Defensive layer. Saturation attacks can overheat it, and then the player must dodge |
 | Tracks | At speed the tank flattens every building, wreck and ground enemy in its path. Big landmarks (church, branch school, the old zelkova) are modular: each piece breaks on its own, and what rested on it topples. Only the dam stands | Aggressive driving is rewarded |
 | Reactive armor | ERA bricks: 4 front, 3 per side, none at the rear | Each brick stops one shaped charge from its facing |
 | Bio tail | Three-segment muscular tail with a pink claw; no weapon; acts on its own | Melee, pickup and defense (below) |
@@ -55,11 +55,13 @@ The hull has an armor bar for kinetic damage, and internal modules that break se
 | Engine | Slower meter refill / no overdrive | Rear |
 | Breech | Reload ×1.5 / ×3 | Front |
 | Turret drive | Slower traverse | Any |
-| Laser RWS | — / CIWS offline | Sides |
+| Laser RWS | — / knocked off: CIWS gone until another RWS pickup | Sides |
 | Tail | Slower / gone until a regrowth pickup | Rear |
 
 - Shaped-charge warheads (FPV drones, ATGMs) are decided by ERA: a brick on that facing absorbs the hit;
   where there is none left (always at the rear), the hit is fatal and costs a life.
+- A knocked-off RWS flies away in flames and is not field-repaired or replaced by a repair pickup: only another RWS
+  pickup mounts one (a spare hull comes without it).
 - The crew field-repairs damaged modules one step at a time. A lost tail only returns from a regrowth pickup.
   ERA refills from ERA pickups. A spare hull (a new life) restores everything.
 - Enemies have modules too: a UGV hit low loses its tracks and stops; hit high, it loses its weapon. A UAV hit in

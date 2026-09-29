@@ -26,11 +26,14 @@ func check_near(actual: float, expected: float, tolerance: float, message: Strin
 
 
 ## A running stage with the player, as the game creates it. Input is disabled so tests drive it.
-func stage(checkpoint := "") -> World:
+## The game starts without an RWS; tests get one unless they are about picking it up.
+func stage(checkpoint := "", rws := true) -> World:
 	_world = World.new()
 	add_child(_world)
 	_world.start_stage(checkpoint)
 	_world.player.input_enabled = false
+	if rws:
+		_world.player.mount_rws()
 	return _world
 
 
