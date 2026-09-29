@@ -182,7 +182,7 @@ func tick(delta: float) -> void:
 	tail.update(delta, global_basis, lateral_velocity)
 	auto_tail() # The tail and the coax work on their own; only driving and the main gun take input.
 	_update_pickups()
-	tracks.press(global_transform)
+	tracks.press(global_transform, delta)
 	model.rotation.x = move_toward(model.rotation.x, 0.0, delta * 0.8)
 	velocity = (global_position - _last_position) / maxf(delta, 0.0001)
 	_last_position = global_position

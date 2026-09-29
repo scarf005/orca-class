@@ -625,6 +625,14 @@ func spores(position: Vector3, count: int, spread := 1.5) -> void:
 		spawn(kind, position + dir * randf() * spread, dir * randf_range(0.5, 3.0) * spread, randf_range(0.8, 1.8), randf_range(0.2, 0.5), color if kind == Kind.GLOW else Color.WHITE, {"end_size": 0.9, "drag": 2.0, "gravity": -0.3, "material": Debris.SPORE})
 
 
+## Juice and spores thrown up and back where something soft is trampled.
+func juice(position: Vector3, back: Vector3) -> void:
+	spores(position + Vector3.UP * 0.3, 2, 0.5)
+	for i in 3:
+		var velocity := back * randf_range(1.0, 4.0) + Vector3(randf_range(-1.5, 1.5), randf_range(3.0, 6.0), randf_range(-1.5, 1.5))
+		spawn(Kind.GLOW, position + Vector3.UP * 0.3, velocity, randf_range(0.4, 0.8), randf_range(0.3, 0.55), [Palette.FUNGUS, Palette.BLUSH, Palette.LILAC][i], {"gravity": 14.0, "end_size": 0.12, "fade": 0.5})
+
+
 func shockwave(position: Vector3, radius: float, color: Color, life := 0.3) -> void:
 	var mesh := _cached("ring", color, _ring_builder)
 	_transient(mesh, Transform3D(Basis(), position + Vector3.UP * 0.2), life, true, Vector2(radius * 0.2, radius), 0.1, true)
