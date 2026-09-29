@@ -43,6 +43,8 @@ func _init() -> void:
 	score = 900
 	debris = [Fx.Debris.ARMOR, Fx.Debris.METAL]
 	weakness = {Hit.Kind.THROWN: 1.3}
+	mark_offsets = [-3.0, 3.0] # Thin lines under the wheels on its feet.
+	mark_width = 0.3
 
 
 func build() -> void:

@@ -51,6 +51,21 @@ func run() -> int:
 		if frame >= 60:
 			timings.append((Time.get_ticks_usec() - start) / 1000.0)
 	_report("flyer_trails_30", timings)
+	# Twelve ground enemies driving at 16 m/s, each laying prints into the shared buffer.
+	var marks := TrackMarks.new(TrackMarks.SHARED_COUNT)
+	add_child(marks)
+	var lasts: Array[Vector3] = []
+	lasts.resize(12)
+	lasts.fill(Vector3.INF)
+	timings.clear()
+	for frame in 600:
+		var start := Time.get_ticks_usec()
+		for i in 12:
+			var hull := Transform3D(Basis(), Vector3(i * 8.0, 0.0, 200.0 - frame * 16.0 / 60.0))
+			lasts[i] = marks.lay(lasts[i], hull, [-0.95, 0.95], 0.6, false, false)
+		if frame >= 60:
+			timings.append((Time.get_ticks_usec() - start) / 1000.0)
+	_report("enemy_marks_12", timings)
 	return 0
 
 

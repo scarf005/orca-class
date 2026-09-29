@@ -19,6 +19,9 @@ var burning := 0.0
 var can_stagger := true
 var trails := false ## Flyers leave a fading trail (FlyerTrail).
 var despawn_behind := 30.0 ## Removed once this far behind the rail; 0 keeps it.
+var mark_offsets: Array[float] = [] ## Ground vehicles print a line into World.enemy_marks at each of these lateral offsets.
+var mark_width := 1.0 ## How wide those prints are next to a tank's tread.
+var _mark_last := Vector3.INF
 var _shudder := 0.0 ## Seconds of hit shudder left.
 var wreck_on_death := false ## Vehicles: the hull is blown into the air and blows up again on landing.
 var pop_parts: Array[Node3D] = [] ## Parts (turrets) that blow off and fly separately when it dies as a wreck.
@@ -71,10 +74,20 @@ func tick(delta: float) -> void:
 		track_velocity = track_velocity.lerp(velocity, 1.0 - exp(-TRACK_RATE * delta))
 	_last_position = global_position
 	wade(delta, velocity, death_radius)
+	_leave_marks()
 	if despawn_behind > 0.0:
 		var world := World.current
 		if world.rail.mode != Rail.Mode.ARENA and Course.to_course(global_position).x < world.rail.d - despawn_behind:
 			despawn()
+
+
+## Prints for what it drove over since the last frame; none while it is in the reservoir.
+func _leave_marks() -> void:
+	if mark_offsets.is_empty():
+		return
+	var side := Vector3(model.global_basis.x.x, 0.0, model.global_basis.x.z).normalized()
+	var hull := Transform3D(Basis(side, Vector3.UP, side.cross(Vector3.UP)), global_position)
+	_mark_last = World.current.enemy_marks.lay(_mark_last, hull, mark_offsets, mark_width, _wet, false)
 
 
 ## Per-frame AI for subclasses. Not called while dead.

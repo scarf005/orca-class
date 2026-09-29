@@ -19,6 +19,7 @@ static var current: World
 var terrain := Terrain.new()
 var props := PropField.new()
 var fx := Fx.new()
+var enemy_marks := TrackMarks.new(TrackMarks.SHARED_COUNT) ## Tread and wheel prints of every enemy ground vehicle.
 var camera := ChaseCamera.new()
 var sun := DirectionalLight3D.new()
 var environment := Environment.new()
@@ -56,6 +57,7 @@ func _ready() -> void:
 	props.name = "Props"
 	add_child(props)
 	add_child(fx)
+	add_child(enemy_marks)
 	_enemy_container.name = "Enemies"
 	add_child(_enemy_container)
 	_projectile_container.name = "Projectiles"

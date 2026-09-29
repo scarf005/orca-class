@@ -3,8 +3,10 @@ extends MultiMeshInstance3D
 ## Tread prints pressed into the ground behind both tracks. A ring buffer of flat, dark tread
 ## plates: the oldest are reused as new ones are laid, so the trail stretches a few hundred meters.
 ## Over fungus patches the prints are wider and wine-dark and the tracks fling juice and spores.
+## The world keeps a second, larger buffer that every enemy ground vehicle prints into (`lay`).
 
 const COUNT := 1600
+const SHARED_COUNT := 3000 ## The enemies' shared buffer.
 const SPACING := 0.8 ## Meters of travel between prints; each print is a bit longer.
 const TRACK_OFFSET := 1.55 ## Half the distance between the tracks.
 const MUD := Palette.WOOD
@@ -16,12 +18,14 @@ const SQUELCH_INTERVAL := 0.45 ## Seconds between squelches.
 
 var crushed_prints := 0 ## How many prints were laid over fungus.
 var squelches := 0 ## How many squelches have played.
+var count_max := COUNT
 var _next := 0
 var _last := Vector3.INF
 var _squelch_wait := 0.0
 
 
-func _init() -> void:
+func _init(capacity := COUNT) -> void:
+	count_max = capacity
 	top_level = true
 	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var plate := LowPoly.new()
@@ -35,43 +39,49 @@ func _init() -> void:
 	multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	multimesh.use_colors = true
 	multimesh.mesh = plate.mesh()
-	multimesh.instance_count = COUNT
+	multimesh.instance_count = capacity
 	multimesh.visible_instance_count = 0
 
 
 ## Lays prints under both tracks for however far the hull moved since the last call.
 func press(hull: Transform3D, delta: float, airborne := false) -> void:
 	_squelch_wait = maxf(_squelch_wait - delta, 0.0)
+	_last = lay(_last, hull, [-TRACK_OFFSET, TRACK_OFFSET], 1.0, airborne, true)
+
+
+## Lays a line of prints at each lateral offset from `hull` (`width` scales the plate across) for the
+## stretch from `last` to the hull, and returns where the next stretch starts: `last` itself until
+## a full spacing was travelled. `Vector3.INF` starts a vehicle; `airborne` restarts it too.
+## `loud` prints over fungus fling juice and squelch; enemies leave quiet prints.
+func lay(last: Vector3, hull: Transform3D, offsets: Array, width: float, airborne: bool, loud: bool) -> Vector3:
 	var at := hull.origin
-	if _last == Vector3.INF or airborne:
-		_last = at
-		return
-	var travelled := at.distance_to(_last)
+	if last == Vector3.INF or airborne:
+		return at
+	var travelled := at.distance_to(last)
 	if travelled < SPACING:
-		return
+		return last
 	if travelled > 12.0:
-		_last = at # Teleported (respawn): no smear across the gap.
-		return
+		return at # Teleported (respawn): no smear across the gap.
 	# Prints lie along the path actually travelled (a sideways slide smears them sideways too).
-	var moved := at - _last
+	var moved := at - last
 	var yaw := Basis(Vector3.UP, atan2(-moved.x, -moved.z))
 	# Fill the whole stretch covered since the last call, so fast frames leave no gaps.
 	var steps := int(travelled / SPACING)
 	for k in range(1, steps + 1):
-		var along := _last.lerp(at, float(k) / steps)
-		for side in [-1.0, 1.0]:
-			var p: Vector3 = along + hull.basis.x * side * TRACK_OFFSET
+		var along := last.lerp(at, float(k) / steps)
+		for offset: float in offsets:
+			var p: Vector3 = along + hull.basis.x * offset
 			# Above the smooth height by more than the terrain mesh strays from it between samples.
 			p.y = Course.height_at(p) + 0.22
 			var crushed := _over_fungus(p)
 			crushed_prints += int(crushed)
-			multimesh.set_instance_transform(_next, Transform3D(yaw.scaled_local(Vector3(CRUSHED_WIDTH if crushed else 1.0, 1.0, 1.0)), p))
+			multimesh.set_instance_transform(_next, Transform3D(yaw.scaled_local(Vector3(width * (CRUSHED_WIDTH if crushed else 1.0), 1.0, 1.0)), p))
 			multimesh.set_instance_color(_next, CRUSHED if crushed else MUD)
-			if crushed and randf() < SPLASH_CHANCE:
+			if loud and crushed and randf() < SPLASH_CHANCE:
 				_splash(p, -moved.normalized())
-			_next = (_next + 1) % COUNT
-			multimesh.visible_instance_count = mini(multimesh.visible_instance_count + 1, COUNT)
-	_last = at
+			_next = (_next + 1) % count_max
+			multimesh.visible_instance_count = mini(multimesh.visible_instance_count + 1, count_max)
+	return at
 
 
 func _over_fungus(p: Vector3) -> bool:
