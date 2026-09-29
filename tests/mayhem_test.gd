@@ -204,8 +204,8 @@ func test_ramming_a_landmark_takes_what_it_holds_at_once_without_stopping_the_ta
 	trunk.supports.append(crown)
 	var speed := tank.local_velocity.y
 	await frames(2)
-	check(trunk.dead, "the trunk breaks on contact")
-	check(crown.dead, "the crown goes with it instead of toppling later")
+	check(not is_instance_valid(trunk) or trunk.dead, "the trunk breaks on contact")
+	check(not is_instance_valid(crown) or crown.dead, "the crown goes with it instead of toppling later")
 	check_eq(world._hitstop, 0.0, "no frozen frame")
 	check(tank.local_velocity.y >= speed - 0.01, "no lost speed")
 

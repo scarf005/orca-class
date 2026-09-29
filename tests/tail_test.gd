@@ -25,7 +25,11 @@ func test_tail_stabs_small_enemies_instead_of_grabbing() -> void:
 	crawler.stagger = 10.0
 	tank.auto_tail()
 	check_eq(tank.tail.state, Tail.State.STAB, "the claw stabs it")
-	var dead := await wait_until(func() -> bool: return not is_instance_valid(crawler) or crawler.dead, 120)
+	var crawler_ref: WeakRef = weakref(crawler)
+	var dead := await wait_until(func() -> bool:
+		var target := crawler_ref.get_ref() as Crawler
+		return target == null or target.dead
+	, 120)
 	check(dead, "a stab kills a small enemy")
 	check(not is_instance_valid(tank.tail.held), "nothing is carried")
 
