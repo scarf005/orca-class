@@ -97,6 +97,22 @@ func run() -> int:
 		peak = maxi(peak, world.fx.particle_count())
 	_report("fire_40_zones_10_burning_peak%d" % peak, timings)
 	world.free()
+	# Forty ground units checking for water each frame, plus 200 bouncing debris spawns, over the road and the reservoir.
+	fx = Fx.new()
+	add_child(fx)
+	timings.clear()
+	for frame in 300:
+		var start := Time.get_ticks_usec()
+		for i in 40:
+			var at := Course.to_world(2000.0 + i * 12.0 + frame, -20.0 + i, 0.0)
+			Water.surface_at(Vector3(at.x, Course.height_at(at), at.z))
+		for i in 200:
+			var at := Course.to_world(2000.0 + i * 4.0, -20.0 + frame % 10, 5.0)
+			fx.spawn(Fx.Kind.SOLID, at, Vector3.ZERO, 0.01, 1, Color.WHITE, {"bounce": true})
+		if frame >= 60:
+			timings.append((Time.get_ticks_usec() - start) / 1000.0)
+		fx._process(1.0 / 60.0)
+	_report("water_40_units_200_bounces", timings)
 	return 0
 
 

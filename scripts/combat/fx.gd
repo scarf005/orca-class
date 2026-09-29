@@ -64,7 +64,7 @@ class Particle:
 	var ground := -INF ## Ground height for bouncing, sampled once: debris lands near where it starts.
 	var trail_timer := 0.0
 	var layer := 0 ## Debris sprite in the texture array.
-	var water := false ## Bouncing over the reservoir: it splashes in and sinks instead.
+	var water := false ## Bouncing over water: it splashes in and sinks instead.
 
 static var _solid_material := _debris_material()
 static var _glow_material := _fade_material(true)
@@ -227,8 +227,9 @@ func spawn(kind: Kind, position: Vector3, velocity: Vector3, life: float, size: 
 	p.trail = options.get("trail", Color(0, 0, 0, 0))
 	if p.bounce:
 		p.ground = Course.height_at(position)
-		if p.ground < Course.WATER_LEVEL:
-			p.ground = Course.WATER_LEVEL
+		var surface := Water.surface_at(position)
+		if surface > p.ground:
+			p.ground = surface
 			p.water = true
 	p.spin = Vector3(randf_range(-8, 8), randf_range(-8, 8), randf_range(-8, 8)) * options.get("spin", 0.0)
 	if kind == Kind.SOLID:
@@ -311,7 +312,7 @@ func _process(delta: float) -> void:
 			multimesh.buffer = buffer
 		multimesh.visible_instance_count = index
 	for p in splashes:
-		splash(p.position, p.size)
+		splash(p.position, p.size, p.ground)
 	for p in trails:
 		if p.bounce:
 			# A flying shard: a thin smoke line, no fire.
@@ -438,14 +439,15 @@ func explosion(position: Vector3, damage_radius: float, palette := [Palette.BUTT
 		var dir := (Vector3(randf_range(-1, 1), randf_range(0.2, 1.4), randf_range(-1, 1)).normalized() + push * 1.3).normalized()
 		spawn(Kind.FLAME, position, dir * randf_range(4, 14) * (0.6 + radius * 0.3), randf_range(0.25, 0.7) * BLAST_PACE, randf_range(0.25, 0.6) * (0.6 + radius * 0.15), palette[randi() % palette.size()], {"gravity": 8.0, "drag": 2.0})
 	var ground := Course.height_at(position)
-	if ground < Course.WATER_LEVEL and position.y - Course.WATER_LEVEL < radius * 1.5:
-		# Over the reservoir: a tall plume of water instead of dust and a scorch mark.
-		splash(position, radius * 0.8)
+	var surface := Water.surface_at(position)
+	if surface > -INF and position.y - surface < radius * 1.5:
+		# Over water: a tall plume of it instead of dust and a scorch mark.
+		splash(position, radius * 0.8, surface)
 		for i in int(6 + n * 4):
 			var up := Vector3(randf_range(-0.25, 0.25), 1.0, randf_range(-0.25, 0.25)).normalized()
-			spawn(Kind.GLOW, Vector3(position.x, Course.WATER_LEVEL, position.z), up * randf_range(8.0, 16.0) * (0.5 + radius * 0.15), randf_range(0.8, 1.3), randf_range(0.5, 0.9) * (0.6 + radius * 0.15), [Palette.WHITE, Palette.SKY, Palette.MIST][i % 3], {"gravity": 14.0, "end_size": 1.4, "drag": 0.6, "fade": 0.4})
-		ground = Course.WATER_LEVEL
-	var low := position.y - ground < radius * 1.5 and ground > Course.WATER_LEVEL
+			spawn(Kind.GLOW, Vector3(position.x, surface, position.z), up * randf_range(8.0, 16.0) * (0.5 + radius * 0.15), randf_range(0.8, 1.3), randf_range(0.5, 0.9) * (0.6 + radius * 0.15), [Palette.WHITE, Palette.SKY, Palette.MIST][i % 3], {"gravity": 14.0, "end_size": 1.4, "drag": 0.6, "fade": 0.4})
+		ground = surface
+	var low := position.y - ground < radius * 1.5 and surface == -INF
 	if low:
 		# Dust thrown out along the ground.
 		for i in int(8 + n * 4):
@@ -478,8 +480,8 @@ func afterimage(meshes: Array, color: Color, life := 0.45) -> void:
 
 
 ## Something hits the water: a crown of spray and rings spreading out over the surface.
-func splash(position: Vector3, size: float) -> void:
-	var at := Vector3(position.x, Course.WATER_LEVEL + 0.05, position.z)
+func splash(position: Vector3, size: float, surface := Course.WATER_LEVEL) -> void:
+	var at := Vector3(position.x, surface + 0.05, position.z)
 	for ring in [[2.5, 0.8], [4.5, 1.3], [7.0, 1.9]]:
 		_transient(_cached("ring", Palette.CREAM, _ring_builder), Transform3D(Basis(), at), ring[1] * (0.6 + size * 0.4), true, Vector2(size * 0.5, size * ring[0]), 0.2, false)
 	for i in int(4 + size * 6):
@@ -489,8 +491,8 @@ func splash(position: Vector3, size: float) -> void:
 
 ## Something ploughing through the water: a bow wave thrown out to both sides and a ring spreading
 ## behind it. Standing still, it only leaves slow ripples.
-func wake(position: Vector3, velocity: Vector3, size: float) -> void:
-	var at := Vector3(position.x, Course.WATER_LEVEL + 0.05, position.z)
+func wake(position: Vector3, velocity: Vector3, size: float, surface := Course.WATER_LEVEL) -> void:
+	var at := Vector3(position.x, surface + 0.05, position.z)
 	var flat := Vector3(velocity.x, 0.0, velocity.z)
 	var pace := clampf(flat.length() / 20.0, 0.0, 1.0)
 	# Moving, rings are laid close together: small and brief, so they read as a trail, not a sheet.

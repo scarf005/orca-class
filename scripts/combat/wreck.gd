@@ -39,9 +39,10 @@ func _process(delta: float) -> void:
 		world.fx.spawn(Fx.Kind.FLAME, global_position, Vector3.UP, 0.25, 0.9, [Palette.AMBER, Palette.HOT, Palette.BUTTER][randi() % 3], {"drag": 2.0})
 		world.fx.spawn(Fx.Kind.GLOW, global_position, Vector3.UP * 1.5, 1.4, 0.9, [Palette.DUSK, Palette.INK, Palette.SLATE][randi() % 3], {"end_size": 2.4, "drag": 1.2, "fade": 0.2})
 	var ground := Course.height_at(global_position)
-	if ground < Course.WATER_LEVEL and global_position.y <= Course.WATER_LEVEL and velocity.y < 0.0:
-		# Into the reservoir: a big splash and it is gone, fire and all.
-		world.fx.splash(global_position, 1.5 + blast_radius * 0.3)
+	var surface := Water.surface_at(global_position) if velocity.y < 0.0 else -INF
+	if surface > ground and global_position.y <= surface:
+		# Into the water: a big splash and it is gone, fire and all.
+		world.fx.splash(global_position, 1.5 + blast_radius * 0.3, surface)
 		Sfx.play("squelch", global_position, 0.0, 0.5)
 		queue_free()
 		return

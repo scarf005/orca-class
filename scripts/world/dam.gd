@@ -11,6 +11,7 @@ const TIERS := [0.0, 10.0, 21.0, 32.0] ## Heights of the tier boundaries.
 const FOOT := 12.0 ## Where the sloped face meets the ground (local z).
 const CREST := 1.0 ## Where it meets the crest.
 const BACK := -5.0 ## The vertical back face, against the reservoir.
+const LAKE_END := -110.0 ## Where the lake ends, behind the wall.
 const HEIGHT := 32.0
 const LAKE_LEVEL := 29.5 ## The reservoir's surface, just under the crest.
 const CRASH_HEIGHT := 14.0
@@ -88,6 +89,25 @@ func _init() -> void:
 	add_child(lake)
 
 
+## The surface of the lake behind the wall or of the flood over the arena floor at `p`, else -INF.
+func surface_at(p: Vector3) -> float:
+	var local := to_local(p)
+	if local.z < BACK and local.z > LAKE_END and absf(local.x) < COLUMNS * COLUMN_WIDTH * 0.5:
+		return LAKE_LEVEL if Course.height_at(p) < LAKE_LEVEL else -INF
+	if not breached:
+		return -INF
+	var reach := flood_reach()
+	var start := _spill_at(_landing_time(), 0.0).z
+	var f := (local.z - start) / maxf(reach, 0.001)
+	if f < 0.0 or f > 1.0:
+		return -INF
+	var mid := (_gap.x + _gap.y) * 0.5
+	var half := minf(115.0, 22.0 + reach * 0.85)
+	if absf(local.x - mid) > lerpf(_gap.y - _gap.x, half * 2.0, f * flood_spread()) * 0.5:
+		return -INF
+	return FLOOD_Y
+
+
 func _enter_tree() -> void:
 	current = self
 
@@ -139,7 +159,7 @@ func _piece_mesh(piece: Piece, rng: RandomNumberGenerator) -> Mesh:
 func _lake_mesh() -> Mesh:
 	var extent := COLUMNS * COLUMN_WIDTH * 0.5
 	var mesh := ArrayMesh.new()
-	var points := PackedVector3Array([Vector3(-extent, LAKE_LEVEL, BACK), Vector3(extent, LAKE_LEVEL, BACK), Vector3(extent, LAKE_LEVEL, -110.0), Vector3(-extent, LAKE_LEVEL, -110.0)])
+	var points := PackedVector3Array([Vector3(-extent, LAKE_LEVEL, BACK), Vector3(extent, LAKE_LEVEL, BACK), Vector3(extent, LAKE_LEVEL, LAKE_END), Vector3(-extent, LAKE_LEVEL, LAKE_END)])
 	var arrays := []
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = PackedVector3Array([points[0], points[3], points[2], points[0], points[2], points[1]])

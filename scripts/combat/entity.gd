@@ -162,12 +162,13 @@ func show_damage(delta: float, size: float) -> void:
 			fx.spawn(Fx.Kind.FLAME, flame_at, Vector3(0, randf_range(3.0, 6.0), 0), randf_range(0.35, 0.7), puff * 0.9, [Palette.BUTTER, Palette.AMBER, Palette.CORAL, Palette.HOT][randi() % 4], {"drag": 1.0})
 
 
-## Ground units in the reservoir: a splash as they drive in, then a bow wave while they move and
+## Ground units in water: a splash as they drive in, then a bow wave while they move and
 ## ripples while they stand. `moving` is their velocity; `size` roughly half the body's length.
 func wade(delta: float, moving: Vector3, size: float) -> void:
-	var wet := not flying and global_position.y < Course.WATER_LEVEL
+	var surface := -INF if flying else Water.surface_at(global_position)
+	var wet := surface > global_position.y
 	if wet and not _wet:
-		World.current.fx.splash(global_position, size)
+		World.current.fx.splash(global_position, size, surface)
 		Sfx.play("squelch", global_position, -4.0, 0.6)
 	_wet = wet
 	if not wet:
@@ -176,7 +177,7 @@ func wade(delta: float, moving: Vector3, size: float) -> void:
 	if _wake_tick > 0.0:
 		return
 	_wake_tick = lerpf(0.3, 0.06, clampf(Vector2(moving.x, moving.z).length() / 20.0, 0.0, 1.0))
-	World.current.fx.wake(global_position, moving, size)
+	World.current.fx.wake(global_position, moving, size, surface)
 
 
 ## Collects mesh instances so hit flashes can overlay them.
