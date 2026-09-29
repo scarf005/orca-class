@@ -90,6 +90,8 @@ func take_hit(hit: Hit) -> void:
 		return
 	var amount := hit.damage * damage_multiplier(hit)
 	if amount <= 0.0:
+		if hit.kind == Hit.Kind.BULLET and armor > 0.0 and World.current:
+			World.current.fx.ricochet(hit, hit_center())
 		return
 	hp -= amount
 	flash()

@@ -10,6 +10,10 @@ const FLASH_LIGHTS := 12 ## Pooled lights for blasts, muzzles and fires; the dim
 const BLAST_PACE := 0.8 ## Explosions play out in this fraction of their original time.
 const DEBRIS_SIZE := 1.8 ## Flat shards are drawn this much bigger than the size callers ask for.
 const DEBRIS_SMOKE := Color("9c93a3") ## Every flying shard trails a thin line of smoke.
+const RICOCHET_SPEED := Vector2(0.4, 0.6) ## Share of its speed a glancing round keeps.
+const RICOCHET_DEFAULT_SPEED := 100.0 ## For a hit that carries no speed.
+const RICOCHET_LIFE := Vector2(0.25, 0.4)
+const RICOCHET_SPREAD := 0.35
 const TRAIL_MIN_SPEED := 4.0 ## Shards stop trailing once they slow down on the ground.
 
 ## SOLID: flat pixel-art debris sprites that face the camera and tumble in the screen plane.
@@ -313,6 +317,8 @@ func _update_transients(delta: float) -> void:
 		if k >= 1.0:
 			node.queue_free()
 			continue
+		if t.has("velocity"):
+			node.position += t.velocity * delta
 		if t.grow != Vector2.ONE:
 			node.scale = Vector3.ONE * lerpf(t.grow.x, t.grow.y, 1.0 - pow(1.0 - k, 3.0))
 		if t.has("fireball"):
@@ -639,6 +645,24 @@ func muzzle_flash(position: Vector3, dir: Vector3, size: float, color := Palette
 	var mesh := _flash_mesh(variant, color)
 	var up := Vector3.UP if absf(dir.y) < 0.99 else Vector3.RIGHT
 	_transient(mesh, Transform3D(Basis.looking_at(dir, up).scaled(Vector3.ONE * size), position), 0.06, true, Vector2.ONE, 0.6, true)
+
+
+## A round glancing off armor: a harmless tracer leaves the hit's point along its direction reflected
+## off the surface (a sphere around `center`), scattered, at 40-60% of its speed, and fades within
+## 0.4 s. It is only a picture: no projectile, so nothing can hit it and nothing counts it as fire.
+func ricochet(hit: Hit, center: Vector3, color := Palette.WHITE) -> void:
+	var normal := (hit.position - center).normalized()
+	var out := hit.direction - 2.0 * hit.direction.dot(normal) * normal
+	out += Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * RICOCHET_SPREAD
+	out += normal * maxf(0.2 - out.normalized().dot(normal), 0.0) # Always leaves the surface.
+	var velocity := out.normalized() * (hit.speed if hit.speed > 0.0 else RICOCHET_DEFAULT_SPEED) * randf_range(RICOCHET_SPEED.x, RICOCHET_SPEED.y)
+	var length := clampf(velocity.length() * 0.03, 0.4, 2.0)
+	var mesh := _cached("tracer", color, func(b: LowPoly, c: Color) -> void:
+		b.box(Transform3D(Basis(), Vector3(0, 0, -0.5)), Vector3.ONE, c))
+	var up := Vector3.UP if absf(velocity.normalized().y) < 0.99 else Vector3.RIGHT
+	var basis := Basis.looking_at(velocity, up) * Basis.from_scale(Vector3(0.08, 0.08, length))
+	_transient(mesh, Transform3D(basis, hit.position), randf_range(RICOCHET_LIFE.x, RICOCHET_LIFE.y), true, Vector2.ONE, 0.3, true)
+	_transients[-1].velocity = velocity
 
 
 ## A bright star where a round lands, turned toward the camera so it always reads full size.

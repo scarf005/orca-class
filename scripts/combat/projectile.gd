@@ -206,6 +206,7 @@ func _apply(target: Entity, point: Vector3) -> void:
 		applied.source = World.current.player
 	applied.position = point
 	applied.direction = velocity.normalized()
+	applied.speed = velocity.length()
 	target.take_hit(applied)
 
 

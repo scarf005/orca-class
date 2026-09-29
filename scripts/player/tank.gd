@@ -1189,6 +1189,7 @@ static func is_small_arms(hit: Hit) -> bool:
 func _glance_off(hit: Hit) -> void:
 	var world := World.current
 	world.fx.sparks(hit.position, -hit.direction, 5, Palette.WHITE, 12.0)
+	world.fx.ricochet(hit, hit_center())
 	Sfx.play("hit_confirm", hit.position, -8.0, randf_range(1.7, 2.1))
 	var sensor := struck_sensor(hit)
 	if invuln <= 0.0 and not sensor.is_empty():

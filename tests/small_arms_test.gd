@@ -318,3 +318,69 @@ func test_the_roof_rule_is_for_bullets_only() -> void:
 	check(tank.facing_of(horizontal) != "top", "a level bullet is no roof hit")
 	var shallow := _strike(tank, Vector3(1.0, 0.09, 0.0), 30)
 	check(tank.facing_of(shallow) != "top", "a 5 degree descent is no roof hit")
+
+
+## The glancing tracers now flying.
+func _tracers(world: World) -> Array:
+	return world.fx._transients.filter(func(t: Dictionary) -> bool: return t.has("velocity"))
+
+
+func test_a_glancing_round_leaves_one_harmless_tracer() -> void:
+	var world := stage()
+	var tank := world.player
+	await frames(2)
+	seed(6)
+	var shots := world.projectiles.size()
+	for side in [-tank.global_basis.z, tank.global_basis.x, -tank.global_basis.x]:
+		var hit := _strike(tank, side, 15)
+		hit.speed = 100.0
+		var before := _tracers(world).size()
+		var hp := tank.hp
+		tank.take_hit(hit)
+		var tracers := _tracers(world)
+		check_eq(tracers.size(), before + 1, "exactly one tracer per glance")
+		var tracer: Dictionary = tracers[-1]
+		var normal := (hit.position - tank.hit_center()).normalized()
+		check((tracer.velocity as Vector3).normalized().dot(normal) > 0.1, "it leaves the armor")
+		check((tracer.velocity as Vector3).length() >= 40.0 and (tracer.velocity as Vector3).length() <= 60.0, "at 40-60%% of the round's speed (%.1f)" % (tracer.velocity as Vector3).length())
+		check_eq(tank.hp, hp, "the glance still does no damage")
+	check_eq(world.projectiles.size(), shots, "a tracer is no projectile: no CIWS target, no threat arrow, no collisions")
+	var tracer: Dictionary = _tracers(world)[-1]
+	check(await wait_until(func() -> bool: return _tracers(world).is_empty(), 30), "the tracers are gone within 0.5 s")
+	check(not is_instance_valid(tracer.node), "and freed")
+
+
+func test_glancing_tracers_scatter_and_a_damaging_hit_leaves_none() -> void:
+	var world := stage()
+	var tank := world.player
+	await frames(2)
+	seed(8)
+	var directions := []
+	for i in 6:
+		tank.take_hit(_strike(tank, -tank.global_basis.z, 15))
+		directions.append((_tracers(world)[-1].velocity as Vector3).normalized())
+	check(directions.any(func(d: Vector3) -> bool: return d.distance_to(directions[0]) > 0.05), "the scatter varies from shot to shot")
+	await wait_until(func() -> bool: return _tracers(world).is_empty(), 60)
+	tank.invuln = 0.0
+	tank.take_hit(_strike(tank, tank.global_basis.z, 40))
+	check_eq(_tracers(world).size(), 0, "a 40 mm round that damages the hull glances off nothing")
+	tank.invuln = 0.0
+	tank.take_hit(_strike(tank, Vector3(0.2, 1.0, 0.1), 30))
+	check_eq(_tracers(world).size(), 0, "nor does a roof hit that punches through")
+
+
+func test_armor_that_stops_a_round_outright_shows_it_too() -> void:
+	var world := stage()
+	await frames(2)
+	var ugv: Ugv = load("res://scripts/enemies/ugv.gd").new()
+	ugv.position = Course.ground_at(world.rail.d + 60.0, 0.0)
+	world.add_enemy(ugv)
+	ugv.armor = 1.0
+	var hit := Hit.make(Hit.Kind.BULLET, 3.0, ugv.hit_center() + Vector3(0, 0, 1.0), Vector3(0, 0, -1))
+	hit.caliber = 8
+	ugv.take_hit(hit)
+	check_eq(_tracers(world).size(), 1, "a round stopped by armor leaves a tracer")
+	check_eq(ugv.hp, ugv.max_hp, "and does nothing")
+	ugv.armor = 0.0
+	ugv.take_hit(hit)
+	check_eq(_tracers(world).size(), 1, "an unarmored hit leaves none")

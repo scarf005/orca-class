@@ -9,6 +9,7 @@ var kind := Kind.BULLET
 var caliber := 0 ## Millimeters; small calibers are stopped by armor.
 var position := Vector3.ZERO
 var direction := Vector3.FORWARD
+var speed := 0.0 ## How fast the round was flying, when a projectile delivered it.
 var source: Node3D
 var pierce := false ## Ignores armor (HEAT, APFSDS).
 var incendiary := false
@@ -44,6 +45,7 @@ func copy() -> Hit:
 	hit.caliber = caliber
 	hit.position = position
 	hit.direction = direction
+	hit.speed = speed
 	hit.source = source if is_instance_valid(source) else null
 	hit.pierce = pierce
 	hit.incendiary = incendiary
