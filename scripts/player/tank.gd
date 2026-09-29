@@ -30,6 +30,9 @@ const DASH_SPEED := 2.0 * DASH_DISTANCE / DASH_TIME ## Starts this fast and ease
 const TAP_DIRECTIONS := {&"move_left": Vector2(-1, 0), &"move_right": Vector2(1, 0), &"move_forward": Vector2(0, 1), &"move_back": Vector2(0, -1)}
 const COAX_RANGE := 140.0
 const SOFT_LOCK_RADIUS := 56.0 ## Screen pixels (3D view) around the reticle; the FCS scales it.
+const LOCK_HOLD := 1.4 ## A held soft lock lasts out to this many radii from the reticle.
+const LOCK_SWITCH := 0.6 ## Another enemy takes a held lock only when this much nearer the reticle.
+const SIGHT_RATE := 10.0 ## Per second the chevron's range eases toward the range it rests on.
 const PART_LOCK_RADIUS := 90.0 ## Screen pixels: on a target made of modules, the nearest one within this is locked.
 const RESPAWN_DELAY := 1.8
 const RESPAWN_INVULN := 2.6
@@ -57,6 +60,9 @@ var hull_yaw := 0.0
 var aim_screen := Vector2(DitherView.RESOLUTION) * Vector2(0.5, 0.45)
 var aim_point := Vector3.ZERO
 var aim_target: Entity
+var sight_range := 0.0 ## Smoothed range of the chevron along the barrel.
+var _sight_lock: Entity
+var _lay_offset := Vector3.ZERO ## Eased offset of the aimed spot from the locked target's center.
 var using_gamepad := false
 
 var coax_tier := 0
@@ -467,9 +473,16 @@ func _update_aim(delta: float) -> void:
 	# apart, and rounds may only leave a few degrees off the barrel.
 	var lay := aim_point
 	var lock := _pick_coax_target()
+	var ease_in := 1.0 if lock != _sight_lock else 1.0 - exp(-SIGHT_RATE * delta) # Snaps when the lock changes hands.
 	if is_instance_valid(lock):
 		var speed: float = Armament.GUNS[Armament.tier_calibers(coax_tier)[0]].speed
-		lay = lead_point(model.muzzle.global_position, speed, lock, _aimed_spot(lock))
+		# The aimed spot eases, so the sight sliding on and off the target's shape does not jerk the barrel.
+		var spot := _aimed_spot(lock)
+		_lay_offset = _lay_offset.lerp(Vector3.ZERO if spot == Vector3.INF else spot - lock.hit_center(), ease_in)
+		lay = lead_point(model.muzzle.global_position, speed, lock, lock.hit_center() + _lay_offset)
+	# The sight's range follows the locked target's lay point, else the aim point, and eases too.
+	sight_range = lerpf(sight_range, model.muzzle.global_position.distance_to(lay), ease_in)
+	_sight_lock = lock
 	var local := model.turret.global_transform.affine_inverse() * lay
 	var yaw := atan2(-local.x, -local.z)
 	model.turret.rotation.y = rotate_toward(model.turret.rotation.y, model.turret.rotation.y + yaw, 7.0 * modules.traverse_factor() * delta)
@@ -528,7 +541,7 @@ func _ray_ground(origin: Vector3, dir: Vector3, max_distance: float) -> float:
 ## than a few degrees off where the barrel points.
 func _fire_direction(from: Vector3, speed: float) -> Vector3:
 	var target := aim_point
-	var lock := _pick_coax_target()
+	var lock := coax_target
 	if is_instance_valid(lock) and lock is Enemy:
 		target = lead_point(from, speed, lock, _aimed_spot(lock))
 	return along_barrel(-model.barrel.global_basis.z, (target - from).normalized())
@@ -537,7 +550,7 @@ func _fire_direction(from: Vector3, speed: float) -> Vector3:
 ## Where to aim so a round at `speed` meets `target`: a few passes settle the flight time.
 ## Where to shoot to hit `target` (at `spot` on it, or its middle) as it moves.
 func lead_point(from: Vector3, speed: float, target: Entity, spot := Vector3.INF) -> Vector3:
-	var enemy_velocity := (target as Enemy).velocity if target is Enemy and modules.lead_online() else Vector3.ZERO
+	var enemy_velocity := (target as Enemy).track_velocity if target is Enemy and modules.lead_online() else Vector3.ZERO
 	var p := target.hit_center() if spot == Vector3.INF else spot
 	var aim := p
 	for i in 3:
@@ -546,7 +559,6 @@ func lead_point(from: Vector3, speed: float, target: Entity, spot := Vector3.INF
 
 
 func _update_weapons(delta: float) -> void:
-	coax_target = _pick_coax_target()
 	coax_part = _pick_part(coax_target)
 	if input_enabled and Input.is_action_pressed("fire_coax"):
 		var calibers := Armament.tier_calibers(coax_tier)
@@ -594,24 +606,46 @@ func _pick_part(target: Entity) -> String:
 	return best
 
 
+## Picks once a frame (in _update_aim) into `coax_target`, which the guns and the sight then share.
+## A held lock stays while it is in range, on screen and within LOCK_HOLD radii of the reticle;
+## another enemy takes it only by being clearly nearer the reticle (LOCK_SWITCH).
 func _pick_coax_target() -> Entity:
+	var held: Entity = coax_target if is_instance_valid(coax_target) else null
+	coax_target = null
 	if modules.lock_factor() <= 0.0:
 		return null # The sight is gone: the guns go where the reticle points.
 	if is_instance_valid(aim_target) and not aim_target.dead:
-		return aim_target
-	var cam := World.current.camera
-	var best: Entity = null
-	var best_distance := SOFT_LOCK_RADIUS * modules.lock_factor()
+		coax_target = aim_target
+		return coax_target
+	var radius := SOFT_LOCK_RADIUS * modules.lock_factor()
+	var limit := radius
+	var held_distance := _lock_distance(held)
+	if held_distance <= radius * LOCK_HOLD:
+		coax_target = held
+		limit = minf(radius, held_distance * LOCK_SWITCH)
 	for enemy in World.current.enemies:
-		if enemy.dead or enemy is Flare or cam.is_position_behind(enemy.hit_center()):
+		if enemy == held:
 			continue
-		if enemy.hit_center().distance_to(global_position) > COAX_RANGE:
-			continue
-		var distance := cam.unproject_position(enemy.hit_center()).distance_to(aim_screen)
-		if distance < best_distance:
-			best_distance = distance
-			best = enemy
-	return best
+		var distance := _lock_distance(enemy)
+		if distance < limit:
+			limit = distance
+			coax_target = enemy
+	return coax_target
+
+
+## Screen distance from the reticle to an enemy the FCS could lock, else INF.
+func _lock_distance(enemy: Entity) -> float:
+	if not is_instance_valid(enemy) or enemy.dead or enemy is Flare:
+		return INF
+	var cam := World.current.camera
+	if cam.is_position_behind(enemy.hit_center()) or enemy.hit_center().distance_to(global_position) > COAX_RANGE:
+		return INF
+	return cam.unproject_position(enemy.hit_center()).distance_to(aim_screen)
+
+
+## Where the chevron sits: along the barrel at the smoothed sight range.
+func sight_point() -> Vector3:
+	return model.muzzle.global_position - model.barrel.global_basis.z * maxf(sight_range, 30.0)
 
 
 ## Rounds leave along the barrel: the ballistic computer may correct only a few degrees off it,

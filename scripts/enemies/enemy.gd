@@ -2,8 +2,13 @@ class_name Enemy
 extends Entity
 ## Base for hostile units: score, weaknesses, stagger, burning, telegraphs, tail grabs and cleanup.
 
+const TRACK_RATE := 8.0 ## Per second `track_velocity` closes on `velocity`.
+const MIN_TRACK_DELTA := 0.002 ## Frames shorter than this (hitstop) say nothing about speed.
+const TELEPORT_DISTANCE := 6.0 ## A one-frame move this long is a jump, not travel.
+
 var score := 100
 var velocity := Vector3.ZERO
+var track_velocity := Vector3.ZERO ## Smoothed `velocity` for lead: steady through hitstop and lane hops.
 var stabbable := false
 var weakness := {} ## Hit.Kind -> damage multiplier.
 var death_radius := 2.0 ## Size of the death blast: half the model's longest side, set once it is built.
@@ -57,7 +62,10 @@ func tick(delta: float) -> void:
 	model.position = model.position.lerp(Vector3.ZERO, 1.0 - exp(-22.0 * delta)) + jitter
 	behave(delta)
 	show_damage(delta, death_radius)
-	velocity = (global_position - _last_position) / maxf(delta, 0.0001)
+	var moved := global_position - _last_position
+	velocity = moved / maxf(delta, 0.0001)
+	if delta > MIN_TRACK_DELTA and moved.length() < TELEPORT_DISTANCE:
+		track_velocity = track_velocity.lerp(velocity, 1.0 - exp(-TRACK_RATE * delta))
 	_last_position = global_position
 	wade(delta, velocity, death_radius)
 	if despawn_behind > 0.0:

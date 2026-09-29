@@ -161,7 +161,7 @@ func test_damaged_fcs_halves_the_lock_and_drops_the_lead() -> void:
 	var ugv := Ugv.new()
 	ugv.position = Course.ground_at(world.rail.d + 60.0, 0.0)
 	world.add_enemy(ugv)
-	ugv.velocity = Vector3(10.0, 0.0, 0.0)
+	ugv.track_velocity = Vector3(10.0, 0.0, 0.0)
 	var from := tank.model.muzzle.global_position
 	var led := tank.lead_point(from, 100.0, ugv)
 	check(led.distance_to(ugv.hit_center()) > 1.0, "a whole FCS leads a moving target")
@@ -199,7 +199,7 @@ func test_destroyed_fcs_disables_lock_and_lead() -> void:
 	var ugv := Ugv.new()
 	ugv.position = Course.ground_at(world.rail.d + 60.0, 0.0)
 	world.add_enemy(ugv)
-	ugv.velocity = Vector3(12.0, 0.0, 0.0)
+	ugv.track_velocity = Vector3(12.0, 0.0, 0.0)
 	ugv.invulnerable = true
 	await frames(2)
 	tank.aim_target = ugv

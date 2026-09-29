@@ -479,8 +479,7 @@ func _draw_reticle() -> void:
 	# where the gun fires; the mouse only leaves a small cursor the turret swings toward.
 	var muzzle := p.model.muzzle.global_position
 	var barrel_dir := -p.model.barrel.global_basis.z
-	var range_m := muzzle.distance_to(p.aim_point)
-	var far := muzzle + barrel_dir * maxf(range_m, 30.0)
+	var far := p.sight_point()
 	var near := muzzle + barrel_dir * 14.0
 	draw_circle(cursor, 2.0, Palette.WHITE)
 	draw_arc(cursor, 4.0, 0, TAU, 10, Palette.INK, 1.0)
@@ -498,7 +497,7 @@ func _draw_reticle() -> void:
 	draw_line(c + Vector2(0, 14), c + Vector2(0, 26), color, 2.0)
 	# Range to whatever the sight rests on.
 	if p.modules.lock_factor() > 0.0:
-		_text(c + Vector2(50, -4), "%04d" % int(range_m), color, 12)
+		_text(c + Vector2(50, -4), "%04d" % int(p.sight_range), color, 12)
 	_text(c + Vector2(50, 10), ROUND_CODES[p.current_round], Armament.ROUND_COLORS[p.current_round], 12)
 	# Reload ring: twelve segments fill; a READY flash when the gun is loaded.
 	var reload := clampf(1.0 - p.reload / (Armament.RELOAD * p.modules.reload_factor()), 0.0, 1.0)
