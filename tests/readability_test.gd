@@ -68,3 +68,19 @@ func test_outline_masks_sleep_until_their_class_is_present() -> void:
 	check_eq(view.class_masks[0].render_target_update_mode, SubViewport.UPDATE_DISABLED, "hostile mask sleeps after its last shot")
 	check_eq(view.class_masks[1].render_target_update_mode, SubViewport.UPDATE_DISABLED, "loot mask sleeps after its last pickup")
 	view.queue_free()
+
+
+func test_cached_dither_parameters_follow_settings_and_hitstop() -> void:
+	var view := DitherView.new()
+	add_child(view)
+	var strength: float = Game.settings.dither
+	Game.settings.dither = 0.25
+	view._process(0.0)
+	check_near(view.material.get_shader_parameter("strength"), 0.25, 0.00001, "changing settings updates the shader")
+	view.flash(Color.RED, 0.8)
+	view._process(0.0)
+	check_eq(view.material.get_shader_parameter("flash"), Color(1, 0, 0, 0.8), "a hitstop frame still uploads a new flash")
+	view._process(1.0)
+	check_near(view.material.get_shader_parameter("flash").a, 0.0, 0.00001, "the last fade update clears the shader")
+	Game.settings.dither = strength
+	view.queue_free()

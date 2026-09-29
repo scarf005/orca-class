@@ -16,10 +16,12 @@ var mask := SubViewport.new()
 var _mask_camera := Camera3D.new()
 ## One mask per outlined class (enemies, pickups): alpha marks where that class is drawn.
 var class_masks: Array[SubViewport] = []
-var _class_cameras: Array[Camera3D] = []
+var _mask_cameras: Array[Camera3D] = [_mask_camera]
 var _material := ShaderMaterial.new()
 var _flash := Color(0, 0, 0, 0)
 var _mask_active := [true, true]
+var _strength := -1.0
+var _sent_flash := Color(0, 0, 0, 0)
 
 
 func _ready() -> void:
@@ -57,7 +59,7 @@ func _ready() -> void:
 		view.add_child(camera)
 		camera.current = true
 		class_masks.append(view)
-		_class_cameras.append(camera)
+		_mask_cameras.append(camera)
 	texture = viewport.get_texture()
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -83,10 +85,12 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	var camera := viewport.get_camera_3d()
 	if camera:
-		for copy: Camera3D in [_mask_camera] + _class_cameras:
+		for copy in _mask_cameras:
 			copy.global_transform = camera.global_transform
-			copy.fov = camera.fov
-			copy.near = camera.near
+			if copy.fov != camera.fov:
+				copy.fov = camera.fov
+			if copy.near != camera.near:
+				copy.near = camera.near
 		_mask_camera.far = camera.far
 	var world := World.current
 	var hostile := world != null and not world.enemies.is_empty()
@@ -104,9 +108,13 @@ func _process(delta: float) -> void:
 			changed = true
 	if changed:
 		_material.set_shader_parameter("mask_active", Vector2(float(active[0]), float(active[1])))
-	_material.set_shader_parameter("strength", Game.settings.dither)
+	if _strength != Game.settings.dither:
+		_strength = Game.settings.dither
+		_material.set_shader_parameter("strength", _strength)
 	_flash.a = move_toward(_flash.a, 0.0, delta * 3.0)
-	_material.set_shader_parameter("flash", _flash)
+	if _flash != _sent_flash:
+		_sent_flash = _flash
+		_material.set_shader_parameter("flash", _flash)
 
 
 ## Tints the whole screen briefly, e.g. white for a big blast or coral for a hit.

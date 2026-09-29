@@ -22,7 +22,7 @@ enum Kind { SOLID, GLOW, FLAME }
 enum Debris { WOOD, CONCRETE, ROOF, GLASS, METAL, PAINT, ARMOR, VINYL, FLESH, SPORE, FOLIAGE, STRAW, CERAMIC, ROCK, BRASS, DIRT }
 const DEBRIS_FILES: Array[String] = ["wood", "concrete", "roof", "glass", "metal", "paint", "armor", "vinyl", "flesh", "spore", "foliage", "straw", "ceramic", "rock", "brass", "dirt"]
 const DEBRIS_VARIANTS := 6
-const STRIDE := {Kind.SOLID: 20, Kind.GLOW: 16, Kind.FLAME: 16} ## Floats per instance; debris adds its sprite layer.
+const STRIDE := 20 ## Transform, color and shader data: size/rotation (and debris sprite layer).
 
 class Particle:
 	var position: Vector3
@@ -57,6 +57,7 @@ var _pools := {Kind.SOLID: [], Kind.GLOW: [], Kind.FLAME: []}
 var _multimeshes := {}
 var _buffers := {} ## Kind -> PackedFloat32Array uploaded to the MultiMesh in one call per frame.
 static var _mesh_cache := {} ## Unit-sized transient meshes by name and color.
+static var _shaders_warmed := false
 var _transients: Array[Dictionary] = []
 var _scorches: Array[MeshInstance3D] = []
 var _flashes: Array[OmniLight3D] = []
@@ -90,26 +91,28 @@ static func _fade_material(glow: bool) -> ShaderMaterial:
 
 
 func _ready() -> void:
+	_fireball_mesh() # The first hit must not build the detailed blast sphere during combat.
+	for color in [Palette.WHITE, Palette.BUTTER, Palette.FRIENDLY, Palette.HOSTILE]:
+		for variant in 3:
+			_flash_mesh(variant, color)
 	for kind: Kind in [Kind.SOLID, Kind.GLOW, Kind.FLAME]:
 		var multimesh := MultiMesh.new()
 		multimesh.transform_format = MultiMesh.TRANSFORM_3D
 		multimesh.use_colors = true
-		multimesh.use_custom_data = kind == Kind.SOLID
+		multimesh.use_custom_data = true
 		multimesh.mesh = _particle_mesh(kind)
-		multimesh.instance_count = MAX_PARTICLES
 		multimesh.visible_instance_count = 0
 		var instance := MultiMeshInstance3D.new()
 		instance.multimesh = multimesh
-		instance.material_override = [_solid_material, _glow_material, _flame_material][kind]
+		instance.material_override = [_solid_material, _glow_material, _flame_material][kind].duplicate()
+		instance.material_override.set_shader_parameter("particles", true)
 		instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		if kind == Kind.FLAME:
 			instance.layers |= ActorLayer.LAYER
 		instance.custom_aabb = AABB(Vector3(-5000, -500, -5000), Vector3(10000, 1000, 10000))
 		add_child(instance)
 		_multimeshes[kind] = multimesh
-		var buffer := PackedFloat32Array()
-		buffer.resize(MAX_PARTICLES * STRIDE[kind])
-		_buffers[kind] = buffer
+		_buffers[kind] = PackedFloat32Array()
 	for i in FLASH_LIGHTS:
 		var light := OmniLight3D.new()
 		light.light_color = Palette.PEACH
@@ -118,6 +121,48 @@ func _ready() -> void:
 		light.shadow_enabled = false
 		add_child(light)
 		_flashes.append(light)
+	_warm_shaders()
+
+
+## Compatibility compiles shader variants on first draw. Render the actual material/vertex
+## formats once during loading, in a tiny world that is never composited onto the game screen.
+func _warm_shaders() -> void:
+	if _shaders_warmed or DisplayServer.get_name() == "headless":
+		return
+	_shaders_warmed = true
+	var view := SubViewport.new()
+	view.size = Vector2i(16, 16)
+	view.own_world_3d = true
+	view.render_target_update_mode = SubViewport.UPDATE_ONCE
+	add_child(view)
+	var camera := Camera3D.new()
+	camera.position.z = 3.0
+	view.add_child(camera)
+	view.add_child(DirectionalLight3D.new())
+	for kind: Kind in [Kind.SOLID, Kind.GLOW, Kind.FLAME]:
+		var source := get_child(kind) as MultiMeshInstance3D
+		var instance := MultiMeshInstance3D.new()
+		var mesh := MultiMesh.new()
+		mesh.transform_format = MultiMesh.TRANSFORM_3D
+		mesh.use_colors = true
+		mesh.use_custom_data = true
+		mesh.mesh = source.multimesh.mesh
+		mesh.instance_count = 1
+		mesh.set_instance_transform(0, Transform3D.IDENTITY)
+		mesh.set_instance_color(0, Color.WHITE)
+		mesh.set_instance_custom_data(0, Color(0, 1, 0, 0) if kind == Kind.SOLID else Color(1, 0, 0, 0))
+		instance.multimesh = mesh
+		instance.material_override = source.material_override
+		view.add_child(instance)
+	for mat in [_fireball_material, _glow_material, _flame_material, LowPoly.flesh_material,
+			LowPoly.flesh_glow_material, LowPoly.vivid_lit_material, LowPoly.vivid_glow_material]:
+		var instance := MeshInstance3D.new()
+		instance.mesh = _fireball_mesh()
+		instance.material_override = mat
+		view.add_child(instance)
+	RenderingServer.frame_post_draw.connect(func() -> void:
+		if is_instance_valid(view):
+			view.queue_free(), CONNECT_ONE_SHOT)
 
 
 static func _particle_mesh(kind: Kind) -> Mesh:
@@ -173,81 +218,64 @@ func spawn(kind: Kind, position: Vector3, velocity: Vector3, life: float, size: 
 func _process(delta: float) -> void:
 	var trails: Array[Particle] = []
 	var splashes: Array[Particle] = []
-	var camera := get_viewport().get_camera_3d()
-	var view := camera.global_basis if camera else Basis()
 	for kind: Kind in _pools:
 		var pool: Array = _pools[kind]
 		var multimesh: MultiMesh = _multimeshes[kind]
 		var buffer: PackedFloat32Array = _buffers[kind]
+		if pool.size() > multimesh.instance_count:
+			var capacity := mini(MAX_PARTICLES, maxi(128, nearest_po2(pool.size())))
+			var previous := multimesh.instance_count
+			multimesh.instance_count = capacity
+			buffer.resize(capacity * STRIDE)
+			for i in range(previous, capacity):
+				buffer[i * STRIDE] = 1.0
+				buffer[i * STRIDE + 5] = 1.0
+				buffer[i * STRIDE + 10] = 1.0
 		var index := 0
-		var stride: int = STRIDE[kind]
 		for read in pool.size():
 			var p: Particle = pool[read]
-			p.life += delta
-			if p.life >= p.max_life:
+			var age := p.life + delta
+			p.life = age
+			if age >= p.max_life:
 				continue
-			p.velocity.y -= p.gravity * delta
-			p.velocity *= maxf(0.0, 1.0 - p.drag * delta)
-			p.position += p.velocity * delta
-			if p.bounce and p.position.y < p.ground:
+			var velocity := p.velocity
+			velocity.y -= p.gravity * delta
+			velocity *= maxf(0.0, 1.0 - p.drag * delta)
+			var position := p.position + velocity * delta
+			if p.bounce and position.y < p.ground:
 				if p.water:
+					p.position = position
+					p.velocity = velocity
 					splashes.append(p)
 					continue
-				p.position.y = p.ground
-				p.velocity = Vector3(p.velocity.x * 0.5, absf(p.velocity.y) * 0.3, p.velocity.z * 0.5)
-			var t := p.life / p.max_life
+				position.y = p.ground
+				velocity = Vector3(velocity.x * 0.5, absf(velocity.y) * 0.3, velocity.z * 0.5)
+			p.position = position
+			p.velocity = velocity
+			var t := age / p.max_life
 			var s := lerpf(p.size, p.end_size, t)
-			# Row-major 3x4 transform, the color, then the custom data, as the MultiMesh buffer expects.
-			var o := index * stride
+			# Translation stays on the CPU for collisions and trails. The vertex shader handles
+			# size, rotation and billboarding, avoiding nine matrix writes per particle/frame.
+			var o := index * STRIDE
 			if kind == Kind.SOLID:
-				# Billboard: flat toward the camera, rolling in the screen plane.
-				var roll := p.spin.x + p.spin.z * p.life
-				var c := cos(roll)
-				var r := sin(roll)
-				var bx := (view.x * c + view.y * r) * s
-				var by := (view.y * c - view.x * r) * s
-				var bz := view.z * s
-				buffer[o] = bx.x
-				buffer[o + 1] = by.x
-				buffer[o + 2] = bz.x
-				buffer[o + 4] = bx.y
-				buffer[o + 5] = by.y
-				buffer[o + 6] = bz.y
-				buffer[o + 8] = bx.z
-				buffer[o + 9] = by.z
-				buffer[o + 10] = bz.z
 				buffer[o + 16] = p.layer
-			elif p.spin != Vector3.ZERO:
-				var basis := Basis.from_euler(p.spin * p.life).scaled(Vector3.ONE * s)
-				buffer[o] = basis.x.x
-				buffer[o + 1] = basis.y.x
-				buffer[o + 2] = basis.z.x
-				buffer[o + 4] = basis.x.y
-				buffer[o + 5] = basis.y.y
-				buffer[o + 6] = basis.z.y
-				buffer[o + 8] = basis.x.z
-				buffer[o + 9] = basis.y.z
-				buffer[o + 10] = basis.z.z
+				buffer[o + 17] = s
+				buffer[o + 18] = p.spin.x + p.spin.z * age
 			else:
-				buffer[o] = s
-				buffer[o + 1] = 0.0
-				buffer[o + 2] = 0.0
-				buffer[o + 4] = 0.0
-				buffer[o + 5] = s
-				buffer[o + 6] = 0.0
-				buffer[o + 8] = 0.0
-				buffer[o + 9] = 0.0
-				buffer[o + 10] = s
-			buffer[o + 3] = p.position.x
-			buffer[o + 7] = p.position.y
-			buffer[o + 11] = p.position.z
+				buffer[o + 16] = s
+				buffer[o + 17] = p.spin.x * age
+				buffer[o + 18] = p.spin.y * age
+				buffer[o + 19] = p.spin.z * age
+			buffer[o + 3] = position.x
+			buffer[o + 7] = position.y
+			buffer[o + 11] = position.z
 			buffer[o + 12] = p.color.r
 			buffer[o + 13] = p.color.g
 			buffer[o + 14] = p.color.b
 			buffer[o + 15] = 1.0 - smoothstep(p.fade_start, 1.0, t)
 			if p.trail.a > 0.0:
 				p.trail_timer -= delta
-				if p.trail_timer <= 0.0 and (kind != Kind.SOLID or p.velocity.length_squared() > TRAIL_MIN_SPEED * TRAIL_MIN_SPEED):
+				if p.trail_timer <= 0.0 and (kind != Kind.SOLID or velocity.length_squared() > TRAIL_MIN_SPEED * TRAIL_MIN_SPEED):
 					p.trail_timer = 0.05 if kind == Kind.FLAME else 0.08
 					trails.append(p)
 			if index != read:
@@ -305,10 +333,14 @@ static func _make_fireball() -> ShaderMaterial:
 	return material
 
 
+static func _fireball_mesh() -> Mesh:
+	return _cached("fireball", Palette.WHITE, func(b: LowPoly, c: Color) -> void: b.blob(Transform3D(), 1.0, c, 2, 0.12, 4))
+
+
 ## One ball of an explosion: it swells from `start` to `end` radius while its bands cool and it
 ## breaks up. Drawn crisp (never dithered) on the actor layer.
 func fireball(position: Vector3, start: float, end: float, life: float) -> void:
-	var mesh := _cached("fireball", Palette.WHITE, func(b: LowPoly, c: Color) -> void: b.blob(Transform3D(), 1.0, c, 2, 0.12, 4))
+	var mesh := _fireball_mesh()
 	var node := MeshInstance3D.new()
 	node.mesh = mesh
 	node.position = position
@@ -537,15 +569,19 @@ func shockwave(position: Vector3, radius: float, color: Color, life := 0.3) -> v
 	_transient(mesh, Transform3D(Basis(), position + Vector3.UP * 0.2), life, true, Vector2(radius * 0.2, radius), 0.1, true)
 
 
-## A star-shaped muzzle flash: a forward spike and a cross of side petals, gone in a blink.
-func muzzle_flash(position: Vector3, dir: Vector3, size: float, color := Palette.BUTTER) -> void:
-	var variant := randi() % 3
-	var mesh := _cached("flash%d" % variant, color, func(b: LowPoly, c: Color) -> void:
+static func _flash_mesh(variant: int, color: Color) -> Mesh:
+	return _cached("flash%d" % variant, color, func(b: LowPoly, c: Color) -> void:
 		b.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3.ZERO), 0.35, 2.2, 5, Palette.WHITE, 0.0)
 		for i in 4:
 			var petal := Basis(Vector3.BACK, i * PI * 0.5 + variant * 0.35) * Basis(Vector3.BACK, PI * 0.5)
 			b.prism(Transform3D(petal, Vector3.ZERO), 0.22, 1.1, 4, c, 0.0)
 		b.blob(Transform3D(), 0.5, c))
+
+
+## A star-shaped muzzle flash: a forward spike and a cross of side petals, gone in a blink.
+func muzzle_flash(position: Vector3, dir: Vector3, size: float, color := Palette.BUTTER) -> void:
+	var variant := randi() % 3
+	var mesh := _flash_mesh(variant, color)
 	var up := Vector3.UP if absf(dir.y) < 0.99 else Vector3.RIGHT
 	_transient(mesh, Transform3D(Basis.looking_at(dir, up).scaled(Vector3.ONE * size), position), 0.06, true, Vector2.ONE, 0.6, true)
 

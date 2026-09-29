@@ -15,7 +15,7 @@ static var vivid_glow_material: StandardMaterial3D = _make_material(true, true)
 
 var glow := false ## When true, following primitives go to the unshaded surface.
 var flesh := false ## When true, following primitives pulse (combines with `glow`).
-var _surfaces := {} ## (glow, flesh) key -> [points, colors]
+var _surfaces := {} ## (glow, flesh) key -> [points, colors, normals]
 
 
 static func _make_flesh(glowing: bool) -> ShaderMaterial:
@@ -43,17 +43,22 @@ func tri(a: Vector3, b: Vector3, c: Vector3, color: Color, outward := Vector3.ZE
 		var swap := b
 		b = c
 		c = swap
+		normal = -normal
+	normal = normal.normalized()
 	# Godot treats clockwise triangles as front-facing.
 	var key := int(glow) + 2 * int(flesh)
 	if not _surfaces.has(key):
-		_surfaces[key] = [PackedVector3Array(), PackedColorArray()]
+		_surfaces[key] = [PackedVector3Array(), PackedColorArray(), PackedVector3Array()]
 	var surface: Array = _surfaces[key]
 	var points: PackedVector3Array = surface[0]
 	var colors: PackedColorArray = surface[1]
+	var normals: PackedVector3Array = surface[2]
 	points.append_array([a, c, b])
 	colors.append_array([color, color, color])
+	normals.append_array([normal, normal, normal])
 	surface[0] = points
 	surface[1] = colors
+	surface[2] = normals
 
 
 func quad(a: Vector3, b: Vector3, c: Vector3, d: Vector3, color: Color, outward: Vector3) -> void:
@@ -154,21 +159,14 @@ func mesh() -> ArrayMesh:
 	var materials: Array[Material] = [lit_material, glow_material, flesh_material, flesh_glow_material]
 	for key in 4:
 		if _surfaces.has(key):
-			_add_surface(result, _surfaces[key][0], _surfaces[key][1], materials[key])
+			_add_surface(result, _surfaces[key][0], _surfaces[key][1], _surfaces[key][2], materials[key])
 	return result
 
 
-static func _add_surface(target: ArrayMesh, points: PackedVector3Array, colors: PackedColorArray, material: Material) -> void:
+static func _add_surface(target: ArrayMesh, points: PackedVector3Array, colors: PackedColorArray, normals: PackedVector3Array, material: Material) -> void:
 	if points.is_empty():
 		return
-	var normals := PackedVector3Array()
-	normals.resize(points.size())
-	for i in range(0, points.size(), 3):
-		# Points are stored clockwise, so the outward normal is (c - a) × (b - a).
-		var n := (points[i + 2] - points[i]).cross(points[i + 1] - points[i]).normalized()
-		normals[i] = n
-		normals[i + 1] = n
-		normals[i + 2] = n
+	# Normals were generated with the faces, on the worker or within its time budget.
 	var arrays := []
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = points

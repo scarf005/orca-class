@@ -47,6 +47,8 @@ godot --path . -- --debug-room
 Tools run through the main scene with `--run`:
 
 ```sh
+# CPU timings for terrain streaming without threads and 1,800 particles (not rendered FPS).
+godot --headless --path . -- --run=res://tools/benchmark.gd
 # Bot playthrough with screenshots and frame timing. A small window keeps xvfb's software presentation cheap.
 xvfb-run -a godot --path . --resolution 960x540 -- --run=res://tools/autoplay.gd \
   --seconds=420 --scale=3 --god --shots=30,60 --out=builds/auto [--checkpoint=boss] [--profile]

@@ -7,11 +7,25 @@ const STEP_D := 2.5
 const HALF_WIDTH := 190.0
 const AHEAD := 320.0
 const BEHIND := 80.0
+const STREAM_BUDGET_USEC := 1000
+const ROWS := int(CHUNK_LENGTH / STEP_D)
 const BEHIND_BENDS := 480.0 ## How far back chunks may stay loaded while a bend swings them into view.
 
 ## Lateral sample positions: fine near the road, coarse on the far hills.
 static var _columns := _make_columns()
 
+class ChunkBuild:
+	var index: int
+	var cursor := 0
+	var grid: Array[Vector3] = []
+	var builder := LowPoly.new()
+
+	func _init(chunk_index: int) -> void:
+		index = chunk_index
+
+
+var threaded := OS.has_feature("threads")
+var _serial := {} ## index -> ChunkBuild, resumed within the frame budget without worker threads.
 var _chunks := {}
 var _pending := {} ## index -> WorkerThreadPool task id.
 var _built := {} ## index -> LowPoly builder finished on a worker thread.
@@ -65,31 +79,62 @@ static func _water_mesh() -> ArrayMesh:
 	return mesh
 
 
-## Keeps chunks covering [d - BEHIND, d + AHEAD], plus older ones that a bend brings back in front
-## of the rail. Missing chunks are built on worker threads; `wait` builds them immediately instead
-## (used while loading).
+## Keeps the same bend-aware window on every platform. Loading waits for complete geometry;
+## play gives generation/attachment a time budget. Web exports without threads resume a chunk
+## across frames instead of running the whole worker callable on the main thread.
 func stream(d: float, wait := false) -> void:
+	var deadline := Time.get_ticks_usec() + STREAM_BUDGET_USEC
 	var last := int(floorf((d + AHEAD) / CHUNK_LENGTH))
 	var wanted := {}
 	for index in range(int(floorf((d - BEHIND_BENDS) / CHUNK_LENGTH)), last + 1):
 		if (index + 1) * CHUNK_LENGTH >= d - BEHIND or _in_front(index, d):
 			wanted[index] = true
+	for index: int in _serial.keys():
+		if not wanted.has(index):
+			_serial.erase(index)
 	for index: int in wanted:
-		if _chunks.has(index) or _pending.has(index):
+		if _chunks.has(index):
 			continue
 		if wait:
-			_attach(index, _build_chunk(index))
-		else:
-			_pending[index] = WorkerThreadPool.add_task(_build_async.bind(index))
+			if _pending.has(index):
+				WorkerThreadPool.wait_for_task_completion(_pending[index])
+				_pending.erase(index)
+				_mutex.lock()
+				var builder: LowPoly = _built[index]
+				_built.erase(index)
+				_mutex.unlock()
+				_attach(index, builder)
+			else:
+				var job: ChunkBuild = _serial.get(index, ChunkBuild.new(index))
+				_advance(job)
+				_attach(index, job.builder)
+				_serial.erase(index)
+		elif not _pending.has(index) and not _serial.has(index):
+			if threaded:
+				_pending[index] = WorkerThreadPool.add_task(_build_async.bind(index))
+			else:
+				_serial[index] = ChunkBuild.new(index)
+	for index: int in _serial.keys():
+		if Time.get_ticks_usec() >= deadline:
+			break
+		var job: ChunkBuild = _serial[index]
+		if _advance(job, deadline):
+			_attach(index, job.builder)
+			_serial.erase(index)
 	_mutex.lock()
-	var finished := _built.duplicate()
-	_built.clear()
+	var finished := _built.keys()
 	_mutex.unlock()
 	for index: int in finished:
+		if not wait and Time.get_ticks_usec() >= deadline:
+			break
 		WorkerThreadPool.wait_for_task_completion(_pending[index])
 		_pending.erase(index)
+		_mutex.lock()
+		var builder: LowPoly = _built[index]
+		_built.erase(index)
+		_mutex.unlock()
 		if wanted.has(index) and not _chunks.has(index):
-			_attach(index, finished[index])
+			_attach(index, builder)
 	for index: int in _chunks.keys():
 		if not wanted.has(index):
 			_chunks[index].queue_free()
@@ -127,32 +172,38 @@ func _attach(index: int, builder: LowPoly) -> void:
 	_chunks[index] = chunk
 
 
-## Pure geometry work, safe on a worker thread.
+## The synchronous/worker path uses exactly the same cells and ordering as the budgeted path.
 func _build_chunk(index: int) -> LowPoly:
-	var d0 := index * CHUNK_LENGTH
-	var rows := int(CHUNK_LENGTH / STEP_D)
-	var grid: Array[PackedVector3Array] = []
-	for r in rows + 1:
-		var d := d0 + r * STEP_D
-		var row := PackedVector3Array()
-		for u in _columns:
-			row.append(Course.ground_at(d, u))
-		grid.append(row)
-	var builder := LowPoly.new()
-	for r in rows:
-		for c in _columns.size() - 1:
-			var a := grid[r][c]
-			var b := grid[r][c + 1]
-			var e := grid[r + 1][c]
-			var f := grid[r + 1][c + 1]
+	var job := ChunkBuild.new(index)
+	_advance(job)
+	return job.builder
+
+
+func _advance(job: ChunkBuild, deadline := 0) -> bool:
+	var columns := _columns.size()
+	var vertices := (ROWS + 1) * columns
+	var total := vertices + ROWS * (columns - 1)
+	while job.cursor < total and (deadline == 0 or Time.get_ticks_usec() < deadline):
+		if job.cursor < vertices:
+			var r := job.cursor / columns
+			job.grid.append(Course.ground_at(job.index * CHUNK_LENGTH + r * STEP_D, _columns[job.cursor % columns]))
+		else:
+			var cell := job.cursor - vertices
+			var r := cell / (columns - 1)
+			var c := cell % (columns - 1)
+			var a := job.grid[r * columns + c]
+			var b := job.grid[r * columns + c + 1]
+			var e := job.grid[(r + 1) * columns + c]
+			var f := job.grid[(r + 1) * columns + c + 1]
 			# Alternate the diagonal so slopes read as facets rather than stripes.
 			if (r + c) % 2 == 0:
-				_face(builder, a, b, f)
-				_face(builder, a, f, e)
+				_face(job.builder, a, b, f)
+				_face(job.builder, a, f, e)
 			else:
-				_face(builder, a, b, e)
-				_face(builder, b, f, e)
-	return builder
+				_face(job.builder, a, b, e)
+				_face(job.builder, b, f, e)
+		job.cursor += 1
+	return job.cursor == total
 
 
 func _face(builder: LowPoly, a: Vector3, b: Vector3, c: Vector3) -> void:

@@ -5,6 +5,7 @@ shader_type spatial;
 render_mode cull_disabled, depth_draw_opaque, unshaded;
 
 uniform sampler2DArray sprites : filter_nearest;
+uniform bool particles = false;
 
 varying float layer;
 
@@ -12,6 +13,12 @@ const float BAYER[16] = float[16](0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0, 3.0
 
 void vertex() {
 	layer = INSTANCE_CUSTOM.x;
+	if (particles) {
+		float c = cos(INSTANCE_CUSTOM.z);
+		float s = sin(INSTANCE_CUSTOM.z);
+		VERTEX.xy = mat2(vec2(c, s), vec2(-s, c)) * VERTEX.xy;
+		VERTEX = mat3(INV_VIEW_MATRIX) * VERTEX * INSTANCE_CUSTOM.y;
+	}
 }
 
 void fragment() {

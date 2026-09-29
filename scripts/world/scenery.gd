@@ -5,6 +5,7 @@ extends Node3D
 
 const AHEAD := 330.0
 const BEHIND := 45.0
+const STREAM_BUDGET_USEC := 1000
 
 ## kind -> [footprint, height, hp, crushable, burnable, score, explosive, rubble]
 const PROPS := {
@@ -453,8 +454,10 @@ func _dam_mesh() -> Mesh:
 	return b.mesh()
 
 
-## Instantiates specs entering the window (at most `budget` per call) and frees those behind.
+## Limits both the count and time spent attaching nodes. Explicit large budgets are used by
+## loading/screenshots and still finish synchronously before the world is displayed.
 func stream(d: float, budget := 8) -> void:
+	var deadline := Time.get_ticks_usec() + STREAM_BUDGET_USEC if budget <= 8 else 0
 	while _next < specs.size() and specs[_next].d < d + AHEAD and budget > 0:
 		var spec := specs[_next]
 		_next += 1
@@ -462,6 +465,8 @@ func stream(d: float, budget := 8) -> void:
 			continue
 		_instantiate(spec)
 		budget -= 1
+		if deadline > 0 and Time.get_ticks_usec() >= deadline:
+			break
 	var keep: Array[Spec] = []
 	var arena := World.current.rail.mode == Rail.Mode.ARENA
 	for spec in _live:

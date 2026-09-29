@@ -18,12 +18,13 @@ uniform vec4 outline_colors[2];
 uniform vec2 mask_active = vec2(1.0);
 
 float coverage(sampler2D mask, vec2 uv, vec2 texel, float radius) {
-	float hit = 0.0;
 	for (int i = 0; i < 8; i++) {
 		float a = float(i) * 0.78539816;
-		hit = max(hit, texture(mask, uv + vec2(cos(a), sin(a)) * texel * radius).a);
+		if (texture(mask, uv + vec2(cos(a), sin(a)) * texel * radius).a >= 0.5) {
+			return 1.0;
+		}
 	}
-	return step(0.5, hit);
+	return 0.0;
 }
 
 const float BAYER[16] = float[16](0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0, 3.0, 11.0, 1.0, 9.0, 15.0, 7.0, 13.0, 5.0);
@@ -67,11 +68,14 @@ void fragment() {
 				continue;
 			}
 			float rim = k == 0 ? coverage(hostile_mask, UV, texel, 1.0) : coverage(loot_mask, UV, texel, 1.0);
-			float halo = k == 0 ? coverage(hostile_mask, UV, texel, 2.5) : coverage(loot_mask, UV, texel, 2.5);
 			if (rim > 0.5) {
 				result = outline_colors[k].rgb;
-			} else if (halo > 0.5 && glow_dither < 0.5) {
-				result = mix(result, outline_colors[k].rgb, 0.6);
+			} else if (glow_dither < 0.5) {
+				// Half the Bayer cells never show a halo; rims also hide it completely.
+				float halo = k == 0 ? coverage(hostile_mask, UV, texel, 2.5) : coverage(loot_mask, UV, texel, 2.5);
+				if (halo > 0.5) {
+					result = mix(result, outline_colors[k].rgb, 0.6);
+				}
 			}
 		}
 	}
