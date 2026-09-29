@@ -332,7 +332,11 @@ func _overpass() -> void:
 
 
 func _arena() -> void:
-	add_decor(_dam_mesh(), Course.DAM_D, 0.0, 0.0, 0.0)
+	var dam := Spec.new()
+	dam.kind = "dam"
+	dam.decor = true
+	dam.d = Course.DAM_D
+	specs.append(dam)
 	for i in 10:
 		var angle := TAU * i / 10.0 + 0.3
 		var r := _rng.randf_range(35.0, 70.0)
@@ -444,21 +448,6 @@ func _gantry_mesh() -> Mesh:
 	return b.mesh()
 
 
-func _dam_mesh() -> Mesh:
-	var b := LowPoly.new()
-	var width := 260.0
-	for i in 6:
-		var y := i * 5.0
-		b.box(Transform3D(Basis(), Vector3(0, y + 2.5, -i * 2.5)), Vector3(width, 5.0, 4.0 + i * 0.5), Palette.CONCRETE if i % 2 else Palette.MIST)
-	b.box(Transform3D(Basis(), Vector3(0, 31.0, -15.0)), Vector3(width, 2.0, 8.0), Palette.STONE)
-	for x in [-24.0, -8.0, 8.0, 24.0]:
-		b.box(Transform3D(Basis(), Vector3(x, 34.0, -15.0)), Vector3(6.0, 6.0, 6.0), Palette.ASH)
-		b.box(Transform3D(Basis(), Vector3(x, 15.0, 0.5)), Vector3(5.0, 30.0, 1.0), Palette.STONE)
-	for i in 14:
-		b.blob(Transform3D(Basis(), Vector3(-90.0 + i * 14.0, 3.0 + (i % 4) * 7.0, 1.0 - (i % 4) * 2.5)), 2.5 + (i % 3), [Palette.FUNGUS, Palette.LILAC, Palette.BLUSH][i % 3], 0, 0.4, i)
-	return b.mesh()
-
-
 ## Limits both the count and time spent attaching nodes. Explicit large budgets are used by
 ## loading/screenshots and still finish synchronously before the world is displayed.
 func stream(d: float, budget := 8) -> void:
@@ -492,6 +481,12 @@ func _instantiate(spec: Spec) -> void:
 		# Loot is only laid out for a tank to collect; the title backdrop has none.
 		if World.current.player:
 			spec.node = World.current.spawn_pickup(spec.pickup, position + Vector3.UP * 1.6)
+	elif spec.kind == "dam":
+		var dam := Dam.new()
+		add_child(dam)
+		dam.global_position = Course.to_world(spec.d, 0.0, 0.0)
+		dam.rotation.y = yaw
+		spec.node = dam
 	elif spec.decor:
 		var decor := MeshInstance3D.new()
 		decor.mesh = spec.mesh

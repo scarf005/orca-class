@@ -65,6 +65,7 @@ var _flare_cooldown := 0.0
 var _spore_timer := 0.0
 var _crash := 0.0
 var _crash_from := Vector3.ZERO
+var _crash_to := Vector3.ZERO ## Where it hits the dam: in front of the face, up where the camera sees it.
 var _cannon_aim := Vector3.ZERO ## Where the nose cannon's next shell is locked to go.
 var _hard := false
 var _rotor_sound: AudioStreamPlayer3D
@@ -882,6 +883,7 @@ func _begin_crash() -> void:
 	if _rotor_sound:
 		_rotor_sound.stop()
 	_crash_from = global_position
+	_crash_to = Dam.crash_point(Course.to_course(_crash_from).y)
 	world.camera.watch(self)
 	hp = 0.0
 	world.boss_changed.emit(null)
@@ -899,22 +901,52 @@ func _begin_crash() -> void:
 func _update_crash(delta: float) -> void:
 	var world := World.current
 	_crash -= delta
-	var dam := Course.to_world(Course.DAM_D - 3.0, Course.to_course(_crash_from).y, 12.0)
 	var k := 1.0 - _crash / 3.2
-	global_position = _crash_from.lerp(dam, k * k) + Vector3.UP * sin(k * PI) * 6.0
+	global_position = _crash_from.lerp(_crash_to, k * k) + Vector3.UP * sin(k * PI) * 6.0
 	model.rotation.y += delta * (4.0 + k * 10.0)
 	model.rotation.z = lerpf(model.rotation.z, 0.6, delta)
 	if randf() < delta * 20.0:
 		world.fx.spawn(Fx.Kind.FLAME, global_position + Vector3(randf_range(-1, 1), 1, randf_range(-1, 1)), Vector3(0, 3, 0), 0.5, 1.2, [Palette.PEACH, Palette.CORAL, Palette.BUTTER][randi() % 3])
 		world.fx.smoke(global_position, 1, 2.0, [Palette.STONE, Palette.ASH, Palette.DUSK])
 	if _crash <= 0.0:
-		for i in 5:
-			world.fx.explosion(global_position + Vector3(randf_range(-5, 5), randf_range(-2, 6), randf_range(-3, 3)), 6.0 + i)
-		world.fx.shockwave(global_position, 40.0, Palette.BUTTER)
-		world.shake(1.0)
-		world.hitstop(0.3)
-		world.screen_flash(Palette.WHITE, 0.9)
+		global_position = _crash_to
+		_crash_blast(_crash_to)
 		die(Hit.make(Hit.Kind.BLAST, 9999.0, global_position))
+
+
+## The wreck slams into the dam: a chain of big fireballs, shockwaves, a ring of dust and burning
+## chunks of airframe and concrete thrown out over the arena.
+func _crash_blast(at: Vector3) -> void:
+	var world := World.current
+	var fx := world.fx
+	var ground := Vector3(at.x, Course.height_at(at), at.z)
+	var out := -Course.forward(Course.DAM_D) # From the face, into the arena.
+	for i in 6:
+		fx.explosion(at + Vector3(randf_range(-9, 9), randf_range(-4, 8), randf_range(-6, 6)), 6.0 + i % 3, [Palette.WHITE, Palette.BUTTER, Palette.AMBER, Palette.CORAL], out * 0.3)
+	for i in 4:
+		fx.fireball(at + Vector3(randf_range(-8, 8), randf_range(-3, 7), randf_range(-4, 6)), 4.0, randf_range(13.0, 19.0), randf_range(0.9, 1.3))
+	for i in 8:
+		fx.explosion_after(0.12 + i * 0.12 + randf() * 0.08, at + Vector3(randf_range(-14, 14), randf_range(-6, 10), randf_range(-8, 8)), randf_range(4.5, 8.0))
+	fx.shockwave(at, 70.0, Palette.BUTTER, 0.6)
+	fx.shockwave(at, 110.0, Palette.WHITE, 0.9)
+	fx.shockwave(ground, 95.0, Palette.MIST, 1.2)
+	fx.dust(ground, 45, 14.0, Palette.MIST)
+	fx.dust(ground, 30, 10.0, Palette.OCHRE)
+	fx.debris(at, 40, debris + [Fx.Debris.CONCRETE, Fx.Debris.ROCK], 30.0, 0.9, out * 0.3)
+	fx.shatter(AABB(at - Vector3(10, 8, 6), Vector3(20, 16, 12)), [Fx.Debris.CONCRETE, Fx.Debris.ROCK], out * 0.3, 0.3)
+	for i in 20:
+		var dir := (Vector3(randf_range(-1, 1), randf_range(0.5, 1.6), randf_range(-1, 1)).normalized() + out * 0.4).normalized()
+		fx.spawn(Fx.Kind.FLAME, at, dir * randf_range(10, 26), randf_range(1.2, 2.4), randf_range(0.5, 0.9), Palette.PEACH, {"gravity": 18.0, "trail": Palette.ASH, "end_size": 0.2, "fade": 0.8})
+	fx.smoke_column(at, 12.0)
+	fx.smoke(at, 14, 7.0)
+	for spot in [Vector3(-8, 0, 0), Vector3(6, 0, 4), Vector3(0, 0, -3)]:
+		fx.burn(ground + spot, 9.0, 2.4)
+	fx.light_flash(at, 40.0, Palette.WHITE, 120.0)
+	world.shake(1.0)
+	world.hitstop(0.3)
+	world.screen_flash(Palette.WHITE, 0.9)
+	Sfx.play("blast", at, 8.0, 0.55)
+	Sfx.play("blast", at, 4.0, 0.8)
 
 
 func on_death(_hit: Hit) -> void:

@@ -44,13 +44,21 @@ static func _make_columns() -> PackedFloat32Array:
 
 func _ready() -> void:
 	_water = MeshInstance3D.new()
+	_water.mesh = _water_mesh()
+	_water.material_override = water_material()
+	add_child(_water)
+
+
+## The reservoir's look, shared by every water surface. `vertex_colors` lets a surface vary its shades.
+static func water_material(vertex_colors := false) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
-	material.albedo_color = Palette.TEAL
+	material.albedo_color = Color.WHITE if vertex_colors else Palette.TEAL
+	material.vertex_color_use_as_albedo = vertex_colors
+	material.vertex_color_is_srgb = vertex_colors
 	material.roughness = 0.2
 	material.metallic_specular = 0.8
-	_water.mesh = _water_mesh()
-	_water.material_override = material
-	add_child(_water)
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return material
 
 
 ## The reservoir surface: a strip following the bend over the basin, reaching under its banks.

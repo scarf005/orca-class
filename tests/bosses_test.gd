@@ -339,6 +339,31 @@ func test_gunship_crash_clears_stage() -> void:
 	check(ok, "crash into the dam clears the stage")
 
 
+func test_gunship_crashes_into_the_dam_face_in_plain_view() -> void:
+	var world := stage("boss")
+	var boss := _gunship(world)
+	await frames(2)
+	check(is_instance_valid(Dam.current), "the dam stands in the arena")
+	boss.global_position = Course.to_world(Course.ARENA_CENTER_D, 30.0, 20.0)
+	var hit := Hit.make(Hit.Kind.SHELL, 5000.0, boss.global_position)
+	hit.pierce = true
+	boss.take_hit(hit)
+	var target := boss._crash_to
+	var at := Course.to_course(target)
+	check(at.x < Course.DAM_D - Dam.face_z(target.y), "the impact point is in front of the dam face, not inside it")
+	check(Course.DAM_D - Dam.face_z(target.y) - at.x < 12.0, "and hugging the face")
+	check(target.y > Course.height_at(target) + 6.0, "well above the ground there, up where the camera sees the face")
+	check_near(at.y, 30.0, 0.5, "it comes down on the side of the dam it was over")
+	check(Course.to_course(Dam.crash_point(500.0)).y <= 60.5, "a far-off crash is pulled toward the middle of the wall")
+	var before := world.fx._transients.size()
+	var chained := world.fx._delayed.size()
+	boss._crash = 0.01
+	boss._update_crash(0.1)
+	check(world.fx._transients.size() > before + 10, "the impact throws a heap of fireballs and shockwaves")
+	check(world.fx._delayed.size() >= chained + 8, "blasts chain on after the first")
+	check(boss.dead, "the crash kills the gunship")
+
+
 func test_flares_catch_shells() -> void:
 	var world := stage("boss")
 	var boss := _gunship(world)

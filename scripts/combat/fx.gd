@@ -524,6 +524,11 @@ func burn(position: Vector3, duration: float, size := 1.0) -> void:
 	_emitters.append({"position": position, "time": duration, "size": size, "tick": 0.0})
 
 
+## A blast that goes off `delay` seconds from now, e.g. one link of a chain.
+func explosion_after(delay: float, position: Vector3, damage_radius: float, palette := [Palette.BUTTER, Palette.AMBER, Palette.HOT, Palette.CORAL]) -> void:
+	_delayed.append({"time": delay, "position": position, "radius": damage_radius, "palette": palette})
+
+
 func _update_delayed(delta: float) -> void:
 	var ready: Array[Dictionary] = []
 	for d in _delayed:

@@ -256,10 +256,11 @@ static func height(d: float, u: float) -> float:
 	# The schoolyard and boss arena are flat.
 	var yard := _band(d, SCHOOL_YARD.x - 30.0, SCHOOL_YARD.x, SCHOOL_YARD.y, SCHOOL_YARD.y + 30.0) * (1.0 - smoothstep(50.0, 62.0, au))
 	h = lerpf(h, 0.3, yard)
-	var arena := _band(d, 3400.0, 3440.0, DAM_D - 25.0, DAM_D - 10.0) * (1.0 - smoothstep(ARENA_RADIUS, ARENA_RADIUS + 15.0, au))
+	var arena := _band(d, 3400.0, 3440.0, DAM_D + 2.0, DAM_D + 6.0) * (1.0 - smoothstep(ARENA_RADIUS, ARENA_RADIUS + 15.0, au))
 	h = lerpf(h, 0.2 + _noise.get_noise_2d(d, u) * 0.6, arena)
-	# Behind the dam the valley is full to its crest.
-	h = lerpf(h, maxf(h, 31.0), smoothstep(DAM_D - 16.0, DAM_D - 6.0, d))
+	# Behind the dam the reservoir bed is a bank as high as the wall's back face (see Dam), which
+	# stands on the flat arena floor in front of it.
+	h = lerpf(h, maxf(h, 27.0), smoothstep(DAM_D + 4.0, DAM_D + 7.0, d))
 	return h
 
 
@@ -289,7 +290,9 @@ static func ground_color(d: float, u: float, h: float, slope: float) -> Color:
 	var au := absf(u)
 	var rise := smoothstep(valley_half_width(d), valley_half_width(d) + 70.0, au)
 	var color := Palette.SAGE
-	if h < WATER_LEVEL + 0.4:
+	if d > DAM_D + 3.0 and d < DAM_D + 9.0:
+		color = Palette.STONE # The bank the dam's back face leans on.
+	elif h < WATER_LEVEL + 0.4:
 		color = Palette.OCHRE if h > WATER_LEVEL - 0.6 else Palette.TEAL
 	elif au < 5.0 and deck_blend(d) < 0.5:
 		color = Palette.CONCRETE if section_at(d) != Section.FARM else Palette.OCHRE
