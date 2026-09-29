@@ -159,9 +159,10 @@ func on_death(hit: Hit) -> void:
 	var chain := Hit.new()
 	chain.source = world.player if by_player else null
 	world.blast(center, death_radius * 1.4, 35.0, Team.PLAYER if by_player else Team.NEUTRAL, chain, self, [Palette.WHITE, Palette.AMBER, Palette.HOT, Palette.CORAL], push)
-	# A hull that stays whole as a wreck sheds only some of itself; anything else goes to pieces.
-	var remains := wreck_on_death and not overkilled
-	world.fx.shatter(visual_bounds(), debris, push, 0.35 if remains else 1.0)
+	# A hull stays whole as a wreck and sheds only some of itself; an overkill (a 100 mm hit) tears
+	# off more and throws it harder. Anything without a hull goes to pieces.
+	var remains := wreck_on_death
+	world.fx.shatter(visual_bounds(), debris, push, (0.7 if overkilled else 0.35) if remains else 1.0)
 	world.fx.smoke_column(center, death_radius, [Palette.DUSK, Palette.INK, Palette.ASH])
 	if remains:
 		# The entity stops ticking after death, so its flash cannot expire on detached wrecks.
@@ -174,7 +175,7 @@ func on_death(hit: Hit) -> void:
 			if is_instance_valid(part):
 				# Turrets blow clean off and cartwheel away on their own.
 				Wreck.launch(part, part.global_position, death_radius * 0.4, by_player, push * 8.0 + Vector3.UP * 10.0, false)
-		Wreck.launch(model, center, death_radius, by_player, push * 18.0)
+		Wreck.launch(model, center, death_radius, by_player, push * (28.0 if overkilled else 18.0))
 		model = null
 	world.award(score, center, true)
 	world.kill_style(hit, self)

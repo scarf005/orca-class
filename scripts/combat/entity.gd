@@ -8,7 +8,7 @@ signal damaged(entity: Entity, hit: Hit)
 enum Team { PLAYER, ENEMY, NEUTRAL }
 
 const FLASH_TIME := 0.07
-const OVERKILL := 3.0 ## A killing hit this many times the full health leaves no remains, only shards.
+const OVERKILL := 3.0 ## A killing hit this many times the full health shatters scenery and hurls wrecks.
 
 static var _flash_material := _make_flash_material()
 var rest_overlay: Material = null ## Overlay the meshes wear between hit flashes.
@@ -20,7 +20,7 @@ var radius := 1.0 ## Hit sphere radius around `hit_center()`.
 var center_height := 0.0
 var flying := false
 var dead := false
-var overkilled := false ## Killed by an overkill hit: shatter instead of leaving a wreck or rubble.
+var overkilled := false ## Killed by an overkill hit: scenery leaves no rubble, a wreck flies harder.
 var interceptable := false ## The player's laser CIWS may target this.
 var armor := 0.0 ## Fraction of small-caliber damage (below 20 mm) that is stopped.
 var invulnerable := false

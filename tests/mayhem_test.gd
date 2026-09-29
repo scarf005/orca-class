@@ -157,19 +157,32 @@ func test_shot_pole_still_topples() -> void:
 	check(not pole.dead and pole.is_falling(), "a hit short of overkill snaps it and it goes over")
 
 
-func test_overkill_leaves_only_shards() -> void:
+func test_overkill_hurls_wrecks_and_shatters_the_rest() -> void:
 	var world := stage()
+	var shot_dir := Course.right(world.rail.d + 60.0)
 	var ugv := Ugv.new()
 	ugv.position = Course.ground_at(world.rail.d + 60.0, 0.0)
 	world.add_enemy(ugv)
+	var drone := FpvDrone.new()
+	drone.position = Course.ground_at(world.rail.d + 60.0, 8.0) + Vector3.UP * 6.0
+	world.add_enemy(drone)
 	await frames(2)
-	var shot := Hit.make(Hit.Kind.SHELL, ugv.max_hp * Entity.OVERKILL + 1.0, ugv.hit_center(), Vector3.RIGHT)
+	# The real 100 mm round, the way every cannon kill lands.
+	var shot := Hit.make(Hit.Kind.SHELL, Armament.SHELL_DAMAGE, ugv.hit_center(), shot_dir)
+	shot.caliber = 100
 	shot.source = world.player
 	var shards: int = world.fx._pools[Fx.Kind.SOLID].size()
 	ugv.take_hit(shot)
 	check(ugv.overkilled, "more than three times its health is an overkill")
-	check(not world.get_children().any(func(n: Node) -> bool: return n is Wreck), "no wreck is left")
-	check(world.fx._pools[Fx.Kind.SOLID].size() > shards + 20, "it bursts into shards")
+	var hulls := world.get_children().filter(func(n: Node) -> bool: return n is Wreck and n.explodes)
+	check_eq(hulls.size(), 1, "a vehicle still leaves a wreck to fly and blow up again")
+	if hulls.size() == 1:
+		var hull: Wreck = hulls[0]
+		check(Vector3(hull.velocity.x, 0, hull.velocity.z).dot(shot_dir) > 12.0, "an overkill throws it harder than a plain kill")
+	check(world.fx._pools[Fx.Kind.SOLID].size() > shards + 20, "and tears plenty of shards off it")
+	var wrecks := world.get_children().filter(func(n: Node) -> bool: return n is Wreck).size()
+	drone.take_hit(Hit.make(Hit.Kind.SHELL, Armament.SHELL_DAMAGE, drone.hit_center(), shot_dir))
+	check_eq(world.get_children().filter(func(n: Node) -> bool: return n is Wreck).size(), wrecks, "anything without a hull only bursts into shards")
 	var pole := _prop(world, "house", world.player.global_position + Vector3(0, 0, -40.0), 100.0)
 	pole.rubble_mesh = PropKit.mesh("rubble", 0)
 	var before := world.props.get_child_count()
