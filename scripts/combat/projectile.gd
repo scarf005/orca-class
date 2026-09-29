@@ -18,6 +18,8 @@ var fuse_distance := 0.0 ## Detonates in the air after this distance (airburst);
 var airburst_fragments := 0
 var homing_target: Node3D
 var turn_rate := 0.0 ## Radians per second toward the homing target.
+var homing_lead := false ## Steers to where the target will be on arrival, from the target's `velocity`.
+var lead_response := 3.0 ## Per second the estimate of that velocity catches up with a change of course.
 var interceptable := false
 var intercept_hp := 1.0 ## Laser dwell damage needed to destroy it.
 var radius := 0.0 ## Sweep radius; small for bullets, larger for thrown wrecks.
@@ -38,6 +40,7 @@ var _age := 0.0
 var _hit_entities: Array[Entity] = []
 var _trail_timer := 0.0
 var _motor_light: OmniLight3D
+var _lead_velocity := Vector3.INF ## The target velocity the lead is computed from.
 
 
 func _ready() -> void:
@@ -64,7 +67,7 @@ func step(delta: float) -> void:
 			queue_free()
 		return
 	if is_instance_valid(homing_target) and turn_rate > 0.0:
-		var desired := (homing_target.global_position + Vector3.UP - global_position).normalized() * velocity.length()
+		var desired := (_homing_point(delta) - global_position).normalized() * velocity.length()
 		velocity = velocity.slerp(desired, clampf(turn_rate * delta, 0.0, 1.0))
 	velocity.y -= gravity * delta
 	var from := global_position
@@ -83,6 +86,24 @@ func step(delta: float) -> void:
 		look_at(to + velocity, Vector3.UP if absf(velocity.normalized().y) < 0.99 else Vector3.RIGHT)
 	if trail.a > 0.0:
 		_burn_motor(delta, to)
+
+
+## Where the homing shot steers: the target, or with `homing_lead` the intercept point for this
+## shot's speed (the target itself when it is faster than the shot and cannot be caught).
+func _homing_point(delta: float) -> Vector3:
+	var at := homing_target.global_position + Vector3.UP
+	var target_velocity: Variant = homing_target.get(&"velocity")
+	if not homing_lead or not target_velocity is Vector3:
+		return at
+	var v := target_velocity as Vector3 if _lead_velocity == Vector3.INF else _lead_velocity.lerp(target_velocity, clampf(lead_response * delta, 0.0, 1.0))
+	_lead_velocity = v
+	var relative := at - global_position
+	var a := v.length_squared() - velocity.length_squared()
+	if a >= 0.0:
+		return at
+	var b := 2.0 * relative.dot(v)
+	var t := (-b - sqrt(b * b - 4.0 * a * relative.length_squared())) / (2.0 * a)
+	return at + v * minf(t, life)
 
 
 ## A rocket motor: a flickering light that washes over the ground below, a jet of flame out the

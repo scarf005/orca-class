@@ -185,13 +185,14 @@ func _attack(tank: Tank) -> void:
 		return
 	for i in 2:
 		var from := _pod.global_position + Vector3(0, 0.2, 0)
-		var missile := fire_at("rocket", from, from + Vector3(randf_range(-3, 3), 4.0, 0) + (tank.hit_center() - from).normalized() * 3.0, 34.0, 0.0)
+		var missile := fire_at("rocket", from, from + Vector3(randf_range(-1.5, 1.5), 0.5, 0) + (tank.hit_center() - from).normalized() * 3.0, 34.0, 0.0)
 		missile.hit = Hit.make(Hit.Kind.SHELL, 0.0, from)
 		missile.hit.source = self
 		missile.blast_radius = 2.4
 		missile.blast_damage = 12.0
 		missile.homing_target = tank
-		missile.turn_rate = 1.3
+		missile.homing_lead = true
+		missile.turn_rate = 2.1
 		missile.interceptable = true
 		missile.intercept_hp = 0.7
 		missile.trail = Projectile.ROCKET_SMOKE
