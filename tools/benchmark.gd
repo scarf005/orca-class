@@ -66,6 +66,37 @@ func run() -> int:
 		if frame >= 60:
 			timings.append((Time.get_ticks_usec() - start) / 1000.0)
 	_report("enemy_marks_12", timings)
+	# Forty fire zones and ten burning enemies with the particle system running, as in a dragon's-breath fight.
+	var world := World.new()
+	add_child(world)
+	world.start_stage()
+	world.player.input_enabled = false
+	world.rail.mode = Rail.Mode.ARENA
+	seed(7)
+	for i in 10:
+		var enemy := Ugv.new()
+		enemy.position = Course.ground_at(world.rail.d + 20.0 + i * 5.0, (i % 5 - 2) * 4.0)
+		world.add_enemy(enemy)
+		enemy.max_hp = 1e6
+		enemy.hp = 1e6
+	for i in FireZone.MAX_ZONES:
+		FireZone.ignite(Course.ground_at(world.rail.d + 15.0 + (i % 8) * 8.0, (i / 8 - 2) * 8.0))
+	timings.clear()
+	var peak := 0
+	for frame in 240:
+		var start := Time.get_ticks_usec()
+		for enemy in world.enemies:
+			enemy.burning = 3.0
+			enemy.hp = enemy.max_hp
+			enemy._burn(1.0 / 60.0)
+		for zone in FireZone._zones:
+			zone._process(1.0 / 60.0)
+		world.fx._process(1.0 / 60.0)
+		if frame >= 60:
+			timings.append((Time.get_ticks_usec() - start) / 1000.0)
+		peak = maxi(peak, world.fx.particle_count())
+	_report("fire_40_zones_10_burning_peak%d" % peak, timings)
+	world.free()
 	return 0
 
 

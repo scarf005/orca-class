@@ -5,6 +5,8 @@ extends Entity
 const TRACK_RATE := 8.0 ## Per second `track_velocity` closes on `velocity`.
 const MIN_TRACK_DELTA := 0.002 ## Frames shorter than this (hitstop) say nothing about speed.
 const TELEPORT_DISTANCE := 6.0 ## A one-frame move this long is a jump, not travel.
+const BURN_FLAME_INTERVAL := 0.1 ## Seconds between the tongues a burning body throws.
+const BURN_LIGHT_RADIUS := 2.2 ## Bodies this big light the ground while they burn.
 const SWAY_LIMIT := 30.0 ## Acceleration (m/s²) that the body's lean and bob stop reading.
 const SWAY_RATE := 6.0 ## Per second the smoothed acceleration closes on the measured one.
 
@@ -33,6 +35,7 @@ var model := Node3D.new()
 var age := 0.0
 var _last_position := Vector3.ZERO
 var _burn_tick := 0.0
+var _flame_tick := 0.0
 
 
 func _init() -> void:
@@ -177,13 +180,34 @@ func impact_feedback(hit: Hit, amount: float, killed := false) -> void:
 func _burn(delta: float) -> void:
 	burning -= delta
 	_burn_tick -= delta
+	_burn_flames(delta)
 	if _burn_tick <= 0.0:
 		_burn_tick = 0.25
-		var world := World.current
-		world.fx.spawn(Fx.Kind.FLAME, hit_center() + Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)) * radius * 0.6, Vector3(0, randf_range(2, 4), 0), 0.4, 0.5, [Palette.FUNGUS, Palette.PEACH, Palette.BUTTER][randi() % 3])
 		if not dead:
 			var burn := Hit.make(Hit.Kind.FIRE, 5.0, hit_center())
 			take_hit(burn)
+
+
+## Flames engulf the body: several tongues a tick over its whole volume, bigger with its size and
+## bent back by its motion, with a smoke column, embers and, on big bodies, a flickering light.
+func _burn_flames(delta: float) -> void:
+	_flame_tick -= delta
+	if _flame_tick > 0.0 or dead:
+		return
+	_flame_tick = BURN_FLAME_INTERVAL
+	var fx := World.current.fx
+	var center := hit_center()
+	var lick := -Vector3(track_velocity.x, 0.0, track_velocity.z).limit_length(20.0) * 0.25
+	var reach := Vector3(radius * 0.8, center_height * 0.9, radius * 0.8)
+	for i in clampi(roundi(1.0 + death_radius * 1.3), 2, 7):
+		var offset := Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1))
+		fx.tongue(center + offset * reach, (0.6 + death_radius * 0.5) * randf_range(0.7, 1.3), 0.5 + offset.y * -0.5, lick)
+	if randf() < 0.5:
+		fx.smoke_puff(center + Vector3.UP * center_height, 0.6 + death_radius * 0.3, lick)
+	if randf() < 0.35:
+		fx.embers(center, 1, radius)
+	if death_radius >= BURN_LIGHT_RADIUS and randf() < 0.5:
+		fx.light_flash(center, randf_range(2.5, 4.0), Palette.AMBER, 5.0 + death_radius * 2.0)
 
 
 ## Cancels a telegraphed attack (tail stab, heavy stagger).

@@ -524,6 +524,30 @@ func burn(position: Vector3, duration: float, size := 1.0) -> void:
 	_emitters.append({"position": position, "time": duration, "size": size, "tick": 0.0})
 
 
+const FIRE_COLORS: Array[Color] = [Palette.BUTTER, Palette.AMBER, Palette.HOSTILE_SHOT_RIM, Palette.CORAL]
+
+
+## One tongue of fire: it climbs about `height` m and dies down. `drift` bends it, so a moving
+## body licks its flames back. `hot` (0 to 1) picks its color, from coral edge to butter core.
+func tongue(position: Vector3, height: float, hot: float, drift := Vector3.ZERO) -> void:
+	var life := randf_range(0.4, 0.75)
+	var color := FIRE_COLORS[clampi(int((1.0 - hot) * FIRE_COLORS.size() + randf()), 0, FIRE_COLORS.size() - 1)]
+	spawn(Kind.FLAME, position, Vector3(0.0, height * 2.2, 0.0) + drift, life, height * randf_range(0.55, 0.8), color, {"drag": 1.0, "fade": 0.4})
+
+
+## A dark puff of a smoke column: it climbs, swells and thins out.
+func smoke_puff(position: Vector3, size: float, drift := Vector3.ZERO) -> void:
+	var rise := Vector3(randf_range(-0.4, 0.4), randf_range(2.5, 4.0), randf_range(-0.4, 0.4))
+	spawn(Kind.GLOW, position, rise + drift, randf_range(2.0, 3.0), size * randf_range(0.5, 0.8), [Palette.INK, Palette.DUSK, Palette.SLATE, Palette.ASH][randi() % 4], {"end_size": size * 2.6, "drag": 0.7, "fade": 0.3})
+
+
+## Sparks that float up off a fire and go out.
+func embers(position: Vector3, count: int, spread: float) -> void:
+	for i in count:
+		var at := position + Vector3(randf_range(-1, 1), randf_range(0, 1), randf_range(-1, 1)) * spread
+		spawn(Kind.FLAME, at, Vector3(randf_range(-1.5, 1.5), randf_range(3.0, 6.0), randf_range(-1.5, 1.5)), randf_range(0.7, 1.3), randf_range(0.09, 0.16), [Palette.BUTTER, Palette.PEACH, Palette.AMBER][randi() % 3], {"drag": 0.6, "fade": 0.5})
+
+
 ## A blast that goes off `delay` seconds from now, e.g. one link of a chain.
 func explosion_after(delay: float, position: Vector3, damage_radius: float, palette := [Palette.BUTTER, Palette.AMBER, Palette.HOT, Palette.CORAL]) -> void:
 	_delayed.append({"time": delay, "position": position, "radius": damage_radius, "palette": palette})
