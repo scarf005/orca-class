@@ -40,6 +40,8 @@ const CRUSH_SPEED := 5.0 ## Ground speed above which the tank runs down ground e
 const RAM_DAMAGE := 150.0
 const CANISTER_RANGE := 70.0
 const SMALL_ARMS_CALIBER := 40 ## Bullets below this glance off the armor; only the exposed sensors feel them.
+const TOP_ATTACK_ANGLE := deg_to_rad(7.0) ## Descent that makes a bullet hit the roof. Helicopters (8-15 deg at station) and UAVs (10+) fire down at this; ground gunners stay under 5 (95th percentile).
+const ROOF_CALIBER := 20 ## Bullets from this caliber up, coming down on the roof, punch through it.
 ## How close (angle from the hull's center) a small-arms hit must land to a roof sensor to break it.
 ## Enemy fire arrives low, the sensors sit high on the roof: this wide cone is what makes about one
 ## in seven of the rounds that reach the hull count (see small_arms_test).
@@ -1114,8 +1116,16 @@ func collect(pickup: Pickup) -> void:
 	pickup.queue_free()
 
 
-## Which side of the hull a hit arrives from: "front", "left", "right" or "rear".
+## Whether a bullet comes down on the roof: it descends at least TOP_ATTACK_ANGLE.
+static func is_top_attack(hit: Hit) -> bool:
+	return hit.kind == Hit.Kind.BULLET and hit.direction.normalized().y < -sin(TOP_ATTACK_ANGLE)
+
+
+## Which side of the hull a hit arrives from: "top" for a bullet from above, else "front", "left",
+## "right" or "rear".
 func facing_of(hit: Hit) -> String:
+	if is_top_attack(hit):
+		return "top"
 	var incoming := -hit.direction
 	incoming.y = 0.0
 	if incoming.length() < 0.01:
@@ -1136,11 +1146,11 @@ func damage_multiplier(hit: Hit) -> float:
 	if invuln > 0.0 or _respawn > 0.0:
 		return 0.0
 	var multiplier := 1.0
-	# Frontal armor is thick, the rear is weak.
+	# Frontal armor is thick, the rear and the roof are weak.
 	match facing_of(hit):
 		"front":
 			multiplier *= 0.6
-		"rear":
+		"rear", "top":
 			multiplier *= 1.4
 	return multiplier
 
@@ -1171,7 +1181,7 @@ func take_hit(hit: Hit) -> void:
 
 
 static func is_small_arms(hit: Hit) -> bool:
-	return hit.kind == Hit.Kind.BULLET and hit.caliber < SMALL_ARMS_CALIBER
+	return hit.kind == Hit.Kind.BULLET and hit.caliber < SMALL_ARMS_CALIBER and not (is_top_attack(hit) and hit.caliber >= ROOF_CALIBER)
 
 
 ## Small arms do nothing to the hull (no damage taken, no flash): they whine off the armor, unless

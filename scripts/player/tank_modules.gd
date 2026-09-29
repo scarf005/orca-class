@@ -20,6 +20,7 @@ const EXPOSED := {
 	"left": ["track_l", "turret", "laser", "fcs"],
 	"right": ["track_r", "turret", "laser", "fcs"],
 	"rear": ["engine", "turret"],
+	"top": ["turret", "engine", "fcs", "laser"],
 }
 
 var hp := {}

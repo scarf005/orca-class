@@ -95,21 +95,21 @@ func test_small_arms_break_the_sensor_they_strike() -> void:
 	var tank := world.player
 	await frames(2)
 	var toward := func(name: String) -> Vector3: return tank.model.sensor_position(name) - tank.hit_center()
-	tank.take_hit(_strike(tank, toward.call("laser")))
+	tank.take_hit(_strike(tank, toward.call("laser"), 15))
 	check(tank.modules.hp.laser < TankModules.MAX.laser, "a round on the RWS damages it")
 	check_eq(tank.modules.hp.fcs, TankModules.MAX.fcs, "and only it")
-	tank.take_hit(_strike(tank, toward.call("fcs")))
+	tank.take_hit(_strike(tank, toward.call("fcs"), 15))
 	check(tank.modules.hp.fcs < TankModules.MAX.fcs, "a round on the FCS damages it")
 	check_near(tank.modules.hp.fcs, TankModules.MAX.fcs - 4.0, 0.01, "for the hit's own damage")
 	var hp := tank.hp
 	var laser := float(tank.modules.hp.laser)
 	var fcs := float(tank.modules.hp.fcs)
-	tank.take_hit(_strike(tank, -tank.global_basis.z + Vector3.DOWN * 0.3))
+	tank.take_hit(_strike(tank, -tank.global_basis.z + Vector3.DOWN * 0.3, 15))
 	check_eq(tank.hp, hp, "the hull's middle takes nothing")
 	check_eq(tank.modules.hp.laser, laser, "and the RWS is spared")
 	check_eq(tank.modules.hp.fcs, fcs, "and the FCS is spared")
 	tank.invuln = 0.5
-	tank.take_hit(_strike(tank, toward.call("fcs")))
+	tank.take_hit(_strike(tank, toward.call("fcs"), 15))
 	check_eq(tank.modules.hp.fcs, fcs, "no sensor breaks under respawn or dash cover")
 
 
@@ -118,7 +118,7 @@ func test_a_missing_rws_cannot_be_shot_again() -> void:
 	var tank := world.player
 	await frames(2)
 	var wrecks := world.get_children().filter(func(n: Node) -> bool: return n is Wreck).size()
-	tank.take_hit(_strike(tank, tank.model.sensor_position("laser") - tank.hit_center()))
+	tank.take_hit(_strike(tank, tank.model.sensor_position("laser") - tank.hit_center(), 15))
 	check_eq(tank.modules.hp.laser, 0.0, "nothing to hit up there")
 	check_eq(world.get_children().filter(func(n: Node) -> bool: return n is Wreck).size(), wrecks, "nothing flies off")
 
@@ -215,3 +215,106 @@ func test_destroyed_fcs_disables_lock_and_lead() -> void:
 	check(not lead.is_equal_approx(straight), "which is not where a led round went")
 	tank._update_weapons(0.016)
 	check(tank.coax_target == null and tank.coax_part.is_empty(), "the weapons track nothing")
+
+
+## A shooter's muzzle for a gun firing down on the roof: a helicopter on station (55 m out, 10-15 m up)
+## or a UAV on a strafing pass (17 m up, 15-80 m out).
+func _from_above(tank: Tank, helicopter: bool) -> Vector3:
+	var out := randf_range(50.0, 65.0) if helicopter else randf_range(15.0, 80.0)
+	var up := randf_range(10.0, 15.0) if helicopter else 17.0
+	return tank.global_position - tank.global_basis.z * out + tank.global_basis.x * randf_range(-15.0, 15.0) + Vector3.UP * up
+
+
+func test_guns_firing_down_on_the_roof_hurt() -> void:
+	var world := stage()
+	var tank := world.player
+	await frames(2)
+	seed(3)
+	for helicopter in [true, false]:
+		var hurt := 0
+		var tries := 0
+		for i in 60:
+			var hit := _shot(tank, _from_above(tank, helicopter), Vector3(1.0, 0.5, 1.0), 30 if helicopter else 23)
+			if hit == null:
+				continue
+			tries += 1
+			tank.invuln = 0.0
+			tank.hp = Tank.MAX_ARMOR
+			var hp := tank.hp
+			tank.take_hit(hit)
+			hurt += 1 if tank.hp < hp else 0
+			check_eq(tank.facing_of(hit), "top", "a shot from a %s comes down on the roof" % ("helicopter" if helicopter else "UAV"))
+		check(tries > 40 and hurt == tries, "every roof hit hurts (%d of %d)" % [hurt, tries])
+
+
+func test_roof_hits_are_weak_and_reach_the_top_modules() -> void:
+	var world := stage()
+	var tank := world.player
+	await frames(2)
+	var hit := _strike(tank, Vector3(0.2, 1.0, 0.1), 30)
+	check_near(tank.damage_multiplier(hit), 1.4, 0.001, "the roof is as weak as the rear")
+	var struck := {}
+	for i in 60:
+		tank.invuln = 0.0
+		tank.hp = Tank.MAX_ARMOR
+		for name in TankModules.MAX:
+			tank.modules.hp[name] = TankModules.MAX[name]
+		tank.take_hit(_strike(tank, Vector3(0.2, 1.0, 0.1), 30))
+		for name in TankModules.MAX:
+			if tank.modules.hp[name] < TankModules.MAX[name]:
+				struck[name] = true
+	for name in ["turret", "engine", "fcs", "laser"]:
+		check(struck.has(name), "the roof reaches the %s" % name)
+	for name in ["track_l", "track_r", "breech"]:
+		check(not struck.has(name), "but not the %s" % name)
+
+
+func test_ground_gunners_still_glance_off() -> void:
+	var world := stage()
+	var tank := world.player
+	await frames(2)
+	seed(4)
+	var reached := 0
+	for i in 200:
+		var gunner := _gunner(tank)
+		if gunner[0].y - tank.global_position.y > 6.0:
+			continue
+		var hit := _shot(tank, gunner[0], gunner[1], 30)
+		if hit == null:
+			continue
+		reached += 1
+		tank.invuln = 0.0
+		var hp := tank.hp
+		tank.take_hit(hit)
+		check_eq(tank.hp, hp, "a 30 mm round from the ground glances off")
+	check(reached > 40, "enough ground shots landed (%d)" % reached)
+
+
+func test_light_rounds_from_above_still_glance_off() -> void:
+	var world := stage()
+	var tank := world.player
+	await frames(2)
+	seed(5)
+	for caliber in [8, 15, 19]:
+		for i in 20:
+			var hit := _shot(tank, _from_above(tank, true), Vector3(1.0, 0.5, 1.0), caliber)
+			if hit == null:
+				continue
+			tank.invuln = 0.0
+			var hp := tank.hp
+			tank.take_hit(hit)
+			check_eq(tank.hp, hp, "a %d mm round from above glances off" % caliber)
+
+
+func test_the_roof_rule_is_for_bullets_only() -> void:
+	var world := stage()
+	var tank := world.player
+	await frames(2)
+	var blast := Hit.make(Hit.Kind.BLAST, 10.0, tank.hit_center(), Vector3.DOWN)
+	check(tank.facing_of(blast) != "top", "a blast from above keeps its horizontal facing")
+	var shell := Hit.make(Hit.Kind.SHELL, 10.0, tank.hit_center(), Vector3.DOWN)
+	check(tank.facing_of(shell) != "top", "so does a shell")
+	var horizontal := _strike(tank, tank.global_basis.x, 30)
+	check(tank.facing_of(horizontal) != "top", "a level bullet is no roof hit")
+	var shallow := _strike(tank, Vector3(1.0, 0.09, 0.0), 30)
+	check(tank.facing_of(shallow) != "top", "a 5 degree descent is no roof hit")

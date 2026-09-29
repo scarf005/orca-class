@@ -52,11 +52,11 @@ The hull has an armor bar for kinetic damage, and internal modules that break se
 | Module | Damaged / destroyed | Exposed from |
 | --- | --- | --- |
 | Tracks (left, right) | Slower movement | Front, that side |
-| Engine | Slower meter refill / no overdrive | Rear |
+| Engine | Slower meter refill / no overdrive | Rear, roof |
 | Breech | Reload ×1.5 / ×3 | Front |
 | Turret drive | Slower traverse | Any |
-| Laser RWS | — / knocked off: CIWS gone until another RWS pickup | Sides, and small arms that strike it |
-| FCS (gunner's sight) | Soft-lock radius halved, no lead / knocked off: no soft lock, no lead, no range readout | Front, sides, and small arms that strike it |
+| Laser RWS | — / knocked off: CIWS gone until another RWS pickup | Sides, roof, and small arms that strike it |
+| FCS (gunner's sight) | Soft-lock radius halved, no lead / knocked off: no soft lock, no lead, no range readout | Front, sides, roof, and small arms that strike it |
 | Tail | Slower / gone until a regrowth pickup | Rear |
 
 - Shaped-charge warheads (FPV drones, ATGMs) are decided by ERA: a brick on that facing absorbs the hit;
@@ -65,6 +65,9 @@ The hull has an armor bar for kinetic damage, and internal modules that break se
   armor for no damage, unless they strike the RWS or FCS on the roof. A knocked-off RWS or FCS flies away in flames
   and is not field-repaired: the FCS comes back with a repair pickup or a spare hull, the RWS only with an RWS pickup
   (a spare hull comes without one).
+- The roof is weak armor. Bullets of 20 mm and up that come down on it at 7 degrees or steeper (the helicopter's
+  30 mm gun and the UAV strafes; ground gunners fire flatter) do 1.4x hull damage, like the rear, and can
+  knock out the turret drive, engine, FCS or RWS. Lighter rounds from above still glance off.
 - The crew field-repairs damaged modules one step at a time. A lost tail only returns from a regrowth pickup.
   ERA refills from ERA pickups. A spare hull (a new life) restores everything.
 - Enemies have modules too: a UGV hit low loses its tracks and stops; hit high, it loses its weapon. A UAV hit in
