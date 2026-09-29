@@ -445,8 +445,15 @@ func _update_aim(delta: float) -> void:
 		best = ground
 		aim_target = null
 	aim_point = origin + dir * best
-	# Turret traverse and gun elevation follow the aim point.
-	var local := model.turret.global_transform.affine_inverse() * aim_point
+	# Turret traverse and gun elevation follow the soft-locked target's lead point, else the aim
+	# point. Seen from the low muzzle, a drone and the ground past it on the sight line are far
+	# apart, and rounds may only leave a few degrees off the barrel.
+	var lay := aim_point
+	var lock := _pick_coax_target()
+	if is_instance_valid(lock):
+		var speed: float = Armament.GUNS[Armament.tier_calibers(coax_tier)[0]].speed
+		lay = lead_point(model.muzzle.global_position, speed, lock, _aimed_spot(lock))
+	var local := model.turret.global_transform.affine_inverse() * lay
 	var yaw := atan2(-local.x, -local.z)
 	model.turret.rotation.y = rotate_toward(model.turret.rotation.y, model.turret.rotation.y + yaw, 7.0 * modules.traverse_factor() * delta)
 	var to_aim := local - model.gun_pivot.position

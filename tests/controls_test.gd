@@ -98,3 +98,29 @@ func test_one_main_gun_shell_wrecks_a_vehicle() -> void:
 	ugv.take_hit(shell)
 	check(ugv.dead, "a direct 100 mm hit is a kill")
 	check(Armament.RELOAD <= 1.5, "and cycles fast enough to thin a wave")
+
+
+func test_the_gun_lays_on_a_soft_locked_drone_not_the_ground_behind_it() -> void:
+	var world := stage()
+	var tank := world.player
+	world.rail.mode = Rail.Mode.HOLD
+	world.rail.hold_at = world.rail.d
+	var drone := FpvDrone.new()
+	drone.position = Course.ground_at(world.rail.d + 40.0, 4.0) + Vector3.UP * 11.0
+	world.add_enemy(drone)
+	await frames(2)
+	drone.set_process(false) # Hold it still so the check is about the gun, not the chase.
+	var cam := world.camera
+	# Just beside the drone on screen: the sight line runs past it to the ground far behind.
+	tank.aim_screen = cam.unproject_position(drone.hit_center()) + Vector2(0, 14)
+	await frames(40)
+	check(tank.aim_target == null and tank.aim_point.distance_to(drone.hit_center()) > 30.0, "the sight itself rests on the ground past the drone")
+	check(tank.coax_target == drone, "the drone is soft-locked")
+	var barrel := -tank.model.barrel.global_basis.z
+	var to_drone := (drone.hit_center() - tank.model.muzzle.global_position).normalized()
+	check(barrel.angle_to(to_drone) < deg_to_rad(6.0), "the barrel points close enough for rounds to reach it (off by %.1f°)" % rad_to_deg(barrel.angle_to(to_drone)))
+	var start := drone.hp
+	tank.reload = 0.0
+	tank.fire_cannon()
+	check(drone.dead or drone.hp < start, "the main gun hits it")
+	cleanup()
