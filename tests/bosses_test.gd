@@ -263,8 +263,8 @@ func test_gunship_rotors_are_independent_and_both_lost_crash() -> void:
 func test_gunship_rotor_blades_can_be_shot_and_destroyed_blades_do_not_block() -> void:
 	var world := stage("boss")
 	var boss := _gunship(world)
-	# Outboard blade tip is beyond the nacelle and missile rack hit spheres.
-	var tip: Vector3 = boss.parts.rotor_l.offset + Vector3(-8.0, 0, 0)
+	# Outboard blade tip is beyond the nacelle and missile rack hit spheres and the other rotor's reach.
+	var tip: Vector3 = boss.parts.rotor_l.offset + Vector3(-(Gunship.ROTOR_RADIUS - 0.5), 0, 0)
 	var from := _on(boss, tip + Vector3.UP * 5.0)
 	var to := _on(boss, tip + Vector3.DOWN * 5.0)
 	var distance := boss.hit_test(from, to)
