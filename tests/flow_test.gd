@@ -44,24 +44,26 @@ func test_midboss_dies_in_about_a_second_and_the_rail_follows() -> void:
 		part.cap = 0.0
 		part.hp = 0.0
 	boss.core.hp = 1.0
-	var pickups := world.pickups.size()
+	var before := world.pickups.duplicate()
 	boss.take_hit(Hit.make(Hit.Kind.SHELL, 10.0, boss.global_transform * boss.core.offset))
 	check(boss._dying > 0.0 and not boss.dead, "the killing blow starts the death throes")
 	var clock := 0.0
 	var died_at := -1.0
 	var released_at := -1.0
+	var dropped := 0
 	for i in 240:
 		await frames(1)
 		clock += get_process_delta_time()
 		if died_at < 0.0 and (not is_instance_valid(boss) or boss.dead):
 			died_at = clock
+			dropped = world.pickups.filter(func(p: Pickup) -> bool: return p not in before).size()
 		if released_at < 0.0 and world.rail.mode == Rail.Mode.RAIL:
 			released_at = clock
 			break
 	check(died_at > 0.0 and died_at <= 1.1, "it is dead within 1.1 s of the killing blow (%.2f s)" % died_at)
 	check(released_at > 0.0 and released_at - died_at <= 0.8, "and the rail runs again within 0.8 s (%.2f s later)" % (released_at - died_at))
 	check(released_at - died_at >= 0.4, "not before the final blast has had a beat (%.2f s)" % (released_at - died_at))
-	check(world.pickups.size() >= pickups + 3, "the coax, repair and ERA pickups still drop (%d new)" % (world.pickups.size() - pickups))
+	check(dropped >= 3, "the coax, repair and ERA pickups still drop (%d new)" % dropped)
 	check(world.stats.score >= 20000, "and the kill still scores")
 
 
