@@ -537,29 +537,66 @@ func smoke(position: Vector3, count: int, radius := 1.0, colors := [Palette.MIST
 		spawn(Kind.GLOW, position + dir * radius * 0.4, dir * randf_range(1.0, 3.0) + Vector3.UP * 1.5, randf_range(0.8, 1.6), randf_range(0.5, 0.9) * (0.4 + radius * 0.15), colors[i % colors.size()], {"end_size": 0.8 + radius * 0.35, "drag": 2.2, "gravity": -1.0, "fade": 0.15})
 
 
+## A per-break fountain: its axis leans up to `max_tilt` off vertical (toward `push` when there is one),
+## with a random upward strength and speed scale, so no two breaks spray alike.
+func _break_character(push: Vector3, max_tilt: float) -> Dictionary:
+	var flat := Vector2(push.x, push.z)
+	var azimuth := flat.angle() + randf_range(-1.2, 1.2) if flat.length() > 0.1 else randf() * TAU
+	var tilt := randf_range(0.0, max_tilt)
+	return {"axis": Vector3(sin(tilt) * cos(azimuth), cos(tilt), sin(tilt) * sin(azimuth)), "lift": randf_range(0.2, 1.3), "speed": randf_range(0.7, 1.35)}
+
+
+## Chunk size relative to the base: a few big ones, the rest mostly small.
+func _shard_scale(big: bool) -> float:
+	return randf_range(1.6, 2.4) if big else 0.3 + 0.7 * pow(randf(), 1.6)
+
+
 ## `push` biases the spray along the attack: chunks fly on through, away from the shooter.
 func debris(position: Vector3, count: int, materials: Array, force := 6.0, size := 0.35, push := Vector3.ZERO) -> void:
+	var feel := _break_character(push, deg_to_rad(22.0))
+	var axis: Vector3 = feel.axis
+	var lean: float = feel.lift
+	var speed_scale: float = feel.speed
 	for i in count:
-		var dir := (Vector3(randf_range(-1, 1), randf_range(0.5, 1.5), randf_range(-1, 1)).normalized() + push * 1.6).normalized()
-		_shard(position, dir * randf_range(0.4, 1.0) * force, randf_range(0.6, 1.3) * size * DEBRIS_SIZE, materials[i % materials.size()])
+		var big := randf() < 0.12
+		var scale := randf_range(1.5, 2.0) if big else 0.45 + 0.65 * pow(randf(), 1.5)
+		var jitter := Vector3(randf_range(-1, 1), randf_range(0.5, 1.5), randf_range(-1, 1))
+		var dir := (jitter.normalized() * 0.6 + axis * lean).normalized() + push * 1.6
+		_shard(position, dir.normalized() * randf_range(0.4, 1.0) * force * speed_scale * (0.7 if big else 1.0), scale * size * DEBRIS_SIZE, materials[randi() % materials.size()], 1.0 if big else 0.0)
 
 
 ## Breaks something apart: shards spread through its box and flung out from its middle (and on
 ## along `push`), as many and as big as the thing was. `share` < 1 when part of it stays behind.
+## The count varies about 30% per break; a few chunks are big and slow, the rest small, quick and
+## some skid low along the ground.
 func shatter(bounds: AABB, materials: Array, push := Vector3.ZERO, share := 1.0) -> void:
 	var extent := bounds.size
 	var volume := maxf(extent.x * extent.y * extent.z, 0.05)
-	var count := int(clampf(1.5 * pow(volume, 2.0 / 3.0) * share, 3.0, 70.0))
+	var count := int(clampf(1.5 * pow(volume, 2.0 / 3.0) * share * randf_range(0.7, 1.3), 3.0, 70.0))
 	var size := clampf(maxf(extent.x, maxf(extent.y, extent.z)) * 0.14, 0.2, 1.8)
 	var center := bounds.get_center()
+	var feel := _break_character(push, deg_to_rad(35.0))
+	var axis: Vector3 = feel.axis
+	var speed_scale: float = feel.speed
+	var bigs := mini(randi_range(1, 3), count)
 	for i in count:
+		var big := i < bigs
 		var at := bounds.position + extent * Vector3(randf(), randf(), randf())
-		var out := ((at - center).normalized() + Vector3.UP * 0.7 + Vector3(randf_range(-0.4, 0.4), 0.0, randf_range(-0.4, 0.4))).normalized() + push * 1.4
-		_shard(at, out * randf_range(5.0, 12.0), randf_range(0.5, 1.5) * size, materials[i % materials.size()])
+		var skid := not big and randf() < 0.25
+		var lift: float = float(feel.lift) * (0.6 if big else 1.2) * (0.15 if skid else 1.0)
+		var jitter := Vector3(randf_range(-0.7, 0.7), randf_range(-0.2, 0.3), randf_range(-0.7, 0.7))
+		var out := ((at - center).normalized() + axis * lift + jitter).normalized()
+		if skid:
+			out.y = minf(out.y, 0.12)
+		out += push * 1.4
+		var speed := randf_range(5.0, 12.0) * speed_scale * (0.55 if big else 1.1)
+		_shard(at, out * speed, _shard_scale(big) * size, materials[randi() % materials.size()], 1.0 if big else 0.0)
 
 
-func _shard(position: Vector3, velocity: Vector3, size: float, material: Debris) -> void:
-	spawn(Kind.SOLID, position, velocity, randf_range(1.2, 2.4), size, Color.WHITE, {"gravity": 22.0, "bounce": true, "spin": 1.0, "end_size": size * 0.8, "trail": DEBRIS_SMOKE, "material": material})
+## `heft` 1 for a big chunk: it lingers, tumbles slowly and drops harder.
+func _shard(position: Vector3, velocity: Vector3, size: float, material: Debris, heft := 0.0) -> void:
+	var life := randf_range(2.2, 3.6) if heft > 0.0 else randf_range(0.9, 2.6)
+	spawn(Kind.SOLID, position, velocity, life, size, Color.WHITE, {"gravity": 22.0 + 6.0 * heft, "bounce": true, "spin": randf_range(0.7, 1.7) * (0.4 if heft > 0.0 else 1.0), "end_size": size * 0.8, "trail": DEBRIS_SMOKE, "material": material})
 
 
 func sparks(position: Vector3, normal: Vector3, count: int, color := Palette.BUTTER, speed := 10.0) -> void:

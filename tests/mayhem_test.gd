@@ -204,8 +204,93 @@ func test_shards_scale_with_the_size_of_what_broke() -> void:
 	pool.clear()
 	world.fx.shatter(AABB(Vector3.ZERO, Vector3.ONE * 6.0), [Fx.Debris.ROCK])
 	check(pool.size() > small * 5, "a big thing breaks into many more shards")
-	check(pool.map(func(p: Fx.Particle) -> float: return p.size).max() > small_size * 3.0, "and bigger ones")
+	check(pool.map(func(p: Fx.Particle) -> float: return p.size).max() > small_size * 2.5, "and bigger ones")
 	check(pool.all(func(p: Fx.Particle) -> bool: return p.trail.a > 0.0), "every shard trails smoke")
+
+
+## Runs `breaks` shatters of `bounds` and returns each one's shards as an array of particles.
+func _breaks(world: World, breaks: int, bounds: AABB, materials: Array, push := Vector3.ZERO) -> Array:
+	var pool: Array = world.fx._pools[Fx.Kind.SOLID]
+	var all := []
+	for _i in breaks:
+		pool.clear()
+		world.fx.shatter(bounds, materials, push)
+		all.append(pool.duplicate())
+	pool.clear()
+	return all
+
+
+func _mean_flat(shards: Array) -> Vector2:
+	var sum := Vector2.ZERO
+	for p: Fx.Particle in shards:
+		sum += Vector2(p.velocity.x, p.velocity.z)
+	return sum / shards.size()
+
+
+func test_shatter_count_varies_per_break_within_bounds() -> void:
+	seed(7)
+	var world := stage()
+	var box := AABB(Vector3(-1.5, 0, -1.5), Vector3(3, 3, 3))
+	var counts := _breaks(world, 60, box, [Fx.Debris.ROCK]).map(func(b: Array) -> int: return b.size())
+	var distinct := {}
+	for c: int in counts:
+		distinct[c] = true
+		check(c >= 3 and c <= 70, "count %d stays within the clamp" % c)
+	check(distinct.size() >= 3, "the same box sheds different counts (%d distinct)" % distinct.size())
+	var old := int(1.5 * pow(27.0, 2.0 / 3.0))
+	var mean := float(counts.reduce(func(a: int, b: int) -> int: return a + b, 0)) / counts.size()
+	check(mean <= old * 1.1, "the average count stays near the old formula (%.1f vs %d)" % [mean, old])
+	var tiny := _breaks(world, 40, AABB(Vector3.ZERO, Vector3.ONE * 0.3), [Fx.Debris.ROCK]).map(func(b: Array) -> int: return b.size())
+	check(tiny.all(func(c: int) -> bool: return c == 3), "tiny things keep the minimum")
+	var huge := _breaks(world, 20, AABB(Vector3.ZERO, Vector3.ONE * 30.0), [Fx.Debris.ROCK]).map(func(b: Array) -> int: return b.size())
+	check(huge.all(func(c: int) -> bool: return c <= 70), "huge things stay under the cap")
+
+
+func test_shatter_mixes_a_few_big_chunks_with_many_small_bits() -> void:
+	seed(11)
+	var world := stage()
+	var box := AABB(Vector3(-2, 0, -2), Vector3(4, 4, 4))
+	var ratios := 0
+	for shards: Array in _breaks(world, 30, box, [Fx.Debris.ROCK]):
+		var sizes := shards.map(func(p: Fx.Particle) -> float: return p.size)
+		sizes.sort()
+		if sizes[-1] >= sizes[sizes.size() / 2] * 2.0:
+			ratios += 1
+	check_eq(ratios, 30, "the largest shard is at least twice the median in every break")
+
+
+func test_shatter_direction_differs_per_break_but_follows_a_push() -> void:
+	seed(3)
+	var world := stage()
+	var box := AABB(Vector3(-1, 0, -1), Vector3(2, 2, 2))
+	var means := _breaks(world, 40, box, [Fx.Debris.ROCK]).map(_mean_flat)
+	var off_center := means.filter(func(m: Vector2) -> bool: return m.length() > 0.8)
+	check(off_center.size() >= 10, "many breaks lean to one side (%d of 40)" % off_center.size())
+	var pushed := _breaks(world, 40, box, [Fx.Debris.ROCK], Vector3.RIGHT * 2.0)
+	var along := 0
+	for shards: Array in pushed:
+		if _mean_flat(shards).x > 5.0:
+			along += 1
+	check_eq(along, 40, "a strong push carries the pieces on along the blow")
+
+
+func test_shatter_picks_materials_at_random() -> void:
+	seed(5)
+	var world := stage()
+	var mats := [Fx.Debris.ROCK, Fx.Debris.WOOD, Fx.Debris.METAL]
+	var box := AABB(Vector3(-2, 0, -2), Vector3(4, 4, 4))
+	var ordered := 0
+	var seen := {}
+	for shards: Array in _breaks(world, 20, box, mats):
+		var in_order := true
+		for i in shards.size():
+			var material: int = shards[i].layer / Fx.DEBRIS_VARIANTS
+			seen[material] = true
+			in_order = in_order and material == mats[i % 3]
+		if in_order:
+			ordered += 1
+	check(ordered < 3, "materials do not cycle in list order (%d of 20 did)" % ordered)
+	check_eq(seen.size(), 3, "every listed material shows up")
 
 
 func test_ramming_a_landmark_takes_what_it_holds_at_once_without_stopping_the_tank() -> void:
