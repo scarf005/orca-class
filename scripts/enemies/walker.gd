@@ -1,6 +1,6 @@
 class_name Walker
 extends Enemy
-## Bipedal walker with wheels on its feet. It skates between lanes ahead of the tank, then plants
+## Bipedal walker with wheels on its feet. It rolls between lanes ahead of the tank, then plants
 ## its feet, crouches with a flashing eye and fires: a 15 mm burst from its arm gun, or a pair of
 ## missiles from its shoulder pod. A hit low on the legs breaks them and it topples.
 
@@ -10,6 +10,7 @@ const SKATE_SPEED := 18.0
 const BARREL_SLEW := 3.0 ## Radians per second the arm gun and the pod turn onto the tank.
 const POD_LOFT := Vector3(0, 6, 0) ## The pod aims above the tank: its missiles pop up, then steer down onto it.
 const GUN_SPREAD := 0.03 ## Radians of scatter on every arm gun round.
+const WHEEL_RADIUS := 0.2
 
 var weapon := "gun" ## "gun" or "missile".
 var legs_hp := 8.0
@@ -20,7 +21,7 @@ var _attack_timer := 1.6
 var _telegraph := 0.0
 var _burst := 0
 var _burst_timer := 0.0
-var _phase := 0.0
+var _crouch := 0.25 ## How far it sits into its knees: 0.25 rolling, 0.55 planted.
 var _body := Node3D.new()
 var _legs: Array[Dictionary] = [] ## {hip, knee, ankle, wheel}
 var _arm := Node3D.new()
@@ -153,10 +154,10 @@ func behave(delta: float) -> void:
 		move = Vector2(clampf(target_d - here.x, -chase, chase), clampf(_lane - here.y, -SKATE_SPEED, SKATE_SPEED) * 0.9)
 	var next := here + move * delta
 	global_position = Course.ground_at(next.x, next.y)
-	# Face the tank; lean into lateral skating.
+	# Face the tank; the body leans into acceleration as it rolls.
 	var to_tank := tank.global_position - global_position
 	model.rotation.y = lerp_angle(model.rotation.y, atan2(-to_tank.x, -to_tank.z), 5.0 * delta)
-	_animate(delta, move, planted)
+	_animate(delta, planted)
 	if crippled or is_staggered():
 		_telegraph = 0.0
 		return
@@ -212,24 +213,27 @@ func _attack(tank: Tank) -> void:
 ## Settles into the planted crouch without running any AI (debug room).
 func pose_idle() -> void:
 	for _i in 30:
-		_animate(0.05, Vector2.ZERO, true)
+		_animate(0.05, true)
 
 
-## Skating stride: legs push alternately while moving, crouch when planted, wheels spin.
-func _animate(delta: float, move: Vector2, planted: bool) -> void:
-	var speed := move.length()
-	_phase += delta * (4.0 + speed * 0.4)
-	var crouch := 0.55 if planted and not crippled else 0.25
-	_body.position.y = lerpf(_body.position.y, 2.7 - crouch * 0.8, 8.0 * delta)
+## Rolling stance: the legs hold one pose, crouched when planted, with a small suspension bob over
+## the ground and a lean into acceleration; the wheels on the feet spin at the ground speed.
+func _animate(delta: float, planted: bool) -> void:
+	var lean := sway(delta)
+	var bob := clampf(lean.y * 0.02, -1.0, 1.0)
+	_crouch = lerpf(_crouch, 0.55 if planted and not crippled else 0.25, 10.0 * delta)
+	_body.position.y = lerpf(_body.position.y, 2.7 - _crouch * 0.8 - bob * 0.05, 8.0 * delta)
 	_body.position.z = move_toward(_body.position.z, 0.0, delta)
-	_body.rotation.z = lerpf(_body.rotation.z, clampf(-move.y * 0.02, -0.3, 0.3), 5.0 * delta)
+	_body.rotation.x = lerpf(_body.rotation.x, clampf(lean.z * 0.01, -0.12, 0.12), 5.0 * delta)
+	_body.rotation.z = lerpf(_body.rotation.z, clampf(-lean.x * 0.01, -0.12, 0.12), 5.0 * delta)
+	var hip := -0.35 - _crouch - bob * 0.05
+	var knee := 0.7 + _crouch * 1.6 + bob * 0.06
+	var spin := rolled() / WHEEL_RADIUS
 	for leg in _legs:
-		var push: float = sin(_phase + (0.0 if leg.side < 0.0 else PI)) * clampf(speed / 18.0, 0.0, 1.0)
-		(leg.hip as Node3D).rotation.x = -0.35 - crouch + push * 0.5
-		(leg.knee as Node3D).rotation.x = 0.7 + crouch * 1.6 - push * 0.3
-		(leg.ankle as Node3D).rotation.x = -0.35 - crouch * 0.8
-		(leg.hip as Node3D).rotation.z = push * 0.25 * leg.side
-		(leg.wheel as Node3D).rotation.x += delta * speed * 3.0
+		(leg.hip as Node3D).rotation.x = hip
+		(leg.knee as Node3D).rotation.x = knee
+		(leg.ankle as Node3D).rotation.x = -0.35 - _crouch * 0.8
+		(leg.wheel as Node3D).rotation.x -= spin
 	if crippled:
 		# Broken legs: slumped to one side, sparking.
 		model.rotation.z = lerpf(model.rotation.z, 0.8, 3.0 * delta)

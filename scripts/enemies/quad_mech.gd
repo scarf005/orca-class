@@ -1,6 +1,6 @@
 class_name QuadMech
 extends Enemy
-## Four-legged heavy mech. It lumbers ahead of the tank on a diagonal gait with a turret on its back:
+## Four-legged heavy mech on wheeled feet. It rolls ahead of the tank with its legs held in one stance and a turret on its back:
 ## "flak" spins up four 20 mm barrels and hoses the tank; "mortar" lobs shells onto marked circles.
 ## Each leg can be shot off; with two gone it collapses.
 
@@ -11,6 +11,8 @@ const BARREL_SLEW := 2.5 ## Radians per second the gun (or mortar tube) turns on
 const GUN_SPREAD := 0.03 ## Radians of scatter on every flak round.
 const MORTAR_CORRECTION := 8.0 ## Degrees a shell may leave off the tube: it then lands where it actually flies.
 const MORTAR_GRAVITY := 20.0
+const WHEEL_RADIUS := 0.4
+const STANCE_SPLAY := 0.12 ## Radians the shins splay outward.
 
 var weapon := "flak" ## "flak" or "mortar".
 var turret_hp := 10.0
@@ -21,13 +23,12 @@ var _attack_timer := 2.0
 var _telegraph := 0.0
 var _burst := 0
 var _burst_timer := 0.0
-var _phase := 0.0
 var _body := Node3D.new()
 var _turret := Node3D.new()
 var _gun := Node3D.new() ## Pivot the flak barrels or the mortar tube turn on; its -Z is the bore.
 var _barrels := Node3D.new() ## The spinning flak cluster inside `_gun`.
 var _muzzle := Node3D.new()
-var _legs: Array[Dictionary] = [] ## {hip, knee, corner, hp, lost}
+var _legs: Array[Dictionary] = [] ## {hip, knee, wheel, corner, hp, lost}
 var _hard := false
 
 
@@ -103,7 +104,13 @@ func build() -> void:
 		shin.box(Transform3D(Basis(Vector3.BACK, -corner.x * 0.25), Vector3(corner.x * 0.35, -1.55, 0)), Vector3(0.32, 3.2, 0.36), Palette.DUSK)
 		shin.prism(Transform3D(Basis(), Vector3(corner.x * 0.75, -3.25, 0)), 0.45, 0.2, 6, Palette.INK, 0.3)
 		_add_mesh(knee, shin.mesh())
-		_legs.append({"hip": hip, "knee": knee, "corner": corner, "hp": LEG_HP, "lost": false})
+		var wheel := Node3D.new()
+		wheel.position = Vector3(corner.x * 0.75, -3.05, 0)
+		knee.add_child(wheel)
+		var w := LowPoly.new()
+		w.prism(Transform3D(Basis(Vector3.BACK, PI * 0.5), Vector3.ZERO), WHEEL_RADIUS, 0.35, 8, Palette.STONE, -1.0, Palette.BUTTER)
+		_add_mesh(wheel, w.mesh())
+		_legs.append({"hip": hip, "knee": knee, "wheel": wheel, "corner": corner, "hp": LEG_HP, "lost": false})
 	_lane = Course.to_course(global_position).y
 	_attack_timer = randf_range(1.5, 2.5)
 
@@ -141,7 +148,7 @@ func behave(delta: float) -> void:
 		move = Vector2(clampf(target_d - here.x, -16.0, 16.0), clampf(_lane - here.y, -3.5, 3.5)) * pace
 	var next := here + move * delta
 	global_position = Course.ground_at(next.x, next.y)
-	_animate(delta, move.length())
+	_animate(delta)
 	if disarmed or collapsed() or is_staggered():
 		_telegraph = 0.0
 		return
@@ -227,15 +234,19 @@ func _lob(from: Vector3, target: Vector3, flight: float) -> Vector3:
 	return velocity_out
 
 
-## Settles into a mid-stride stance without running any AI (debug room).
+## Settles into its stance without running any AI (debug room).
 func pose_idle() -> void:
 	for _i in 10:
-		_animate(0.05, 8.0)
+		_animate(0.05)
 
 
-## Diagonal gait: opposite corners swing together; lost legs hang limp; collapse drops the body.
-func _animate(delta: float, speed: float) -> void:
-	_phase += delta * (1.5 + speed * 0.45)
+## Rolling stance: the legs stay planted in one pose with a small suspension bob over the ground and
+## a lean into acceleration, and the wheels spin at the ground speed. Lost legs hang limp; collapse
+## drops the body.
+func _animate(delta: float) -> void:
+	var lean := sway(delta)
+	var bob := clampf(lean.y * 0.02, -1.0, 1.0)
+	var spin := rolled() / WHEEL_RADIUS
 	var tilt := Vector2.ZERO
 	for leg in _legs:
 		var corner: Vector2 = leg.corner
@@ -243,14 +254,13 @@ func _animate(delta: float, speed: float) -> void:
 			tilt += corner
 			(leg.knee as Node3D).rotation.z = lerpf((leg.knee as Node3D).rotation.z, corner.x * 1.2, 4.0 * delta)
 			continue
-		var offset := 0.0 if corner.x * corner.y > 0.0 else PI
-		var swing := sin(_phase + offset) * clampf(speed / 10.0, 0.2, 1.0)
-		(leg.hip as Node3D).rotation.x = swing * 0.35
-		(leg.knee as Node3D).rotation.z = maxf(0.0, cos(_phase + offset)) * 0.25 * corner.x
+		(leg.hip as Node3D).rotation.x = 0.0
+		(leg.knee as Node3D).rotation.z = (STANCE_SPLAY + bob * 0.04) * corner.x
+		(leg.wheel as Node3D).rotation.x -= spin
 	var sag := 1.8 if collapsed() else 0.0
-	_body.position.y = lerpf(_body.position.y, 2.6 - sag + absf(sin(_phase * 2.0)) * 0.08, 5.0 * delta)
-	_body.rotation.x = lerpf(_body.rotation.x, -tilt.y * 0.12, 3.0 * delta)
-	_body.rotation.z = lerpf(_body.rotation.z, tilt.x * 0.12, 3.0 * delta)
+	_body.position.y = lerpf(_body.position.y, 2.6 - sag - bob * 0.08, 5.0 * delta)
+	_body.rotation.x = lerpf(_body.rotation.x, -tilt.y * 0.12 + clampf(lean.z * 0.005, -0.08, 0.08), 3.0 * delta)
+	_body.rotation.z = lerpf(_body.rotation.z, tilt.x * 0.12 - clampf(lean.x * 0.005, -0.08, 0.08), 3.0 * delta)
 
 
 func on_damaged(hit: Hit, amount: float) -> void:

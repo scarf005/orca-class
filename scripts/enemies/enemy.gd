@@ -5,6 +5,8 @@ extends Entity
 const TRACK_RATE := 8.0 ## Per second `track_velocity` closes on `velocity`.
 const MIN_TRACK_DELTA := 0.002 ## Frames shorter than this (hitstop) say nothing about speed.
 const TELEPORT_DISTANCE := 6.0 ## A one-frame move this long is a jump, not travel.
+const SWAY_LIMIT := 30.0 ## Acceleration (m/s²) that the body's lean and bob stop reading.
+const SWAY_RATE := 6.0 ## Per second the smoothed acceleration closes on the measured one.
 
 var score := 100
 var velocity := Vector3.ZERO
@@ -22,6 +24,8 @@ var despawn_behind := 30.0 ## Removed once this far behind the rail; 0 keeps it.
 var mark_offsets: Array[float] = [] ## Ground vehicles print a line into World.enemy_marks at each of these lateral offsets.
 var mark_width := 1.0 ## How wide those prints are next to a tank's tread.
 var _mark_last := Vector3.INF
+var _sway_velocity := Vector3.ZERO
+var _sway := Vector3.ZERO
 var _shudder := 0.0 ## Seconds of hit shudder left.
 var wreck_on_death := false ## Vehicles: the hull is blown into the air and blows up again on landing.
 var pop_parts: Array[Node3D] = [] ## Parts (turrets) that blow off and fly separately when it dies as a wreck.
@@ -88,6 +92,25 @@ func _leave_marks() -> void:
 	var side := Vector3(model.global_basis.x.x, 0.0, model.global_basis.x.z).normalized()
 	var hull := Transform3D(Basis(side, Vector3.UP, side.cross(Vector3.UP)), global_position)
 	_mark_last = World.current.enemy_marks.lay(_mark_last, hull, mark_offsets, mark_width, _wet, false)
+
+
+## Meters the model rolled along its heading since the last frame; negative when it backs away
+## from where it faces. Spins the wheels of a mech that rolls on its feet.
+func rolled() -> float:
+	var moved := global_position - _last_position
+	return moved.length() * (-1.0 if moved.dot(-model.global_basis.z) < 0.0 else 1.0)
+
+
+## How hard the body is accelerating in the model's frame (x right, y up, z back), smoothed: the
+## suspension compresses with y and the hull leans into x and z.
+func sway(delta: float) -> Vector3:
+	if delta <= MIN_TRACK_DELTA:
+		return _sway
+	var velocity := (global_position - _last_position) / delta
+	var accel := ((velocity - _sway_velocity) / delta).limit_length(SWAY_LIMIT)
+	_sway_velocity = velocity
+	_sway = _sway.lerp(model.global_basis.inverse() * accel, 1.0 - exp(-SWAY_RATE * delta))
+	return _sway
 
 
 ## Per-frame AI for subclasses. Not called while dead.
