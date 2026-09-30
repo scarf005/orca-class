@@ -110,10 +110,7 @@ func _ready() -> void:
 	add_child(tail)
 	add_child(tracks)
 	tail.arrived.connect(_on_tail_arrived)
-	tail.missed.connect(func() -> void:
-		if is_instance_valid(_grab_target) and _grab_target is Pickup:
-			(_grab_target as Pickup).release()
-		_grab_target = null)
+	tail.missed.connect(_drop_grab)
 	track_meshes(model)
 	set_coax_tier(0)
 	ActorLayer.mark(self, ActorLayer.FRIENDLY)
@@ -132,6 +129,15 @@ func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 func _sync_sensors() -> void:
 	model.rws.visible = modules.laser_online()
 	model.fcs.visible = modules.state("fcs") != TankModules.State.DESTROYED
+
+
+## Lets go of what the claw reaches for or carries: a pickup stays in the world to be collected.
+func _drop_grab() -> void:
+	for thing: Variant in [_grab_target, tail.held]:
+		if is_instance_valid(thing) and thing is Pickup:
+			(thing as Pickup).release()
+	_grab_target = null
+	tail.held = null
 
 
 func mount_rws() -> void:
@@ -1247,9 +1253,7 @@ func die(_hit: Hit) -> void:
 	world.stats.lives -= 1
 	world.stats.combo = 0
 	set_coax_tier(coax_tier - 1)
-	if is_instance_valid(tail.held):
-		tail.held.queue_free()
-		tail.held = null
+	_drop_grab()
 	tail.set_state(Tail.State.IDLE)
 	life_lost.emit()
 	hp = 0.0

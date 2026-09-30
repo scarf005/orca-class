@@ -103,6 +103,7 @@ func damage(amount: float) -> bool:
 	if hp > 0.0:
 		return false
 	destroyed = true
+	missed.emit() # Whatever the claw was after or carrying is let go.
 	held = null
 	set_state(State.IDLE)
 	visible = false
