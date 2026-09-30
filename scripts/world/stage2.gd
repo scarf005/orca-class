@@ -49,6 +49,7 @@ func _init() -> void:
 	dynamic_look = true
 	coax_tiers = {"": 2, "midboss": 2, "boss": 3}
 	midboss_d = MIDBOSS_D
+	boss_music = "res://assets/music/boss2.ogg"
 	arena_center_d = ARENA_CENTER_D
 	arena_radius = ARENA_RADIUS
 	gate_d = GATE_D
@@ -82,8 +83,8 @@ func music(section: int) -> String:
 		Section.ARENA:
 			return ""
 		Section.PADDIES, Section.MILL, Section.LEVEE:
-			return "res://assets/music/stage_b.ogg"
-	return "res://assets/music/stage_a.ogg"
+			return "res://assets/music/stage2_b.ogg"
+	return "res://assets/music/stage2_a.ogg"
 
 
 func valley_half_width(d: float) -> float:

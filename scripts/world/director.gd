@@ -49,8 +49,11 @@ func begin(checkpoint: String) -> void:
 	# Load every enemy script and music track now so first appearances do not hitch.
 	for path: String in ENEMY_SCRIPTS.values():
 		load(path)
-	for track in ["stage_a", "stage_b", "boss"]:
-		load("res://assets/music/%s.ogg" % track)
+	for section in Course.stage.section_starts.size():
+		var track := Course.stage.music(section)
+		if not track.is_empty():
+			load(track)
+	load(Course.stage.boss_music)
 	world.add_child(scenery)
 	scenery.build()
 	scenery.stream(world.rail.d, 100000)
@@ -214,4 +217,4 @@ func _start_boss(event: Dictionary) -> void:
 	boss.died.connect(func(_e: Entity) -> void:
 		world.boss_changed.emit(null)
 		get_tree().create_timer(BOSS_CLEAR_DELAY).timeout.connect(world.stage_cleared.emit))
-	Sfx.play_music("res://assets/music/boss.ogg")
+	Sfx.play_music(Course.stage.boss_music)

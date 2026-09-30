@@ -40,6 +40,7 @@ func _init() -> void:
 	checkpoints = {"": 0.0, "midboss": MIDBOSS_D - 110.0, "boss": SECTION_STARTS[Section.ARENA] - 40.0}
 	coax_tiers = {"midboss": 2, "boss": 3}
 	midboss_d = MIDBOSS_D
+	boss_music = "res://assets/music/boss.ogg"
 	arena_center_d = ARENA_CENTER_D
 	arena_radius = ARENA_RADIUS
 	sky_top = Color("8f9fe0")

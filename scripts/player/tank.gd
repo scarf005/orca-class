@@ -60,6 +60,7 @@ var course_u := 0.0
 var course_offset := 4.0 ## Distance ahead of the rail position.
 var water_depth := 0.0 ## Water over the ground under the hull; 0 on dry ground.
 var in_mud := false
+var _slosh := 0.0
 var local_velocity := Vector2.ZERO ## (lateral, forward) in the rail frame, or world XZ in the arena.
 var lateral_velocity := 0.0
 var velocity := Vector3.ZERO
@@ -199,6 +200,10 @@ func tick(delta: float) -> void:
 	velocity = (global_position - _last_position) / maxf(delta, 0.0001)
 	_last_position = global_position
 	wade(delta, velocity, HULL_RADIUS)
+	_slosh -= delta
+	if water_depth > 0.0 and _slosh <= 0.0 and velocity.length() > 4.0:
+		_slosh = 0.45
+		Sfx.play("slosh", global_position, 3.0 if water_depth > Water.DEEP else 0.0, randf_range(0.9, 1.1))
 	if _engine_sound:
 		_engine_sound.pitch_scale = 0.8 + clampf(velocity.length() / 25.0, 0.0, 0.6)
 

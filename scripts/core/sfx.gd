@@ -41,6 +41,10 @@ const SOUNDS := {
 	"shout": ["res://assets/audio/synth/shout.wav", -2.0],
 	"combo": ["res://assets/audio/synth/combo.wav", -8.0],
 	"roar": ["res://assets/audio/synth/roar.wav", 0.0],
+	"rush": ["res://assets/audio/synth/rush.wav", 0.0],
+	"whoomp": ["res://assets/audio/synth/whoomp.wav", 0.0],
+	"steam": ["res://assets/audio/synth/steam.wav", -2.0],
+	"slosh": ["res://assets/audio/synth/slosh.wav", -6.0],
 }
 
 const POOL_SIZE := 40

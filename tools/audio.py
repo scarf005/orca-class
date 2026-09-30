@@ -927,9 +927,180 @@ def music():
     song.render("clear", 0.5)
 
 
+def sfx2():
+    """Stage 2's water and gas effects."""
+    # Rush: a surge of water let out of a paddy gate, a swell of filtered noise that brightens and gurgles.
+    n = 1.2
+    t = t_axis(n)
+    body = lowpass(noise(n), 1200) * env(len(t), 0.3, 0.6)
+    spray = highpass(noise(n), 2800) * env(len(t), 0.4, 0.6) * 0.35
+    gurgle = np.sin(2 * np.pi * (7 + 3 * t) * t) * 0.25 + 0.75
+    rumble = np.sin(2 * np.pi * 58 * t) * env(len(t), 0.2, 0.7) * 0.5
+    write_wav("rush", (body * 1.4 + spray) * gurgle + rumble)
+
+    # Whoomp: marsh gas going up, a soft low thump under a wide burst that crackles out.
+    t = t_axis(0.8)
+    thump = sweep(95, 32, 0.8, curve=0.4) * np.exp(-t * 4.5)
+    burst = lowpass(noise(0.8), 900) * np.exp(-t * 6) * env(len(t), 0.03, 0.4)
+    crackle = pad([(rng.uniform(0.05, 0.6), highpass(noise(0.02), 3000) * 0.5) for _ in range(12)], 0.8) * np.exp(-t * 2.5)
+    write_wav("whoomp", np.tanh(thump * 1.6 + burst * 1.2 + crackle))
+
+    # Steam: fire dying in water, a hiss with a thin whistle on top.
+    t = t_axis(0.9)
+    hiss = highpass(noise(0.9), 2400) * env(len(t), 0.02, 0.7) * np.exp(-t * 2.2)
+    whistle = np.sin(2 * np.pi * (3300 - 700 * t) * t) * 0.04 * env(len(t), 0.05, 0.5)
+    write_wav("steam", hiss + whistle, 0.7)
+
+    # Slosh: the hull wading, low wet swells with a bubble or two.
+    t = t_axis(0.6)
+    swell = lowpass(noise(0.6), 480) * (0.55 + 0.45 * np.sin(2 * np.pi * 5 * t)) * env(len(t), 0.06, 0.4)
+    bubbles = pad([(0.08 + i * 0.13, sweep(260 + i * 70, 110, 0.07) * env(int(0.07 * RATE), 0.002, 0.05)) for i in range(3)], 0.6)
+    write_wav("slosh", swell * 2.0 + bubbles * 0.5, 0.75)
+
+
+def music2():
+    # Stage 2 A: floodplain and marsh at night. C minor, 152 bpm: pads and arps over the break at half time.
+    song = Song(152, 36)
+    br = Break(song)
+    rng = np.random.default_rng(41)
+    verse = ["Cm", "Cm", "Ab", "Bb", "Cm", "Cm", "Fm", "G"]
+    chorus = ["Ab", "Bb", "Cm", "Cm", "Ab", "Bb", "G", "G"]
+    theme = ("C5:1 D#5:1 G5:2 F5:1 D#5:1 D5:1 C5:1 "
+             "A#4:1 C5:1 D5:2 D#5:1 D5:1 C5:2 "
+             "C5:1 D#5:1 G5:2 A#5:1 G5:1 F5:1 D#5:1 "
+             "D5:1 D#5:1 F5:2 D5:1 C5:.5 D5:.5 C5:2")
+    hook = ("G5:1.5 F5:.5 D#5:1 F5:1 G5:1.5 A#5:.5 G5:1 F5:1 "
+            "D#5:1 F5:1 G5:1 A#5:1 C6:2 A#5:1 G5:1 "
+            "G5:1.5 F5:.5 D#5:1 F5:1 G5:1.5 A#5:.5 C6:1 D6:1 "
+            "C6:1 A#5:1 G5:1 F5:1 D#5:1 D5:1 C5:2")
+    for bar, chord in enumerate(["Cm", "Ab", "Bb", "G"]):
+        song.add(bar * 4, orchestra_hit(chord_notes(chord, 3), song), 0, 0.4)
+        pad_bar(song, chord, bar)
+        br.bar(bar, half_time(bar, bar % 2) if bar < 3 else roll(half_time(3, 1), 8), 0.7, (600, 1000, 1800, None)[bar])
+    bass_bar(song, "G", 3, "drone")
+    slam(song, "Cm", 4)
+    harmony(song, verse, 4, 8)
+    for i in range(8):
+        br.bar(4 + i, half_time(i % 4, i // 4), 0.7, 2200)
+    place_lead(song, theme, 4)
+    harmony(song, verse, 12, 8, stabs=True)
+    breaks(br, rng, 12, 8, 0.3)
+    place_lead(song, theme, 12, shift=12, gain=0.26)
+    place_lead(song, theme, 12, gain=0.2, pan=-0.3)
+    song.stutter(19 * 4 + 2, 1, 0.25)
+    slam(song, "Ab", 20)
+    harmony(song, chorus, 20, 8, bass="808", stabs=True)
+    breaks(br, rng, 20, 8, 0.55)
+    place_lead(song, hook, 20)
+    song.tape_stop(27 * 4 + 2, 2)
+    for i, chord in enumerate(["Cm", "Ab", "Fm", "G"]):
+        pad_bar(song, chord, 28 + i)
+        arp_bar(song, chord, 28 + i, 0.13)
+        br.bar(28 + i, half_time(i % 4, i // 2) if i < 3 else roll(half_time(3, 1), 4, 24.0), 0.7, 1800)
+    slam(song, "Ab", 32)
+    harmony(song, chorus[:4], 32, 4, bass="808", stabs=True)
+    breaks(br, rng, 32, 4, 0.8)
+    place_lead(song, hook[:hook.index("G5:1.5 F5:.5 D#5:1 F5:1 G5:1.5 A#5:.5 C6:1")], 32, gain=0.3)
+    song.render("stage2_a", 0.75)
+
+    # Stage 2 B: paddies, the mill and the levee. F minor, 176 bpm, gabber under a chopped break.
+    song = Song(176, 36)
+    br = Break(song)
+    rng = np.random.default_rng(43)
+    verse = ["Fm", "Fm", "Db", "Eb", "Fm", "Fm", "Bbm", "C"]
+    chorus = ["Db", "Eb", "Fm", "Fm", "Db", "Eb", "C", "C"]
+    theme = ("F5:.75 F5:.25 G#5:.5 C6:.5 A#5:.5 G#5:.5 G5:.5 G#5:.5 F5:1 C5:1 F5:1 -:1 "
+             "G#5:.75 G#5:.25 C6:.5 A#5:.5 G#5:1 G5:1 F5:.5 G5:.5 G#5:1 D#5:2 "
+             "F5:.75 F5:.25 G#5:.5 C6:.5 A#5:.5 G#5:.5 G5:.5 G#5:.5 F5:1 C6:1 F6:1 D#6:1 "
+             "C#6:1 C6:.5 A#5:.5 C#6:1 F6:1 E6:2 G6:2")
+    hook = ("A#6:1.5 G6:.5 F6:1 D#6:1 G6:1.5 F6:.5 D#6:1 C6:1 "
+            "C#6:1 D#6:1 F6:1 G#6:1 G6:.5 F6:.5 G6:1 D#6:2 "
+            "A#6:1.5 G6:.5 F6:1 D#6:1 G6:1.5 F6:.5 D#6:1 F6:1 "
+            "E6:1 F6:1 G6:1 A#6:1 A#6:4")
+    for bar in range(4):
+        gabber_bar(song, bar)
+        bass_bar(song, "Fm", bar, "drone", 0.4)
+        if bar >= 2:
+            br.bar(bar, chopped(rng, bar, 0.3) if bar == 2 else roll(chopped(rng, 3, 0.3), 8), 0.7, 1500)
+    slam(song, "Fm", 4)
+    harmony(song, verse, 4, 8)
+    breaks(br, rng, 4, 8, 0.35)
+    for bar in range(4, 12):
+        gabber_bar(song, bar, (0, 2))
+    place_lead(song, theme, 4)
+    harmony(song, verse, 12, 8, bass="808", stabs=True)
+    breaks(br, rng, 12, 8, 0.55)
+    for bar in range(12, 20):
+        gabber_bar(song, bar)
+    place_lead(song, theme, 12, gain=0.3)
+    place_lead(song, theme, 12, shift=-12, gain=0.2, pan=-0.3)
+    song.stutter(19 * 4 + 2, 2, 0.125)
+    slam(song, "Db", 20)
+    harmony(song, chorus, 20, 8, bass="808", stabs=True, chug="ring")
+    breaks(br, rng, 20, 8, 0.8)
+    place_lead(song, hook, 20)
+    song.tape_stop(27 * 4 + 2, 2)
+    for i, chord in enumerate(["Fm", "Db", "Bbm", "C"]):
+        pad_bar(song, chord, 28 + i)
+        arp_bar(song, chord, 28 + i, 0.13)
+        br.bar(28 + i, half_time(i, i % 2) if i < 3 else roll(half_time(3, 1), 4, 24.0), 0.75, 2000)
+    slam(song, "Fm", 32)
+    harmony(song, verse[4:], 32, 4, bass="808", stabs=True)
+    breaks(br, rng, 32, 4, 1.0)
+    for bar in range(32, 36):
+        gabber_bar(song, bar)
+    song.render("stage2_b", 0.5)
+
+    # Stage 2 boss: the floodgate. B minor, 190 bpm: chugs and gabber under the most broken break.
+    song = Song(190, 40)
+    br = Break(song)
+    rng = np.random.default_rng(47)
+    prog = ["Bm", "Bm", "G", "A", "Bm", "Bm", "C", "F#7"]
+    theme = ("B5:.5 D6:.5 F#6:.5 E6:.5 D6:1 C#6:1 B5:.5 D6:.5 F#6:1 B6:2 "
+             "G6:.5 F#6:.5 E6:.5 D6:.5 E6:1 G6:1 F#6:1 E6:1 C#6:2 "
+             "B5:.5 D6:.5 F#6:.5 E6:.5 D6:1 C#6:1 B5:.5 D6:.5 F#6:1 A6:2 "
+             "G6:1 F#6:1 E6:1 D6:1 C#6:1 B5:1 D6:1 F#6:1")
+    for bar in range(4):
+        chord = "Bm" if bar < 3 else "F#7"
+        song.add(bar * 4, orchestra_hit(chord_notes(chord, 3), song), 0, 0.55)
+        song.add(bar * 4 + 0.75, orchestra_hit(chord_notes(chord, 3), song), 0, 0.4)
+        gabber_bar(song, bar, (0, 0.75, 2, 2.75))
+    br.bar(2, straight(2), 0.7, 1200)
+    br.bar(3, roll(straight(3), 4, 24.0), 0.8)
+    slam(song, "Bm", 4)
+    harmony(song, prog, 4, 8, bass="808", pad=False, arp=False, chug="gallop")
+    breaks(br, rng, 4, 8, 0.5)
+    place_lead(song, theme, 4)
+    harmony(song, prog, 12, 8, bass="808", stabs=True, chug="gallop")
+    breaks(br, rng, 12, 8, 0.7)
+    for bar in range(12, 20):
+        gabber_bar(song, bar)
+    place_lead(song, theme, 12, gain=0.3)
+    place_lead(song, theme, 12, shift=-12, gain=0.22, pan=-0.3)
+    song.stutter(19 * 4, 2, 0.25)
+    song.stutter(19 * 4 + 2, 2, 0.0625)
+    slam(song, "G", 20)
+    harmony(song, prog, 20, 8, bass="reese", stabs=True, chug="ring")
+    breaks(br, rng, 20, 8, 0.9)
+    place_lead(song, theme, 20, shift=12, gain=0.26)
+    song.tape_stop(27 * 4, 4)
+    for i, chord in enumerate(["Bm", "C", "Bm", "F#7"]):
+        pad_bar(song, chord, 28 + i)
+        song.add((28 + i) * 4, orchestra_hit(chord_notes(chord, 3), song), 0, 0.45)
+        br.bar(28 + i, half_time(i, i % 2) if i < 3 else roll(half_time(3, 1), 0, 36.0), 0.8)
+    slam(song, "Bm", 32)
+    harmony(song, prog, 32, 8, bass="808", stabs=True, chug="gallop")
+    breaks(br, rng, 32, 8, 1.0)
+    for bar in range(32, 40):
+        gabber_bar(song, bar)
+    place_lead(song, theme, 32)
+    place_lead(song, theme, 32, shift=-12, gain=0.22, pan=-0.3)
+    song.render("boss2", 0.5)
+
+
 if __name__ == "__main__":
     import sys
-    parts = sys.argv[1:] or ["sfx", "music"]
+    parts = sys.argv[1:] or ["sfx", "music", "stage2"]
     if "sfx" in parts:
         sfx()
         guns()
@@ -940,3 +1111,6 @@ if __name__ == "__main__":
         cannon()
     if "music" in parts:
         music()
+    if "stage2" in parts:
+        sfx2()
+        music2()

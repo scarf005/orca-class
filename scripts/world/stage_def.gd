@@ -12,6 +12,7 @@ var coax_tiers := {} ## Checkpoint name -> the coax tier a run starts with there
 var start_rws := false ## Whether the tank starts with the RWS fitted.
 var water_slows := false ## Whether wading and mud change how the tank drives.
 var midboss_d := 0.0
+var boss_music := ""
 var arena_center_d := 0.0
 var arena_radius := 0.0
 var gate_d := 0.0 ## Where the arena's far wall stands; the ground before it stays clear.
