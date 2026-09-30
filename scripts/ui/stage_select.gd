@@ -196,6 +196,8 @@ func _draw() -> void:
 		var draw_rect_at := Rect2(rect.position - Vector2.ONE * pop, rect.size + Vector2.ONE * pop * 2.0)
 		draw_rect(draw_rect_at, Palette.FUNGUS if card_focus else Palette.STONE, false, 4.0)
 		draw_texture_rect(MAPS[i], draw_rect_at, false)
+		if selected_stage != i + 1:
+			draw_rect(draw_rect_at, Color(0, 0, 0, 0.12))
 		draw_rect(draw_rect_at, Color(Palette.INK, 0.5), false, 1.0)
 		var label := "%d  %s" % [i + 1, tr(STAGE_NAMES[i])]
 		draw_string(font, draw_rect_at.position + Vector2(10, 25), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Palette.CREAM)

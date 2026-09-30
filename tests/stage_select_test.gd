@@ -46,6 +46,26 @@ func _click(point: Vector2) -> InputEventMouseButton:
 	event.pressed = true
 	return event
 
+func test_stage_maps_preserve_the_dither_palette_at_native_size() -> void:
+	for number in [1, 2]:
+		var image := Image.new()
+		check_eq(image.load_png_from_buffer(FileAccess.get_file_as_bytes("res://assets/ui/stage%d.png" % number)), OK, "stage map PNG loads")
+		check_eq(image.get_size(), Vector2i(256, 256), "stage map has its final native size")
+		var colors := {}
+		for y in image.get_height():
+			for x in image.get_width():
+				colors[image.get_pixel(x, y)] = true
+		for color: Color in colors:
+			var matched := false
+			for palette_color: Color in Palette.ALL:
+				# Account for the PNG's 8-bit channels, not post-capture interpolation.
+				if absf(color.r - palette_color.r) <= 1.1 / 255.0 and absf(color.g - palette_color.g) <= 1.1 / 255.0 and absf(color.b - palette_color.b) <= 1.1 / 255.0:
+					matched = true
+					break
+			check(matched, "stage %d map color %s comes from the game's palette" % [number, color])
+			if not matched:
+				break
+
 func test_fresh_save_starts_both_stages_in_both_difficulties() -> void:
 	for difficulty in [Game.Difficulty.NORMAL, Game.Difficulty.HARD]:
 		for number in [1, 2]:

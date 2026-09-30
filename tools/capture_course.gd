@@ -9,8 +9,26 @@ func run() -> int:
 	var args: Dictionary = preload("res://scripts/main.gd").args()
 	var out: String = args.get("out", "builds/shots")
 	DirAccess.make_dir_recursive_absolute(out.get_base_dir() if args.has("square") else out)
+	var output: Viewport = get_viewport()
+	var output_size := int(args.get("size", "256"))
+	if args.has("square"):
+		var square := SubViewport.new()
+		square.size = Vector2i(output_size, output_size)
+		square.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		add_child(square)
+		output = square
 	var view := DitherView.new()
-	add_child(view)
+	if args.has("square"):
+		output.add_child(view)
+	else:
+		add_child(view) # The root viewport is still setting up its children during Main._ready.
+	if args.has("square"):
+		# Quantize at the final size: resampling the shader output blends palette colors
+		# and erases its Bayer pattern. Capture the composed DitherView, never its raw texture.
+		view.viewport.size = Vector2i(output_size, output_size)
+		view.mask.size = view.viewport.size
+		for mask in view.class_masks:
+			mask.size = view.viewport.size / 2
 	var world := World.new()
 	world.stage_number = int(args.get("stage", "1"))
 	view.viewport.add_child(world)
@@ -39,15 +57,10 @@ func run() -> int:
 			world.camera.look_at(Course.ground_at(d + 30.0, 0.0) + Vector3.UP * 1.5)
 		for _i in 30:
 			await get_tree().process_frame
-		var image := get_viewport().get_texture().get_image()
+		await RenderingServer.frame_post_draw
+		var image := output.get_texture().get_image()
 		if args.has("square"):
-			var side := mini(image.get_width(), image.get_height())
-			var region := image.get_region(Rect2i((image.get_width() - side) / 2, (image.get_height() - side) / 2, side, side))
-			var output_size := int(args.get("size", "256"))
-			# The course is already dithered at 960x540; Lanczos averages the Bayer cells instead of
-			# copying a repeating 2x2 checker into the square thumbnail.
-			region.resize(output_size, output_size, Image.INTERPOLATE_LANCZOS)
-			region.save_png(out)
+			image.save_png(out)
 		else:
 			image.save_png("%s/course_%04d.png" % [out, int(d)])
 			view.viewport.get_texture().get_image().save_png("%s/raw_%04d.png" % [out, int(d)])
