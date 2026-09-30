@@ -1,7 +1,7 @@
 extends Node
 ## Stages a fixed scene and saves screenshots, for checking effects and art without playing.
 ## Usage: xvfb-run -a godot --path . --resolution 960x540 -- --run=res://tools/showcase.gd \
-##        --scene=vfx|fungus|boss|enemies --d=620 --shots=0.5,1,2 --out=builds/showcase
+##        --scene=vfx|fungus|boss|enemies|combine --d=620 --shots=0.5,1,2 --out=builds/showcase
 
 var screen: GameScreen
 
@@ -15,7 +15,7 @@ func run() -> int:
 	for s: String in String(args.get("shots", "0.5,1,1.5,2.5")).split(",", false):
 		shots.append(float(s))
 	screen = GameScreen.new()
-	screen.stage = 2 if scene == "enemies" else 1
+	screen.stage = 2 if scene in ["enemies", "combine"] else 1
 	screen.checkpoint = "boss" if scene == "boss" else ""
 	add_child(screen)
 	var world := screen.world
@@ -54,6 +54,9 @@ func run() -> int:
 			world.rail.d = Stage1.ARENA_CENTER_D - 60.0
 		"enemies":
 			await _capture_stage2_enemies(world, out)
+			return 0
+		"combine":
+			await _capture_combine(world, out)
 			return 0
 	var elapsed := 0.0
 	var index := 0
@@ -112,6 +115,49 @@ func _capture_stage2_enemies(world: World, out: String) -> void:
 			get_viewport().get_texture().get_image().save_png("%s/stage2-heron-scale.png" % out)
 		enemy.queue_free()
 		await get_tree().process_frame
+
+
+## Staged attack/death stills, using the real mill yard and the combine's actual warning paths.
+func _capture_combine(world: World, out: String) -> void:
+	world.rail.d = Stage2.MIDBOSS_D - Combine.STANDOFF
+	world.rail.hold_at = world.rail.d
+	world.director.scenery.stream(world.rail.d, 100000)
+	world.terrain.stream(world.rail.d, true)
+	world.player._place(world.rail.d)
+	world.player.set_process(false)
+	world.camera.set_process(false)
+	var boss := Combine.new()
+	boss.position = Course.ground_at(Stage2.MIDBOSS_D, 0.0)
+	world.add_enemy(boss)
+	boss.set_process(false)
+	var focus := boss.global_position + Vector3.UP * 4.0
+	world.camera.global_position = focus - Course.forward(Stage2.MIDBOSS_D) * 27.0 + Course.right(Stage2.MIDBOSS_D) * 15.0 + Vector3.UP * 10.0
+	world.camera.look_at(focus)
+	# Let the sortie/section call-outs clear so they do not cover the grain tank.
+	await get_tree().create_timer(3.0).timeout
+	get_viewport().get_texture().get_image().save_png("%s/combine-model.png" % out)
+	boss._start_mow(world.player)
+	boss.behave(0.55)
+	await get_tree().create_timer(0.25).timeout
+	get_viewport().get_texture().get_image().save_png("%s/combine-mow-telegraph.png" % out)
+	boss._end_attack()
+	await get_tree().create_timer(1.0).timeout
+	boss._start_chaff(world.player)
+	boss.behave(0.6)
+	await get_tree().create_timer(0.25).timeout
+	get_viewport().get_texture().get_image().save_png("%s/combine-chaff-telegraph.png" % out)
+	boss.behave(0.21)
+	await get_tree().create_timer(0.12).timeout
+	get_viewport().get_texture().get_image().save_png("%s/combine-chaff-fan.png" % out)
+	await get_tree().create_timer(1.0).timeout
+	var hit := Hit.make(Hit.Kind.SHELL, 99999.0, boss.aim_parts().grain[0], Course.forward(Stage2.MIDBOSS_D))
+	hit.source = world.player
+	boss.take_hit(hit)
+	await get_tree().create_timer(0.18).timeout
+	get_viewport().get_texture().get_image().save_png("%s/combine-death.png" % out)
+	boss.behave(1.1)
+	await get_tree().create_timer(0.16).timeout
+	get_viewport().get_texture().get_image().save_png("%s/combine-wreck.png" % out)
 
 
 func _showcase_enemy_position(name: String) -> Vector3:
