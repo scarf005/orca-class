@@ -237,9 +237,12 @@ func _update_terrain() -> void:
 
 ## Top strafe speed scale: 1 on dry ground, less wading.
 func water_factor() -> float:
-	if water_depth > Water.DEEP:
-		return DEEP_SPEED
-	return WADE_SPEED if water_depth > 0.0 else 1.0
+	var factor := DEEP_SPEED if water_depth > Water.DEEP else (WADE_SPEED if water_depth > 0.0 else 1.0)
+	# A latched canal leech only drags the lateral drive; the rail cruise remains unchanged.
+	for enemy in World.current.enemies:
+		if enemy.get_meta("leech_latched", false):
+			factor *= 0.55
+	return factor
 
 
 ## Acceleration scale: wading drags like the top speed, mud lets go of the ground.
@@ -1005,6 +1008,10 @@ func _is_imminent(entity: Entity) -> bool:
 		return (entity as FpvDrone).state != FpvDrone.State.APPROACH and distance < 9.0
 	if entity is Crawler:
 		return (entity as Crawler).state != Crawler.State.RUN and distance < 7.0
+	if entity is CanalLeech:
+		return (entity as CanalLeech).latched and distance < 8.0
+	if entity is GnatSwarm:
+		return (entity as GnatSwarm).state != GnatSwarm.State.CLOUD and distance < 8.0
 	return false
 
 
@@ -1055,6 +1062,12 @@ func _on_tail_arrived() -> void:
 		Tail.State.STAB:
 			if is_instance_valid(_grab_target) and _grab_target is Entity:
 				var enemy := _grab_target as Entity
+				if enemy is HeronWalker and (enemy as HeronWalker).fallen:
+					(enemy as HeronWalker).throw_from_tail()
+					_grab_target = null
+					tail.set_state(Tail.State.IDLE)
+					tail.start_cooldown()
+					return
 				var stab := Hit.make(Hit.Kind.TAIL, 75.0, tail.claw_position(), (enemy.hit_center() - global_position).normalized())
 				stab.stagger = 1.4
 				stab.source = self
