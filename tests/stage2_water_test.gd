@@ -21,11 +21,11 @@ func test_depth_categories_at_chosen_points() -> void:
 	var shallow := {"floodplain": [300.0, 20.0], "paddy": [700.0, 0.0], "marsh": [1500.0, 10.0], "arena centre": [2410.0, 0.0]}
 	for name: String in shallow:
 		var depth := _depth(shallow[name][0], shallow[name][1])
-		check(depth > 0.0 and depth <= Stage2.DEEP, "%s is shallow (%.2f m)" % [name, depth])
-	var deep := {"canal": [700.0, -43.0], "levee side": [2000.0, 25.0], "other levee side": [2200.0, -20.0], "arena ring": [2410.0, 60.0], "gate footprint": [2490.0, 0.0]}
+		check(depth > 0.0 and depth <= Water.DEEP, "%s is shallow (%.2f m)" % [name, depth])
+	var deep := {"canal": [700.0, -30.0], "levee side": [2000.0, 25.0], "other levee side": [2200.0, -20.0], "arena ring": [2410.0, 60.0], "gate footprint": [2490.0, 0.0]}
 	for name: String in deep:
 		var depth := _depth(deep[name][0], deep[name][1])
-		check(depth > Stage2.DEEP, "%s is deep (%.2f m)" % [name, depth])
+		check(depth > Water.DEEP, "%s is deep (%.2f m)" % [name, depth])
 	check(Course.stage.mud_at(1500.0, 30.0), "the marsh has mud")
 	check(not Course.stage.mud_at(700.0, 0.0), "the paddies have none")
 	check(not Course.stage.mud_at(1150.0, 0.0), "nor the mill yard")
@@ -66,7 +66,7 @@ func test_deep_water_has_meshes_and_shallow_water_has_none() -> void:
 	var shallow_covered := 0
 	for i in range(0, faces.size(), 3):
 		var c := Course.to_course((faces[i] + faces[i + 1] + faces[i + 2]) / 3.0)
-		if c.x > 440.0 and c.x < 1000.0 and absf(c.y + 43.0) > 9.0:
+		if c.x > 440.0 and c.x < 1000.0 and absf(c.y + 30.0) > 9.0:
 			shallow_covered += 1
 	check_eq(shallow_covered, 0, "the paddies' shallow water is painted, not meshed")
 	var lake := stage("", true, 1)
@@ -98,3 +98,128 @@ func test_water_ends_at_the_banks() -> void:
 		check_eq(Water.surface_at(Course.to_world(2000.0, u)), -INF, "no water on the hills at u=%.0f" % u)
 	check_eq(Water.surface_at(Course.to_world(2600.0, 0.0)), -INF, "nor behind the gate")
 	check_eq(Water.surface_at(Course.to_world(-40.0, 0.0)), -INF, "nor before the start")
+
+
+## The tank on a spot, pinned there so only its speed and meter change.
+func _drive(world: World, d: float, u: float, frame_count: int, input := "") -> Dictionary:
+	var tank := world.player
+	tank.input_enabled = not input.is_empty()
+	world.rail.d = d
+	world.rail.meter = 0.2
+	tank.course_u = u
+	tank.course_offset = 0.0
+	tank.local_velocity = Vector2.ZERO
+	var fastest := 0.0
+	if not input.is_empty():
+		tank._last_tap[StringName(input)] = -100.0 # Frames run faster than the clock in tests: no double taps.
+		Input.action_press(input)
+	for i in frame_count:
+		await frames(1)
+		fastest = maxf(fastest, absf(tank.local_velocity.x))
+		tank.course_u = u
+		world.rail.d = d
+	var result := {"speed": fastest, "meter": world.rail.meter, "depth": tank.water_depth, "mud": tank.in_mud}
+	if not input.is_empty():
+		Input.action_release(input)
+	return result
+
+
+func test_wading_slows_the_strafe_and_deep_water_slows_the_refill() -> void:
+	var world := stage("", true, 2)
+	world.player.invulnerable = true
+	var dry := await _drive(world, 700.0, 18.0, 20, "move_right")
+	var shallow := await _drive(world, 700.0, 0.0, 20, "move_right")
+	var deep := await _drive(world, 700.0, -30.0, 20, "move_right")
+	check_eq(dry.depth, 0.0, "the dike is dry")
+	check(shallow.depth > 0.0 and shallow.depth <= Water.DEEP, "the paddy is shallow")
+	check(deep.depth > Water.DEEP, "the canal is deep")
+	check_near(dry.speed, Tank.MOVE_SPEED.x, 0.01, "dry ground: full strafe speed")
+	check_near(shallow.speed, Tank.MOVE_SPEED.x * Tank.WADE_SPEED, 0.01, "shallow: 85%")
+	check_near(deep.speed, Tank.MOVE_SPEED.x * Tank.DEEP_SPEED, 0.01, "deep: 65%")
+	var gains := {}
+	for name in ["dry", "shallow", "deep"]:
+		var spot := {"dry": [700.0, 18.0], "shallow": [700.0, 0.0], "deep": [700.0, -30.0]}[name] as Array
+		gains[name] = (await _drive(world, spot[0], spot[1], 60)).meter - 0.2
+	check(gains.dry > 0.05, "the meter refills on dry ground (%.3f)" % gains.dry)
+	check_near(gains.shallow, gains.dry, 0.01, "shallow water leaves the refill alone")
+	check_near(gains.deep, gains.dry * Tank.DEEP_REFILL, gains.dry * 0.06, "deep water halves it (%.3f vs %.3f)" % [gains.deep, gains.dry])
+	world.player.input_enabled = false
+
+
+func test_mud_keeps_the_tank_sliding() -> void:
+	var world := stage("", true, 2)
+	world.player.invulnerable = true
+	var tank := world.player
+	world.rail.d = 1500.0
+	tank.course_u = 30.0
+	await frames(2)
+	check(tank.in_mud, "the marsh patch is mud")
+	var mud_grip := tank._grip()
+	tank.course_u = 10.0
+	await frames(2)
+	check(not tank.in_mud, "the neighbouring marsh is not")
+	check(mud_grip < tank._grip() * 0.5, "mud lets go of the ground (%.2f vs %.2f)" % [mud_grip, tank._grip()])
+	tank.course_u = 0.0
+	world.rail.d = 200.0
+	await frames(2)
+	check_eq(tank._grip(), 1.0, "dry road: full grip")
+	# Let go of the stick: on mud the strafe coasts on where dry ground stops at once.
+	var coast := {}
+	for name in ["mud", "road"]:
+		tank.course_u = 30.0 if name == "mud" else 0.0
+		world.rail.d = 1500.0 if name == "mud" else 200.0
+		tank.local_velocity = Vector2(30.0, 0.0)
+		for i in 5:
+			await frames(1)
+			tank.course_u = 30.0 if name == "mud" else 0.0
+			world.rail.d = 1500.0 if name == "mud" else 200.0
+		coast[name] = tank.local_velocity.x
+	check(coast.mud > coast.road + 5.0, "after 5 frames the mud slide keeps %.1f m/s, the road %.1f" % [coast.mud, coast.road])
+
+
+func test_stage_1_water_does_not_change_the_driving() -> void:
+	var world := stage("", true, 1)
+	var tank := world.player
+	world.rail.d = 2200.0
+	tank.course_u = -30.0
+	await frames(3)
+	check(Water.surface_at(tank.global_position) > -INF, "the tank is in the reservoir")
+	check_eq(tank.water_depth, 0.0, "stage 1 does not slow it")
+	check_eq(tank._grip(), 1.0, "with full grip")
+
+
+func test_hud_shows_what_the_tank_is_driving_through() -> void:
+	var world := stage("", true, 2)
+	var hud := Hud.new()
+	hud.world = world
+	add_child(hud)
+	var tank := world.player
+	var seen := {}
+	for spot in [[200.0, 0.0, "dry"], [700.0, 0.0, "shallow"], [700.0, -30.0, "deep"], [1500.0, 30.0, "mud"]]:
+		world.rail.d = spot[0]
+		tank.course_u = spot[1]
+		await frames(2)
+		seen[spot[2]] = hud.terrain_glyph()
+	check_eq(seen, {"dry": 0, "shallow": 1, "deep": 2, "mud": 3}, "the glyph names the terrain")
+	hud.free()
+
+
+func test_ground_enemies_keep_driving_through_water() -> void:
+	var world := stage("", true, 2)
+	world.player.invulnerable = true
+	for spot in [[650.0, 0.0], [650.0, -30.0], [1400.0, 5.0], [1950.0, 25.0]]:
+		world.rail.d = spot[0]
+		for kind in ["ugv", "walker", "crawler"]:
+			var enemy: Enemy = load(Director.ENEMY_SCRIPTS[kind]).new()
+			enemy.position = Course.ground_at(spot[0] + 50.0, spot[1])
+			world.add_enemy(enemy)
+			enemy.max_hp = 1e6 # The tank shoots at anything near; only the driving is under test.
+			enemy.hp = 1e6
+			var start := enemy.global_position
+			await frames(60)
+			if kind != "crawler": # Crawlers blow themselves up on reaching the tank.
+				check(is_instance_valid(enemy) and not enemy.dead, "%s survives at %s" % [kind, spot])
+			if is_instance_valid(enemy):
+				check(enemy.global_position.distance_to(start) > 1.0, "%s still moves in the water at %s" % [kind, spot])
+				check(enemy.global_position.y > -5.0, "%s stays on the ground at %s" % [kind, spot])
+				enemy.queue_free()

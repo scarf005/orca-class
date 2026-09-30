@@ -11,14 +11,13 @@ const ARENA_CENTER_D := 2410.0
 const ARENA_RADIUS := 85.0
 const FLOOD_LEVEL := 0.35 ## The floodplain's sheet of shallow water.
 const LEVEL := 0.5 ## Canal, marsh and levee water, and where the arena's water starts.
-const CANAL_U := Vector2(-46.0, -40.0) ## The concrete irrigation canal beside the paddies.
+const CANAL_U := Vector2(-33.0, -27.0) ## The concrete irrigation canal beside the paddies.
 const CANAL_D := Vector2(440.0, 1000.0)
-const CANAL_BED := -1.7
+const CANAL_BED := -1.2
 const WET_D := Vector2(430.0, 2317.0) ## Along the road, as far as the deep water meshes go.
 const WET_U := 50.0 ## Marsh and levee water reaches this far from the road.
 const GATE_D := ARENA_CENTER_D + 80.0 ## Where the floodgate stands; the ground is flat and clear up to it.
 const GATE_HALF := 50.0 ## Half width of the basin at the gate.
-const DEEP := 0.8 ## Water deeper than this is deep water.
 const CELL := 6.0 ## Grid of the deep water meshes.
 
 ## About 2,400 m of rail through a few gentle bends, straight into the arena.
@@ -43,6 +42,7 @@ func _init() -> void:
 	section_starts.assign(SECTION_STARTS)
 	checkpoints = {"": 0.0, "midboss": MIDBOSS_D - 110.0, "boss": SECTION_STARTS[Section.ARENA] - 40.0}
 	start_rws = true
+	water_slows = true
 	coax_tiers = {"": 2, "midboss": 2, "boss": 3}
 	midboss_d = MIDBOSS_D
 	arena_center_d = ARENA_CENTER_D
@@ -117,14 +117,16 @@ func height(d: float, u: float) -> float:
 	if paddy > 0.0:
 		h = lerpf(h, _terrace(au) + _dike(d, u), paddy)
 	# The concrete canal cut into the terraces beside the road.
-	var canal := band(d, CANAL_D.x - 10.0, CANAL_D.x + 10.0, CANAL_D.y - 10.0, CANAL_D.y + 10.0) * (1.0 - smoothstep(0.0, 1.2, maxf(CANAL_U.x - u, u - CANAL_U.y)))
-	h = lerpf(h, CANAL_BED, canal)
+	var canal_reach := band(d, CANAL_D.x - 10.0, CANAL_D.x + 10.0, CANAL_D.y - 10.0, CANAL_D.y + 10.0)
+	var outside := maxf(CANAL_U.x - u, u - CANAL_U.y)
+	h = lerpf(h, maxf(h, LEVEL + 0.3), canal_reach * smoothstep(0.8, 1.4, outside) * (1.0 - smoothstep(1.8, 2.6, outside)))
+	h = lerpf(h, CANAL_BED, canal_reach * (1.0 - smoothstep(0.0, 1.2, outside)))
 	# Marsh: pools and hummocks.
 	var marsh := band(d, 1230.0, 1290.0, 1860.0, 1890.0) * (1.0 - rise) * smoothstep(5.0, 10.0, au)
 	h = lerpf(h, 0.05 + _marsh.get_noise_2d(d, u) * 0.9, marsh)
 	# The levee stands above deep water on both sides.
 	var levee := band(d, 1860.0, 1890.0, 2250.0, 2280.0)
-	h = lerpf(h, -1.8 + _detail.get_noise_2d(d, u) * 0.2, levee * smoothstep(10.0, 15.0, au) * (1.0 - rise))
+	h = lerpf(h, -1.3 + _detail.get_noise_2d(d, u) * 0.2, levee * smoothstep(10.0, 15.0, au) * (1.0 - rise))
 	# The road is a flat strip; the levee's is wider.
 	var road_edge := lerpf(4.0, 6.0, 1.0 - levee)
 	var road := 1.0 - smoothstep(road_edge, road_edge + lerpf(2.0, 4.0, levee), au)
@@ -135,7 +137,7 @@ func height(d: float, u: float) -> float:
 	# The arena: a basin, shallow in the middle and deep around, inside a rim, with a bank behind the gate.
 	var sd := _basin(d, u)
 	var radial := Vector2(d - ARENA_CENTER_D, u).length()
-	var floor_h := -0.15 - 1.4 * smoothstep(45.0, 70.0, radial) + _detail.get_noise_2d(d, u) * 0.15
+	var floor_h := -0.15 - 1.0 * smoothstep(45.0, 70.0, radial) + _detail.get_noise_2d(d, u) * 0.15
 	h = lerpf(h, floor_h, 1.0 - smoothstep(0.0, 8.0, sd))
 	var rim := smoothstep(-1.0, 6.0, sd) * (1.0 - smoothstep(20.0, 34.0, sd))
 	if d < ARENA_CENTER_D:
@@ -191,7 +193,7 @@ func _cells(d0: float, d1: float) -> ArrayMesh:
 				var cd: float = d + corner.x
 				var cu: float = u + corner.y
 				var h := height(cd, cu)
-				if _surface(cd, cu, h) - h > DEEP * 0.75:
+				if _surface(cd, cu, h) - h > Water.DEEP * 0.75:
 					deep = true
 					break
 			if deep:
@@ -231,7 +233,7 @@ func ground_color(d: float, u: float, h: float, slope: float) -> Color:
 		color = Palette.PINE if slope < 0.9 else Palette.MOSS
 	elif band(d, CANAL_D.x - 10.0, CANAL_D.x + 10.0, CANAL_D.y - 10.0, CANAL_D.y + 10.0) > 0.3 and u > CANAL_U.x - 3.0 and u < CANAL_U.y + 3.0:
 		color = Palette.CONCRETE
-	elif mud_at(d, u) and depth < DEEP:
+	elif mud_at(d, u) and depth < Water.DEEP:
 		color = Palette.OCHRE
 	elif depth > 0.0:
 		color = Palette.SKY if depth < 0.4 else Palette.TEAL

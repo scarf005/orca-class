@@ -63,6 +63,7 @@ func gone(object: Object) -> Callable:
 
 func cleanup() -> void:
 	if is_instance_valid(_world):
+		remove_child(_world) # Leaving the tree first lets its terrain's worker tasks finish.
 		_world.queue_free()
 		_world = null
 	Engine.time_scale = 1.0
