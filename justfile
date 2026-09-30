@@ -68,10 +68,10 @@ validate:
     {{ quote(butler) }} validate --platform windows builds/desktop
     {{ quote(butler) }} validate --platform osx builds/desktop
 
-# Rebuild, validate, and upload both itch.io channels (requires login or BUTLER_API_KEY).
-upload: export validate
-    {{ quote(butler) }} push --if-changed builds/web {{ quote(itch_project + ":html") }}
-    {{ quote(butler) }} push --if-changed builds/desktop {{ quote(itch_project + ":desktop") }}
+# Rebuild, validate, and upload both itch.io channels; optionally label the version.
+upload version="": export validate
+    {{ quote(butler) }} push --if-changed {{ if version != "" { "--userversion=" + quote(version) } else { "" } }} builds/web {{ quote(itch_project + ":html") }}
+    {{ quote(butler) }} push --if-changed {{ if version != "" { "--userversion=" + quote(version) } else { "" } }} builds/desktop {{ quote(itch_project + ":desktop") }}
 
 # Regenerate the Korean and English string table.
 strings:

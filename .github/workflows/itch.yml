@@ -15,35 +15,13 @@ jobs:
         run: test -n "$BUTLER_API_KEY"
       - uses: chickensoft-games/setup-godot@v2
         with: {version: 4.7.2, use-dotnet: false, include-templates: true}
-      - name: Export
-        run: |
-          mkdir -p builds/web builds/desktop/linux builds/desktop/windows builds/desktop/mac
-          touch builds/.gdignore
-          godot --headless --path . --import
-          godot --headless --path . --export-release Web builds/web/index.html
-          godot --headless --path . --export-release Linux builds/desktop/linux/OrcaClass.x86_64
-          godot --headless --path . --export-release "Windows Desktop" builds/desktop/windows/OrcaClass.exe
-          godot --headless --path . --export-release macOS builds/desktop/mac/OrcaClass.app
-          cp tools/desktop.itch.toml builds/desktop/.itch.toml
-          chmod +x builds/desktop/linux/OrcaClass.x86_64
-          test -s builds/web/index.html
-          test -s builds/web/index.pck
-          test -s builds/web/index.wasm
-          test -s builds/desktop/linux/OrcaClass.x86_64
-          test -s builds/desktop/windows/OrcaClass.exe
-          test -s "builds/desktop/mac/OrcaClass.app/Contents/MacOS/orca class"
+      - uses: extractions/setup-just@v3
       - name: Install butler
         run: |
           curl --fail --location --retry 3 --output "$RUNNER_TEMP/butler.zip" https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
           mkdir -p "$RUNNER_TEMP/butler"
           unzip -q "$RUNNER_TEMP/butler.zip" -d "$RUNNER_TEMP/butler"
           echo "$RUNNER_TEMP/butler" >> "$GITHUB_PATH"
-      - name: Validate and publish
+      - name: Export, validate, and publish
         env: {BUTLER_API_KEY: "${{ secrets.BUTLER_API_KEY }}"}
-        run: |
-          butler validate builds/web
-          butler validate builds/desktop
-          butler validate --platform windows builds/desktop
-          butler validate --platform osx builds/desktop
-          butler push --if-changed --userversion="$GITHUB_SHA" builds/web scarf005/orca-class:html
-          butler push --if-changed --userversion="$GITHUB_SHA" builds/desktop scarf005/orca-class:desktop
+        run: just upload "$GITHUB_SHA"
