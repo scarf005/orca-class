@@ -370,11 +370,12 @@ func screen_flash(color: Color, amount: float) -> void:
 
 
 func _setup_environment() -> void:
+	var stage := Course.stage
 	var sky_material := ProceduralSkyMaterial.new()
-	sky_material.sky_top_color = Color("8f9fe0")
-	sky_material.sky_horizon_color = Color("f7d6c4")
-	sky_material.ground_horizon_color = Color("f7d6c4")
-	sky_material.ground_bottom_color = Color("c3a6e8")
+	sky_material.sky_top_color = stage.sky_top
+	sky_material.sky_horizon_color = stage.sky_horizon
+	sky_material.ground_horizon_color = stage.sky_horizon
+	sky_material.ground_bottom_color = stage.sky_ground
 	sky_material.sun_angle_max = 8.0
 	sky_material.sky_curve = 0.12
 	var sky := Sky.new()
@@ -382,14 +383,14 @@ func _setup_environment() -> void:
 	environment.background_mode = Environment.BG_SKY
 	environment.sky = sky
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color("b8a8d8")
-	environment.ambient_light_energy = 0.5
+	environment.ambient_light_color = stage.ambient
+	environment.ambient_light_energy = stage.ambient_energy
 	environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	environment.fog_enabled = true
 	environment.fog_mode = Environment.FOG_MODE_DEPTH
-	environment.fog_light_color = Color("f3d9d0")
-	environment.fog_depth_begin = 90.0
-	environment.fog_depth_end = 420.0
+	environment.fog_light_color = stage.fog_color
+	environment.fog_depth_begin = stage.fog_begin
+	environment.fog_depth_end = stage.fog_end
 	environment.fog_depth_curve = 1.4
 	environment.fog_sky_affect = 0.0
 	# Fire, flashes and tracers bloom into the scene around them.
@@ -402,9 +403,9 @@ func _setup_environment() -> void:
 	var world_environment := WorldEnvironment.new()
 	world_environment.environment = environment
 	add_child(world_environment)
-	sun.rotation_degrees = Vector3(-32.0, 125.0, 0.0)
-	sun.light_color = Color("fff0dc")
-	sun.light_energy = 1.05
+	sun.rotation_degrees = stage.sun_rotation
+	sun.light_color = stage.sun_color
+	sun.light_energy = stage.sun_energy
 	sun.shadow_enabled = true
 	sun.shadow_opacity = 0.85
 	sun.directional_shadow_max_distance = 140.0

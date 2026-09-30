@@ -50,7 +50,7 @@ func run() -> int:
 			_stage_church(world)
 		"boss":
 			# Past the boss event: the director spawns the gunship itself on the next frame.
-			world.rail.d = Course.ARENA_CENTER_D - 60.0
+			world.rail.d = Stage1.ARENA_CENTER_D - 60.0
 	var elapsed := 0.0
 	var index := 0
 	while not shots.is_empty():

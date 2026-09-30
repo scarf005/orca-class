@@ -97,7 +97,7 @@ func test_the_shared_buffer_wraps_and_enemy_prints_over_fungus_are_quiet() -> vo
 	var cell := Vector2(-1, -1)
 	for d in range(100, 3300, 2):
 		for u in range(-40, 41, 2):
-			if Course.fungus_at(d, u) > 0.8 and Course.height(d, u) > Course.WATER_LEVEL + 1.0 and cell.x < 0.0:
+			if Course.fungus_at(d, u) > 0.8 and Course.height(d, u) > Stage1.WATER_LEVEL + 1.0 and cell.x < 0.0:
 				cell = Vector2(d, u)
 	check(cell.x >= 0.0, "the course has a fungus patch")
 	var particles := world.fx.particle_count()

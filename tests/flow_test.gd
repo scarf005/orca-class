@@ -4,7 +4,7 @@ extends TestCase
 
 func test_checkpoint_start_is_unranked_and_positioned() -> void:
 	var world := stage("boss")
-	check_near(world.rail.d, Director.CHECKPOINTS["boss"], 0.01, "rail starts at the boss checkpoint")
+	check_near(world.rail.d, Course.stage.checkpoints["boss"], 0.01, "rail starts at the boss checkpoint")
 	check(not world.stats.ranked, "checkpoint runs are unranked")
 	check(world.player.coax_tier >= 3, "checkpoint grants a fair coax tier")
 
@@ -18,7 +18,7 @@ func test_waves_spawn_as_rail_advances() -> void:
 
 func test_midboss_holds_rail_until_dead() -> void:
 	var world := stage("midboss")
-	world.rail.d = Course.MIDBOSS_D - 111.0
+	world.rail.d = Stage1.MIDBOSS_D - 111.0
 	var spawned := await wait_until(func() -> bool: return world.boss is Colossus, 120)
 	check(spawned, "mid-boss appears")
 	check_eq(world.rail.mode, Rail.Mode.HOLD, "rail holds for the fight")
@@ -36,7 +36,7 @@ func test_midboss_holds_rail_until_dead() -> void:
 
 func test_midboss_dies_in_about_a_second_and_the_rail_follows() -> void:
 	var world := stage("midboss")
-	world.rail.d = Course.MIDBOSS_D - 111.0
+	world.rail.d = Stage1.MIDBOSS_D - 111.0
 	await wait_until(func() -> bool: return world.boss is Colossus, 120)
 	var boss := world.boss as Colossus
 	await frames(30)
@@ -99,7 +99,7 @@ func test_game_over_after_last_life() -> void:
 
 
 func test_stage_events_are_ordered_and_reach_the_boss() -> void:
-	var events := Stage1.events(false)
+	var events := Stage1.new().events(false)
 	var kinds := {}
 	for e in events:
 		if e.type == "wave":
@@ -109,12 +109,12 @@ func test_stage_events_are_ordered_and_reach_the_boss() -> void:
 		check(kinds.has(kind), "stage uses %s" % kind)
 	check(events.any(func(e: Dictionary) -> bool: return e.type == "midboss"), "stage has the mid-boss")
 	check(events.any(func(e: Dictionary) -> bool: return e.type == "boss"), "stage has the boss")
-	check(Stage1.events(true).size() > events.size(), "hard adds encounters")
+	check(Stage1.new().events(true).size() > events.size(), "hard adds encounters")
 
 
 func test_course_maps_both_ways_across_the_valley() -> void:
 	var d := -40.0
-	while d < Course.DAM_D + 60.0:
+	while d < Stage1.DAM_D + 60.0:
 		for u in [-Terrain.HALF_WIDTH, -60.0, -5.0, 0.0, 7.0, 90.0, Terrain.HALF_WIDTH]:
 			var back := Course.to_course(Course.to_world(d, u))
 			check(absf(back.x - d) < 0.05 and absf(back.y - u) < 0.05, "(%.0f, %.0f) round-trips, got (%.2f, %.2f)" % [d, u, back.x, back.y])
@@ -124,7 +124,7 @@ func test_course_maps_both_ways_across_the_valley() -> void:
 func test_course_winds_through_real_bends() -> void:
 	var headings: Array[float] = []
 	var d := 0.0
-	while d < Course.DAM_D:
+	while d < Stage1.DAM_D:
 		var f := Course.forward(d)
 		check(absf(f.length() - 1.0) < 0.001 and absf(f.y) < 0.001, "forward is a flat unit vector at %.0f" % d)
 		var chord := Course.to_world(d + 1.0, 0.0) - Course.to_world(d - 1.0, 0.0)
@@ -134,18 +134,18 @@ func test_course_winds_through_real_bends() -> void:
 		headings.append(rad_to_deg(atan2(f.x, -f.z)))
 		d += 10.0
 	check(headings.max() > 50.0 and headings.min() < -40.0, "road turns both ways by more than 40°")
-	for straight: Vector2 in [Course.SCHOOL_YARD, Vector2(Course.SECTION_STARTS[Course.Section.ARENA], Course.DAM_D)]:
+	for straight: Vector2 in [Stage1.SCHOOL_YARD, Vector2(Stage1.SECTION_STARTS[Stage1.Section.ARENA], Stage1.DAM_D)]:
 		check(Course.forward(straight.x).dot(Course.forward(straight.y)) > 0.9999, "road runs straight over %s" % straight)
 
 
 func test_course_is_continuous_and_walkable() -> void:
 	var previous := Course.height(0.0, 0.0)
 	var d := 0.0
-	while d < Course.ARENA_CENTER_D:
+	while d < Stage1.ARENA_CENTER_D:
 		for u in [-12.0, 0.0, 12.0]:
 			var h := Course.height(d, u)
 			check(not is_nan(h), "height defined at %.0f,%.0f" % [d, u])
-			check(h > Course.WATER_LEVEL, "corridor stays above water at %.0f,%.0f" % [d, u])
+			check(h > Stage1.WATER_LEVEL, "corridor stays above water at %.0f,%.0f" % [d, u])
 		var h0 := Course.height(d, 0.0)
 		check(absf(h0 - previous) < 1.5, "road has no cliffs near d=%.0f" % d)
 		previous = h0

@@ -286,7 +286,7 @@ func _reservoir() -> void:
 			add("reeds", d + 4.0, _rng.randf_range(-20.0, -15.0))
 		d += _rng.randf_range(6.0, 12.0)
 	for pd in [1900.0, 2150.0, 2400.0]:
-		add_decor(PropKit.mesh("pier", int(pd)), pd, -60.0 - _rng.randf_range(0, 20), _rng.randf() * TAU, Course.WATER_LEVEL)
+		add_decor(PropKit.mesh("pier", int(pd)), pd, -60.0 - _rng.randf_range(0, 20), _rng.randf() * TAU, Stage1.WATER_LEVEL)
 	_scatter("house", 1780.0, 2640.0, 6, 22.0, 40.0, false)
 	_scatter("car", 1800.0, 2640.0, 18, 0.0, 12.0)
 	add_pickup("airburst", 2000.0, 6.0)
@@ -302,19 +302,19 @@ func _overpass() -> void:
 	var group := _groups.size()
 	_groups.append({})
 	for i in OVERPASS_PIERS.size():
-		var pier := add("overpass_pier", Course.UNDERPASS_D, OVERPASS_PIERS[i], 0.0, 0)
+		var pier := add("overpass_pier", Stage1.UNDERPASS_D, OVERPASS_PIERS[i], 0.0, 0)
 		pier.set_meta("y", OVERPASS_PIER_Y)
 		pier.group = group
 		pier.index = i
 	for j in OVERPASS_SPANS.size():
 		var span: Array = OVERPASS_SPANS[j]
-		var deck := add("overpass_deck", Course.UNDERPASS_D, span[0], 0.0, span[1])
+		var deck := add("overpass_deck", Stage1.UNDERPASS_D, span[0], 0.0, span[1])
 		deck.set_meta("y", OVERPASS_DECK_Y)
 		deck.group = group
 		deck.index = OVERPASS_PIERS.size() + j
 		deck.rests_on = OVERPASS_PIERS.find(span[2])
-	var d := Course.RAMP_UP.y
-	while d < Course.RAMP_DOWN.x:
+	var d := Stage1.RAMP_UP.y
+	while d < Stage1.RAMP_DOWN.x:
 		add_decor(_rail_mesh(), d, -14.6, 0.0)
 		add_decor(_rail_mesh(), d, 14.6, 0.0)
 		d += 12.0
@@ -335,15 +335,15 @@ func _arena() -> void:
 	var dam := Spec.new()
 	dam.kind = "dam"
 	dam.decor = true
-	dam.d = Course.DAM_D
+	dam.d = Stage1.DAM_D
 	specs.append(dam)
 	for i in 10:
 		var angle := TAU * i / 10.0 + 0.3
 		var r := _rng.randf_range(35.0, 70.0)
-		add("rock", Course.ARENA_CENTER_D + sin(angle) * r, cos(angle) * r)
+		add("rock", Stage1.ARENA_CENTER_D + sin(angle) * r, cos(angle) * r)
 	for i in 8:
 		var angle := TAU * i / 8.0
-		add("spore_tower", Course.ARENA_CENTER_D + sin(angle) * 80.0, cos(angle) * 80.0)
+		add("spore_tower", Stage1.ARENA_CENTER_D + sin(angle) * 80.0, cos(angle) * 80.0)
 	_scatter("car", 3440.0, 3600.0, 4, 10.0, 60.0)
 	_fungus(3420.0, 3620.0, 1.2)
 
@@ -351,8 +351,8 @@ func _arena() -> void:
 ## Explosive barrels in clusters along the road, and a gas station whose pumps go up like bombs.
 func _boom() -> void:
 	var d := 180.0
-	while d < Course.SECTION_STARTS[Course.Section.ARENA]:
-		if Course.section_at(d) != Course.Section.SCHOOL:
+	while d < Stage1.SECTION_STARTS[Stage1.Section.ARENA]:
+		if Course.section_at(d) != Stage1.Section.SCHOOL:
 			var u := _rng.randf_range(4.0, 11.0) * (1.0 if _rng.randf() < 0.5 else -1.0)
 			for i in _rng.randi_range(2, 3):
 				add("barrel", d + _rng.randf_range(-2.0, 2.0), u + _rng.randf_range(-2.0, 2.0), _rng.randf() * TAU)
@@ -369,12 +369,12 @@ func _boom() -> void:
 func _spires() -> void:
 	var d := 300.0
 	var side := 1.0
-	while d < Course.DAM_D - 40.0:
+	while d < Stage1.DAM_D - 40.0:
 		var u := side * _rng.randf_range(26.0, 48.0)
-		if Course.section_at(d) == Course.Section.RESERVOIR and side < 0.0:
+		if Course.section_at(d) == Stage1.Section.RESERVOIR and side < 0.0:
 			u = side * _rng.randf_range(18.0, 22.0)
 		add("fungal_spire", d, u, _rng.randf() * TAU, _rng.randi_range(0, 5))
-		d += lerpf(170.0, 80.0, d / Course.DAM_D) + _rng.randf_range(-20.0, 20.0)
+		d += lerpf(170.0, 80.0, d / Stage1.DAM_D) + _rng.randf_range(-20.0, 20.0)
 		side = -side
 
 
@@ -384,13 +384,13 @@ func _wires() -> void:
 		var d := 10.0 if side < 0.0 else 30.0
 		var previous := Vector3.INF
 		var previous_pole: Spec = null
-		while d < Course.SECTION_STARTS[Course.Section.OVERPASS]:
+		while d < Stage1.SECTION_STARTS[Stage1.Section.OVERPASS]:
 			var u: float = side * 9.5
-			if Course.section_at(d) == Course.Section.RESERVOIR and side < 0.0:
+			if Course.section_at(d) == Stage1.Section.RESERVOIR and side < 0.0:
 				previous = Vector3.INF
 				d += 40.0
 				continue
-			if Course.section_at(d) == Course.Section.SCHOOL:
+			if Course.section_at(d) == Stage1.Section.SCHOOL:
 				previous = Vector3.INF
 				d += 40.0
 				continue

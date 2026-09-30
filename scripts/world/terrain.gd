@@ -43,13 +43,15 @@ static func _make_columns() -> PackedFloat32Array:
 
 
 func _ready() -> void:
-	_water = MeshInstance3D.new()
-	_water.mesh = _water_mesh()
-	_water.material_override = water_material()
-	add_child(_water)
+	var mesh := Course.stage.water_mesh()
+	if mesh:
+		_water = MeshInstance3D.new()
+		_water.mesh = mesh
+		_water.material_override = water_material()
+		add_child(_water)
 
 
-## The reservoir's look, shared by every water surface. `vertex_colors` lets a surface vary its shades.
+## The water's look, shared by every water surface. `vertex_colors` lets a surface vary its shades.
 static func water_material(vertex_colors := false) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
 	material.albedo_color = Color.WHITE if vertex_colors else Palette.TEAL
@@ -59,32 +61,6 @@ static func water_material(vertex_colors := false) -> StandardMaterial3D:
 	material.metallic_specular = 0.8
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return material
-
-
-## The reservoir surface: a strip following the bend over the basin, reaching under its banks.
-static func _water_mesh() -> ArrayMesh:
-	var vertices := PackedVector3Array()
-	var d := 1740.0
-	while d < 2700.0:
-		for step in [0.0, 20.0]:
-			var a := Course.to_world(d + step, -8.0, Course.WATER_LEVEL)
-			var b := Course.to_world(d + step, -135.0, Course.WATER_LEVEL)
-			vertices.append(a)
-			vertices.append(b)
-		d += 20.0
-	var triangles := PackedVector3Array()
-	for i in range(0, vertices.size(), 4):
-		triangles.append_array([vertices[i], vertices[i + 1], vertices[i + 3], vertices[i], vertices[i + 3], vertices[i + 2]])
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = triangles
-	var normals := PackedVector3Array()
-	normals.resize(triangles.size())
-	normals.fill(Vector3.UP)
-	arrays[Mesh.ARRAY_NORMAL] = normals
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	return mesh
 
 
 ## Keeps the same bend-aware window on every platform. Loading waits for complete geometry;

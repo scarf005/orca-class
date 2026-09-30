@@ -28,8 +28,8 @@ func test_bounce_and_water_keep_their_effects() -> void:
 	check_near(p.position.y, 0.0, 0.00001, "debris rests on its sampled ground")
 	check(p.velocity.is_equal_approx(Vector3(2, 3, 1)), "ground bounce retains its damping")
 	p.water = true
-	p.ground = Course.WATER_LEVEL
-	p.position.y = Course.WATER_LEVEL + 0.1
+	p.ground = Stage1.WATER_LEVEL
+	p.position.y = Stage1.WATER_LEVEL + 0.1
 	p.velocity.y = -10.0
 	fx._process(0.2)
 	check(fx._pools[Fx.Kind.SOLID].is_empty(), "debris sinks on hitting water")
@@ -97,7 +97,7 @@ func test_wake_throws_spray_only_while_moving() -> void:
 	check_eq(fx._transients.size(), 1, "standing still leaves a ripple ring")
 	check(fx._pools[Fx.Kind.GLOW].is_empty(), "standing still throws no spray")
 	var ring: MeshInstance3D = fx._transients[0].node
-	check_near(ring.position.y, Course.WATER_LEVEL + 0.05, 0.0001, "ripples lie on the water surface")
+	check_near(ring.position.y, Stage1.WATER_LEVEL + 0.05, 0.0001, "ripples lie on the water surface")
 	fx.wake(Vector3(0, -5, 0), Vector3(0, 3, -20), 2.0)
 	check_eq(fx._transients.size(), 2, "moving leaves a ring too")
 	var spray: Array = fx._pools[Fx.Kind.GLOW]
@@ -115,11 +115,11 @@ func test_ground_units_splash_into_the_reservoir() -> void:
 	world.rail.d = 2100.0
 	world.player.course_u = -30.0
 	await frames(3)
-	check(world.player.global_position.y < Course.WATER_LEVEL, "the tank can drive into the reservoir")
+	check(world.player.global_position.y < Stage1.WATER_LEVEL, "the tank can drive into the reservoir")
 	check(world.player._wet, "the tank knows it is wading")
 	check(world.fx._transients.size() > transients + 3, "driving in splashes and leaves a wake")
 	var drone := FpvDrone.new()
-	drone.position = Vector3(dry.x, Course.WATER_LEVEL - 1.0, dry.z)
+	drone.position = Vector3(dry.x, Stage1.WATER_LEVEL - 1.0, dry.z)
 	world.add_enemy(drone)
 	drone.wade(0.016, Vector3.ZERO, 1.0)
 	check(not drone._wet, "flying units never wade")

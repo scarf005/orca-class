@@ -259,10 +259,10 @@ func _move_arena(delta: float, input: Vector2) -> void:
 		current = right * _drift_dir * DASH_SPEED * (_drift / DASH_TIME) if absf(_drift_dir) > 0.0 else current
 	local_velocity = Vector2(current.x, current.z)
 	var p := global_position + current * delta
-	var center := Course.to_world(Course.ARENA_CENTER_D, 0.0)
+	var center := Course.to_world(Course.stage.arena_center_d, 0.0)
 	var flat := Vector2(p.x - center.x, p.z - center.z)
-	if flat.length() > Course.ARENA_RADIUS - 6.0:
-		flat = flat.normalized() * (Course.ARENA_RADIUS - 6.0)
+	if flat.length() > Course.stage.arena_radius - 6.0:
+		flat = flat.normalized() * (Course.stage.arena_radius - 6.0)
 		p.x = center.x + flat.x
 		p.z = center.z + flat.y
 	var c := Course.to_course(p)

@@ -3,7 +3,7 @@ extends TestCase
 
 
 func test_stage_attacks_from_behind_and_the_flanks() -> void:
-	var events := Stage1.events(false)
+	var events := Stage1.new().events(false)
 	var behind := events.filter(func(e: Dictionary) -> bool: return e.type == "wave" and (e.get("formation", "") == "behind" or e.get("props", {}).get("from_behind", false)))
 	var flank := events.filter(func(e: Dictionary) -> bool: return e.type == "wave" and e.get("formation", "") == "flank")
 	check(behind.size() >= 8, "at least eight waves come from behind (got %d)" % behind.size())
@@ -73,9 +73,9 @@ func test_full_screen_scales_without_whole_number_letterboxing() -> void:
 
 func test_helicopter_waves_and_gunship_boss_on_both_difficulties() -> void:
 	for hard in [false, true]:
-		var events := Stage1.events(hard)
+		var events := Stage1.new().events(hard)
 		var waves := events.filter(func(e: Dictionary) -> bool: return e.type == "wave" and e.kind == "helicopter")
-		for section in [Course.Section.VILLAGE, Course.Section.RESERVOIR, Course.Section.OVERPASS]:
+		for section in [Stage1.Section.VILLAGE, Stage1.Section.RESERVOIR, Stage1.Section.OVERPASS]:
 			check(waves.any(func(e: Dictionary) -> bool: return Course.section_at(e.d) == section), "helicopters patrol section %d" % section)
 		var bosses := events.filter(func(e: Dictionary) -> bool: return e.type == "boss")
 		check_eq(bosses.size(), 1, "stage has one final boss")
@@ -128,14 +128,14 @@ func test_helicopter_telegraphs_bursts_and_cleans_up() -> void:
 
 # --- Pacing: build, peak and release per section (post-FODDER, hard scaling as the Director applies it).
 
-const BUDGETS := {Course.Section.FARM: 35, Course.Section.VILLAGE: 70, Course.Section.RESERVOIR: 65, Course.Section.OVERPASS: 75}
-const PEAKS := {Course.Section.VILLAGE: Vector2(1085.0, 1195.0), Course.Section.RESERVOIR: Vector2(2185.0, 2370.0), Course.Section.OVERPASS: Vector2(3065.0, 3235.0)}
+const BUDGETS := {Stage1.Section.FARM: 35, Stage1.Section.VILLAGE: 70, Stage1.Section.RESERVOIR: 65, Stage1.Section.OVERPASS: 75}
+const PEAKS := {Stage1.Section.VILLAGE: Vector2(1085.0, 1195.0), Stage1.Section.RESERVOIR: Vector2(2185.0, 2370.0), Stage1.Section.OVERPASS: Vector2(3065.0, 3235.0)}
 const GROUND := ["ugv", "walker", "spitter", "crawler", "quad"]
 
 
 func _waves(hard: bool) -> Array[Dictionary]:
 	var waves: Array[Dictionary] = []
-	waves.assign(Stage1.events(hard).filter(func(e: Dictionary) -> bool: return e.type == "wave"))
+	waves.assign(Stage1.new().events(hard).filter(func(e: Dictionary) -> bool: return e.type == "wave"))
 	return waves
 
 
@@ -159,7 +159,7 @@ func _touches_peak(from: float, span: float) -> bool:
 	return PEAKS.values().any(func(p: Vector2) -> bool: return from < p.y and from + span > p.x)
 
 
-func _section_waves(waves: Array[Dictionary], section: Course.Section) -> Array[Dictionary]:
+func _section_waves(waves: Array[Dictionary], section: Stage1.Section) -> Array[Dictionary]:
 	var found: Array[Dictionary] = []
 	found.assign(waves.filter(func(w: Dictionary) -> bool: return Course.section_at(w.d) == section))
 	return found
@@ -167,10 +167,10 @@ func _section_waves(waves: Array[Dictionary], section: Course.Section) -> Array[
 
 func test_section_budgets_hold() -> void:
 	var waves := _waves(false)
-	for section: Course.Section in BUDGETS:
+	for section: Stage1.Section in BUDGETS:
 		var total := _total(_section_waves(waves, section), false)
 		check(absf(total - BUDGETS[section]) <= BUDGETS[section] * 0.15, "section %d holds ~%d enemies (got %d)" % [section, BUDGETS[section], total])
-	check_eq(_total(_section_waves(waves, Course.Section.SCHOOL), false), 10, "the school is unchanged")
+	check_eq(_total(_section_waves(waves, Stage1.Section.SCHOOL), false), 10, "the school is unchanged")
 
 
 func test_no_window_of_150m_exceeds_the_cap() -> void:
@@ -197,23 +197,23 @@ func test_off_peak_windows_mix_at_most_two_kinds() -> void:
 
 func test_every_section_has_a_release() -> void:
 	var waves := _waves(false)
-	var boss := Stage1.events(false).filter(func(e: Dictionary) -> bool: return e.type == "boss")[0].d as float
-	for section in [Course.Section.FARM, Course.Section.VILLAGE, Course.Section.RESERVOIR, Course.Section.OVERPASS]:
-		var marks: Array[float] = [Course.SECTION_STARTS[section]]
+	var boss := Stage1.new().events(false).filter(func(e: Dictionary) -> bool: return e.type == "boss")[0].d as float
+	for section in [Stage1.Section.FARM, Stage1.Section.VILLAGE, Stage1.Section.RESERVOIR, Stage1.Section.OVERPASS]:
+		var marks: Array[float] = [Stage1.SECTION_STARTS[section]]
 		marks.append_array(_section_waves(waves, section).map(func(w: Dictionary) -> float: return w.d))
-		marks.append(boss if section == Course.Section.OVERPASS else Course.SECTION_STARTS[section + 1])
+		marks.append(boss if section == Stage1.Section.OVERPASS else Stage1.SECTION_STARTS[section + 1])
 		var gaps: Array[float] = []
 		for i in marks.size() - 1:
 			gaps.append(marks[i + 1] - marks[i])
 		check(gaps.max() >= 120.0, "section %d has a 120 m stretch without a spawn (longest %.0f)" % [section, gaps.max()])
-	var reservoir := _section_waves(waves, Course.Section.RESERVOIR)
+	var reservoir := _section_waves(waves, Stage1.Section.RESERVOIR)
 	check(reservoir.filter(func(w: Dictionary) -> bool: return w.d > 2440.0).size() == 1, "the reservoir release holds only the supply UGV")
-	var overpass := _section_waves(waves, Course.Section.OVERPASS)
+	var overpass := _section_waves(waves, Stage1.Section.OVERPASS)
 	check(overpass.all(func(w: Dictionary) -> bool: return w.d <= 3260.0), "the overpass releases from d 3260 to the boss")
 
 
 func test_reservoir_is_mostly_air() -> void:
-	var waves := _section_waves(_waves(false), Course.Section.RESERVOIR)
+	var waves := _section_waves(_waves(false), Stage1.Section.RESERVOIR)
 	var ground := _total(waves.filter(func(w: Dictionary) -> bool: return w.kind in GROUND), false)
 	var share := float(ground) / _total(waves, false)
 	check(share <= 0.3, "ground units are %.0f%% of the reservoir" % (share * 100.0))
@@ -222,7 +222,7 @@ func test_reservoir_is_mostly_air() -> void:
 func test_first_uav_pass_and_the_quad_duel_stand_alone() -> void:
 	var waves := _waves(false)
 	var uav := waves.filter(func(w: Dictionary) -> bool: return w.kind == "uav")[0] as Dictionary
-	var quad := waves.filter(func(w: Dictionary) -> bool: return w.kind == "quad" and Course.section_at(w.d) == Course.Section.VILLAGE)[0] as Dictionary
+	var quad := waves.filter(func(w: Dictionary) -> bool: return w.kind == "quad" and Course.section_at(w.d) == Stage1.Section.VILLAGE)[0] as Dictionary
 	for other in waves:
 		if other != uav:
 			check(absf(other.d - uav.d) >= 60.0, "nothing spawns within 60 m of the first UAV pass (%s at %d)" % [other.kind, other.d])

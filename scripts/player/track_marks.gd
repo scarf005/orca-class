@@ -86,7 +86,7 @@ func lay(last: Vector3, hull: Transform3D, offsets: Array, width: float, airborn
 
 func _over_fungus(p: Vector3) -> bool:
 	var course := Course.to_course(p)
-	return Course.fungus_at(course.x, course.y) > FUNGUS_THRESHOLD and p.y > Course.WATER_LEVEL
+	return Course.fungus_at(course.x, course.y) > FUNGUS_THRESHOLD and p.y > Stage1.WATER_LEVEL
 
 
 ## Juice and spores flung up behind the tracks, with a squelch no more often than every 0.45 s.
