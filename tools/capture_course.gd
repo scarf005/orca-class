@@ -1,6 +1,6 @@
 extends Node
 ## Renders the course from a camera at given distances and saves dithered screenshots.
-## Usage: xvfb-run -a godot --path . -- --run=res://tools/capture_course.gd --d=0,600 --out=builds/shots [--top]
+## Usage: xvfb-run -a godot --path . -- --run=res://tools/capture_course.gd --d=0,600 --out=builds/shots [--top] [--stage=2]
 
 
 func run() -> int:
@@ -10,6 +10,7 @@ func run() -> int:
 	var view := DitherView.new()
 	add_child(view)
 	var world := World.new()
+	world.stage_number = int(args.get("stage", "1"))
 	view.viewport.add_child(world)
 	for d_text: String in String(args.get("d", "0")).split(","):
 		var d := float(d_text)

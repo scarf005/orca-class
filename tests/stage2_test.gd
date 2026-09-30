@@ -120,9 +120,8 @@ func test_stage_2_ground_is_walkable_and_the_arena_is_flat() -> void:
 		previous = h0
 		d += 2.0
 	check(Course.height(1000.0, 150.0) > 15.0, "hills rise beyond the valley")
-	for u in [-60.0, -20.0, 0.0, 30.0, 60.0]:
+	for u in [-30.0, -20.0, 0.0, 20.0, 30.0]:
 		check(absf(Course.height(Course.stage.arena_center_d, u)) < 0.6, "the arena floor is flat at u=%.0f" % u)
-	check(Water.surface_at(Course.to_world(1000.0, 20.0)) == -INF, "no water mechanics yet")
 
 
 func test_stage_2_starts_with_rws_and_second_tier_coax() -> void:

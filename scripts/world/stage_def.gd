@@ -65,9 +65,18 @@ func water_surface(_c: Vector2) -> float:
 	return -INF
 
 
-## The flat surface mesh of the stage's water, or null.
-func water_mesh() -> ArrayMesh:
-	return null
+## Flat meshes over the stage's deep water, built at height 0; `water_level` lifts each to its surface.
+func water_meshes() -> Array[ArrayMesh]:
+	return []
+
+
+func water_level(_index: int) -> float:
+	return 0.0
+
+
+## Whether the ground is mud at course position (d, u): the tank keeps sliding on it.
+func mud_at(_d: float, _u: float) -> bool:
+	return false
 
 
 func events(_hard: bool) -> Array[Dictionary]:

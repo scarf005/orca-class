@@ -30,7 +30,7 @@ var _chunks := {}
 var _pending := {} ## index -> WorkerThreadPool task id.
 var _built := {} ## index -> LowPoly builder finished on a worker thread.
 var _mutex := Mutex.new()
-var _water: MeshInstance3D
+var _waters: Array[MeshInstance3D] = []
 
 
 static func _make_columns() -> PackedFloat32Array:
@@ -43,12 +43,24 @@ static func _make_columns() -> PackedFloat32Array:
 
 
 func _ready() -> void:
-	var mesh := Course.stage.water_mesh()
-	if mesh:
-		_water = MeshInstance3D.new()
-		_water.mesh = mesh
-		_water.material_override = water_material()
-		add_child(_water)
+	var material := water_material()
+	for mesh in Course.stage.water_meshes():
+		var water := MeshInstance3D.new()
+		water.mesh = mesh
+		water.material_override = material
+		add_child(water)
+		_waters.append(water)
+	_lift_water()
+
+
+## Water surfaces can move (the floodgate's basin drains), so each mesh follows the stage's level.
+func _process(_delta: float) -> void:
+	_lift_water()
+
+
+func _lift_water() -> void:
+	for i in _waters.size():
+		_waters[i].position.y = Course.stage.water_level(i)
 
 
 ## The water's look, shared by every water surface. `vertex_colors` lets a surface vary its shades.

@@ -71,13 +71,13 @@ func is_water(d: float, u: float) -> bool:
 
 
 ## The reservoir surface: a strip following the bend over the basin, reaching under its banks.
-func water_mesh() -> ArrayMesh:
+func water_meshes() -> Array[ArrayMesh]:
 	var vertices := PackedVector3Array()
 	var d := RESERVOIR_D.x
 	while d < RESERVOIR_D.y:
 		for step in [0.0, 20.0]:
-			var a := Course.to_world(d + step, RESERVOIR_U.y, WATER_LEVEL)
-			var b := Course.to_world(d + step, RESERVOIR_U.x, WATER_LEVEL)
+			var a := Course.to_world(d + step, RESERVOIR_U.y)
+			var b := Course.to_world(d + step, RESERVOIR_U.x)
 			vertices.append(a)
 			vertices.append(b)
 		d += 20.0
@@ -93,7 +93,11 @@ func water_mesh() -> ArrayMesh:
 	arrays[Mesh.ARRAY_NORMAL] = normals
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	return mesh
+	return [mesh]
+
+
+func water_level(_index: int) -> float:
+	return WATER_LEVEL
 
 
 ## Half width of the flat valley floor around the road.
