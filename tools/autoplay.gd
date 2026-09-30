@@ -76,7 +76,7 @@ func run() -> int:
 			boss_start = elapsed
 		if (not is_instance_valid(world.boss) or world.boss.dead) and boss_start >= 0.0 and boss_end < 0.0:
 			boss_end = elapsed
-		if world.boss is Floodgate:
+		if is_instance_valid(world.boss) and world.boss is Floodgate:
 			var fortress := world.boss as Floodgate
 			var shot := ""
 			if fortress.dead and elapsed - boss_end >= 2.2:
