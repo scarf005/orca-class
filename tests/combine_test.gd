@@ -128,6 +128,21 @@ func test_chaff_sweep_warns_for_point_eight_and_broken_auger_stops_it() -> void:
 		boss._end_attack()
 
 
+func test_auger_rests_folded_back_and_its_loss_does_not_stall_the_idle_combine() -> void:
+	var boss := _fight()
+	boss._end_attack()
+	boss._auger.rotation.y = 0.0
+	boss.behave(0.5)
+	check(absf(angle_difference(boss._auger.rotation.y, Combine.AUGER_STOW)) < absf(Combine.AUGER_STOW), "an idle auger swings back toward its folded rest")
+	var auger := boss._auger
+	boss.take_hit(_hit(boss, "auger", Combine.AUGER_HP))
+	check(await wait_until(gone(auger), 60 * 15), "the shot-off auger wreck is eventually freed")
+	boss._end_attack()
+	boss._next_attack = 5.0
+	boss.behave(0.25)
+	check_near(boss._next_attack, 4.75, 0.001, "the idle combine keeps counting down after its auger is shot off")
+
+
 func test_grain_heat_doubles_but_darts_and_tail_do_not() -> void:
 	var boss := _fight()
 	var normal := _hit(boss, "grain", 100.0)

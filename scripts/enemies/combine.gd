@@ -333,7 +333,8 @@ func behave(delta: float) -> void:
 	var tank := player()
 	match _attack:
 		Attack.NONE:
-			_auger.rotation.y = lerp_angle(_auger.rotation.y, AUGER_STOW, 1.0 - exp(-2.5 * delta))
+			if _live("auger"):
+				_auger.rotation.y = lerp_angle(_auger.rotation.y, AUGER_STOW, 1.0 - exp(-2.5 * delta))
 			_reposition(delta, tank)
 			_next_attack -= delta
 			if _next_attack <= 0.0:
