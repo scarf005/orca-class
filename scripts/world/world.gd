@@ -323,9 +323,6 @@ func kill_style(hit: Hit, victim: Entity) -> void:
 		Hit.Kind.TAIL:
 			trick = "TAILWHIP"
 			points = 55.0
-		Hit.Kind.THROWN:
-			trick = "THROWN"
-			points = 75.0
 		Hit.Kind.FIRE:
 			trick = "BURNED"
 			points = 50.0

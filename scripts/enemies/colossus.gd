@@ -211,7 +211,7 @@ func take_hit(hit: Hit) -> void:
 ## spores burst out of the wound. A shell blows a crater in it and the whole mass rocks back.
 func _flesh_hit(hit: Hit) -> void:
 	var world := World.current
-	var heavy := hit.kind in [Hit.Kind.SHELL, Hit.Kind.BLAST, Hit.Kind.RAM, Hit.Kind.TAIL, Hit.Kind.THROWN]
+	var heavy := hit.kind in [Hit.Kind.SHELL, Hit.Kind.BLAST, Hit.Kind.RAM, Hit.Kind.TAIL]
 	flash()
 	_shudder = maxf(_shudder, 0.25 if heavy else 0.1)
 	model.position += global_basis.inverse() * hit.direction.normalized() * (1.4 if heavy else 0.3)

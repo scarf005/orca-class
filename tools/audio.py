@@ -1133,7 +1133,9 @@ def sfx3():
     write_wav("heron_warn", mix(pulse(420, 1000, 0.9) * 0.7, pulse(180, 70, 0.4, 0.8)))
     write_wav("heron_stab", pulse(1100, 180, 0.22, 1.4) + highpass(n(0.22), 2800) * 1.2)
     write_wav("heron_topple", pulse(240, 38, 0.8, 1.3) + lowpass(n(0.8), 700) * 1.2)
-    write_wav("heron_throw", pulse(90, 28, 0.55, 1.5) + highpass(n(0.55), 1900) * 0.8)
+    # The retired 0.55-second noise slot consumed this exact private stream position. Advance instead of regenerating it,
+    # so later leech, egg, lotus and gnat sounds remain byte-identical on future `just audio` runs.
+    local.bit_generator.advance(int(0.55 * RATE))
     # Leech: ripples, clamp, and a wet pop.
     write_wav("leech_ripple", pulse(220, 620, 0.65, 0.8) + lowpass(n(0.65), 1100) * 0.8)
     write_wav("leech_latch", pulse(150, 48, 0.32, 1.2) + lowpass(n(0.32), 650) * 1.1)

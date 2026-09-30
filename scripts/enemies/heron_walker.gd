@@ -1,7 +1,7 @@
 class_name HeronWalker
 extends Enemy
 ## A white stilt walker in the paddies. It freezes until close, then plants a beak-lance circle.
-## Leg health is separate; once toppled it becomes a tail grab/throw target.
+## Leg health is separate; once toppled it becomes a clear tail-stab target.
 
 enum State { STILL, TELEGRAPH, FALLEN }
 const TELEGRAPH_TIME := 0.9
@@ -27,7 +27,7 @@ func _init() -> void:
 	wreck_on_death = true
 	score = 500
 	debris = [Fx.Debris.METAL, Fx.Debris.PAINT]
-	weakness = {Hit.Kind.TAIL: 1.5, Hit.Kind.THROWN: 2.0}
+	weakness = {Hit.Kind.TAIL: 1.5}
 
 func build() -> void:
 	var body := LowPoly.new()
@@ -134,14 +134,6 @@ func topple() -> void:
 	World.current.award(150, global_position, false)
 	Sfx.play("heron_topple", global_position)
 
-func throw_from_tail() -> void:
-	if not fallen or dead:
-		return
-	var direction := (global_position - player().global_position).normalized()
-	var hit := Hit.make(Hit.Kind.THROWN, 999.0, hit_center(), (direction + Vector3.UP * 0.35).normalized())
-	hit.source = player()
-	die(hit)
-	Sfx.play("heron_throw", global_position)
 
 func on_death(hit: Hit) -> void:
 	World.current.fx.spores(hit_center(), 10, 1.4)

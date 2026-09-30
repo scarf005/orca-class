@@ -81,7 +81,7 @@ func test_spray_real_warning_strip_damage_bounds_and_expiry() -> void:
 	await frames(1)
 	check(not is_instance_valid(mist), "the corrosive strip expires")
 
-func test_heron_warning_stab_topple_and_actual_tail_throw() -> void:
+func test_heron_warning_stab_topple_and_actual_tail_stab() -> void:
 	_world = stage("", true, 2)
 	var tank := _freeze_tank()
 	var heron := _spawn(HeronWalker.new(), tank.global_position + Vector3.FORWARD * 10.0) as HeronWalker
@@ -106,11 +106,11 @@ func test_heron_warning_stab_topple_and_actual_tail_throw() -> void:
 	var leg_hit := Hit.make(Hit.Kind.SHELL, 12.0, heron.global_position + Vector3.DOWN * 0.1, Vector3.FORWARD)
 	heron.take_hit(leg_hit)
 	check(heron.fallen and heron.state == HeronWalker.State.FALLEN, "leg damage topples heron")
-	# This is the ordinary tail path, not a direct throw helper: fallen herons are selected after swat/snatch.
+	# Fallen herons remain stab targets, selected after swat/snatch.
 	tank.global_position = heron.global_position + Vector3.BACK * 2.0
 	tank.auto_tail()
 	await frames(30)
-	check(not is_instance_valid(heron), "the tail grabs and throws a fallen heron")
+	check(not is_instance_valid(heron), "the tail stabs and kills a fallen heron")
 
 func test_leech_real_ripple_latch_drain_dry_refusal_blast_and_tail_priority() -> void:
 	_world = stage("", true, 2)

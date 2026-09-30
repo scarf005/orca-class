@@ -1066,12 +1066,6 @@ func _on_tail_arrived() -> void:
 		Tail.State.STAB:
 			if is_instance_valid(_grab_target) and _grab_target is Entity:
 				var enemy := _grab_target as Entity
-				if enemy is HeronWalker and (enemy as HeronWalker).fallen:
-					(enemy as HeronWalker).throw_from_tail()
-					_grab_target = null
-					tail.set_state(Tail.State.IDLE)
-					tail.start_cooldown()
-					return
 				var stab := Hit.make(Hit.Kind.TAIL, 75.0, tail.claw_position(), (enemy.hit_center() - global_position).normalized())
 				stab.stagger = 1.4
 				stab.source = self

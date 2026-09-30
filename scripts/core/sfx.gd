@@ -57,7 +57,6 @@ const SOUNDS := {
 	"heron_warn": ["res://assets/audio/synth/heron_warn.wav", -2.0],
 	"heron_stab": ["res://assets/audio/synth/heron_stab.wav", 0.0],
 	"heron_topple": ["res://assets/audio/synth/heron_topple.wav", 0.0],
-	"heron_throw": ["res://assets/audio/synth/heron_throw.wav", 0.0],
 	"leech_ripple": ["res://assets/audio/synth/leech_ripple.wav", -2.0],
 	"leech_latch": ["res://assets/audio/synth/leech_latch.wav", 0.0],
 	"leech_pop": ["res://assets/audio/synth/leech_pop.wav", -1.0],

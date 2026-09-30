@@ -2,7 +2,7 @@ class_name Hit
 extends RefCounted
 ## One instance of damage. Receivers scale `damage` by their own armor and weaknesses.
 
-enum Kind { BULLET, SHELL, BLAST, FIRE, RAM, TAIL, LASER, SPORE, THROWN, FRAGMENT }
+enum Kind { BULLET, SHELL, BLAST, FIRE, RAM, TAIL, LASER, SPORE, FRAGMENT }
 
 var damage := 0.0
 var kind := Kind.BULLET
@@ -28,7 +28,7 @@ static func make(kind_value: Kind, damage_value: float, position_value: Vector3,
 
 ## True when the tank caused this, directly or through something it set off.
 func by_player() -> bool:
-	if kind in [Kind.RAM, Kind.TAIL, Kind.THROWN, Kind.FIRE]:
+	if kind in [Kind.RAM, Kind.TAIL, Kind.FIRE]:
 		return true
 	return is_instance_valid(source) and (source is Tank or source is Prop)
 
