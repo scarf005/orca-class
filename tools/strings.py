@@ -18,8 +18,6 @@ S = {
     "MENU_START_HARD": ("출격 — 어려움", "SORTIE — HARD"),
     "MENU_FROM_MIDBOSS": ("분교부터 (기록 제외)", "FROM THE SCHOOL (UNRANKED)"),
     "MENU_FROM_BOSS": ("댐부터 (기록 제외)", "FROM THE DAM (UNRANKED)"),
-    "S2_MENU_START_NORMAL": ("2스테이지 출격 — 보통", "STAGE 2 SORTIE — NORMAL"),
-    "S2_MENU_START_HARD": ("2스테이지 출격 — 어려움", "STAGE 2 SORTIE — HARD"),
     "S2_MENU_FROM_MIDBOSS": ("정미소부터 (기록 제외)", "FROM THE RICE MILL (UNRANKED)"),
     "S2_MENU_FROM_BOSS": ("배수갑문부터 (기록 제외)", "FROM THE FLOODGATE (UNRANKED)"),
     "MENU_NEXT_STAGE": ("다음 스테이지", "NEXT STAGE"),

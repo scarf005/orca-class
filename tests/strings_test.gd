@@ -27,7 +27,9 @@ func test_all_keys_translated() -> void:
 	for i in 6:
 		check(table.has("SECTION_%d" % i), "section %d named" % i)
 		check(table.has("S2_SECTION_%d" % i), "stage 2 section %d named" % i)
-	for name in ["MENU_START_NORMAL", "MENU_START_HARD", "MENU_FROM_MIDBOSS", "MENU_FROM_BOSS"]:
+	for key in ["STAGE_1_NAME", "STAGE_2_NAME", "DIFFICULTY_NORMAL", "DIFFICULTY_HARD"]:
+		check(table.has(key), "%s is named on stage select" % key)
+	for name in ["MENU_FROM_MIDBOSS", "MENU_FROM_BOSS"]:
 		check(table.has("S2_" + name), "stage 2 %s named" % name)
 	check(table.has("MENU_NEXT_STAGE"), "next stage named")
 	for id in Pickup.IDS:

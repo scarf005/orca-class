@@ -50,11 +50,14 @@ func _gui_input(event: InputEvent) -> void:
 				queue_redraw()
 		for i in _checkpoint_rows.size():
 			if _checkpoint_rows[i].has_point(point):
+				if focus != Focus.CHECKPOINT or selected_checkpoint != i:
+					Sfx.ui("ui_move")
 				focus = Focus.CHECKPOINT
 				selected_checkpoint = i
 				queue_redraw()
 		if _back_rect.has_point(point) and focus != Focus.BACK:
 			focus = Focus.BACK
+			Sfx.ui("ui_move")
 			queue_redraw()
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 			for i in _cards.size():

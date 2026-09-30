@@ -333,7 +333,7 @@ func test_title_sorties_open_stage_select_for_both_difficulties() -> void:
 	await frames(2)
 	var labels := _labels(title._menu as Menu)
 	check(labels.slice(0, 2) == [tr("MENU_START_NORMAL"), tr("MENU_START_HARD")], "main menu starts with two sortie difficulty entries")
-	check(tr("S2_MENU_START_NORMAL") not in labels and tr("S2_MENU_START_HARD") not in labels, "no per-stage sortie entries remain")
+	check(labels.size() <= 5 and labels.count(tr("MENU_START_NORMAL")) == 1 and labels.count(tr("MENU_START_HARD")) == 1, "no per-stage sortie entries remain")
 	var started := []
 	title.start.connect(func(checkpoint: String) -> void: started.append([checkpoint, Game.stage, Game.difficulty]))
 	(title._menu as Menu).items[0].action.call()

@@ -12,9 +12,26 @@ func run() -> int:
 		await get_tree().process_frame
 	for locale in ["ko", "en"]:
 		TranslationServer.set_locale(locale)
-		title._show_stage_select(Game.Difficulty.NORMAL)
+		title._show_main()
+		await get_tree().process_frame
+		_press_key(KEY_ENTER) # Open the cards through the real sortie menu input path.
 		for _i in 12:
 			await get_tree().process_frame
 		get_viewport().get_texture().get_image().save_png("%s/stage-select-%s.png" % [out, locale])
+		_press_key(KEY_D)
+		for _i in 6:
+			await get_tree().process_frame
+		get_viewport().get_texture().get_image().save_png("%s/stage-select-%s-stage2.png" % [out, locale])
 		print("saved stage select %s" % locale)
 	return 0
+
+
+func _press_key(code: Key) -> void:
+	var event := InputEventKey.new()
+	event.keycode = code
+	event.physical_keycode = code
+	event.pressed = true
+	Input.parse_input_event(event)
+	var release := event.duplicate() as InputEventKey
+	release.pressed = false
+	Input.parse_input_event(release)
