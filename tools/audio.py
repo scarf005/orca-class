@@ -1157,6 +1157,34 @@ def sfx3():
     write_wav("gnat_pop", pulse(1900, 100, 0.18) + highpass(n(0.18), 2400) * 0.8)
 
 
+# --- Phase D combine harvester sounds ------------------------------------------------------
+# Kept as the final generator so this stage only adds new WAV files; older tracks are untouched.
+def sfx4():
+    local = np.random.default_rng(2204)
+    def n(seconds):
+        return local.uniform(-1, 1, int(seconds * RATE))
+    def motor(seconds, base):
+        t = t_axis(seconds)
+        harmonics = sum(np.sin(2 * np.pi * base * h * t + np.sin(2 * np.pi * 4 * t) * 0.08) / h for h in range(1, 7))
+        return lowpass(harmonics + n(seconds) * 0.28, 2600) * (0.78 + 0.22 * np.sin(2 * np.pi * 3 * t))
+    write_wav("combine_engine", motor(1.0, 54), 0.62)
+    reel = sweep(170, 980, 1.0, "saw", 0.65) * env(RATE, 0.12, 0.25, decay=0.2, sustain=0.7)
+    reel += highpass(n(1.0), 1700) * env(RATE, 0.08, 0.3) * 0.32
+    write_wav("combine_reel", reel, 0.78)
+    auger = sweep(95, 42, 0.8, "saw", 0.8) * env(int(0.8 * RATE), 0.03, 0.45)
+    auger += lowpass(n(0.8), 900) * env(int(0.8 * RATE), 0.03, 0.4) * 0.8
+    write_wav("combine_auger", auger, 0.75)
+    chaff = lowpass(n(0.55), 3800) * env(int(0.55 * RATE), 0.02, 0.35)
+    pops = pad([(i * 0.08, sweep(900 + i * 130, 260, 0.08) * env(int(0.08 * RATE), 0.002, 0.06)) for i in range(5)], 0.55)
+    chaff += pops * 0.32
+    write_wav("combine_chaff", chaff, 0.8)
+    t = t_axis(1.1)
+    boom = sweep(160, 34, 1.1, "sine", 0.35) * np.exp(-t * 5.2)
+    crack = highpass(n(1.1), 1800) * np.exp(-t * 28)
+    fire = lowpass(n(1.1), 1300) * np.exp(-t * 8)
+    write_wav("combine_death", boom * 1.7 + crack * 1.1 + fire * 0.9, 0.95)
+
+
 if __name__ == "__main__":
     import sys
     parts = sys.argv[1:] or ["sfx", "music", "stage2"]
@@ -1175,3 +1203,6 @@ if __name__ == "__main__":
         music2()
     if "sfx" in parts:
         sfx3()
+        sfx4()
+    elif "combine" in parts:
+        sfx4()

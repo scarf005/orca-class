@@ -70,6 +70,11 @@ const SOUNDS := {
 	"gnat_warn": ["res://assets/audio/synth/gnat_warn.wav", -2.0],
 	"gnat_attack": ["res://assets/audio/synth/gnat_attack.wav", -1.0],
 	"gnat_pop": ["res://assets/audio/synth/gnat_pop.wav", -1.0],
+	"combine_engine": ["res://assets/audio/synth/combine_engine.wav", -5.0],
+	"combine_reel": ["res://assets/audio/synth/combine_reel.wav", -1.0],
+	"combine_auger": ["res://assets/audio/synth/combine_auger.wav", -1.0],
+	"combine_chaff": ["res://assets/audio/synth/combine_chaff.wav", -1.0],
+	"combine_death": ["res://assets/audio/synth/combine_death.wav", 0.0],
 }
 
 const POOL_SIZE := 40
