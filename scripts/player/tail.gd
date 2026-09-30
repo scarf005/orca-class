@@ -165,9 +165,14 @@ func update(delta: float, hull: Basis, lateral_velocity: float) -> void:
 	else:
 		# Critically damped spring for idle sway, holding and swats.
 		var k := _stiffness
-		var accel := (target - _claw) * k - _claw_velocity * 2.0 * sqrt(k)
-		_claw_velocity += accel * delta
-		_claw += _claw_velocity * delta
+		# Explicit integration is unstable on long render frames. Keep each spring step at
+		# most one 60 Hz frame; normal 60 FPS motion is unchanged.
+		var steps := maxi(1, ceili(delta * 60.0))
+		var step := delta / steps
+		for i in steps:
+			var accel := (target - _claw) * k - _claw_velocity * 2.0 * sqrt(k)
+			_claw_velocity += accel * step
+			_claw += _claw_velocity * step
 	if state == State.ANCHOR:
 		_claw = _claw.lerp(target, 0.6)
 	var offset := _claw - base

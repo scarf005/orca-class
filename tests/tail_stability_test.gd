@@ -10,7 +10,10 @@ func test_tail_spring_stays_finite_during_long_frames() -> void:
 	var finite := true
 	for i in 240:
 		tail.update(0.2, world.player.global_basis, 24.0)
-		finite = tail._claw.is_finite() and tail._claw_velocity.is_finite()
+		finite = tail._claw.is_finite() and tail._claw_velocity.is_finite() \
+			and tail.joints.all(func(p: Vector3) -> bool: return p.is_finite()) \
+			and tail._segments.all(func(s: MeshInstance3D) -> bool: return s.global_transform.is_finite()) \
+			and tail._claw_root.global_transform.is_finite()
 		if not finite:
 			break
-	check(finite, "200 ms frames do not overflow the damped tail spring")
+	check(finite, "200 ms frames keep the tail spring, joints and rendered transforms finite")
