@@ -46,6 +46,22 @@ func _click(point: Vector2) -> InputEventMouseButton:
 	event.pressed = true
 	return event
 
+func test_heading_clears_the_actual_fps_rect_in_both_locales() -> void:
+	var main := preload("res://scenes/main.tscn").instantiate()
+	var fps := main.get_node("Performance/FPS") as Label
+	var fps_rect := fps.get_rect().grow(fps.get_theme_constant("outline_size"))
+	main.free()
+	_title = StageSelect.new()
+	add_child(_title)
+	var select := _title as StageSelect
+	var saved_locale := TranslationServer.get_locale()
+	for locale in ["ko", "en"]:
+		TranslationServer.set_locale(locale)
+		var heading_size := select.font.get_string_size(tr("STAGE_SELECT"), HORIZONTAL_ALIGNMENT_LEFT, -1, 26)
+		var heading_rect := Rect2(StageSelect.HEADING_POSITION - Vector2(0, select.font.get_ascent(26)), heading_size)
+		check(not heading_rect.intersects(fps_rect), "%s stage title clears the FPS counter and its outline" % locale)
+	TranslationServer.set_locale(saved_locale)
+
 func test_stage_maps_preserve_the_dither_palette_at_native_size() -> void:
 	for number in [1, 2]:
 		var image := Image.new()

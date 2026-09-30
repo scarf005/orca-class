@@ -5,6 +5,8 @@ extends Control
 signal selected(difficulty: Game.Difficulty, checkpoint: String, stage: int)
 signal back
 
+# The persistent FPS label occupies (16, 44)-(112, 60), plus its 2px outline.
+const HEADING_POSITION := Vector2(218, 48)
 const CARD_SIZE := Vector2(250, 250)
 const CARD_TOP := 82.0
 const CARD_GAP := 24.0
@@ -184,7 +186,7 @@ func _checkpoints() -> Array[String]:
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color(Palette.INK, 0.82))
 	var heading := tr("STAGE_SELECT")
-	draw_string(font, Vector2(48, 48), heading, HORIZONTAL_ALIGNMENT_LEFT, -1, 26, Palette.FUNGUS)
+	draw_string(font, HEADING_POSITION, heading, HORIZONTAL_ALIGNMENT_LEFT, -1, 26, Palette.FUNGUS)
 	var mode := tr("DIFFICULTY_NORMAL" if difficulty == Game.Difficulty.NORMAL else "DIFFICULTY_HARD")
 	draw_string(font, Vector2(912 - font.get_string_size(mode, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x, 40), mode, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.BUTTER)
 	_cards.clear()
