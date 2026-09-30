@@ -11,6 +11,7 @@ const AUGER_HP := 135.0
 const TRACK_HP := 120.0
 const MOW_WARN := 1.0
 const CHAFF_WARN := 0.8
+const AUGER_STOW := -PI * 0.5 ## The unloading auger rests folded back over the body, not aimed like a gun.
 const STANDOFF := 56.0
 const MOW_SPEED := 65.0
 const MOW_DAMAGE := 38.0
@@ -120,8 +121,9 @@ func build() -> void:
 	_part("header", Vector3(0, 1.9, -5.1), Vector3(5.2, 1.6, 1.6), _header)
 	var h := LowPoly.new()
 	h.box(Transform3D(Basis(), Vector3(0, -0.5, 0.4)), Vector3(10.2, 0.45, 2.4), Palette.CORAL)
+	# Pointed crop dividers along the header's lip: the head-feed combine's unmistakable snouts.
 	for x in range(-5, 6):
-		h.box(Transform3D(Basis(Vector3.UP, 0.15 * (x % 2)), Vector3(x, -0.45, -1.05)), Vector3(0.5, 0.16, 1.1), Palette.CREAM)
+		h.tube(Transform3D(Basis(Vector3.UP, PI) * Basis(Vector3.RIGHT, 0.12), Vector3(x * 0.92, -0.35, -0.7)), 0.3, 1.9, 4, Palette.BUTTER, 0.0)
 	for side in [-1.0, 1.0]:
 		h.prism(Transform3D(Basis(Vector3.FORWARD, PI * 0.5), Vector3(side * 4.7, 0.4, 0)), 1.1, 0.22, 6, Palette.OCHRE)
 	_mesh(_header, h.mesh())
@@ -153,6 +155,7 @@ func build() -> void:
 	a.box(Transform3D(Basis(), Vector3(2.7, 0.35, 0)), Vector3(5.6, 0.15, 0.4), Palette.CORAL)
 	a.prism(Transform3D(Basis(), Vector3(5.6, -0.35, 0)), 0.6, 0.9, 6, Palette.FUNGUS)
 	_mesh(_auger, a.mesh())
+	_auger.rotation.y = AUGER_STOW
 	_engine_sound = Sfx.loop("combine_engine", self, -5.0)
 
 
@@ -330,6 +333,7 @@ func behave(delta: float) -> void:
 	var tank := player()
 	match _attack:
 		Attack.NONE:
+			_auger.rotation.y = lerp_angle(_auger.rotation.y, AUGER_STOW, 1.0 - exp(-2.5 * delta))
 			_reposition(delta, tank)
 			_next_attack -= delta
 			if _next_attack <= 0.0:
