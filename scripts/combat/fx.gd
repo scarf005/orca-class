@@ -239,78 +239,83 @@ func spawn(kind: Kind, position: Vector3, velocity: Vector3, life: float, size: 
 	pool.append(p)
 
 
+## Ages, moves and uploads one pool; particles that shed a trail or land in water are handed back.
+func _advance_pool(kind: Kind, delta: float, trails: Array[Particle], splashes: Array[Particle]) -> void:
+	var pool: Array = _pools[kind]
+	var multimesh: MultiMesh = _multimeshes[kind]
+	var buffer: PackedFloat32Array = _buffers[kind]
+	if pool.size() > multimesh.instance_count:
+		var capacity := mini(MAX_PARTICLES, maxi(128, nearest_po2(pool.size())))
+		var previous := multimesh.instance_count
+		multimesh.instance_count = capacity
+		buffer.resize(capacity * STRIDE)
+		for i in range(previous, capacity):
+			buffer[i * STRIDE] = 1.0
+			buffer[i * STRIDE + 5] = 1.0
+			buffer[i * STRIDE + 10] = 1.0
+	var index := 0
+	for read in pool.size():
+		var p: Particle = pool[read]
+		var age := p.life + delta
+		p.life = age
+		if age >= p.max_life:
+			continue
+		var velocity := p.velocity
+		velocity.y -= p.gravity * delta
+		velocity *= maxf(0.0, 1.0 - p.drag * delta)
+		var position := p.position + velocity * delta
+		if p.bounce and position.y < p.ground:
+			if p.water:
+				p.position = position
+				p.velocity = velocity
+				splashes.append(p)
+				continue
+			position.y = p.ground
+			velocity = Vector3(velocity.x * 0.5, absf(velocity.y) * 0.3, velocity.z * 0.5)
+		p.position = position
+		p.velocity = velocity
+		var t := age / p.max_life
+		var s := lerpf(p.size, p.end_size, t)
+		# Translation stays on the CPU for collisions and trails. The vertex shader handles
+		# size, rotation and billboarding, avoiding nine matrix writes per particle/frame.
+		var o := index * STRIDE
+		if kind == Kind.SOLID:
+			buffer[o + 16] = p.layer
+			buffer[o + 17] = s
+			buffer[o + 18] = p.spin.x + p.spin.z * age
+		else:
+			buffer[o + 16] = s
+			buffer[o + 17] = p.spin.x * age
+			buffer[o + 18] = p.spin.y * age
+			buffer[o + 19] = p.spin.z * age
+		buffer[o + 3] = position.x
+		buffer[o + 7] = position.y
+		buffer[o + 11] = position.z
+		buffer[o + 12] = p.color.r
+		buffer[o + 13] = p.color.g
+		buffer[o + 14] = p.color.b
+		buffer[o + 15] = 1.0 - smoothstep(p.fade_start, 1.0, t)
+		if p.trail.a > 0.0:
+			p.trail_timer -= delta
+			if p.trail_timer <= 0.0 and (kind != Kind.SOLID or velocity.length_squared() > TRAIL_MIN_SPEED * TRAIL_MIN_SPEED):
+				p.trail_timer = 0.05 if kind == Kind.FLAME else 0.08
+				trails.append(p)
+		if index != read:
+			pool[index] = p
+		index += 1
+	if index < pool.size():
+		pool.resize(index)
+	_buffers[kind] = buffer
+	if index > 0:
+		multimesh.buffer = buffer
+	multimesh.visible_instance_count = index
+
+
 func _process(delta: float) -> void:
 	var trails: Array[Particle] = []
 	var splashes: Array[Particle] = []
 	for kind: Kind in _pools:
-		var pool: Array = _pools[kind]
-		var multimesh: MultiMesh = _multimeshes[kind]
-		var buffer: PackedFloat32Array = _buffers[kind]
-		if pool.size() > multimesh.instance_count:
-			var capacity := mini(MAX_PARTICLES, maxi(128, nearest_po2(pool.size())))
-			var previous := multimesh.instance_count
-			multimesh.instance_count = capacity
-			buffer.resize(capacity * STRIDE)
-			for i in range(previous, capacity):
-				buffer[i * STRIDE] = 1.0
-				buffer[i * STRIDE + 5] = 1.0
-				buffer[i * STRIDE + 10] = 1.0
-		var index := 0
-		for read in pool.size():
-			var p: Particle = pool[read]
-			var age := p.life + delta
-			p.life = age
-			if age >= p.max_life:
-				continue
-			var velocity := p.velocity
-			velocity.y -= p.gravity * delta
-			velocity *= maxf(0.0, 1.0 - p.drag * delta)
-			var position := p.position + velocity * delta
-			if p.bounce and position.y < p.ground:
-				if p.water:
-					p.position = position
-					p.velocity = velocity
-					splashes.append(p)
-					continue
-				position.y = p.ground
-				velocity = Vector3(velocity.x * 0.5, absf(velocity.y) * 0.3, velocity.z * 0.5)
-			p.position = position
-			p.velocity = velocity
-			var t := age / p.max_life
-			var s := lerpf(p.size, p.end_size, t)
-			# Translation stays on the CPU for collisions and trails. The vertex shader handles
-			# size, rotation and billboarding, avoiding nine matrix writes per particle/frame.
-			var o := index * STRIDE
-			if kind == Kind.SOLID:
-				buffer[o + 16] = p.layer
-				buffer[o + 17] = s
-				buffer[o + 18] = p.spin.x + p.spin.z * age
-			else:
-				buffer[o + 16] = s
-				buffer[o + 17] = p.spin.x * age
-				buffer[o + 18] = p.spin.y * age
-				buffer[o + 19] = p.spin.z * age
-			buffer[o + 3] = position.x
-			buffer[o + 7] = position.y
-			buffer[o + 11] = position.z
-			buffer[o + 12] = p.color.r
-			buffer[o + 13] = p.color.g
-			buffer[o + 14] = p.color.b
-			buffer[o + 15] = 1.0 - smoothstep(p.fade_start, 1.0, t)
-			if p.trail.a > 0.0:
-				p.trail_timer -= delta
-				if p.trail_timer <= 0.0 and (kind != Kind.SOLID or velocity.length_squared() > TRAIL_MIN_SPEED * TRAIL_MIN_SPEED):
-					p.trail_timer = 0.05 if kind == Kind.FLAME else 0.08
-					trails.append(p)
-			if index != read:
-				pool[index] = p
-			index += 1
-		if index < pool.size():
-			pool.resize(index)
-		_buffers[kind] = buffer
-		if index > 0:
-			multimesh.buffer = buffer
-		multimesh.visible_instance_count = index
+		_advance_pool(kind, delta, trails, splashes)
 	for p in splashes:
 		splash(p.position, p.size, p.ground)
 	for p in trails:

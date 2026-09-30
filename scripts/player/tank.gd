@@ -687,78 +687,18 @@ func _fire_coax(muzzle: Node3D, caliber: int, spec: Dictionary, target: Entity) 
 ## Fires the loaded round from the barrel, or from `from` along `toward` when given (the debug
 ## room shoots from its camera).
 func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO) -> void:
-	var world := World.current
 	var muzzle := model.muzzle.global_position if from == Vector3.INF else from
 	var barrel_dir := -model.barrel.global_basis.z if toward == Vector3.ZERO else toward.normalized()
 	var shot_dir := func(speed: float) -> Vector3: return barrel_dir if toward != Vector3.ZERO else _fire_direction(muzzle, speed)
 	var round := current_round
-	world.stats.shots += 1
+	World.current.stats.shots += 1
 	match round:
 		Armament.Round.CANISTER:
-			# A wall of tungsten balls, and a muzzle blast that flattens everything just ahead.
-			var aim_dir: Vector3 = shot_dir.call(200.0)
-			world.blast(muzzle + aim_dir * 7.0, 6.0, 260.0, Team.PLAYER, _cannon_hit(), null, [Palette.WHITE, Palette.BUTTER, Palette.AMBER], aim_dir)
-			# Fifty hitscan balls land at once, each drawn as a yellow streak.
-			for i in 50:
-				var dir := (aim_dir + Vector3(randf_range(-1, 1), randf_range(-0.6, 1), randf_range(-1, 1)) * 0.13).normalized()
-				var pellet := world.spawn_projectile(Team.PLAYER, muzzle, dir * 200.0, "pellet", Palette.BUTTER)
-				pellet.hit = Hit.make(Hit.Kind.BULLET, 90.0, muzzle)
-				pellet.hit.caliber = 20
-				pellet.hit.source = self
-				pellet.impacted.connect(_count_hit, CONNECT_ONE_SHOT)
-				var end := pellet.resolve_now(CANISTER_RANGE)
-				world.fx.beam(muzzle, end, Palette.WHITE, 0.06, 0.08)
-				world.fx.beam(muzzle, end, Palette.BUTTER, 0.18, 0.14)
-				world.fx.spawn(Fx.Kind.FLAME, end, Vector3.UP * 2.0, 0.12, 0.5, Palette.BUTTER)
+			_fire_canister(muzzle, shot_dir.call(200.0))
 		Armament.Round.DRAGON:
 			DragonBreath.fire(self, shot_dir.call(DragonBreath.MEAN_SPEED), from)
 		_:
-			var speed := Armament.SHELL_SPEED
-			var shape := "dart" if round == Armament.Round.APFSDS else "shell"
-			var dir: Vector3 = shot_dir.call(speed)
-			var shell := world.spawn_projectile(Team.PLAYER, muzzle, dir * speed, shape, Armament.ROUND_COLORS[round])
-			shell.hit = Hit.make(Hit.Kind.SHELL, Armament.SHELL_DAMAGE, muzzle)
-			shell.hit.caliber = 100
-			shell.hit.source = self
-			shell.hit.stagger = 0.4
-			shell.gravity = 0.0
-			shell.life = 2.0
-			shell.impact_sound = "impact"
-			shell.impacted.connect(_count_hit, CONNECT_ONE_SHOT)
-			match round:
-				Armament.Round.APHE:
-					# A small filler: it wrecks what it hits and what is right beside it, not the wave.
-					shell.blast_radius = 5.0
-					shell.blast_damage = 600.0
-				Armament.Round.HEAT:
-					shell.hit.damage = Armament.SHELL_DAMAGE * 1.5
-					shell.hit.pierce = true
-					shell.hit.stagger = 1.0
-					shell.blast_radius = 9.0
-					shell.blast_damage = 500.0
-					shell.blast_colors = [Palette.WHITE, Palette.CORAL, Palette.RED, Palette.PEACH]
-				Armament.Round.APFSDS:
-					shell.hit.damage = Armament.SHELL_DAMAGE * 2.0
-					shell.hit.pierce = true
-					shell.pierce_entities = true
-					shell.gravity = 0.0
-					# The dart goes through everything in line and slams into the ground with a crater.
-					shell.blast_radius = 7.0
-					shell.blast_damage = 450.0
-				Armament.Round.AIRBURST:
-					shell.hit.damage = 70.0
-					shell.fuse_distance = maxf(muzzle.distance_to(aim_point) - 2.0, 6.0)
-					shell.airburst_fragments = 70
-			# Hitscan: the round lands this very frame, and a tracer flash marks its line.
-			var end := shell.resolve_now(Armament.SHELL_RANGE)
-			world.fx.beam(muzzle, end, Palette.WHITE, 0.5, 0.1)
-			world.fx.beam(muzzle, end, Armament.ROUND_COLORS[round], 1.4, 0.18)
-			world.fx.beam(muzzle, end, Armament.ROUND_COLORS[round], 2.6, 0.08)
-			world.fx.light_flash(end, 20.0, Armament.ROUND_COLORS[round], 30.0)
-			var length := muzzle.distance_to(end)
-			for k in int(length / 6.0):
-				var at := muzzle.lerp(end, (k + 0.5) * 6.0 / length)
-				world.fx.spawn(Fx.Kind.GLOW, at, Vector3(randf_range(-0.4, 0.4), 0.8, randf_range(-0.4, 0.4)), randf_range(0.5, 0.9), 0.5, Palette.MIST, {"end_size": 1.4, "drag": 2.0, "fade": 0.2})
+			_fire_shell(round, muzzle, shot_dir.call(Armament.SHELL_SPEED))
 	if round != Armament.Round.APHE:
 		round_count -= 1
 		if round_count <= 0:
@@ -766,6 +706,72 @@ func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO) -> void:
 		round_changed.emit()
 	reload = Armament.RELOAD * modules.reload_factor()
 	_cannon_feedback(muzzle, barrel_dir)
+
+
+## A wall of tungsten balls, and a muzzle blast that flattens everything just ahead.
+func _fire_canister(muzzle: Vector3, aim_dir: Vector3) -> void:
+	var world := World.current
+	world.blast(muzzle + aim_dir * 7.0, 6.0, 260.0, Team.PLAYER, _cannon_hit(), null, [Palette.WHITE, Palette.BUTTER, Palette.AMBER], aim_dir)
+	# Fifty hitscan balls land at once, each drawn as a yellow streak.
+	for i in 50:
+		var dir := (aim_dir + Vector3(randf_range(-1, 1), randf_range(-0.6, 1), randf_range(-1, 1)) * 0.13).normalized()
+		var pellet := world.spawn_projectile(Team.PLAYER, muzzle, dir * 200.0, "pellet", Palette.BUTTER)
+		pellet.hit = Hit.make(Hit.Kind.BULLET, 90.0, muzzle)
+		pellet.hit.caliber = 20
+		pellet.hit.source = self
+		pellet.impacted.connect(_count_hit, CONNECT_ONE_SHOT)
+		var end := pellet.resolve_now(CANISTER_RANGE)
+		world.fx.beam(muzzle, end, Palette.WHITE, 0.06, 0.08)
+		world.fx.beam(muzzle, end, Palette.BUTTER, 0.18, 0.14)
+		world.fx.spawn(Fx.Kind.FLAME, end, Vector3.UP * 2.0, 0.12, 0.5, Palette.BUTTER)
+
+
+## A 100 mm hitscan shell (APHE, HEAT, APFSDS or airburst): it lands this very frame and a tracer
+## flash marks its line.
+func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3) -> void:
+	var world := World.current
+	var color: Color = Armament.ROUND_COLORS[round]
+	var shell := world.spawn_projectile(Team.PLAYER, muzzle, dir * Armament.SHELL_SPEED, "dart" if round == Armament.Round.APFSDS else "shell", color)
+	shell.hit = Hit.make(Hit.Kind.SHELL, Armament.SHELL_DAMAGE, muzzle)
+	shell.hit.caliber = 100
+	shell.hit.source = self
+	shell.hit.stagger = 0.4
+	shell.gravity = 0.0
+	shell.life = 2.0
+	shell.impact_sound = "impact"
+	shell.impacted.connect(_count_hit, CONNECT_ONE_SHOT)
+	match round:
+		Armament.Round.APHE:
+			# A small filler: it wrecks what it hits and what is right beside it, not the wave.
+			shell.blast_radius = 5.0
+			shell.blast_damage = 600.0
+		Armament.Round.HEAT:
+			shell.hit.damage = Armament.SHELL_DAMAGE * 1.5
+			shell.hit.pierce = true
+			shell.hit.stagger = 1.0
+			shell.blast_radius = 9.0
+			shell.blast_damage = 500.0
+			shell.blast_colors = [Palette.WHITE, Palette.CORAL, Palette.RED, Palette.PEACH]
+		Armament.Round.APFSDS:
+			shell.hit.damage = Armament.SHELL_DAMAGE * 2.0
+			shell.hit.pierce = true
+			shell.pierce_entities = true
+			# The dart goes through everything in line and slams into the ground with a crater.
+			shell.blast_radius = 7.0
+			shell.blast_damage = 450.0
+		Armament.Round.AIRBURST:
+			shell.hit.damage = 70.0
+			shell.fuse_distance = maxf(muzzle.distance_to(aim_point) - 2.0, 6.0)
+			shell.airburst_fragments = 70
+	var end := shell.resolve_now(Armament.SHELL_RANGE)
+	world.fx.beam(muzzle, end, Palette.WHITE, 0.5, 0.1)
+	world.fx.beam(muzzle, end, color, 1.4, 0.18)
+	world.fx.beam(muzzle, end, color, 2.6, 0.08)
+	world.fx.light_flash(end, 20.0, color, 30.0)
+	var length := muzzle.distance_to(end)
+	for k in int(length / 6.0):
+		var at := muzzle.lerp(end, (k + 0.5) * 6.0 / length)
+		world.fx.spawn(Fx.Kind.GLOW, at, Vector3(randf_range(-0.4, 0.4), 0.8, randf_range(-0.4, 0.4)), randf_range(0.5, 0.9), 0.5, Palette.MIST, {"end_size": 1.4, "drag": 2.0, "fade": 0.2})
 
 
 ## A player cannon hit template for blasts fired straight from the muzzle.
@@ -818,21 +824,10 @@ func _count_hit(projectile: Projectile, point: Vector3, target: Entity) -> void:
 		world.fx.sparks(point, projectile.splash_direction(), 18, Palette.WHITE, 18.0)
 
 
-func _update_ciws(delta: float) -> void:
+## What the laser burns next: the incoming projectile that arrives soonest, or a drone close enough
+## to zap, whichever is sooner.
+func _ciws_pick_target() -> Object:
 	var world := World.current
-	_ciws_sound_cooldown = maxf(0.0, _ciws_sound_cooldown - delta)
-	if not modules.laser_online():
-		ciws_target = null
-		ciws_heat = 0.0
-		ciws_overheated = false
-		return
-	if ciws_overheated:
-		ciws_heat = maxf(0.0, ciws_heat - CIWS_COOL_RATE * delta)
-		if ciws_heat <= 0.3:
-			ciws_overheated = false
-		ciws_target = null
-		return
-	var origin := model.rws_lens.global_position
 	var target: Object = null
 	var best := INF
 	for projectile in world.projectiles:
@@ -856,6 +851,25 @@ func _update_ciws(delta: float) -> void:
 		if eta < best:
 			best = eta
 			target = enemy
+	return target
+
+
+func _update_ciws(delta: float) -> void:
+	var world := World.current
+	_ciws_sound_cooldown = maxf(0.0, _ciws_sound_cooldown - delta)
+	if not modules.laser_online():
+		ciws_target = null
+		ciws_heat = 0.0
+		ciws_overheated = false
+		return
+	if ciws_overheated:
+		ciws_heat = maxf(0.0, ciws_heat - CIWS_COOL_RATE * delta)
+		if ciws_heat <= 0.3:
+			ciws_overheated = false
+		ciws_target = null
+		return
+	var origin := model.rws_lens.global_position
+	var target := _ciws_pick_target()
 	if target == null:
 		ciws_target = null
 		ciws_heat = maxf(0.0, ciws_heat - CIWS_COOL_RATE * delta)
