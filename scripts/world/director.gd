@@ -10,6 +10,13 @@ signal incoming(from: Vector3) ## A wave is arriving from outside the view; the 
 
 const ENEMY_SCRIPTS := {
 	"fpv": "res://scripts/enemies/fpv_drone.gd",
+	"airboat": "res://scripts/enemies/airboat.gd",
+	"spray_drone": "res://scripts/enemies/spray_drone.gd",
+	"heron": "res://scripts/enemies/heron_walker.gd",
+	"leech": "res://scripts/enemies/canal_leech.gd",
+	"egg_cluster": "res://scripts/enemies/snail_egg_cluster.gd",
+	"lotus_mine": "res://scripts/enemies/lotus_mine.gd",
+	"gnat": "res://scripts/enemies/gnat_swarm.gd",
 	"ugv": "res://scripts/enemies/ugv.gd",
 	"uav": "res://scripts/enemies/uav.gd",
 	"crawler": "res://scripts/enemies/crawler.gd",

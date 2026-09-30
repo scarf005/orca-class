@@ -288,7 +288,7 @@ func events(hard: bool) -> Array[Dictionary]:
 
 	# Floodplain (quiet -> build): night mist, a few drones, the first ground contact in the shallows.
 	# Release 370-445.
-	wave.call(90.0, "fpv", {"count": 2, "formation": "line", "height": 9.0, "spacing": 7.0, "hover": 26.0})
+	wave.call(90.0, "gnat", {"count": 2, "formation": "line", "height": 5.0, "spacing": 7.0, "ahead": 28.0})
 	wave.call(190.0, "fpv", {"count": 4, "formation": "v", "height": 8.0, "spacing": 5.0})
 	wave.call(280.0, "crawler", {"count": 4, "formation": "sides", "spacing": 16.0, "ahead": 70.0})
 	wave.call(340.0, "uav", {"count": 2, "formation": "line", "spacing": 10.0, "props": {"attack": "strafe"}})
@@ -296,12 +296,13 @@ func events(hard: bool) -> Array[Dictionary]:
 	# Paddies (build -> peak): the fight runs along the dikes. Peak 700-860: a helicopter, a column on
 	# the dike, walkers, crawlers through the water. Release 940-1000 after the supply column.
 	wave.call(450.0, "ugv", {"count": 3, "formation": "sides", "spacing": 8.0, "ahead": 95.0, "u": 0.0})
-	wave.call(520.0, "spitter", {"count": 3, "formation": "sides", "spacing": 15.0, "ahead": 80.0})
-	wave.call(580.0, "uav", {"count": 2, "formation": "line", "spacing": 10.0, "props": {"attack": "bomb"}})
-	wave.call(640.0, "walker", {"count": 3, "formation": "behind", "spacing": 9.0})
+	wave.call(520.0, "egg_cluster", {"count": 3, "formation": "sides", "spacing": 15.0, "ahead": 80.0})
+	wave.call(580.0, "spray_drone", {"count": 2, "formation": "line", "spacing": 10.0, "height": 8.0})
+	wave.call(640.0, "heron", {"count": 3, "formation": "behind", "spacing": 9.0})
 	wave.call(700.0, "helicopter", {"count": 1, "height": 13.0, "ahead": 110.0, "u": -10.0})
-	wave.call(730.0, "ugv", {"count": 3, "formation": "column", "spacing": 14.0, "ahead": 100.0, "u": -18.0})
-	wave.call(760.0, "crawler", {"count": 6, "formation": "scatter", "spacing": 18.0, "ahead": 60.0})
+	wave.call(730.0, "airboat", {"count": 3, "formation": "column", "spacing": 14.0, "ahead": 100.0, "u": -30.0})
+	wave.call(730.0, "ugv", {"count": 3, "formation": "column", "spacing": 14.0, "ahead": 100.0, "u": 18.0})
+	wave.call(760.0, "crawler", {"count": 3, "formation": "scatter", "spacing": 18.0, "ahead": 60.0})
 	wave.call(790.0, "walker", {"count": 3, "formation": "line", "spacing": 7.0, "ahead": 85.0, "props": {"weapon": "missile"}})
 	wave.call(820.0, "fpv", {"count": 5, "formation": "ring", "height": 9.0, "spacing": 8.0, "stagger": 0.25})
 	wave.call(850.0, "uav", {"count": 2, "formation": "line", "spacing": 10.0, "props": {"attack": "bomb", "from_behind": true}})
@@ -315,11 +316,11 @@ func events(hard: bool) -> Array[Dictionary]:
 
 	# Marsh (quiet -> build -> peak): drones out of the reeds, bombers over the mist, crawlers through the
 	# methane vents. Peak 1560-1700. Release 1760-1885 after a supply column.
-	wave.call(1290.0, "fpv", {"count": 3, "formation": "scatter", "height": 1.5, "spacing": 3.0, "ahead": 60.0})
+	wave.call(1290.0, "leech", {"count": 3, "formation": "scatter", "spacing": 3.0, "ahead": 60.0, "u": -40.0})
 	wave.call(1340.0, "crawler", {"count": 4, "formation": "flank", "u": 12.0, "spacing": 8.0, "ahead": 10.0})
 	wave.call(1400.0, "uav", {"count": 3, "formation": "v", "spacing": 10.0, "props": {"attack": "bomb", "from_behind": true}})
 	wave.call(1450.0, "spitter", {"count": 5, "formation": "line", "spacing": 4.0, "u": 20.0, "ahead": 85.0})
-	wave.call(1500.0, "crawler", {"count": 5, "formation": "flank", "u": -1.0, "spacing": 6.0, "ahead": 10.0})
+	wave.call(1500.0, "lotus_mine", {"count": 5, "formation": "line", "u": -40.0, "spacing": 7.0, "ahead": 18.0})
 	wave.call(1560.0, "helicopter", {"count": 2, "formation": "sides", "height": 14.0, "spacing": 22.0, "ahead": 65.0})
 	wave.call(1590.0, "fpv", {"count": 8, "formation": "ring", "height": 5.0, "spacing": 8.0, "stagger": 0.18})
 	wave.call(1620.0, "ugv", {"count": 2, "formation": "line", "spacing": 8.0, "u": 4.0, "ahead": 100.0, "props": {"weapon": "atgm"}})
