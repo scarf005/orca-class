@@ -87,6 +87,7 @@ S = {
     "STYLE_DEFLECT": ("쳐내기", "DEFLECT"),
     "STYLE_CLOSE_CALL": ("구사일생", "CLOSE CALL"),
     "STYLE_SNATCH": ("낚아채기", "SNATCHED"),
+    "STYLE_FLOODED": ("범람", "FLOODED"),
     "STYLE_GIANT": ("거물 사냥", "GIANT SLAYER"),
     "SECTION_0": ("농로", "FARM ROAD"),
     "SECTION_1": ("마을", "VILLAGE"),

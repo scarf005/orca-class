@@ -16,6 +16,8 @@ var burnable := false
 var explosive := false
 var blast_size := 4.5 ## Radius of the explosion when an explosive prop goes up.
 var fungal := false ## Bursts into spores and splatter when destroyed.
+var vent := false ## A methane vent: any fire or blast sets it off in a flame burst that lights its neighbours.
+var sluice := false ## A paddy gate (물꼬): broken, it lets a surge of water run down-slope.
 var flattens := false ## Destroyed, it squelches and leaves a dark flattened stain of itself (ground veins).
 var supports: Array[Prop] = [] ## Pieces resting on this one; they topple when it breaks.
 var falls := false
@@ -28,6 +30,8 @@ var score := 0
 
 
 const DRAW_DISTANCE := 150.0 ## Fog hides small props well before this.
+const VENT_CHAIN_RANGE := 16.0
+const VENT_CHAIN_DELAY := 0.3 ## Seconds each vent burns before it lights the next.
 
 
 func _init() -> void:
@@ -211,6 +215,31 @@ func _flatten(world: World) -> void:
 	world.props.add_child(stain)
 
 
+## Down-slope of a paddy gate is toward the road, where the terraces step down.
+func _release_surge(hit: Hit) -> void:
+	var c := Course.to_course(global_position)
+	Surge.release(global_position, Course.right(c.x) * -signf(c.y if c.y != 0.0 else 1.0), hit != null and hit.by_player())
+
+
+## Marsh gas goes up in a fireball; vents nearby catch a beat later, one link after another.
+func _burst_vent(world: World, hit: Hit) -> void:
+	var center := global_position + Vector3.UP * 0.6
+	var by_player := hit != null and hit.by_player()
+	var chain := Hit.new()
+	chain.source = self if by_player else null
+	world.fx.fireball(center, 1.5, 6.0, 0.7)
+	world.fx.smoke_column(center, 2.0, [Palette.ASH, Palette.STONE])
+	Sfx.play("whoomp", global_position, 0.0, randf_range(0.9, 1.1))
+	world.blast(center, 4.5, 40.0, Team.PLAYER if by_player else Team.NEUTRAL, chain, self, [Palette.WHITE, Palette.BUTTER, Palette.AMBER, Palette.CORAL])
+	if score > 0:
+		world.award(score, global_position, false)
+	for other: Prop in world.props.in_radius(global_position, VENT_CHAIN_RANGE):
+		if other.vent and other != self and not other.dead:
+			world.get_tree().create_timer(VENT_CHAIN_DELAY).timeout.connect(func() -> void:
+				if is_instance_valid(other) and not other.dead:
+					other.take_hit(Hit.make(Hit.Kind.FIRE, 999.0, other.global_position)))
+
+
 func damage_multiplier(hit: Hit) -> float:
 	if hit.kind == Hit.Kind.FIRE:
 		return 3.0 if burnable else 0.3
@@ -226,6 +255,9 @@ func on_death(hit: Hit) -> void:
 	var rammed := hit != null and hit.kind == Hit.Kind.RAM
 	if vehicle and _rammed(hit):
 		_run_over(world, push)
+		return
+	if vent:
+		_burst_vent(world, hit)
 		return
 	if flattens:
 		_flatten(world)
@@ -248,6 +280,8 @@ func on_death(hit: Hit) -> void:
 		else:
 			# Knocked out from one side, what it held falls away from the blow.
 			piece.topple(hit != null and hit.by_player(), piece.global_position - push * 5.0 if push != Vector3.ZERO else global_position)
+	if sluice:
+		_release_surge(hit)
 	if explosive:
 		# Wrecks the player sets off only hurt enemies; stray enemy fire makes them dangerous to everyone.
 		var by_player := hit != null and hit.by_player()

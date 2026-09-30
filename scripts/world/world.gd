@@ -260,6 +260,7 @@ static func team_color(team: Entity.Team, shape: String, requested: Color) -> Co
 ## Area damage with linear falloff to 30% at the edge. Hits entities of the opposing team and props.
 ## `push` is the direction the blast was delivered in (a shell's flight); zero for a plain burst.
 func blast(point: Vector3, radius: float, damage: float, team: Entity.Team, template: Hit = null, exclude: Entity = null, colors: Array = [], push := Vector3.ZERO) -> void:
+	OilSlick.light_near(point, radius)
 	fx.explosion(point, radius * 0.8, colors if not colors.is_empty() else [Palette.BUTTER, Palette.AMBER, Palette.HOT, Palette.CORAL], push)
 	shake(clampf(radius * 0.08, 0.05, 0.6), point)
 	Sfx.play("blast_small" if radius < 3.5 else "blast", point, 0.0, randf_range(0.9, 1.15))

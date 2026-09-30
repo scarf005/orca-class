@@ -30,6 +30,15 @@ var _core := MeshInstance3D.new()
 
 
 static func ignite(point: Vector3) -> void:
+	var slick := OilSlick.at(point)
+	if slick:
+		slick.light(point)
+	elif Water.surface_at(point) > -INF:
+		# Ground fire does not take on water: it goes out in a puff of steam.
+		var world := World.current
+		world.fx.smoke(Vector3(point.x, Water.surface_at(point) + 0.3, point.z), 4, 1.4, [Palette.WHITE, Palette.MIST])
+		Sfx.play("steam", point, -4.0, randf_range(0.9, 1.15))
+		return
 	for zone in _zones:
 		if is_instance_valid(zone) and zone.global_position.distance_to(point) < RADIUS:
 			zone.life = maxf(zone.life, LIFE)

@@ -47,6 +47,8 @@ const PROPS := {
 	"gas_station": [4.5, 6.0, 100.0, false, false, 150, false, true],
 	"fungal_spire": [4.0, 14.0, 350.0, false, true, 400, false, false],
 	"plane_tree": [0.9, 9.0, 22.5, true, true, 10, false, false],
+	"vent": [1.3, 0.8, 5.0, false, true, 25, false, false],
+	"sluice": [0.9, 1.4, 12.0, true, false, 40, false, false],
 	"overpass_pier": [1.6, 15.0, 200.0, false, false, 300, false, false],
 	"overpass_deck": [11.0, 2.6, 150.0, false, false, 200, false, false],
 }
@@ -506,6 +508,12 @@ func _instantiate(spec: Spec) -> void:
 		# Loot is only laid out for a tank to collect; the title backdrop has none.
 		if World.current.player:
 			spec.node = World.current.spawn_pickup(spec.pickup, position + Vector3.UP * 1.6)
+	elif spec.kind == "slick":
+		var slick := OilSlick.new()
+		slick.radius = spec.variant
+		add_child(slick)
+		slick.global_position = Course.to_world(spec.d, spec.u, Water.surface_at(position) + 0.06)
+		spec.node = slick
 	elif spec.kind == "dam":
 		var dam := Dam.new()
 		add_child(dam)
@@ -535,6 +543,8 @@ func _instantiate(spec: Spec) -> void:
 		prop.vehicle = spec.kind in VEHICLES
 		prop.fungal = spec.kind in FUNGAL
 		prop.flattens = spec.kind == "veins"
+		prop.vent = spec.kind == "vent"
+		prop.sluice = spec.kind == "sluice"
 		prop.debris = _debris(spec.kind)
 		# Position before entering the tree: props register into spatial buckets on entry.
 		prop.position = position
@@ -626,6 +636,8 @@ func _debris(kind: String) -> Array:
 			return [Fx.Debris.CONCRETE, Fx.Debris.METAL, Fx.Debris.GLASS, Fx.Debris.PAINT]
 		"crate":
 			return [Fx.Debris.WOOD]
+		"sluice":
+			return [Fx.Debris.WOOD, Fx.Debris.CONCRETE, Fx.Debris.STRAW]
 		"rock":
 			return [Fx.Debris.ROCK]
 		"overpass_pier", "overpass_deck":

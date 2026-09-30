@@ -295,6 +295,32 @@ static func reeds(variant: int, rng: RandomNumberGenerator) -> Mesh:
 	return b.mesh()
 
 
+## A methane vent: a mud mound bubbling pale gas out of a dark mouth.
+static func vent(_variant: int, rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.prism(Transform3D(), 1.35, 0.4, 8, Palette.OCHRE, 0.95, Palette.WOOD.darkened(0.35))
+	b.prism(_xf(Vector3(0, 0.38, 0)), 0.5, 0.06, 7, Palette.INK)
+	for i in 6:
+		var at := Vector3(rng.randf_range(-0.7, 0.7), rng.randf_range(0.42, 0.75), rng.randf_range(-0.7, 0.7))
+		b.blob(_xf(at), rng.randf_range(0.16, 0.3), Palette.MINT if i % 2 == 0 else Palette.CREAM, 0, 0.15, i)
+	for i in 3:
+		var lean := Basis(Vector3(rng.randf_range(-1, 1), 0, rng.randf_range(-1, 1)).normalized(), rng.randf_range(0.1, 0.4))
+		b.prism(Transform3D(lean, Vector3(rng.randf_range(-1.0, 1.0), 0.3, rng.randf_range(-1.0, 1.0))), 0.04, rng.randf_range(0.8, 1.4), 3, Palette.STRAW)
+	return b.mesh()
+
+
+## A paddy water gate (물꼬): a concrete cut through the dike closed by a wooden board between posts.
+static func sluice(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.box(_xf(Vector3(0, 0.25, 0)), Vector3(1.8, 0.5, 1.0), Palette.CONCRETE)
+	b.box(_xf(Vector3(0, 0.52, 0)), Vector3(1.0, 0.06, 0.9), Palette.TEAL)
+	for x in [-0.75, 0.75]:
+		b.box(_xf(Vector3(x, 0.8, 0)), Vector3(0.18, 1.2, 0.2), Palette.WOOD)
+	b.box(_xf(Vector3(0, 0.7, 0)), Vector3(1.3, 0.55, 0.08), Palette.STRAW)
+	b.box(_xf(Vector3(0, 1.05, 0)), Vector3(0.35, 0.1, 0.14), Palette.STONE)
+	return b.mesh()
+
+
 static func crate(variant: int, _rng: RandomNumberGenerator) -> Mesh:
 	var b := LowPoly.new()
 	var color := Palette.PINE if variant % 2 == 0 else Palette.OCHRE
