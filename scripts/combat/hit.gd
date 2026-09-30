@@ -12,6 +12,7 @@ var direction := Vector3.FORWARD
 var speed := 0.0 ## How fast the round was flying, when a projectile delivered it.
 var source: Node3D
 var pierce := false ## Ignores armor (HEAT, APFSDS).
+var heat := false ## HEAT cannon jet; distinct from the APFSDS dart and piercing tail stab.
 var incendiary := false
 var stagger := 0.0 ## Seconds of stagger inflicted on enemies that can be staggered.
 var warhead := false ## Shaped charge (FPV, ATGM): stopped by ERA, lethal where there is none.
@@ -48,6 +49,7 @@ func copy() -> Hit:
 	hit.speed = speed
 	hit.source = source if is_instance_valid(source) else null
 	hit.pierce = pierce
+	hit.heat = heat
 	hit.incendiary = incendiary
 	hit.stagger = stagger
 	hit.warhead = warhead

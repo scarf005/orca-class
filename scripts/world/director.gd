@@ -24,6 +24,7 @@ const ENEMY_SCRIPTS := {
 	"walker": "res://scripts/enemies/walker.gd",
 	"quad": "res://scripts/enemies/quad_mech.gd",
 	"colossus": "res://scripts/enemies/colossus.gd",
+	"combine": "res://scripts/enemies/combine.gd",
 	"helicopter": "res://scripts/enemies/helicopter.gd",
 	"gunship": "res://scripts/enemies/gunship.gd",
 }

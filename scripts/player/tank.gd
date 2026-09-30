@@ -446,7 +446,7 @@ func _ram_enemies() -> void:
 	if _ground_speed() < CRUSH_SPEED:
 		return
 	for entity: Entity in world.enemies.duplicate():
-		if entity.flying or not entity is Enemy or entity is Colossus:
+		if entity.flying or not entity is Enemy or entity is Colossus or entity is Combine:
 			continue
 		# Leeches are submerged or clamped to the hull; ramming must not erase the latch before
 		# the player can use the tail's swat priority.
@@ -799,6 +799,7 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3) -> void:
 		Armament.Round.HEAT:
 			shell.hit.damage = Armament.SHELL_DAMAGE * 1.5
 			shell.hit.pierce = true
+			shell.hit.heat = true
 			shell.hit.stagger = 1.0
 			shell.blast_radius = 9.0
 			shell.blast_damage = 500.0

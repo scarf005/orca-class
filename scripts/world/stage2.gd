@@ -308,10 +308,9 @@ func events(hard: bool) -> Array[Dictionary]:
 	wave.call(850.0, "uav", {"count": 2, "formation": "line", "spacing": 10.0, "props": {"attack": "bomb", "from_behind": true}})
 	wave.call(920.0, "ugv", {"count": 2, "formation": "column", "spacing": 12.0, "ahead": 100.0, "u": 18.0, "props": {"weapon": "supply"}, "drop": "coax"})
 
-	# Rice mill: the mid-boss holds the rail (its event is wired to an existing kind for now).
+	# Rice mill: the infected combine holds the rail in the dry mill yard.
 	e.append({"d": 1010.0, "type": "checkpoint", "name": "midboss"})
-	wave.call(1060.0, "crawler", {"count": 5, "formation": "scatter", "spacing": 20.0, "ahead": 60.0})
-	e.append({"d": MIDBOSS_D - 110.0, "type": "midboss", "kind": "colossus", "hold": MIDBOSS_D - 56.0})
+	e.append({"d": MIDBOSS_D - 110.0, "type": "midboss", "kind": "combine", "hold": MIDBOSS_D - 56.0})
 	wave.call(1200.0, "crawler", {"count": 2, "formation": "sides", "spacing": 14.0, "ahead": 60.0})
 
 	# Marsh (quiet -> build -> peak): drones out of the reeds, bombers over the mist, crawlers through the

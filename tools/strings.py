@@ -112,6 +112,7 @@ S = {
     "HUD_FPS": ("FPS %d", "FPS %d"),
     "SPEAKER_AI": ("범고래급 전투 보조", "ORCA COMBAT ASSIST"),
     "BOSS_COLOSSUS": ("균사 거인", "HYPHAL COLOSSUS"),
+    "BOSS_COMBINE": ("감염된 콤바인", "INFECTED COMBINE"),
     "BOSS_GUNSHIP": ("감염된 대형 건십", "INFECTED HEAVY GUNSHIP"),
     "SHOUT_MISSION_START": ("작전 개시!!", "MISSION START!!"),
     "SHOUT_MISSION_COMPLETE": ("작전 완료!!", "MISSION COMPLETE!!"),

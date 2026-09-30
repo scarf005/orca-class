@@ -185,18 +185,18 @@ func test_stage_2_boss_death_clears_the_stage() -> void:
 func test_stage_2_midboss_holds_and_releases_the_rail() -> void:
 	var world := stage("midboss", true, 2)
 	world.player.invulnerable = true
-	var spawned := await wait_until(func() -> bool: return world.boss is Colossus, 60 * 10)
+	var spawned := await wait_until(func() -> bool: return world.boss is Combine, 60 * 10)
 	check(spawned, "the mid-boss appears in the mill yard")
 	check_eq(world.rail.mode, Rail.Mode.HOLD, "the rail holds")
 	check(world.boss.global_position.distance_to(Course.ground_at(Course.stage.midboss_d, 0.0)) < 30.0, "at the mill")
 	await frames(300)
 	check(world.rail.d <= world.rail.hold_at + 0.5, "never past the hold point")
-	var boss := world.boss as Colossus
-	for part: Colossus.Part in boss.parts:
-		part.cap = 0.0
-		part.hp = 0.0
-	boss.core.hp = 1.0
-	boss.take_hit(Hit.make(Hit.Kind.SHELL, 10.0, boss.global_transform * boss.core.offset))
+	var boss := world.boss as Combine
+	boss.hp = 1.0
+	var hit := Hit.make(Hit.Kind.SHELL, 20.0, boss.hit_center())
+	hit.source = world.player
+	boss.take_hit(hit)
+	check(boss._dying > 0.0, "the killing hit starts the burning wreck")
 	check(await wait_until(func() -> bool: return world.rail.mode == Rail.Mode.RAIL, 60 * 8), "the rail runs again")
 
 
