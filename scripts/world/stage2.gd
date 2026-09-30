@@ -51,6 +51,8 @@ func _init() -> void:
 	midboss_d = MIDBOSS_D
 	arena_center_d = ARENA_CENTER_D
 	arena_radius = ARENA_RADIUS
+	gate_d = GATE_D
+	gate_half = GATE_HALF
 
 
 ## Night on the floodplain, a lilac pre-dawn at the mill, thick mist in the marsh, a peach sky over

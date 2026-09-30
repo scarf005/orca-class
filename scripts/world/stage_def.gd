@@ -14,6 +14,8 @@ var water_slows := false ## Whether wading and mud change how the tank drives.
 var midboss_d := 0.0
 var arena_center_d := 0.0
 var arena_radius := 0.0
+var gate_d := 0.0 ## Where the arena's far wall stands; the ground before it stays clear.
+var gate_half := 0.0 ## Half width of the clear ground before the wall.
 
 ## The sky, fog and sun.
 var sky_top := Color.WHITE

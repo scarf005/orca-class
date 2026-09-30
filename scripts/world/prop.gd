@@ -16,6 +16,7 @@ var burnable := false
 var explosive := false
 var blast_size := 4.5 ## Radius of the explosion when an explosive prop goes up.
 var fungal := false ## Bursts into spores and splatter when destroyed.
+var floats := false ## Bobs on the water and drifts slowly downstream, rammable like anything else.
 var vent := false ## A methane vent: any fire or blast sets it off in a flame burst that lights its neighbours.
 var sluice := false ## A paddy gate (물꼬): broken, it lets a surge of water run down-slope.
 var flattens := false ## Destroyed, it squelches and leaves a dark flattened stain of itself (ground veins).
@@ -27,9 +28,11 @@ var _topple_axis := Vector3.RIGHT
 var _topple_by_player := false
 var rubble_mesh: Mesh
 var score := 0
+var _bob := randf() * TAU
 
 
 const DRAW_DISTANCE := 150.0 ## Fog hides small props well before this.
+const DRIFT_SPEED := 0.7 ## Floating things drift along the course at this speed.
 const VENT_CHAIN_RANGE := 16.0
 const VENT_CHAIN_DELAY := 0.3 ## Seconds each vent burns before it lights the next.
 
@@ -125,6 +128,8 @@ func die(hit: Hit) -> void:
 
 
 func tick(delta: float) -> void:
+	if floats and _topple < 0.0:
+		_float(delta)
 	if _topple < 0.0:
 		return
 	_topple += delta
@@ -137,6 +142,21 @@ func tick(delta: float) -> void:
 			crash.source = World.current.player
 		World.current.shake(0.5, global_position)
 		take_hit(crash)
+
+
+## Rides the surface: bobbing and rolling a little, carried downstream until it runs aground.
+func _float(delta: float) -> void:
+	var world := World.current
+	var here := global_position + Course.forward(Course.to_course(global_position).x) * DRIFT_SPEED * delta
+	var surface := Water.surface_at(here)
+	if surface == -INF:
+		return
+	_bob += delta * 1.7
+	world.props.remove(self)
+	global_position = Vector3(here.x, surface - height * 0.12 + sin(_bob) * 0.07, here.z)
+	world.props.add(self)
+	rotation.x = sin(_bob * 0.8) * 0.04
+	rotation.z = cos(_bob * 0.7) * 0.05
 
 
 func set_see_through(enabled: bool) -> void:

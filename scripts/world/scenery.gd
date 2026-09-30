@@ -47,7 +47,16 @@ const PROPS := {
 	"gas_station": [4.5, 6.0, 100.0, false, false, 150, false, true],
 	"fungal_spire": [4.0, 14.0, 350.0, false, true, 400, false, false],
 	"plane_tree": [0.9, 9.0, 22.5, true, true, 10, false, false],
-	"vent": [1.3, 0.8, 5.0, false, true, 25, false, false],
+	"silage": [1.1, 2.0, 8.0, true, true, 15, false, false],
+	"transplanter": [1.7, 1.8, 30.0, false, false, 40, true, false],
+	"watch_hut": [2.6, 4.6, 60.0, false, true, 60, false, true],
+	"scarecrow": [0.6, 2.6, 6.0, true, true, 10, false, false],
+	"willow": [1.0, 8.0, 60.0, false, true, 30, false, false],
+	"pylon": [2.0, 24.0, 300.0, false, false, 250, false, false],
+	"pump_house": [3.4, 4.5, 140.0, false, false, 120, false, true],
+	"mill_hall": [8.0, 14.0, 260.0, false, false, 200, false, true],
+	"rpc_silo": [3.2, 16.0, 220.0, false, false, 160, false, true],
+	"vent": [1.3, 1.6, 5.0, false, true, 25, false, false],
 	"sluice": [0.9, 1.4, 12.0, true, false, 40, false, false],
 	"overpass_pier": [1.6, 15.0, 200.0, false, false, 300, false, false],
 	"overpass_deck": [11.0, 2.6, 150.0, false, false, 200, false, false],
@@ -61,10 +70,10 @@ const OVERPASS_PIER_Y := -4.0
 const OVERPASS_DECK_Y := 7.9
 
 ## Cars: run over, they are squashed, knocked flying or burst apart instead of blowing up.
-const VEHICLES := ["car", "truck", "infested_car", "cultivator"]
+const VEHICLES := ["car", "truck", "infested_car", "cultivator", "transplanter"]
 
 ## Tall thin props that snap and fall over rather than vanish.
-const FALLING := ["pole", "plane_tree", "persimmon", "cordyceps"]
+const FALLING := ["pole", "plane_tree", "persimmon", "cordyceps", "willow", "pylon"]
 
 ## Plain props that spawn overgrown more often the deeper the stage goes.
 const INFESTED := {"house": "infested_house", "car": "infested_car"}
@@ -74,6 +83,7 @@ const FUNGAL := ["fungal_spire", "infested_house", "infested_car", "flesh_mound"
 const COMPOUNDS := {
 	"church": [["church_nave", 0.0, -3.7, 0.0, -1], ["church_nave", 0.0, 3.7, 0.0, -1], ["church_tower", 0.0, 9.0, 0.0, -1], ["church_spire", 0.0, 9.0, 13.2, 2]],
 	"zelkova": [["zelkova_trunk", 0.0, 0.0, 0.0, -1], ["zelkova_canopy", 0.0, 0.0, 5.0, 0]],
+	"mill": [["mill_hall", 0.0, 0.0, 0.0, -1], ["rpc_silo", -13.0, -10.0, 0.0, -1], ["rpc_silo", -7.5, -10.0, 0.0, -1], ["rpc_silo", -2.0, -10.0, 0.0, -1]],
 	"school": [["school_wing", -21.0, 0.0, 0.0, -1], ["school_wing", -10.5, 0.0, 0.0, -1], ["school_center", 0.0, 0.3, 0.0, -1], ["school_wing", 10.5, 0.0, 0.0, -1], ["school_wing", 21.0, 0.0, 0.0, -1]],
 }
 
@@ -191,7 +201,7 @@ func _scatter(kind: String, d0: float, d1: float, count: int, u_min: float, u_ma
 	for i in count:
 		var d := _rng.randf_range(d0, d1)
 		var u := _rng.randf_range(u_min, u_max) * (1.0 if not both_sides or _rng.randf() < 0.5 else -1.0)
-		if _clear(d, u, PROPS[kind][0] if PROPS.has(kind) else 2.0):
+		if _clear(d, u, PROPS[kind][0] if PROPS.has(kind) else 2.0) and not _drowned(d, u):
 			add(kind, d, u, _rng.randf() * TAU)
 
 
@@ -205,6 +215,8 @@ func _fungus(d0: float, d1: float, density: float) -> void:
 		var u := _rng.randf_range(6.5, reach) * (1.0 if _rng.randf() < 0.5 else -1.0)
 		var roll := _rng.randf()
 		var yaw := _rng.randf() * TAU
+		if _drowned(d, u):
+			continue
 		if roll < 0.2:
 			add("mushroom", d, u, yaw)
 		elif roll < 0.4:
@@ -354,25 +366,145 @@ func _arena() -> void:
 	_fungus(3420.0, 3620.0, 1.2)
 
 
-## Stage 2's layout so far: reeds and fungal spires over the flooded valley, a few pickups and the
-## arena's rocks and towers.
+## Stage 2: floodplain, terraced paddies, the rice mill yard, marsh, levee and the flooded basin.
 func _plasmodium() -> void:
-	_scatter("reeds", 20.0, 2280.0, 260, 8.0, 30.0)
-	_scatter("fungal_spire", 200.0, 2250.0, 24, 26.0, 48.0)
-	_scatter("barrel", 200.0, 2250.0, 10, 4.0, 11.0)
-	add_pickup("repair", 620.0, 4.0)
-	add_pickup("era", 1200.0, -4.0)
-	add_pickup("canister", 1500.0, 0.0)
+	var center := Course.stage.arena_center_d
+	# Floodplain: reeds, willows and what the dam let go, drifting over the shallows.
+	_scatter("reeds", 20.0, 410.0, 40, 10.0, 32.0)
+	_scatter("willow", 60.0, 410.0, 6, 24.0, 34.0)
+	_floaters(20.0, 420.0, 22)
+	add_pickup("airburst", 250.0, 4.0)
+	add_pickup("repair", 380.0, -3.0)
+	# Paddies: scarecrows and gates on the dikes, huts, transplanters, a pump house by the canal.
+	for i in 7:
+		add("scarecrow", 450.0 + i * 80.0, 18.0 * (1.0 if i % 2 == 0 else -1.0), _rng.randf() * TAU)
+	for k in range(20, 42, 3):
+		add("sluice", 24.0 * k, 18.0 * (1.0 if k % 2 == 0 else -1.0), 0.0)
+	add("watch_hut", 560.0, 33.0, PI * 0.5)
+	add("watch_hut", 860.0, 33.0, PI * 0.5)
+	for spot in [Vector2(500.0, -6.0), Vector2(640.0, 8.0), Vector2(780.0, -8.0), Vector2(920.0, 5.0)]:
+		add("transplanter", spot.x, spot.y)
+	add("pump_house", 620.0, -38.0, PI * 0.5)
+	for spot in [Vector2(470.0, 18.0), Vector2(690.0, -18.0), Vector2(940.0, 18.0)]:
+		add("willow", spot.x, spot.y)
+	_pylons(470.0, 990.0, 24.0, 130.0)
+	_floaters(430.0, 1000.0, 10)
+	add_pickup("repair", 600.0, 3.0)
+	add_pickup("canister", 800.0, -4.0)
+	# Rice mill yard: the mill and its silos, silage stacked dry, cars left behind.
+	add_compound("mill", 1130.0, 50.0, -PI * 0.5)
+	for i in 8:
+		add("silage", 1040.0 + _rng.randf_range(0.0, 60.0), -50.0 + _rng.randf_range(-8.0, 8.0), _rng.randf() * TAU)
+	_scatter("car", 1010.0, 1260.0, 6, 8.0, 40.0)
+	_scatter("barrel", 1010.0, 1260.0, 6, 6.0, 40.0)
+	add_pickup("coax", 1030.0, 4.0)
+	add_pickup("era", 1060.0, -4.0)
+	add_pickup("repair", 1245.0, 0.0)
+	# Marsh: reeds and willows, lotus pads on the pools, methane vents in clusters, a flooded gas station.
+	_scatter("reeds", 1265.0, 1875.0, 110, 6.0, 34.0)
+	_scatter("willow", 1265.0, 1875.0, 24, 12.0, 34.0)
+	_lotus(1265.0, 1875.0, 46)
+	for start: float in [1320.0, 1430.0, 1560.0, 1650.0, 1750.0]:
+		var side := 1.0 if _rng.randf() < 0.5 else -1.0
+		for i in _rng.randi_range(3, 4):
+			var d := start + i * 8.0
+			var u := side * (12.0 + _rng.randf_range(-1.5, 1.5))
+			if not _drowned(d, u):
+				add("vent", d, u, _rng.randf() * TAU)
+	add("gas_station", 1500.0, 24.0, PI * 0.5)
+	for k in 3:
+		add("gas_pump", 1498.0 + k * 2.0, 24.0, PI * 0.5, k)
+	for slick in [[1505.0, 9.0, 9], [1488.0, 15.0, 7]]:
+		var spec := add("slick", slick[0], slick[1], 0.0, slick[2])
+		spec.decor = true
+	_floaters(1265.0, 1875.0, 8)
+	_pylons(1300.0, 1860.0, -24.0, 130.0)
+	add_pickup("airburst", 1400.0, 3.0)
+	add_pickup("tail", 1600.0, 3.0)
 	add_pickup("repair", 1840.0, -3.0)
-	add_pickup("tail", 2000.0, 3.0)
+	# Levee: cars and barrels for cover on the road, wreckage floating on both sides.
+	_scatter("car", 1890.0, 2270.0, 10, 0.0, 5.0)
+	_scatter("barrel", 1890.0, 2270.0, 8, 0.0, 6.0)
+	_scatter("crate", 1890.0, 2270.0, 8, 0.0, 6.0)
+	_scatter("reeds", 1890.0, 2270.0, 30, 10.0, 15.0)
+	_floaters(1890.0, 2290.0, 14)
+	add_pickup("repair", 1910.0, 0.0)
+	add_pickup("era", 2100.0, 2.0)
+	add_pickup("canister", 2200.0, -2.0)
+	# Arena: rocks and debris in the basin; the ground before the gate stays clear.
 	for i in 10:
 		var angle := TAU * i / 10.0 + 0.3
 		var r := _rng.randf_range(35.0, 70.0)
-		add("rock", Course.stage.arena_center_d + sin(angle) * r, cos(angle) * r)
+		if center + sin(angle) * r < Course.stage.gate_d - 25.0:
+			add("rock", center + sin(angle) * r, cos(angle) * r)
 	for i in 8:
 		var angle := TAU * i / 8.0
-		add("spore_tower", Course.stage.arena_center_d + sin(angle) * 80.0, cos(angle) * 80.0)
-	_fungus(20.0, 2400.0, 1.4)
+		var d := center + sin(angle) * 80.0
+		var u := cos(angle) * 80.0
+		if (d < Course.stage.gate_d - 25.0 or absf(u) > Course.stage.gate_half + 12.0) and (d > center or absf(u) > 14.0):
+			add("spore_tower", d, u)
+	_floaters(Stage2.ARENA_CENTER_D - 60.0, Stage2.ARENA_CENTER_D + 50.0, 10, 20.0, 70.0)
+	_fungus(20.0, 2400.0, 1.0)
+
+
+## Whether (d, u) is under deep water, where only floating things belong. Only stages with wading rules have any.
+func _drowned(d: float, u: float) -> bool:
+	if not Course.stage.water_slows:
+		return false
+	var surface := Course.stage.water_surface(Vector2(d, u))
+	return surface > -INF and surface - Course.height(d, u) > Water.DEEP
+
+
+## Something that floats where the water is, at a random spot beside the road.
+func _floaters(d0: float, d1: float, count: int, u_min := 8.0, u_max := 34.0) -> void:
+	var kinds := ["jars", "jars", "cultivator", "bus_stop", "car", "silage", "silage", "crate"]
+	for i in count:
+		var d := _rng.randf_range(d0, d1)
+		var u := _rng.randf_range(u_min, u_max) * (1.0 if _rng.randf() < 0.5 else -1.0)
+		var kind: String = kinds[i % kinds.size()]
+		var surface := Course.stage.water_surface(Vector2(d, u))
+		if surface > -INF and _clear(d, u, 2.5):
+			var spec := add(kind, d, u, _rng.randf() * TAU)
+			spec.set_meta("floats", true)
+			spec.set_meta("y", surface)
+
+
+## Lotus pads on any water in the stretch.
+func _lotus(d0: float, d1: float, count: int) -> void:
+	for i in count:
+		var d := _rng.randf_range(d0, d1)
+		var u := _rng.randf_range(-36.0, 36.0)
+		var surface := Course.stage.water_surface(Vector2(d, u))
+		if surface > -INF and absf(u) > 6.0:
+			add_decor(PropKit.mesh("lotus", i % 6), d, u, _rng.randf() * TAU, surface + 0.03)
+
+
+## Transmission towers along the road, their lines sagging between them; a felled tower drops its lines.
+func _pylons(d0: float, d1: float, u: float, step: float) -> void:
+	var previous: Array[Vector3] = []
+	var previous_pylon: Spec = null
+	var d := d0
+	while d < d1:
+		if _drowned(d, u):
+			d += step
+			continue
+		var pylon := add("pylon", d, u, 0.0, 0)
+		var ground := Course.height(d, u)
+		var offsets := [Vector2(-4.6, 18.6), Vector2(4.6, 18.6), Vector2(0.0, 22.0)]
+		var tips: Array[Vector3] = []
+		for offset: Vector2 in offsets:
+			tips.append(Course.to_world(d, u + offset.x, ground + offset.y))
+		if not previous.is_empty():
+			for i in tips.size():
+				var wire := add_decor(_wire_mesh(previous[i], tips[i], Course.yaw_at(d), 0.15, 4.0), d, u + (offsets[i] as Vector2).x, 0.0, 0.0)
+				wire.set_meta("ends", [previous[i], tips[i]])
+				for end: Spec in [previous_pylon, pylon]:
+					if not _wires_of.has(end):
+						_wires_of[end] = []
+					_wires_of[end].append(wire)
+		previous = tips
+		previous_pylon = pylon
+		d += step
 
 
 ## Explosive barrels in clusters along the road, and a gas station whose pumps go up like bombs.
@@ -435,7 +567,7 @@ func _wires() -> void:
 			d += 40.0
 
 
-func _wire_mesh(a: Vector3, b: Vector3, yaw: float) -> Mesh:
+func _wire_mesh(a: Vector3, b: Vector3, yaw: float, spread := 1.0, sag := 1.4) -> Mesh:
 	# Wire vertices are stored relative to `b`, which is where the decor is placed turned by `yaw`.
 	var builder := LowPoly.new()
 	for offset in [-1.0, 0.0, 1.0]:
@@ -443,8 +575,8 @@ func _wire_mesh(a: Vector3, b: Vector3, yaw: float) -> Mesh:
 		for i in 7:
 			var t := i / 6.0
 			var p := (a.lerp(b, t) - Vector3(b.x, 0.0, b.z)).rotated(Vector3.UP, -yaw)
-			p.x += offset
-			p.y += -sin(t * PI) * 1.4
+			p.x += offset * spread
+			p.y += -sin(t * PI) * sag
 			points.append(p)
 		for i in 6:
 			var dir := points[i + 1] - points[i]
@@ -543,6 +675,8 @@ func _instantiate(spec: Spec) -> void:
 		prop.vehicle = spec.kind in VEHICLES
 		prop.fungal = spec.kind in FUNGAL
 		prop.flattens = spec.kind == "veins"
+		prop.floats = spec.has_meta("floats")
+		prop.always_tick = prop.floats
 		prop.vent = spec.kind == "vent"
 		prop.sluice = spec.kind == "sluice"
 		prop.debris = _debris(spec.kind)
@@ -620,8 +754,24 @@ func _debris(kind: String) -> Array:
 			return [Fx.Debris.CONCRETE, Fx.Debris.METAL]
 		"bus_stop":
 			return [Fx.Debris.METAL, Fx.Debris.GLASS, Fx.Debris.CONCRETE]
-		"cultivator", "barrel", "gas_pump":
+		"cultivator", "barrel", "gas_pump", "transplanter":
 			return [Fx.Debris.METAL, Fx.Debris.PAINT]
+		"silage":
+			return [Fx.Debris.VINYL, Fx.Debris.STRAW]
+		"watch_hut":
+			return [Fx.Debris.WOOD, Fx.Debris.STRAW]
+		"scarecrow":
+			return [Fx.Debris.WOOD, Fx.Debris.STRAW, Fx.Debris.VINYL]
+		"willow":
+			return [Fx.Debris.WOOD, Fx.Debris.FOLIAGE]
+		"pylon":
+			return [Fx.Debris.METAL]
+		"pump_house":
+			return [Fx.Debris.CONCRETE, Fx.Debris.METAL, Fx.Debris.PAINT]
+		"mill_hall":
+			return [Fx.Debris.METAL, Fx.Debris.CONCRETE, Fx.Debris.WOOD, Fx.Debris.ROOF]
+		"rpc_silo":
+			return [Fx.Debris.CONCRETE, Fx.Debris.ROCK, Fx.Debris.STRAW]
 		"bale", "reeds":
 			return [Fx.Debris.STRAW]
 		"car", "truck":
