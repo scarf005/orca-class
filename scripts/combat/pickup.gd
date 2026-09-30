@@ -19,7 +19,7 @@ func _ready() -> void:
 	add_child(_model)
 	_model.scale = Vector3.ONE * 2.2
 	var mesh := MeshInstance3D.new()
-	mesh.mesh = _mesh_for(id)
+	mesh.mesh = mesh_of(id)
 	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_model.add_child(mesh)
 	var ring := MeshInstance3D.new()
@@ -85,10 +85,6 @@ func _process(delta: float) -> void:
 
 
 static var _meshes := {}
-
-
-func _mesh_for(kind: String) -> Mesh:
-	return mesh_of(kind)
 
 
 static func mesh_of(kind: String) -> Mesh:

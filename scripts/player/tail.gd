@@ -75,10 +75,6 @@ func is_ready() -> bool:
 	return not destroyed and cooldown <= 0.0 and state == State.IDLE
 
 
-func state_time() -> float:
-	return _state_time
-
-
 func is_hurt() -> bool:
 	return hp < MAX_HP * 0.5
 

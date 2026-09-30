@@ -125,11 +125,6 @@ func player() -> Tank:
 	return World.current.player
 
 
-func player_target() -> Vector3:
-	var p := player()
-	return p.global_position + Vector3.UP * 1.2 if p else global_position + Vector3.FORWARD
-
-
 func is_staggered() -> bool:
 	return stagger > 0.0
 

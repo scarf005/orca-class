@@ -26,7 +26,6 @@ var _strafe_step := Vector3.ZERO
 var _prop: Node3D
 var _gun: Node3D ## Strafers hang a cannon under the nose; it turns onto the line it walks along the road.
 var _muzzle: Node3D
-var _sound: AudioStreamPlayer3D
 var engine_hp := 5.0 ## A hit on the pusher engine sends it gliding into the ground.
 var _falling := false
 
@@ -90,7 +89,7 @@ func build() -> void:
 	global_position = Course.to_world(d, slot.x, Course.height(d, slot.x) + ALTITUDE + slot.y)
 	_dir = Course.forward(d) * _sense
 	_bombs = 5 if Game.difficulty == Game.Difficulty.HARD else 4
-	_sound = Sfx.loop("jet", self, -4.0)
+	Sfx.loop("jet", self, -4.0)
 
 
 func on_damaged(hit: Hit, amount: float) -> void:

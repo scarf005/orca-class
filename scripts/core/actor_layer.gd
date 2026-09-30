@@ -9,7 +9,6 @@ const HOSTILE := 4 ## Layer 3: enemies and their shots.
 const FRIENDLY := 8 ## Layer 4: the tank and its tail.
 const LOOT := 16 ## Layer 5: pickups.
 const HOSTILE_SHOT := 32 ## Layer 6: enemy projectiles.
-const CLASSES := [HOSTILE, FRIENDLY, LOOT, HOSTILE_SHOT]
 
 
 ## Adds the actor layer, and `extra` class bits, to every visual under `root` (and `root` itself).

@@ -31,7 +31,6 @@ var lives := 3
 var ranked := true ## False after starting from a checkpoint or continuing.
 var section_damage := 0.0 ## Damage taken since the current section began.
 var style := 0.0
-var best_style_rank := 0
 var style_feed: Array[Dictionary] = [] ## Recent tricks for the HUD: {name, points, age}.
 var _fatigue := {} ## Trick name -> repeats still counting against it.
 
@@ -79,7 +78,6 @@ func add_style(trick: String, points: float) -> float:
 	var gained := points * pow(0.5, repeats)
 	_fatigue[trick] = minf(repeats + 1.0, FATIGUE_MAX)
 	style = minf(STYLE_MAX, style + gained)
-	best_style_rank = maxi(best_style_rank, style_rank())
 	if not style_feed.is_empty() and style_feed[0].name == trick:
 		style_feed[0].count += 1
 		style_feed[0].age = 0.0
