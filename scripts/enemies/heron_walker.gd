@@ -1,6 +1,6 @@
 class_name HeronWalker
 extends Enemy
-## A white stilt walker in the paddies. It freezes until close, then plants a beak-lance circle.
+## A tall white stilt walker in the paddies. It freezes until close, then plants a beak-lance circle.
 ## Leg health is separate; once toppled it becomes a clear tail-stab target.
 
 enum State { STILL, TELEGRAPH, FALLEN }
@@ -21,8 +21,8 @@ func _init() -> void:
 	super()
 	max_hp = 22.0
 	hp = max_hp
-	radius = 1.6
-	center_height = 3.6
+	radius = 1.3
+	center_height = 5.7
 	stabbable = true
 	wreck_on_death = true
 	score = 500
@@ -30,18 +30,20 @@ func _init() -> void:
 	weakness = {Hit.Kind.TAIL: 1.5}
 
 func build() -> void:
+	# The legs and neck are deliberately long and thin: the silhouette is roughly 2.5x the tank's
+	# mounted height, while the body and continuous stilt hit volumes remain easy to read.
 	var body := LowPoly.new()
-	body.box(Transform3D(Basis(), Vector3(0, 3.1, 0)), Vector3(1.7, 1.2, 1.3), Palette.CREAM, Palette.PEACH)
-	body.box(Transform3D(Basis(), Vector3(0, 3.8, -0.15)), Vector3(1.2, 0.7, 0.9), Palette.SKY)
-	body.gable(Transform3D(Basis(), Vector3(0, 4.25, 0)), Vector3(1.4, 0.3, 1.0), Palette.MAUVE, Palette.LILAC)
+	body.box(Transform3D(Basis(), Vector3(0, 5.98, 0)), Vector3(1.7, 1.82, 1.3), Palette.CREAM, Palette.PEACH)
+	body.box(Transform3D(Basis(), Vector3(0, 7.09, -0.15)), Vector3(1.2, 1.04, 0.9), Palette.SKY)
+	body.gable(Transform3D(Basis(), Vector3(0, 7.74, 0)), Vector3(1.4, 0.39, 1.0), Palette.MAUVE, Palette.LILAC)
 	var body_mesh := MeshInstance3D.new()
 	body_mesh.mesh = body.mesh()
 	model.add_child(body_mesh)
-	_neck.position = Vector3(0, 4.0, -0.35)
+	_neck.position = Vector3(0, 7.54, -0.35)
 	model.add_child(_neck)
 	var neck_mesh := LowPoly.new()
-	neck_mesh.prism(Transform3D(), 0.22, 2.3, 6, Palette.CREAM)
-	neck_mesh.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3(0, 2.25, 0)), 0.08, 1.2, 5, Palette.OCHRE)
+	neck_mesh.prism(Transform3D(), 0.22, 2.99, 6, Palette.CREAM)
+	neck_mesh.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3(0, 2.93, 0)), 0.08, 1.56, 5, Palette.OCHRE)
 	var neck_instance := MeshInstance3D.new()
 	neck_instance.mesh = neck_mesh.mesh()
 	_neck.add_child(neck_instance)
@@ -59,8 +61,8 @@ func build() -> void:
 		var leg := Node3D.new()
 		leg.position = Vector3(side * 0.55, 0.0, 0.05)
 		var leg_poly := LowPoly.new()
-		leg_poly.prism(Transform3D(), 0.18, 2.8, 5, Palette.SLATE)
-		leg_poly.prism(Transform3D(Basis(), Vector3(0, 2.7, 0)), 0.14, 1.6, 5, Palette.CORAL)
+		leg_poly.prism(Transform3D(), 0.18, 5.2, 5, Palette.SLATE)
+		leg_poly.prism(Transform3D(Basis(), Vector3(0, 5.0, 0)), 0.14, 1.95, 5, Palette.CORAL)
 		leg_poly.box(Transform3D(Basis(), Vector3(0, 0.05, -0.3)), Vector3(0.55, 0.16, 0.9), Palette.INK)
 		var leg_mesh := MeshInstance3D.new()
 		leg_mesh.mesh = leg_poly.mesh()
@@ -69,13 +71,60 @@ func build() -> void:
 		_legs.append(leg)
 	global_position.y = Course.height_at(global_position)
 
+## Hit volumes follow the articulated model, so low rounds can actually break the stilt legs and a
+## fallen heron presents its lowered body rather than an obsolete upright sphere.
+func hit_center() -> Vector3:
+	return model.to_global(Vector3(0, 6.4, 0)) if is_instance_valid(model) else super.hit_center()
+
+func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
+	var best := -1.0
+	var local_from := model.to_local(from)
+	var local_to := model.to_local(to)
+	# Each stilt is a continuous thin ellipsoid, not a few disconnected hit dots. This keeps the
+	# visible lower leg and upper joint shootable at every height, including after the model falls.
+	for side in [-1.0, 1.0]:
+		var center := Vector3(side * 0.55, 2.95, 0.05)
+		var extent := Vector3(0.38, 2.95, 0.38) + Vector3.ONE * extra_radius
+		var a := (local_from - center) / extent
+		var b := (local_to - center) / extent
+		var t := Entity.segment_sphere(a, b, Vector3.ZERO, 1.0)
+		if t >= 0.0:
+			t *= from.distance_to(to) / maxf(a.distance_to(b), 0.0001)
+			if best < 0.0 or t < best:
+				best = t
+	for part: Array in [[Vector3(0, 6.4, 0), 1.15]]:
+		var center: Vector3 = model.global_transform * (part[0] as Vector3)
+		var t := Entity.segment_sphere(from, to, center, float(part[1]) + extra_radius)
+		if t >= 0.0 and (best < 0.0 or t < best):
+			best = t
+	# The neck is articulated under _neck, so its warning pose and a fallen pose share the same
+	# collision volume.
+	var neck_from := _neck.to_global(Vector3(0, 0, 0))
+	var neck_to := _neck.to_global(Vector3(0, 2.99, 0))
+	var neck_axis := neck_to - neck_from
+	var neck_steps := maxi(1, ceili(neck_axis.length() / 0.35))
+	for i in neck_steps + 1:
+		var center := neck_from.lerp(neck_to, float(i) / neck_steps)
+		var t := Entity.segment_sphere(from, to, center, 0.32 + extra_radius)
+		if t >= 0.0 and (best < 0.0 or t < best):
+			best = t
+	var beak_from := _neck.to_global(Vector3(0, 2.93, 0))
+	var beak_to := _neck.to_global(Vector3(0, 2.93, -1.56))
+	for i in 6:
+		var center := beak_from.lerp(beak_to, float(i) / 5.0)
+		var t := Entity.segment_sphere(from, to, center, 0.2 + extra_radius)
+		if t >= 0.0 and (best < 0.0 or t < best):
+			best = t
+	return best
+
 func behave(delta: float) -> void:
 	_state_time += delta
 	var tank := player()
 	if tank == null:
 		return
 	if fallen:
-		model.rotation.z = lerpf(model.rotation.z, 0.95, delta * 3.0)
+		model.rotation.z = lerpf(model.rotation.z, PI * 0.5, 1.0 - exp(-6.0 * delta))
+		model.position.y = lerpf(model.position.y, 0.85, 1.0 - exp(-6.0 * delta))
 		return
 	var offset := tank.global_position - global_position
 	var facing := atan2(-offset.x, -offset.z)
@@ -115,11 +164,11 @@ func _attack(tank: Tank) -> void:
 	Sfx.play("heron_stab", global_position)
 
 func on_damaged(hit: Hit, amount: float) -> void:
+	var local := model.global_transform.affine_inverse() * hit.position
 	super(hit, amount)
 	if fallen or dead:
 		return
-	var local := model.global_transform.affine_inverse() * hit.position
-	if local.y < 2.4:
+	if local.y < 5.9 and absf(absf(local.x) - 0.55) < 0.4 and absf(local.z - 0.05) < 0.4:
 		legs_hp -= amount
 		if legs_hp <= 0.0:
 			topple()
@@ -133,7 +182,6 @@ func topple() -> void:
 	World.current.fx.debris(global_position + Vector3.UP * 2.0, 12, [Fx.Debris.METAL, Fx.Debris.PAINT], 9.0, 0.3)
 	World.current.award(150, global_position, false)
 	Sfx.play("heron_topple", global_position)
-
 
 func on_death(hit: Hit) -> void:
 	World.current.fx.spores(hit_center(), 10, 1.4)

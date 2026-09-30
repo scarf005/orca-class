@@ -86,6 +86,11 @@ func test_heron_warning_stab_topple_and_actual_tail_stab() -> void:
 	var tank := _freeze_tank()
 	var heron := _spawn(HeronWalker.new(), tank.global_position + Vector3.FORWARD * 10.0) as HeronWalker
 	await frames(2)
+	var height_ratio := heron.visual_bounds().size.y / tank.visual_bounds().size.y
+	check(height_ratio > 2.2 and height_ratio < 2.8, "heron stands about 2.5 times the tank height")
+	var body_from := heron.global_transform * Vector3(0, 6.4, -6.0)
+	var body_to := heron.global_transform * Vector3(0, 6.4, 6.0)
+	check(heron.hit_test(body_from, body_to) >= 0.0, "the standing body is a projectile target")
 	heron.set_process(false)
 	heron._attack_timer = 0.0
 	heron.behave(0.01)
@@ -103,14 +108,35 @@ func test_heron_warning_stab_topple_and_actual_tail_stab() -> void:
 	hp_before = tank.hp
 	heron.behave(HeronWalker.TELEGRAPH_TIME)
 	check(tank.hp == hp_before, "heron lance has a fourteen-metre reach limit")
-	var leg_hit := Hit.make(Hit.Kind.SHELL, 12.0, heron.global_position + Vector3.DOWN * 0.1, Vector3.FORWARD)
+	for leg_y in [1.0, 4.0]:
+		var leg_from := heron.global_transform * Vector3(-0.55, leg_y, -6.0)
+		var leg_to := heron.global_transform * Vector3(-0.55, leg_y, 6.0)
+		check(heron.hit_test(leg_from, leg_to) >= 0.0, "a projectile path reaches a stilt leg at y=%.1f" % leg_y)
+	var leg_from := heron.global_transform * Vector3(-0.55, 1.0, -6.0)
+	var leg_to := heron.global_transform * Vector3(-0.55, 1.0, 6.0)
+	var leg_t := heron.hit_test(leg_from, leg_to)
+	var leg_hit := Hit.make(Hit.Kind.SHELL, 12.0, leg_from.lerp(leg_to, leg_t / leg_from.distance_to(leg_to)), Vector3.FORWARD)
+	leg_hit.source = tank
 	heron.take_hit(leg_hit)
-	check(heron.fallen and heron.state == HeronWalker.State.FALLEN, "leg damage topples heron")
-	# Fallen herons remain stab targets, selected after swat/snatch.
-	tank.global_position = heron.global_position + Vector3.BACK * 2.0
+	check(heron.fallen and heron.state == HeronWalker.State.FALLEN, "a reachable low leg hit topples heron")
+	for _i in 30:
+		heron.behave(0.05)
+	var fallen_from := heron.model.to_global(Vector3(0, 6.4, -6.0))
+	var fallen_to := heron.model.to_global(Vector3(0, 6.4, 6.0))
+	check(heron.hit_test(fallen_from, fallen_to) >= 0.0, "the fallen body remains a projectile target")
+	check(heron.hit_center().y < heron.global_position.y + 1.5, "the toppled body's hit center settles near the ground")
+	# Keep driving disabled: a ram must not masquerade as a successful tail stab.
+	tank.global_position = heron.hit_center() + Vector3.FORWARD * 3.0
+	tank.global_position.y = Course.height_at(tank.global_position)
 	tank.auto_tail()
-	await frames(30)
-	check(not is_instance_valid(heron), "the tail stabs and kills a fallen heron")
+	check_eq(tank.tail.state, Tail.State.STAB, "the tail selects a fallen heron for stabbing")
+	var heron_ref: WeakRef = weakref(heron)
+	for _i in 60:
+		tank.tail.update(1.0 / 60.0, tank.global_basis, 0.0)
+		await frames(1)
+		if heron_ref.get_ref() == null:
+			break
+	check(heron_ref.get_ref() == null, "the tail stabs and kills a fallen heron")
 
 func test_leech_real_ripple_latch_drain_dry_refusal_blast_and_tail_priority() -> void:
 	_world = stage("", true, 2)
