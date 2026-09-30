@@ -1,6 +1,11 @@
 extends TestCase
 ## Phase C enemy contracts: each test drives the real warning state into its attack and counter.
 
+func begin(name: String) -> void:
+	super.begin(name)
+	# Keep this suite's authored meshes/effects from perturbing later Stage 1 RNG fixtures.
+	seed(hash(name))
+
 func _spawn(enemy: Enemy, at: Vector3) -> Enemy:
 	enemy.position = at
 	_world.add_enemy(enemy)
@@ -89,6 +94,14 @@ func test_heron_warning_stab_topple_and_actual_tail_throw() -> void:
 	check(tank.hp == hp_before, "the impact circle gives a fair dodge window")
 	heron.behave(0.01)
 	check(tank.hp < hp_before, "the beak stab hurts the tank")
+	# The same lance state cannot hurt beyond its stated fourteen-metre reach.
+	tank.global_position = heron.global_position + Vector3.FORWARD * 16.0
+	heron.state = HeronWalker.State.TELEGRAPH
+	heron._state_time = 0.0
+	heron._impact = tank.global_position
+	hp_before = tank.hp
+	heron.behave(HeronWalker.TELEGRAPH_TIME)
+	check(tank.hp == hp_before, "heron lance has a fourteen-metre reach limit")
 	var leg_hit := Hit.make(Hit.Kind.SHELL, 12.0, heron.global_position + Vector3.DOWN * 0.1, Vector3.FORWARD)
 	heron.take_hit(leg_hit)
 	check(heron.fallen and heron.state == HeronWalker.State.FALLEN, "leg damage topples heron")
@@ -117,6 +130,14 @@ func test_leech_real_ripple_latch_drain_dry_refusal_blast_and_tail_priority() ->
 	check(tank.hp < hp_before, "a latch drains hull HP")
 	tank.auto_tail()
 	check(leech.dead, "swat priority removes a latched leech")
+	# A full warning can move a distant leech toward the hull, but it cannot teleport the last gap.
+	var miss_leech := _spawn(CanalLeech.new(), p) as CanalLeech
+	miss_leech.set_process(false)
+	tank.global_position = p + Vector3.FORWARD * 50.0
+	miss_leech.state = CanalLeech.State.TELEGRAPH
+	miss_leech._state_time = 0.0
+	miss_leech.behave(CanalLeech.TELEGRAPH_TIME)
+	check(not miss_leech.latched and miss_leech.global_position.distance_to(tank.global_position) > CanalLeech.LATCH_DISTANCE, "distant leech lunges without a teleport latch")
 	var dry_tank := Course.ground_at(1450.0, 0.0)
 	var dry_leech := _spawn(CanalLeech.new(), p) as CanalLeech
 	dry_leech.set_process(false)
