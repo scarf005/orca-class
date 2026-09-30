@@ -19,10 +19,10 @@ func _hit_part(boss: Colossus, part: Colossus.Part, kind: Hit.Kind, damage: floa
 func test_colossus_faces_back_up_a_bent_road() -> void:
 	var world := stage()
 	var boss := Colossus.new()
-	boss.position = Course.ground_at(Course.MIDBOSS_D, 0.0)
+	boss.position = Course.ground_at(Stage1.MIDBOSS_D, 0.0)
 	world.add_enemy(boss)
-	var toward_tank := -Course.forward(Course.MIDBOSS_D)
-	check(absf(Course.forward(Course.MIDBOSS_D).x) > 0.3, "the schoolyard runs at an angle to the world axes")
+	var toward_tank := -Course.forward(Stage1.MIDBOSS_D)
+	check(absf(Course.forward(Stage1.MIDBOSS_D).x) > 0.3, "the schoolyard runs at an angle to the world axes")
 	var core_side := (boss.global_transform * boss.core.offset - boss.global_position).normalized()
 	check(core_side.dot(toward_tank) > 0.7, "the core faces the approaching tank")
 
@@ -350,14 +350,14 @@ func test_gunship_crashes_into_the_dam_face_in_plain_view() -> void:
 	var boss := _gunship(world)
 	await frames(2)
 	check(is_instance_valid(Dam.current), "the dam stands in the arena")
-	boss.global_position = Course.to_world(Course.ARENA_CENTER_D, 30.0, 20.0)
+	boss.global_position = Course.to_world(Stage1.ARENA_CENTER_D, 30.0, 20.0)
 	var hit := Hit.make(Hit.Kind.SHELL, 5000.0, boss.global_position)
 	hit.pierce = true
 	boss.take_hit(hit)
 	var target := boss._crash_to
 	var at := Course.to_course(target)
-	check(at.x < Course.DAM_D - Dam.face_z(target.y), "the impact point is in front of the dam face, not inside it")
-	check(Course.DAM_D - Dam.face_z(target.y) - at.x < 12.0, "and hugging the face")
+	check(at.x < Stage1.DAM_D - Dam.face_z(target.y), "the impact point is in front of the dam face, not inside it")
+	check(Stage1.DAM_D - Dam.face_z(target.y) - at.x < 12.0, "and hugging the face")
 	check(target.y > Course.height_at(target) + 6.0, "well above the ground there, up where the camera sees the face")
 	check_near(at.y, 30.0, 0.5, "it comes down on the side of the dam it was over")
 	check(Course.to_course(Dam.crash_point(500.0)).y <= 60.5, "a far-off crash is pulled toward the middle of the wall")
@@ -378,7 +378,7 @@ func test_crash_breaks_the_dam_near_the_impact_and_floods_the_arena() -> void:
 	check(dam.pieces.size() > 20 and dam.pieces.size() < 100, "the dam is tens of blocks, not hundreds")
 	check(dam.pieces.all(func(p: Dam.Piece) -> bool: return p.state == Dam.State.STANDING), "it stands whole before the crash")
 	check(dam.torrent == null and dam.flood == null, "no water yet")
-	boss.global_position = Course.to_world(Course.ARENA_CENTER_D, -40.0, 20.0)
+	boss.global_position = Course.to_world(Stage1.ARENA_CENTER_D, -40.0, 20.0)
 	var hit := Hit.make(Hit.Kind.SHELL, 5000.0, boss.global_position)
 	hit.pierce = true
 	boss.take_hit(hit)

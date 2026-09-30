@@ -36,6 +36,10 @@ const SIGHT_RATE := 10.0 ## Per second the chevron's range eases toward the rang
 const PART_LOCK_RADIUS := 90.0 ## Screen pixels: on a target made of modules, the nearest one within this is locked.
 const RESPAWN_DELAY := 1.8
 const RESPAWN_INVULN := 2.6
+const WADE_SPEED := 0.85 ## Strafe speed and acceleration in shallow water.
+const DEEP_SPEED := 0.65 ## In deep water.
+const DEEP_REFILL := 0.5 ## How fast the overdrive meter refills in deep water.
+const MUD_GRIP := 0.25 ## Share of the acceleration that grips in mud: the tank keeps sliding.
 const CRUSH_SPEED := 5.0 ## Ground speed above which the tank runs down ground enemies.
 const RAM_DAMAGE := 150.0
 const CANISTER_RANGE := 70.0
@@ -54,6 +58,9 @@ var modules := TankModules.new()
 
 var course_u := 0.0
 var course_offset := 4.0 ## Distance ahead of the rail position.
+var water_depth := 0.0 ## Water over the ground under the hull; 0 on dry ground.
+var in_mud := false
+var _slosh := 0.0
 var local_velocity := Vector2.ZERO ## (lateral, forward) in the rail frame, or world XZ in the arena.
 var lateral_velocity := 0.0
 var velocity := Vector3.ZERO
@@ -193,6 +200,10 @@ func tick(delta: float) -> void:
 	velocity = (global_position - _last_position) / maxf(delta, 0.0001)
 	_last_position = global_position
 	wade(delta, velocity, HULL_RADIUS)
+	_slosh -= delta
+	if water_depth > 0.0 and _slosh <= 0.0 and velocity.length() > 4.0:
+		_slosh = 0.45
+		Sfx.play("slosh", global_position, 3.0 if water_depth > Water.DEEP else 0.0, randf_range(0.9, 1.1))
 	if _engine_sound:
 		_engine_sound.pitch_scale = 0.8 + clampf(velocity.length() / 25.0, 0.0, 0.6)
 
@@ -211,9 +222,39 @@ func _input_vector() -> Vector2:
 	return Input.get_vector("move_left", "move_right", "move_back", "move_forward")
 
 
+## Samples the water and mud under the hull for this frame's driving.
+func _update_terrain() -> void:
+	water_depth = 0.0
+	in_mud = false
+	if not Course.stage.water_slows:
+		return
+	var c := Course.to_course(global_position)
+	var surface := Course.stage.water_surface(c)
+	if surface > -INF:
+		water_depth = maxf(surface - Course.height(c.x, c.y), 0.0)
+	in_mud = water_depth <= Water.DEEP and Course.stage.mud_at(c.x, c.y)
+
+
+## Top strafe speed scale: 1 on dry ground, less wading.
+func water_factor() -> float:
+	var factor := DEEP_SPEED if water_depth > Water.DEEP else (WADE_SPEED if water_depth > 0.0 else 1.0)
+	# A latched canal leech only drags the lateral drive; the rail cruise remains unchanged.
+	for enemy in World.current.enemies:
+		if enemy.get_meta("leech_latched", false):
+			factor *= 0.55
+	return factor
+
+
+## Acceleration scale: wading drags like the top speed, mud lets go of the ground.
+func _grip() -> float:
+	return water_factor() * (MUD_GRIP if in_mud else 1.0)
+
+
 func _update_movement(delta: float) -> void:
 	var world := World.current
 	var rail := world.rail
+	_update_terrain()
+	var refill := modules.meter_refill_factor() * (DEEP_REFILL if water_depth > Water.DEEP else 1.0)
 	var input := _input_vector()
 	_read_double_taps()
 	# W and S double as the throttle: pushing forward boosts the rail, pulling back brakes it.
@@ -224,11 +265,11 @@ func _update_movement(delta: float) -> void:
 		command = -1
 	if rail.mode == Rail.Mode.ARENA:
 		_move_arena(delta, input)
-		rail.advance(delta, 0, modules.meter_refill_factor())
+		rail.advance(delta, 0, refill)
 		return
-	rail.advance(delta, command, modules.meter_refill_factor())
-	var target := Vector2(input.x * MOVE_SPEED.x, input.y * MOVE_SPEED.y) * modules.move_factor()
-	local_velocity = local_velocity.move_toward(target, ACCEL * delta)
+	rail.advance(delta, command, refill)
+	var target := Vector2(input.x * MOVE_SPEED.x * water_factor(), input.y * MOVE_SPEED.y) * modules.move_factor()
+	local_velocity = local_velocity.move_toward(target, ACCEL * _grip() * delta)
 	if _drift > 0.0:
 		_drift -= delta
 		if _drift_dir != 0.0:
@@ -251,18 +292,20 @@ func _move_arena(delta: float, input: Vector2) -> void:
 	forward.y = 0.0
 	forward = forward.normalized()
 	var right := forward.cross(Vector3.UP)
-	var wish := (right * input.x + forward * input.y) * ARENA_SPEED * modules.move_factor()
+	var wish := (right * input.x + forward * input.y) * ARENA_SPEED * modules.move_factor() * water_factor()
 	var current := Vector3(local_velocity.x, 0, local_velocity.y)
-	current = current.move_toward(wish, ACCEL * delta)
+	current = current.move_toward(wish, ACCEL * _grip() * delta)
 	if _drift > 0.0:
 		_drift -= delta
 		current = right * _drift_dir * DASH_SPEED * (_drift / DASH_TIME) if absf(_drift_dir) > 0.0 else current
 	local_velocity = Vector2(current.x, current.z)
 	var p := global_position + current * delta
-	var center := Course.to_world(Course.ARENA_CENTER_D, 0.0)
+	if is_instance_valid(World.current.boss) and World.current.boss is Floodgate:
+		p += (World.current.boss as Floodgate).current_force_for(global_position) * delta
+	var center := Course.to_world(Course.stage.arena_center_d, 0.0)
 	var flat := Vector2(p.x - center.x, p.z - center.z)
-	if flat.length() > Course.ARENA_RADIUS - 6.0:
-		flat = flat.normalized() * (Course.ARENA_RADIUS - 6.0)
+	if flat.length() > Course.stage.arena_radius - 6.0:
+		flat = flat.normalized() * (Course.stage.arena_radius - 6.0)
 		p.x = center.x + flat.x
 		p.z = center.z + flat.y
 	var c := Course.to_course(p)
@@ -405,7 +448,11 @@ func _ram_enemies() -> void:
 	if _ground_speed() < CRUSH_SPEED:
 		return
 	for entity: Entity in world.enemies.duplicate():
-		if entity.flying or not entity is Enemy or entity is Colossus:
+		if entity.flying or not entity is Enemy or entity is Colossus or entity is Combine:
+			continue
+		# Leeches are submerged or clamped to the hull; ramming must not erase the latch before
+		# the player can use the tail's swat priority.
+		if entity is CanalLeech:
 			continue
 		var offset := entity.global_position - global_position
 		offset.y = 0.0
@@ -513,11 +560,16 @@ func _aim_assist(delta: float) -> void:
 	for enemy in World.current.enemies:
 		if cam.is_position_behind(enemy.hit_center()):
 			continue
-		var screen := cam.unproject_position(enemy.hit_center())
-		var distance := screen.distance_to(aim_screen)
-		if distance < best_distance:
-			best_distance = distance
-			best = screen
+		var candidates := [enemy.hit_center()]
+		if enemy is Floodgate:
+			for part: Array in enemy.aim_parts().values():
+				candidates.append(part[0])
+		for point: Vector3 in candidates:
+			var screen := cam.unproject_position(point)
+			var distance := screen.distance_to(aim_screen)
+			if distance < best_distance:
+				best_distance = distance
+				best = screen
 	if best != Vector2.INF:
 		aim_screen = aim_screen.lerp(best, clampf(6.0 * delta, 0.0, 1.0))
 
@@ -588,10 +640,14 @@ func _update_weapons(delta: float) -> void:
 ## The point to lead on a locked target: the locked module's middle, else exactly where the sight
 ## rests when it is on the target, otherwise its middle (a soft lock pulls toward the center).
 func _aimed_spot(target: Entity) -> Vector3:
-	if target == coax_target and not coax_part.is_empty():
+	if target == coax_target:
 		var parts := target.aim_parts()
-		if parts.has(coax_part):
+		if not coax_part.is_empty() and parts.has(coax_part):
 			return parts[coax_part][0]
+		if target is Floodgate:
+			var part := _pick_part(target)
+			if parts.has(part):
+				return parts[part][0]
 	return aim_point if target == aim_target else Vector3.INF
 
 
@@ -754,6 +810,7 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3) -> void:
 		Armament.Round.HEAT:
 			shell.hit.damage = Armament.SHELL_DAMAGE * 1.5
 			shell.hit.pierce = true
+			shell.hit.heat = true
 			shell.hit.stagger = 1.0
 			shell.blast_radius = 9.0
 			shell.blast_damage = 500.0
@@ -967,6 +1024,10 @@ func _is_imminent(entity: Entity) -> bool:
 		return (entity as FpvDrone).state != FpvDrone.State.APPROACH and distance < 9.0
 	if entity is Crawler:
 		return (entity as Crawler).state != Crawler.State.RUN and distance < 7.0
+	if entity is CanalLeech:
+		return (entity as CanalLeech).latched and distance < 8.0
+	if entity is GnatSwarm:
+		return (entity as GnatSwarm).state != GnatSwarm.State.CLOUD and distance < 8.0
 	return false
 
 

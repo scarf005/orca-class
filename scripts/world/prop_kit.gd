@@ -295,6 +295,32 @@ static func reeds(variant: int, rng: RandomNumberGenerator) -> Mesh:
 	return b.mesh()
 
 
+## A methane vent: a mud mound bubbling pale gas out of a dark mouth.
+static func vent(_variant: int, rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.prism(Transform3D(), 1.35, 0.4, 8, Palette.OCHRE, 0.95, Palette.WOOD.darkened(0.35))
+	b.prism(_xf(Vector3(0, 0.38, 0)), 0.5, 0.06, 7, Palette.INK)
+	for i in 6:
+		var at := Vector3(rng.randf_range(-0.7, 0.7), rng.randf_range(0.42, 0.75), rng.randf_range(-0.7, 0.7))
+		b.blob(_xf(at), rng.randf_range(0.16, 0.3), Palette.MINT if i % 2 == 0 else Palette.CREAM, 0, 0.15, i)
+	for i in 3:
+		var lean := Basis(Vector3(rng.randf_range(-1, 1), 0, rng.randf_range(-1, 1)).normalized(), rng.randf_range(0.1, 0.4))
+		b.prism(Transform3D(lean, Vector3(rng.randf_range(-1.0, 1.0), 0.3, rng.randf_range(-1.0, 1.0))), 0.04, rng.randf_range(0.8, 1.4), 3, Palette.STRAW)
+	return b.mesh()
+
+
+## A paddy water gate (물꼬): a concrete cut through the dike closed by a wooden board between posts.
+static func sluice(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.box(_xf(Vector3(0, 0.25, 0)), Vector3(1.8, 0.5, 1.0), Palette.CONCRETE)
+	b.box(_xf(Vector3(0, 0.52, 0)), Vector3(1.0, 0.06, 0.9), Palette.TEAL)
+	for x in [-0.75, 0.75]:
+		b.box(_xf(Vector3(x, 0.8, 0)), Vector3(0.18, 1.2, 0.2), Palette.WOOD)
+	b.box(_xf(Vector3(0, 0.7, 0)), Vector3(1.3, 0.55, 0.08), Palette.STRAW)
+	b.box(_xf(Vector3(0, 1.05, 0)), Vector3(0.35, 0.1, 0.14), Palette.STONE)
+	return b.mesh()
+
+
 static func crate(variant: int, _rng: RandomNumberGenerator) -> Mesh:
 	var b := LowPoly.new()
 	var color := Palette.PINE if variant % 2 == 0 else Palette.OCHRE
@@ -390,6 +416,186 @@ static func pier(variant: int, _rng: RandomNumberGenerator) -> Mesh:
 	for x in [-2.3, 2.3]:
 		b.prism(_xf(Vector3(x, -0.4, 1.8)), 0.35, 0.6, 6, Palette.WHITE)
 		b.prism(_xf(Vector3(x, -0.4, -1.8)), 0.35, 0.6, 6, Palette.WHITE)
+	return b.mesh()
+
+
+# --- Stage 2: paddies, marsh and mill ------------------------------------------------------------
+
+## A beam between two points, for lattice work.
+static func _beam(b: LowPoly, from: Vector3, to: Vector3, width: float, color: Color) -> void:
+	var dir := to - from
+	b.box(Transform3D(Basis.looking_at(dir, Vector3.UP if absf(dir.normalized().y) < 0.99 else Vector3.RIGHT), (from + to) * 0.5), Vector3(width, width, dir.length()), color)
+
+
+## A round silage bale (곤포 사일리지) wrapped in white film and tied with bands. It floats.
+static func silage(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.prism(Transform3D(Basis(Vector3.BACK, PI * 0.5), Vector3(-0.65, 0.95, 0)), 0.98, 1.3, 10, Palette.WHITE, -1.0, Palette.CREAM)
+	for x in [-0.35, 0.35]:
+		b.prism(Transform3D(Basis(Vector3.BACK, PI * 0.5), Vector3(x - 0.04, 0.95, 0)), 1.0, 0.08, 10, Palette.MINT)
+	return b.mesh()
+
+
+## A riding rice transplanter (이앙기): four small wheels, an engine cover, a seat and the rack of seedling trays behind.
+static func transplanter(_variant: int, rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.box(_xf(Vector3(0, 0.85, -0.1)), Vector3(1.3, 0.5, 2.2), Palette.BUTTER)
+	b.box(_xf(Vector3(0, 1.2, -0.7)), Vector3(1.0, 0.35, 0.9), Palette.LEAF)
+	b.box(_xf(Vector3(0, 1.1, 0.55)), Vector3(0.14, 0.5, 0.14), Palette.STONE)
+	b.box(_xf(Vector3(0, 1.4, 0.55)), Vector3(0.7, 0.14, 0.6), Palette.INK)
+	b.box(_xf(Vector3(0, 1.45, 0.05)), Vector3(0.9, 0.08, 0.08), Palette.STONE)
+	for x in [-0.85, 0.85]:
+		for z in [-0.75, 0.75]:
+			b.prism(Transform3D(Basis(Vector3.BACK, PI * 0.5), Vector3(x - 0.12, 0.45, z)), 0.45, 0.24, 8, Palette.INK, -1.0, Palette.STONE)
+	b.box(Transform3D(Basis(Vector3.RIGHT, -0.35), Vector3(0, 1.35, -1.6)), Vector3(1.9, 0.06, 0.95), Palette.SAGE)
+	for i in 9:
+		b.prism(_xf(Vector3(-0.85 + i * 0.21, 1.28 + rng.randf() * 0.05, -1.6)), 0.05, 0.4, 3, Palette.LEAF)
+	b.box(_xf(Vector3(0, 0.5, -1.7)), Vector3(1.6, 0.08, 0.4), Palette.STONE)
+	return b.mesh()
+
+
+## A raised farm hut (원두막): a floor on four posts, a ladder, and a thatched gable roof.
+static func watch_hut(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	for x in [-1.1, 1.1]:
+		for z in [-1.1, 1.1]:
+			b.box(_xf(Vector3(x, 1.3, z)), Vector3(0.18, 2.6, 0.18), Palette.WOOD)
+	b.box(_xf(Vector3(0, 2.6, 0)), Vector3(2.8, 0.14, 2.8), Palette.STRAW)
+	b.box(_xf(Vector3(0, 3.1, -1.25)), Vector3(2.6, 0.9, 0.08), Palette.WOOD)
+	for x in [-0.25, 0.25]:
+		b.box(Transform3D(Basis(Vector3.RIGHT, 0.25), Vector3(x, 1.3, 1.5)), Vector3(0.07, 2.7, 0.07), Palette.WOOD)
+	for i in 5:
+		b.box(Transform3D(Basis(Vector3.RIGHT, 0.25), Vector3(0, 0.5 + i * 0.48, 1.4 + i * -0.02)), Vector3(0.6, 0.06, 0.06), Palette.WOOD)
+	for x in [-1.25, 1.25]:
+		b.box(_xf(Vector3(x, 3.9, 0)), Vector3(0.1, 1.5, 0.1), Palette.WOOD)
+	b.gable(_xf(Vector3(0, 4.35, 0)), Vector3(3.8, 1.3, 3.8), Palette.STRAW, Palette.OCHRE)
+	return b.mesh()
+
+
+## A scarecrow (허수아비) on a pole, in a checked shirt and straw hat, with ribbons.
+static func scarecrow(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.prism(Transform3D(), 0.06, 2.6, 5, Palette.WOOD)
+	b.box(_xf(Vector3(0, 1.75, 0)), Vector3(1.6, 0.08, 0.08), Palette.WOOD)
+	b.box(_xf(Vector3(0, 1.4, 0)), Vector3(0.55, 0.9, 0.3), Palette.PERIWINKLE)
+	b.box(_xf(Vector3(0, 1.4, 0.155)), Vector3(0.55, 0.12, 0.02), Palette.CREAM)
+	b.blob(_xf(Vector3(0, 2.05, 0)), 0.24, Palette.STRAW, 0, 0.1, 3)
+	b.prism(_xf(Vector3(0, 2.2, 0)), 0.55, 0.06, 8, Palette.STRAW)
+	b.prism(_xf(Vector3(0, 2.24, 0)), 0.24, 0.22, 8, Palette.OCHRE, 0.18)
+	for x in [-0.8, 0.8]:
+		b.box(_xf(Vector3(x, 1.55, 0)), Vector3(0.08, 0.35, 0.03), Palette.CORAL)
+		b.box(_xf(Vector3(x * 0.92, 1.3, 0)), Vector3(0.06, 0.3, 0.03), Palette.BUTTER)
+	return b.mesh()
+
+
+## A weeping willow (버드나무): a short trunk under a crown with long drooping strands.
+static func willow(variant: int, rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.prism(Transform3D(), 0.5, 3.6, 7, Palette.WOOD, 0.3)
+	for i in 3:
+		var lean := Basis(Vector3(cos(i * 2.1), 0, sin(i * 2.1)).normalized().cross(Vector3.UP), 0.6)
+		b.prism(Transform3D(lean, Vector3(0, 3.0, 0)), 0.2, 2.0, 5, Palette.WOOD, 0.1)
+	b.blob(_xf(Vector3(0, 6.3, 0)), 2.0, Palette.PINE, 0, 0.25, variant)
+	b.blob(_xf(Vector3(1.0, 5.8, 0.6)), 1.5, Palette.LEAF, 0, 0.25, variant + 1)
+	for i in 28:
+		var angle := TAU * i / 28.0 + rng.randf() * 0.2
+		var r := rng.randf_range(1.2, 2.6)
+		var length := rng.randf_range(2.6, 4.4)
+		var lean := Basis(Vector3(-sin(angle), 0, cos(angle)), rng.randf_range(0.0, 0.15))
+		b.prism(Transform3D(lean, Vector3(cos(angle) * r, 6.2 - length, sin(angle) * r)), 0.05, length, 3, Palette.LEAF if i % 3 else Palette.PINE, 0.02)
+	return b.mesh()
+
+
+## Floating prickly water-lily pads (가시연꽃), lying flat on the water.
+static func lotus(variant: int, rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	for i in 6:
+		var at := Vector3(rng.randf_range(-2.6, 2.6), 0.04, rng.randf_range(-2.6, 2.6))
+		var r := rng.randf_range(0.7, 1.3)
+		b.prism(_xf(at), r, 0.05, 9, Palette.LEAF if (i + variant) % 2 else Palette.MOSS, -1.0, Palette.PINE)
+		for k in 4:
+			var a := TAU * k / 4.0 + i
+			b.prism(_xf(at + Vector3(cos(a), 0.05, sin(a)) * r * 0.5), 0.05, 0.25, 3, Palette.CORAL, 0.0)
+	b.blob(_xf(Vector3(0.3, 0.2, 0.1)), 0.22, Palette.BLUSH, 0, 0.2, variant)
+	return b.mesh()
+
+
+## A transmission tower (송전탑): a tapering steel lattice with two cross-arms and a marker ball.
+static func pylon(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	var heights := [0.0, 7.0, 13.0, 18.0, 22.0]
+	var half := [2.6, 1.9, 1.3, 0.9, 0.6]
+	for i in 4:
+		for k in 4:
+			var sx := 1.0 if k % 2 == 0 else -1.0
+			var sz := 1.0 if k < 2 else -1.0
+			var a := Vector3(sx * half[i], heights[i], sz * half[i])
+			var c := Vector3(sx * half[i + 1], heights[i + 1], sz * half[i + 1])
+			_beam(b, a, c, 0.22, Palette.SLATE)
+	for i in 5:
+		var h: float = heights[i]
+		var w: float = half[i]
+		for k in 4:
+			var p := Vector3(w if k % 2 == 0 else -w, h, w if k < 2 else -w)
+			_beam(b, p, Vector3(-p.x, h, p.z), 0.12, Palette.STONE)
+			_beam(b, p, Vector3(p.x, h, -p.z), 0.12, Palette.STONE)
+	for i in 4:
+		for sx in [-1.0, 1.0]:
+			_beam(b, Vector3(sx * half[i], heights[i], half[i]), Vector3(sx * half[i + 1], heights[i + 1], -half[i + 1]), 0.1, Palette.STONE)
+			_beam(b, Vector3(sx * half[i], heights[i], -half[i]), Vector3(sx * half[i + 1], heights[i + 1], half[i + 1]), 0.1, Palette.STONE)
+	b.box(_xf(Vector3(0, 19.4, 0)), Vector3(10.0, 0.35, 0.35), Palette.SLATE)
+	b.box(_xf(Vector3(0, 22.6, 0)), Vector3(6.4, 0.3, 0.3), Palette.SLATE)
+	for x in [-4.6, 4.6]:
+		b.prism(_xf(Vector3(x, 18.6, 0)), 0.14, 0.8, 5, Palette.WHITE)
+	for x in [-2.9, 2.9]:
+		b.prism(_xf(Vector3(x, 21.8, 0)), 0.14, 0.8, 5, Palette.WHITE)
+	b.prism(_xf(Vector3(0, 22.0, 0)), 0.14, 0.7, 5, Palette.WHITE)
+	b.blob(_xf(Vector3(0, 23.4, 0)), 0.45, Palette.CORAL)
+	return b.mesh()
+
+
+## A pump house (양수장) beside the canal: a concrete box with a flat roof, an intake pipe and a valve wheel.
+static func pump_house(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.box(_xf(Vector3(0, 0.3, 0)), Vector3(5.8, 0.6, 4.8), Palette.STONE)
+	b.box(_xf(Vector3(0, 2.1, 0)), Vector3(5.2, 3.0, 4.2), Palette.CONCRETE)
+	b.box(_xf(Vector3(0, 3.75, 0)), Vector3(5.8, 0.3, 4.8), Palette.MIST)
+	b.box(_xf(Vector3(-1.2, 1.5, 2.11)), Vector3(1.3, 2.2, 0.05), Palette.SKY)
+	b.box(_xf(Vector3(1.4, 2.4, 2.11)), Vector3(1.2, 0.9, 0.05), Palette.DUSK)
+	b.box(_xf(Vector3(2.0, 4.15, -0.8)), Vector3(0.9, 0.6, 0.9), Palette.STONE)
+	b.tube(Transform3D(Basis(), Vector3(2.9, 0.9, 0.0)), 0.3, 3.4, 8, Palette.TEAL)
+	b.prism(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(3.5, 1.0, 1.4)), 0.32, 0.5, 8, Palette.CONCRETE)
+	b.prism(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(3.5, 1.0, 1.8)), 0.24, 0.1, 8, Palette.CORAL)
+	return b.mesh()
+
+
+## The rice mill (정미소): a long corrugated hall with a brick chimney and a grain elevator.
+static func mill_hall(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.box(_xf(Vector3(0, 0.4, 0)), Vector3(16.6, 0.8, 10.6), Palette.STONE)
+	b.box(_xf(Vector3(0, 3.6, 0)), Vector3(16.0, 5.6, 10.0), Palette.PEACH)
+	b.gable(_xf(Vector3(0, 6.4, 0), PI * 0.5), Vector3(11.0, 3.0, 17.0), Palette.TEAL, Palette.PEACH)
+	for x in [-5.0, 0.0, 5.0]:
+		b.box(_xf(Vector3(x, 2.0, 5.01)), Vector3(2.8, 3.2, 0.06), Palette.WOOD)
+	for x in [-6.0, -2.0, 2.0, 6.0]:
+		b.box(_xf(Vector3(x, 5.0, 5.01)), Vector3(1.4, 0.9, 0.06), Palette.DUSK)
+	b.prism(_xf(Vector3(6.0, 6.0, -3.0)), 0.9, 8.0, 8, Palette.CORAL, 0.6)
+	b.box(_xf(Vector3(-8.7, 5.0, 0.0)), Vector3(1.8, 9.0, 2.4), Palette.MIST)
+	b.box(_xf(Vector3(-8.7, 9.7, 0.0)), Vector3(2.2, 0.5, 2.8), Palette.STONE)
+	b.box(Transform3D(Basis(Vector3.BACK, 0.7), Vector3(-6.4, 8.0, 0.0)), Vector3(0.5, 0.5, 0.5), Palette.STONE)
+	return b.mesh()
+
+
+## An RPC grain silo: a white concrete drum with a cone roof and bands.
+static func rpc_silo(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.prism(_xf(Vector3(0, 0.0, 0)), 3.2, 0.6, 10, Palette.STONE)
+	b.prism(_xf(Vector3(0, 0.6, 0)), 3.0, 12.0, 10, Palette.WHITE)
+	for y in [3.0, 6.5, 10.0]:
+		b.prism(_xf(Vector3(0, y, 0)), 3.06, 0.25, 10, Palette.MINT)
+	b.prism(_xf(Vector3(0, 12.6, 0)), 3.2, 2.2, 10, Palette.TEAL, 0.25)
+	b.box(_xf(Vector3(3.05, 6.0, 0)), Vector3(0.1, 12.0, 0.7), Palette.STONE)
+	b.box(_xf(Vector3(0, 14.9, 0)), Vector3(0.3, 0.9, 0.3), Palette.STONE)
 	return b.mesh()
 
 

@@ -61,7 +61,7 @@ func _ready() -> void:
 		_incoming.append({"position": from, "time": 0.0})
 		Sfx.ui("warn", 0.0, 1.3))
 	world.player.pickup_collected.connect(_on_pickup)
-	world.director.section_changed.connect(func(section: Course.Section) -> void: banner(tr("SECTION_%d" % section)))
+	world.director.section_changed.connect(func(section: int) -> void: banner(tr(Game.string_key("SECTION_%d" % section, world.stage_number))))
 	world.director.checkpoint_reached.connect(func(_name: String) -> void: banner(tr("CHECKPOINT")))
 
 
@@ -161,6 +161,7 @@ func _draw() -> void:
 	_draw_weapons()
 	_draw_score()
 	_draw_progress()
+	_draw_wading()
 	_draw_boss()
 	_draw_banner()
 	_draw_shout()
@@ -397,10 +398,37 @@ func _draw_progress() -> void:
 	var origin := Vector2(700, 18)
 	var width := 244.0
 	draw_rect(Rect2(origin, Vector2(width, 3)), Palette.DUSK)
-	for start: float in Course.SECTION_STARTS:
-		draw_rect(Rect2(origin + Vector2(width * start / Course.ARENA_CENTER_D, -3), Vector2(2, 9)), Palette.MIST)
-	var k := clampf(world.rail.d / Course.ARENA_CENTER_D, 0.0, 1.0)
+	for start: float in Course.stage.section_starts:
+		draw_rect(Rect2(origin + Vector2(width * start / Course.stage.arena_center_d, -3), Vector2(2, 9)), Palette.MIST)
+	var k := clampf(world.rail.d / Course.stage.arena_center_d, 0.0, 1.0)
 	draw_rect(Rect2(origin + Vector2(width * k - 3, -3), Vector2(6, 9)), Palette.FUNGUS)
+
+
+## What the tank is driving through: 0 dry, 1 shallow water, 2 deep water, 3 mud.
+func terrain_glyph() -> int:
+	var tank := world.player
+	if tank.water_depth > Water.DEEP:
+		return 2
+	if tank.in_mud:
+		return 3
+	return 1 if tank.water_depth > 0.0 else 0
+
+
+## A small glyph above the throttle: waves for water (two lines deep, one shallow), blobs for mud.
+func _draw_wading() -> void:
+	var glyph := terrain_glyph()
+	if glyph == 0:
+		return
+	var origin := Vector2(480.0, 476.0)
+	if glyph == 3:
+		for i in 3:
+			draw_circle(origin + Vector2(-8 + i * 8, 2 - (i % 2) * 3), 3.0, Palette.OCHRE)
+		return
+	for row in glyph:
+		var points := PackedVector2Array()
+		for i in 9:
+			points.append(origin + Vector2(-12 + i * 3.0, row * 5.0 - 3.0 + sin(_time * 4.0 + i * 1.2 + row) * 1.5))
+		draw_polyline(points, Palette.SKY if glyph == 1 else Palette.TEAL, 2.0)
 
 
 func _draw_boss() -> void:

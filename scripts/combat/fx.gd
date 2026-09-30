@@ -485,7 +485,7 @@ func afterimage(meshes: Array, color: Color, life := 0.45) -> void:
 
 
 ## Something hits the water: a crown of spray and rings spreading out over the surface.
-func splash(position: Vector3, size: float, surface := Course.WATER_LEVEL) -> void:
+func splash(position: Vector3, size: float, surface := Stage1.WATER_LEVEL) -> void:
 	var at := Vector3(position.x, surface + 0.05, position.z)
 	for ring in [[2.5, 0.8], [4.5, 1.3], [7.0, 1.9]]:
 		_transient(_cached("ring", Palette.CREAM, _ring_builder), Transform3D(Basis(), at), ring[1] * (0.6 + size * 0.4), true, Vector2(size * 0.5, size * ring[0]), 0.2, false)
@@ -496,7 +496,7 @@ func splash(position: Vector3, size: float, surface := Course.WATER_LEVEL) -> vo
 
 ## Something ploughing through the water: a bow wave thrown out to both sides and a ring spreading
 ## behind it. Standing still, it only leaves slow ripples.
-func wake(position: Vector3, velocity: Vector3, size: float, surface := Course.WATER_LEVEL) -> void:
+func wake(position: Vector3, velocity: Vector3, size: float, surface := Stage1.WATER_LEVEL) -> void:
 	var at := Vector3(position.x, surface + 0.05, position.z)
 	var flat := Vector3(velocity.x, 0.0, velocity.z)
 	var pace := clampf(flat.length() / 20.0, 0.0, 1.0)

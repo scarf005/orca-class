@@ -567,7 +567,7 @@ func behave(delta: float) -> void:
 	_flare_cooldown -= delta
 	_watch_for_shells()
 	# Orbit the arena center, keeping the tank in front.
-	var center := Course.to_world(Course.ARENA_CENTER_D, 0.0)
+	var center := Course.to_world(Course.stage.arena_center_d, 0.0)
 	var orbit_radius := [70.0, 50.0, 42.0][phase] as float
 	var altitude := [24.0, 18.0, 15.0][phase] as float
 	var speed := [0.18, 0.3, 0.42][phase] as float
@@ -999,7 +999,7 @@ func _crash_blast(at: Vector3) -> void:
 	var world := World.current
 	var fx := world.fx
 	var ground := Vector3(at.x, Course.height_at(at), at.z)
-	var out := -Course.forward(Course.DAM_D) # From the face, into the arena.
+	var out := -Course.forward(Stage1.DAM_D) # From the face, into the arena.
 	for i in 4:
 		fx.explosion(at + Vector3(randf_range(-9, 9), randf_range(-4, 8), randf_range(-6, 6)), 6.0 + i % 3, [Palette.WHITE, Palette.BUTTER, Palette.AMBER, Palette.CORAL], out * 0.3)
 	for i in 4:

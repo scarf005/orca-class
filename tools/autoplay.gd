@@ -1,7 +1,7 @@
 extends Node
 ## Plays the stage with a simple bot and saves screenshots, for smoke tests and visual checks.
 ## Usage: xvfb-run -a godot --path . -- --run=res://tools/autoplay.gd --seconds=30 --shots=5,10 \
-##        [--checkpoint=boss] [--out=builds/auto] [--god] [--scale=1] [--seed=1]
+##        [--checkpoint=boss] [--stage=2] [--from=1500] [--out=builds/auto] [--god] [--scale=1] [--seed=1]
 ##        [--range=3000,3300] # print frame times within a course-distance interval
 
 var screen: GameScreen
@@ -20,8 +20,18 @@ func run() -> int:
 	Engine.time_scale = float(args.get("scale", "1"))
 	screen = GameScreen.new()
 	screen.checkpoint = args.get("checkpoint", "")
+	screen.stage = int(args.get("stage", "1"))
 	add_child(screen)
 	var world := screen.world
+	if args.has("from"):
+		# Start mid-course: skip the events before it and stream in what stands around it.
+		var start := float(args.from)
+		world.rail.d = start
+		while world.director._next_event < world.director.events.size() and world.director.events[world.director._next_event].d < start:
+			world.director._next_event += 1
+		world.director.section = Course.section_at(start)
+		world.director.scenery.stream(start, 100000)
+		world.terrain.stream(start, true)
 	if args.has("god"):
 		world.player.invulnerable = true
 	var elapsed := 0.0
@@ -33,6 +43,7 @@ func run() -> int:
 	var range_times := PackedFloat32Array()
 	var boss_start := -1.0
 	var boss_end := -1.0
+	var boss_shots := {}
 	while elapsed < seconds:
 		var start := Time.get_ticks_usec()
 		await get_tree().process_frame
@@ -63,8 +74,27 @@ func run() -> int:
 			get_viewport().get_texture().get_image().save_png("%s/t%03d.png" % [out, int(elapsed)])
 		if world.boss != null and boss_start < 0.0:
 			boss_start = elapsed
-		if world.boss == null and boss_start >= 0.0 and boss_end < 0.0:
+		if (not is_instance_valid(world.boss) or world.boss.dead) and boss_start >= 0.0 and boss_end < 0.0:
 			boss_end = elapsed
+		if is_instance_valid(world.boss) and world.boss is Floodgate:
+			var fortress := world.boss as Floodgate
+			var shot := ""
+			if fortress.dead and elapsed - boss_end >= 2.2:
+				shot = "sunrise"
+			elif fortress.phase == Floodgate.Phase.CORE and not fortress.dead:
+				shot = "core"
+			elif fortress.phase == Floodgate.Phase.DRAINED:
+				shot = "drained-basin" if fortress._phase_clock >= 2.2 else "drained"
+			elif not fortress._torrents.is_empty():
+				shot = "torrent" if fortress._torrents[0].clock >= 0.6 else ""
+			else:
+				shot = "gates"
+			if not shot.is_empty() and not boss_shots.has(shot):
+				boss_shots[shot] = true
+				print("AUTOPLAY fortress_%s=%.1fs hp=%.0f water=%.2f" % [shot, elapsed - boss_start, fortress.hp, (Course.stage as Stage2).arena_level])
+				if args.has("out"):
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png("%s/%s.png" % [out, shot])
 		if world.player.dead or screen._finished:
 			break
 	var stats := world.stats
@@ -95,7 +125,13 @@ func _drive(world: World, t: float) -> void:
 			best = distance
 			target = enemy
 	if target:
-		tank.aim_screen = world.camera.unproject_position(target.hit_center())
+		var aim := target.hit_center()
+		var parts := target.aim_parts()
+		if target is Floodgate and not parts.is_empty():
+			var names: Array = parts.keys()
+			var live_part: Array = parts[names[0]]
+			aim = live_part[0]
+		tank.aim_screen = world.camera.unproject_position(aim)
 		Input.action_press("fire_cannon")
 	else:
 		tank.aim_screen = Vector2(DitherView.RESOLUTION) * Vector2(0.5, 0.4)

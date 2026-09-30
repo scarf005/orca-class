@@ -61,13 +61,13 @@ static func face_z(y: float) -> float:
 
 ## Where the face is, in the world, at lateral offset `u` and height `y`.
 static func face_point(u: float, y: float) -> Vector3:
-	return Course.to_world(Course.DAM_D - face_z(y), u, y)
+	return Course.to_world(Stage1.DAM_D - face_z(y), u, y)
 
 
 ## Where the gunship comes down: in front of the face, at a height the arena camera sees.
 static func crash_point(u: float) -> Vector3:
 	var lateral := clampf(u, -60.0, 60.0)
-	return Course.to_world(Course.DAM_D - face_z(CRASH_HEIGHT) - CRASH_STANDOFF, lateral, CRASH_HEIGHT)
+	return Course.to_world(Stage1.DAM_D - face_z(CRASH_HEIGHT) - CRASH_STANDOFF, lateral, CRASH_HEIGHT)
 
 
 func _init() -> void:

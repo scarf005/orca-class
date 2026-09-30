@@ -63,7 +63,7 @@ func test_collateral_chain_kill_scores_style() -> void:
 
 func test_kill_tricks_named_by_weapon() -> void:
 	var world := stage()
-	for kind: Hit.Kind in [Hit.Kind.RAM, Hit.Kind.FIRE, Hit.Kind.THROWN]:
+	for kind: Hit.Kind in [Hit.Kind.RAM, Hit.Kind.FIRE, Hit.Kind.TAIL]:
 		var crawler := Crawler.new()
 		crawler.position = Course.ground_at(world.rail.d + 60.0, 5.0)
 		world.add_enemy(crawler)
@@ -71,7 +71,7 @@ func test_kill_tricks_named_by_weapon() -> void:
 		hit.source = world.player
 		crawler.take_hit(hit)
 	var names := world.stats.style_feed.map(func(e: Dictionary) -> String: return e.name)
-	for name in ["CRUSH", "BURNED", "THROWN", "MULTIKILL"]:
+	for name in ["CRUSH", "BURNED", "TAILWHIP", "MULTIKILL"]:
 		check(name in names, "%s awarded" % name)
 
 

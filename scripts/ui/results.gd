@@ -3,9 +3,11 @@ extends Control
 ## Stage results: stats counted up one line at a time, then the rank stamp and best records.
 
 signal retry
+signal next_stage
 signal title_pressed
 
 var stats: RunStats
+var has_next_stage := false
 var font: Font
 var _time := 0.0
 var _rows: Array = []
@@ -42,6 +44,8 @@ func _process(delta: float) -> void:
 		_menu = Menu.new()
 		_menu.center = Vector2(480, 470)
 		_menu.width = 240
+		if has_next_stage:
+			_menu.add_item(tr("MENU_NEXT_STAGE"), func() -> void: next_stage.emit())
 		_menu.add_item(tr("MENU_RETRY"), func() -> void: retry.emit())
 		_menu.add_item(tr("MENU_QUIT_TITLE"), func() -> void: title_pressed.emit())
 		add_child(_menu)

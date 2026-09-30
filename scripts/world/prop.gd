@@ -16,6 +16,9 @@ var burnable := false
 var explosive := false
 var blast_size := 4.5 ## Radius of the explosion when an explosive prop goes up.
 var fungal := false ## Bursts into spores and splatter when destroyed.
+var floats := false ## Bobs on the water and drifts slowly downstream, rammable like anything else.
+var vent := false ## A methane vent: any fire or blast sets it off in a flame burst that lights its neighbours.
+var sluice := false ## A paddy gate (물꼬): broken, it lets a surge of water run down-slope.
 var flattens := false ## Destroyed, it squelches and leaves a dark flattened stain of itself (ground veins).
 var supports: Array[Prop] = [] ## Pieces resting on this one; they topple when it breaks.
 var falls := false
@@ -25,9 +28,13 @@ var _topple_axis := Vector3.RIGHT
 var _topple_by_player := false
 var rubble_mesh: Mesh
 var score := 0
+var _bob := randf() * TAU
 
 
 const DRAW_DISTANCE := 150.0 ## Fog hides small props well before this.
+const DRIFT_SPEED := 0.7 ## Floating things drift along the course at this speed.
+const VENT_CHAIN_RANGE := 16.0
+const VENT_CHAIN_DELAY := 0.3 ## Seconds each vent burns before it lights the next.
 
 
 func _init() -> void:
@@ -121,6 +128,8 @@ func die(hit: Hit) -> void:
 
 
 func tick(delta: float) -> void:
+	if floats and _topple < 0.0:
+		_float(delta)
 	if _topple < 0.0:
 		return
 	_topple += delta
@@ -133,6 +142,21 @@ func tick(delta: float) -> void:
 			crash.source = World.current.player
 		World.current.shake(0.5, global_position)
 		take_hit(crash)
+
+
+## Rides the surface: bobbing and rolling a little, carried downstream until it runs aground.
+func _float(delta: float) -> void:
+	var world := World.current
+	var here := global_position + Course.forward(Course.to_course(global_position).x) * DRIFT_SPEED * delta
+	var surface := Water.surface_at(here)
+	if surface == -INF:
+		return
+	_bob += delta * 1.7
+	world.props.remove(self)
+	global_position = Vector3(here.x, surface - height * 0.12 + sin(_bob) * 0.07, here.z)
+	world.props.add(self)
+	rotation.x = sin(_bob * 0.8) * 0.04
+	rotation.z = cos(_bob * 0.7) * 0.05
 
 
 func set_see_through(enabled: bool) -> void:
@@ -211,6 +235,33 @@ func _flatten(world: World) -> void:
 	world.props.add_child(stain)
 
 
+## Down-slope of a paddy gate is toward the road, where the terraces step down.
+func _release_surge(hit: Hit) -> void:
+	var c := Course.to_course(global_position)
+	Surge.release(global_position, Course.right(c.x) * -signf(c.y if c.y != 0.0 else 1.0), hit != null and hit.by_player())
+
+
+## Marsh gas goes up in a fireball; vents nearby catch a beat later, one link after another.
+func _burst_vent(world: World, hit: Hit) -> void:
+	var center := global_position + Vector3.UP * 0.6
+	var by_player := hit != null and hit.by_player()
+	var chain := Hit.new()
+	chain.source = self if by_player else null
+	world.fx.fireball(center, 1.5, 6.0, 0.7)
+	world.fx.smoke_column(center, 2.0, [Palette.ASH, Palette.STONE])
+	Sfx.play("whoomp", global_position, 0.0, randf_range(0.9, 1.1))
+	world.blast(center, 4.5, 40.0, Team.PLAYER if by_player else Team.NEUTRAL, chain, self, [Palette.WHITE, Palette.BUTTER, Palette.AMBER, Palette.CORAL])
+	if score > 0:
+		world.award(score, global_position, false)
+	for other: Prop in world.props.in_radius(global_position, VENT_CHAIN_RANGE):
+		if other.vent and other != self and not other.dead:
+			var next: WeakRef = weakref(other) # It may be blown up by something else before its turn.
+			world.get_tree().create_timer(VENT_CHAIN_DELAY).timeout.connect(func() -> void:
+				var vent: Prop = next.get_ref()
+				if vent != null and not vent.dead:
+					vent.take_hit(Hit.make(Hit.Kind.FIRE, 999.0, vent.global_position)))
+
+
 func damage_multiplier(hit: Hit) -> float:
 	if hit.kind == Hit.Kind.FIRE:
 		return 3.0 if burnable else 0.3
@@ -226,6 +277,9 @@ func on_death(hit: Hit) -> void:
 	var rammed := hit != null and hit.kind == Hit.Kind.RAM
 	if vehicle and _rammed(hit):
 		_run_over(world, push)
+		return
+	if vent:
+		_burst_vent(world, hit)
 		return
 	if flattens:
 		_flatten(world)
@@ -248,6 +302,8 @@ func on_death(hit: Hit) -> void:
 		else:
 			# Knocked out from one side, what it held falls away from the blow.
 			piece.topple(hit != null and hit.by_player(), piece.global_position - push * 5.0 if push != Vector3.ZERO else global_position)
+	if sluice:
+		_release_surge(hit)
 	if explosive:
 		# Wrecks the player sets off only hurt enemies; stray enemy fire makes them dangerous to everyone.
 		var by_player := hit != null and hit.by_player()

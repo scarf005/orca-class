@@ -27,7 +27,9 @@ var rail := Rail.new()
 var stats := RunStats.new()
 var player: Tank
 var director: Director
+var sky_material := ProceduralSkyMaterial.new()
 var view: DitherView ## Set by whoever displays the world; used for screen flashes.
+var stage_number := 1 ## Set before the world enters the tree: the stage whose course and look it uses.
 
 var enemies: Array[Entity] = []
 var projectiles: Array[Projectile] = []
@@ -52,6 +54,7 @@ func _exit_tree() -> void:
 
 
 func _ready() -> void:
+	Course.use(stage_number)
 	_setup_environment()
 	add_child(terrain)
 	props.name = "Props"
@@ -88,6 +91,8 @@ func _process(delta: float) -> void:
 		if is_instance_valid(projectile) and not projectile.is_queued_for_deletion():
 			projectile.step(step)
 	terrain.stream(rail.d)
+	if Course.stage.dynamic_look:
+		_apply_look(Course.stage.look_at(rail.d))
 	stats.tick(step)
 
 
@@ -258,6 +263,7 @@ static func team_color(team: Entity.Team, shape: String, requested: Color) -> Co
 ## Area damage with linear falloff to 30% at the edge. Hits entities of the opposing team and props.
 ## `push` is the direction the blast was delivered in (a shell's flight); zero for a plain burst.
 func blast(point: Vector3, radius: float, damage: float, team: Entity.Team, template: Hit = null, exclude: Entity = null, colors: Array = [], push := Vector3.ZERO) -> void:
+	OilSlick.light_near(point, radius)
 	fx.explosion(point, radius * 0.8, colors if not colors.is_empty() else [Palette.BUTTER, Palette.AMBER, Palette.HOT, Palette.CORAL], push)
 	shake(clampf(radius * 0.08, 0.05, 0.6), point)
 	Sfx.play("blast_small" if radius < 3.5 else "blast", point, 0.0, randf_range(0.9, 1.15))
@@ -317,9 +323,6 @@ func kill_style(hit: Hit, victim: Entity) -> void:
 		Hit.Kind.TAIL:
 			trick = "TAILWHIP"
 			points = 55.0
-		Hit.Kind.THROWN:
-			trick = "THROWN"
-			points = 75.0
 		Hit.Kind.FIRE:
 			trick = "BURNED"
 			points = 50.0
@@ -369,12 +372,28 @@ func screen_flash(color: Color, amount: float) -> void:
 		view.flash(color, amount)
 
 
+## Sets the sky, fog and sun from a `StageDef.look_at` dictionary.
+func _apply_look(look: Dictionary) -> void:
+	sky_material.sky_top_color = look.sky_top
+	sky_material.sky_horizon_color = look.sky_horizon
+	sky_material.ground_horizon_color = look.sky_horizon
+	sky_material.ground_bottom_color = look.sky_ground
+	environment.ambient_light_color = look.ambient
+	environment.ambient_light_energy = look.ambient_energy
+	environment.fog_light_color = look.fog_color
+	environment.fog_depth_begin = look.fog_begin
+	environment.fog_depth_end = look.fog_end
+	sun.rotation_degrees = look.sun_rotation
+	sun.light_color = look.sun_color
+	sun.light_energy = look.sun_energy
+
+
 func _setup_environment() -> void:
-	var sky_material := ProceduralSkyMaterial.new()
-	sky_material.sky_top_color = Color("8f9fe0")
-	sky_material.sky_horizon_color = Color("f7d6c4")
-	sky_material.ground_horizon_color = Color("f7d6c4")
-	sky_material.ground_bottom_color = Color("c3a6e8")
+	var stage := Course.stage
+	sky_material.sky_top_color = stage.sky_top
+	sky_material.sky_horizon_color = stage.sky_horizon
+	sky_material.ground_horizon_color = stage.sky_horizon
+	sky_material.ground_bottom_color = stage.sky_ground
 	sky_material.sun_angle_max = 8.0
 	sky_material.sky_curve = 0.12
 	var sky := Sky.new()
@@ -382,14 +401,14 @@ func _setup_environment() -> void:
 	environment.background_mode = Environment.BG_SKY
 	environment.sky = sky
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color("b8a8d8")
-	environment.ambient_light_energy = 0.5
+	environment.ambient_light_color = stage.ambient
+	environment.ambient_light_energy = stage.ambient_energy
 	environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	environment.fog_enabled = true
 	environment.fog_mode = Environment.FOG_MODE_DEPTH
-	environment.fog_light_color = Color("f3d9d0")
-	environment.fog_depth_begin = 90.0
-	environment.fog_depth_end = 420.0
+	environment.fog_light_color = stage.fog_color
+	environment.fog_depth_begin = stage.fog_begin
+	environment.fog_depth_end = stage.fog_end
 	environment.fog_depth_curve = 1.4
 	environment.fog_sky_affect = 0.0
 	# Fire, flashes and tracers bloom into the scene around them.
@@ -402,11 +421,13 @@ func _setup_environment() -> void:
 	var world_environment := WorldEnvironment.new()
 	world_environment.environment = environment
 	add_child(world_environment)
-	sun.rotation_degrees = Vector3(-32.0, 125.0, 0.0)
-	sun.light_color = Color("fff0dc")
-	sun.light_energy = 1.05
+	sun.rotation_degrees = stage.sun_rotation
+	sun.light_color = stage.sun_color
+	sun.light_energy = stage.sun_energy
 	sun.shadow_enabled = true
 	sun.shadow_opacity = 0.85
 	sun.directional_shadow_max_distance = 140.0
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	add_child(sun)
+	if stage.dynamic_look:
+		_apply_look(stage.look_at(rail.d))

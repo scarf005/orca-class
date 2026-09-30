@@ -2,7 +2,7 @@ class_name Hit
 extends RefCounted
 ## One instance of damage. Receivers scale `damage` by their own armor and weaknesses.
 
-enum Kind { BULLET, SHELL, BLAST, FIRE, RAM, TAIL, LASER, SPORE, THROWN, FRAGMENT }
+enum Kind { BULLET, SHELL, BLAST, FIRE, RAM, TAIL, LASER, SPORE, FRAGMENT }
 
 var damage := 0.0
 var kind := Kind.BULLET
@@ -12,6 +12,7 @@ var direction := Vector3.FORWARD
 var speed := 0.0 ## How fast the round was flying, when a projectile delivered it.
 var source: Node3D
 var pierce := false ## Ignores armor (HEAT, APFSDS).
+var heat := false ## HEAT cannon jet; distinct from the APFSDS dart and piercing tail stab.
 var incendiary := false
 var stagger := 0.0 ## Seconds of stagger inflicted on enemies that can be staggered.
 var warhead := false ## Shaped charge (FPV, ATGM): stopped by ERA, lethal where there is none.
@@ -28,7 +29,7 @@ static func make(kind_value: Kind, damage_value: float, position_value: Vector3,
 
 ## True when the tank caused this, directly or through something it set off.
 func by_player() -> bool:
-	if kind in [Kind.RAM, Kind.TAIL, Kind.THROWN, Kind.FIRE]:
+	if kind in [Kind.RAM, Kind.TAIL, Kind.FIRE]:
 		return true
 	return is_instance_valid(source) and (source is Tank or source is Prop)
 
@@ -48,6 +49,7 @@ func copy() -> Hit:
 	hit.speed = speed
 	hit.source = source if is_instance_valid(source) else null
 	hit.pierce = pierce
+	hit.heat = heat
 	hit.incendiary = incendiary
 	hit.stagger = stagger
 	hit.warhead = warhead

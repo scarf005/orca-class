@@ -11,7 +11,7 @@ func _stretch(fungus: bool) -> Vector2:
 				for lateral in [-1.8, 0.0, 1.8]:
 					var f := Course.fungus_at(d + k * 2.0, u + lateral)
 					var height := Course.height(d + k * 2.0, u + lateral)
-					if fungus and (f < 0.6 or height < Course.WATER_LEVEL + 1.0) or not fungus and f > 0.2:
+					if fungus and (f < 0.6 or height < Stage1.WATER_LEVEL + 1.0) or not fungus and f > 0.2:
 						whole = false
 			if whole:
 				return Vector2(d, u)

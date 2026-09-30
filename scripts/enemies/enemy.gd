@@ -150,7 +150,7 @@ func impact_feedback(hit: Hit, amount: float, killed := false) -> void:
 		return
 	flash()
 	_flash = 0.09
-	var heavy := hit.kind in [Hit.Kind.SHELL, Hit.Kind.BLAST, Hit.Kind.RAM, Hit.Kind.TAIL, Hit.Kind.THROWN]
+	var heavy := hit.kind in [Hit.Kind.SHELL, Hit.Kind.BLAST, Hit.Kind.RAM, Hit.Kind.TAIL]
 	var kick := 0.7 if heavy else 0.3
 	model.position = (model.position + global_basis.inverse() * hit.direction.normalized() * kick).limit_length(0.9)
 	_shudder = maxf(_shudder, 0.14 if heavy else 0.08)
@@ -258,7 +258,7 @@ static func kill_push(hit: Hit) -> Vector3:
 		return Vector3.ZERO
 	var dir := Vector3(hit.direction.x, maxf(hit.direction.y, 0.0) * 0.5, hit.direction.z).normalized()
 	match hit.kind:
-		Hit.Kind.SHELL, Hit.Kind.RAM, Hit.Kind.THROWN, Hit.Kind.TAIL:
+		Hit.Kind.SHELL, Hit.Kind.RAM, Hit.Kind.TAIL:
 			return dir
 		Hit.Kind.BLAST, Hit.Kind.FRAGMENT:
 			return dir * 0.6

@@ -1,8 +1,9 @@
 # orca class — Goal
 
 A Star Fox-style action shooter in pastel, ditherpunk 3D. You play Ha Yoon (하윤), driver of the tank
-*Orca-class*, pushing through a fungus-infested, abandoned Korean countryside. This goal covers one complete,
-polished **Stage 1**, with enemies, a mid-boss, a final boss, power-ups, scoring and a results screen.
+*Orca-class*, pushing through a fungus-infested, abandoned Korean countryside. This goal covers two complete,
+polished stages, **Stage 1** and **Stage 2**, each with enemies, a mid-boss, a final boss, power-ups, scoring and a
+results screen.
 
 The bar: intense, fun, readable, and "one more run" addictive. It must feel hand-made, not like AI slop (see
 [Quality bar](#quality-bar)).
@@ -183,6 +184,76 @@ that attack. It fights in three phases, each with new patterns and visible damag
 
 Readable patterns, fair dodge windows, and no damage-sponge phases.
 
+## Stage 2: Plasmodium (변형체)
+
+Downstream of the breached dam, from night into dawn. The flood has drowned the rice paddies and made a marsh,
+and slime-mould growth crawls over everything wet. It ends at the drainage floodgate (배수갑문) the fungus has
+turned into a fortress. Stage 1 lets the water out; Stage 2 drains it. The stage starts with the RWS fitted and
+the coax at tier 2, whether it follows a Stage 1 clear or is picked on its own.
+
+Korean details: flooded paddies (무논) with dikes (논두렁) and paddy water gates (물꼬), a concrete irrigation canal
+(농수로), a pump house (양수장), white-wrapped silage bales (곤포 사일리지), a rice transplanter (이앙기), a farm hut
+(원두막), scarecrows, a rice mill (정미소) with grain silos, willows, reeds, prickly water lilies (가시연꽃),
+transmission towers standing in the paddies, pink apple-snail eggs, and Stage 1 wreckage floating downstream.
+
+Sections:
+
+1. **Floodplain (범람원):** a quiet opening in night mist over a sheet of shallow water and floating debris.
+2. **Terraced paddies (무논):** each terrace holds its own water; the dikes are dry lanes along the rail. Herons
+   in the plots, spray drones overhead, airboats in the canal.
+3. **Rice mill (정미소), mid-boss:** an infected combine harvester in the mill yard.
+4. **Marsh (늪):** the thickest mist, pools, mud, leeches, lotus mines and methane vents.
+5. **Levee (둑방길):** the heaviest mixed wave, on a raised road with deep water on both sides.
+6. **Boss: floodgate fortress**, in an all-range arena in the flooded basin before the gate.
+7. **Results.**
+
+### Water
+
+Water changes how the tank drives, and every rule is readable on screen:
+
+- Shallow water slows strafing. Deep water slows it more and halves the overdrive refill. Mud makes the hull
+  slide. A HUD glyph shows when the tank is wading or in mud.
+- Fire does not take on water; it goes out in steam. Methane vents ignite each other in a chain. An oil slick
+  from a flooded gas station burns across the water.
+- Crushing a paddy water gate releases a surge down the terraces that damages and shoves enemies. It scores
+  the FLOODED trick.
+- Floating wreckage bobs and drifts. It gives cover to both sides and can be rammed.
+
+### Enemies
+
+| Enemy | Behavior | Telegraph | Counter |
+| --- | --- | --- | --- |
+| Airboat | Skims the water only, swings across lanes, bow gunner fires bursts | Fan roar, rooster-tail spray | APFSDS, ramming, shoot the fan cage |
+| Spray drone | Lays a lingering strip of corrosive spore mist ahead of the tank | Nozzles drip before the spray | Airburst, coax |
+| Heron walker | Stands still on stilts in the paddies, then strikes with its beak lance | Neck coils back, eye flashes, impact circle | Shoot the legs to topple it, tail stab |
+| Canal leech | Hides underwater, latches onto the hull, drains it and slows strafing | Ripple and bubble line racing in | Tail, canister, dry dikes |
+| Snail eggs | Pink egg stalks that hatch crawlers when the tank comes close | Eggs swell and brighten | Coax, dragon's breath on dry ground |
+| Lotus mine | Floating spiked lily pad that arms and detonates on approach | Veins pulse, ticking speeds up | Shoot it first, airburst |
+| Gnat swarm | A dense cloud of fragile micro-drones that saturates the CIWS | High whine | Canister, CIWS, dodge |
+
+### Mid-boss: infected combine harvester
+
+It holds the rail in the mill yard. Its attacks:
+
+- **Mow:** it lines up on the tank's lane, lowers the header and charges while the reel spins up.
+- **Chaff spray:** the auger swings out and sprays a fan of spore grain.
+- **Crawlers:** it drops crawlers from the grain tank once it is hurt.
+
+Its modules can each be shot off. The reel stops the mow, the auger stops the spray, and the tracks slow it. The
+grain tank is the weak point, and HEAT does double damage there.
+
+### Boss: floodgate fortress
+
+A concrete floodgate with four bays, each hosting a battery: quad flak, ATGMs, a mortar and a spore cannon. It
+fights in three phases:
+
+1. **Gates:** the batteries fire in turn. Each destroyed battery breaks its gate open, a torrent rushes out and
+   the basin's water drops a step.
+2. **Drained:** the low water exposes pump intakes that pull the tank in and the fungal core at the foundation.
+   The core spawns leeches, crawlers and gnats.
+3. **Core:** spore geysers erupt at telegraphed circles. Killing the core brings the structure down, the basin
+   drains and the sun rises.
+
 ## Presentation
 
 ### Art direction
@@ -242,7 +313,9 @@ A minimal HUD that uses symbols wherever a symbol suffices: shield and tail icon
 schematic (ERA bricks, tracks, engine, turret, breech, laser, tail, colored by state), shell and bullet glyphs for the
 loaded round and coax guns, a laser heat bar, brake/boost chevrons, score, and the style meter. Title screen, pause,
 settings (language, volume, mouse sensitivity, screen shake, dither intensity, key rebinding), game over with
-instant retry, and a results screen.
+instant retry, and a results screen. Sortie opens a stage select with one square card per stage, showing a
+dithered view of its map and the best score. Every stage can be picked from the start, and a stage's checkpoints
+appear once they have been reached. After a Stage 1 clear, the results screen offers the next stage.
 
 ### Fungus
 
@@ -273,7 +346,8 @@ stage goes on.
 
 ## Done when
 
-- [ ] Stage 1 is playable start to finish: title → stage → mid-boss → boss → results, with no soft-locks.
+- [ ] Stages 1 and 2 are each playable start to finish: title → stage select → stage → mid-boss → boss → results,
+      with no soft-locks.
 - [ ] All listed enemies, the mid-boss, the boss (all three phases), every coax tier, every cannon round and all
       four tail actions are implemented with unique visuals and audio.
 - [ ] Every string is available in Korean and English, and switching language works in-game.
@@ -286,5 +360,5 @@ stage goes on.
 
 ## Out of scope
 
-Stages 2+, a story campaign, online features, a loadout or shop screen, and voice acting (unless decided
+Stages 3+, a story campaign, online features, a loadout or shop screen, and voice acting (unless decided
 otherwise).

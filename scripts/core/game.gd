@@ -6,6 +6,8 @@ const BESTS_PATH := "user://bests.cfg"
 
 enum Difficulty { NORMAL, HARD }
 
+const STAGE_COUNT := 2
+
 ## Default bindings. Each entry is a list of InputEvents; keyboard/mouse events are rebindable.
 ## The keyboard needs only WASD and the mouse: W/S also boost and brake the rail, a double tap
 ## dashes that way (gamepad: shoulder buttons), the left button fires the coax and the right the
@@ -43,9 +45,12 @@ var settings := {
 }
 
 var difficulty := Difficulty.NORMAL
+## The stage being played (1-based); the next stage load uses it.
+var stage := 1
 ## Name of the checkpoint the next stage load starts from; empty means the stage start.
 var checkpoint := ""
 var bests := {}
+var bests_path := BESTS_PATH
 
 
 func _ready() -> void:
@@ -147,7 +152,7 @@ func _set_bus_volume(bus_name: String, value: float) -> void:
 
 func _load_bests() -> void:
 	var file := ConfigFile.new()
-	if file.load(BESTS_PATH) == OK:
+	if file.load(bests_path) == OK:
 		for key in file.get_section_keys("bests"):
 			bests[key] = file.get_value("bests", key)
 
@@ -160,19 +165,29 @@ func submit_best(key: String, value: int) -> bool:
 	var file := ConfigFile.new()
 	for k in bests:
 		file.set_value("bests", k, bests[k])
-	file.save(BESTS_PATH)
+	file.save(bests_path)
 	return true
 
 
+## Progress keys are per stage: Stage 1 keeps its plain names, later stages get an `s<n>_` prefix.
+func stage_key(name: String, stage_number := stage) -> String:
+	return name if stage_number == 1 else "s%d_%s" % [stage_number, name]
+
+
+## Translation key of a stage's own text: Stage 1 keeps its plain names, later stages get `S<n>_`.
+func string_key(name: String, stage_number := stage) -> String:
+	return name if stage_number == 1 else "S%d_%s" % [stage_number, name]
+
+
 func unlock_checkpoint(name: String) -> void:
-	var key := "checkpoint_" + name
+	var key := stage_key("checkpoint_" + name)
 	if not bests.has(key):
 		submit_best(key, 1)
 
 
-func is_checkpoint_unlocked(name: String) -> bool:
-	return bests.has("checkpoint_" + name)
+func is_checkpoint_unlocked(name: String, stage_number := stage) -> bool:
+	return bests.has(stage_key("checkpoint_" + name, stage_number))
 
 
-func best_key(name: String) -> String:
-	return "%s_%s" % [name, "hard" if difficulty == Difficulty.HARD else "normal"]
+func best_key(name: String, stage_number := stage) -> String:
+	return "%s_%s" % [stage_key(name, stage_number), "hard" if difficulty == Difficulty.HARD else "normal"]

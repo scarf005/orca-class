@@ -211,7 +211,7 @@ func take_hit(hit: Hit) -> void:
 ## spores burst out of the wound. A shell blows a crater in it and the whole mass rocks back.
 func _flesh_hit(hit: Hit) -> void:
 	var world := World.current
-	var heavy := hit.kind in [Hit.Kind.SHELL, Hit.Kind.BLAST, Hit.Kind.RAM, Hit.Kind.TAIL, Hit.Kind.THROWN]
+	var heavy := hit.kind in [Hit.Kind.SHELL, Hit.Kind.BLAST, Hit.Kind.RAM, Hit.Kind.TAIL]
 	flash()
 	_shudder = maxf(_shudder, 0.25 if heavy else 0.1)
 	model.position += global_basis.inverse() * hit.direction.normalized() * (1.4 if heavy else 0.3)
@@ -412,7 +412,7 @@ func on_death(_hit: Hit) -> void:
 	world.fx.spores(global_position + Vector3.UP * 4.0, 60, 8.0)
 	world.award(score, global_position + Vector3.UP * 6.0, true)
 	world.style_event("GIANT", 300.0)
-	world.spawn_pickup("coax", Course.ground_at(Course.MIDBOSS_D - 30.0, 6.0) + Vector3.UP)
-	world.spawn_pickup("repair", Course.ground_at(Course.MIDBOSS_D - 30.0, -6.0) + Vector3.UP)
-	world.spawn_pickup("era", Course.ground_at(Course.MIDBOSS_D - 36.0, 0.0) + Vector3.UP)
+	world.spawn_pickup("coax", Course.ground_at(Course.stage.midboss_d - 30.0, 6.0) + Vector3.UP)
+	world.spawn_pickup("repair", Course.ground_at(Course.stage.midboss_d - 30.0, -6.0) + Vector3.UP)
+	world.spawn_pickup("era", Course.ground_at(Course.stage.midboss_d - 36.0, 0.0) + Vector3.UP)
 	Sfx.play("blast", global_position)

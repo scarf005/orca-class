@@ -34,6 +34,7 @@ func start_game(checkpoint: String) -> void:
 	Game.checkpoint = checkpoint
 	var screen := GameScreen.new()
 	screen.checkpoint = checkpoint
+	screen.stage = Game.stage
 	_swap(screen)
 	screen.quit_to_title.connect(show_title)
 	screen.restart.connect(start_game)
@@ -41,6 +42,8 @@ func start_game(checkpoint: String) -> void:
 
 func _swap(screen: Node) -> void:
 	if _screen:
+		# Leave the tree first so the old terrain's worker tasks finish before a new stage rebuilds the course.
+		remove_child(_screen)
 		_screen.queue_free()
 	get_tree().paused = false
 	Engine.time_scale = 1.0

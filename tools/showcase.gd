@@ -1,7 +1,7 @@
 extends Node
 ## Stages a fixed scene and saves screenshots, for checking effects and art without playing.
 ## Usage: xvfb-run -a godot --path . --resolution 960x540 -- --run=res://tools/showcase.gd \
-##        --scene=vfx|fungus|boss --d=620 --shots=0.5,1,2 --out=builds/showcase
+##        --scene=vfx|fungus|boss|enemies|combine --d=620 --shots=0.5,1,2 --out=builds/showcase
 
 var screen: GameScreen
 
@@ -15,6 +15,7 @@ func run() -> int:
 	for s: String in String(args.get("shots", "0.5,1,1.5,2.5")).split(",", false):
 		shots.append(float(s))
 	screen = GameScreen.new()
+	screen.stage = 2 if scene in ["enemies", "combine"] else 1
 	screen.checkpoint = "boss" if scene == "boss" else ""
 	add_child(screen)
 	var world := screen.world
@@ -50,7 +51,13 @@ func run() -> int:
 			_stage_church(world)
 		"boss":
 			# Past the boss event: the director spawns the gunship itself on the next frame.
-			world.rail.d = Course.ARENA_CENTER_D - 60.0
+			world.rail.d = Stage1.ARENA_CENTER_D - 60.0
+		"enemies":
+			await _capture_stage2_enemies(world, out)
+			return 0
+		"combine":
+			await _capture_combine(world, out)
+			return 0
 	var elapsed := 0.0
 	var index := 0
 	while not shots.is_empty():
@@ -65,6 +72,108 @@ func run() -> int:
 			get_viewport().get_texture().get_image().save_png("%s/%s_%d.png" % [out, scene, index])
 			index += 1
 	return 0
+
+
+func _capture_stage2_enemies(world: World, out: String) -> void:
+	# Isolated Stage 2 silhouettes, with a same-ground tank comparison for the tall stilt walker.
+	world.director._next_event = world.director.events.size()
+	world.rail.d = 730.0
+	world.rail.mode = Rail.Mode.HOLD
+	world.rail.hold_at = world.rail.d
+	world.player.input_enabled = false
+	world.player.set_process(false)
+	world.camera.set_process(false)
+	world.props.visible = false # Isolated models, without foreground towers covering the comparison.
+	world.player.course_u = 0.0
+	world.player.course_offset = 4.0
+	world.player._place(world.rail.d)
+	world.player.global_position = Course.ground_at(730.0, -4.0)
+	for old: Entity in world.enemies.duplicate():
+		old.queue_free()
+	await get_tree().process_frame
+	var names := ["airboat", "spray_drone", "heron", "leech", "egg_cluster", "lotus_mine", "gnat"]
+	var paths := Director.ENEMY_SCRIPTS
+	for name: String in names:
+		var enemy: Enemy = load(paths[name]).new()
+		enemy.position = _showcase_enemy_position(name)
+		world.add_enemy(enemy)
+		enemy.set_process(false)
+		await get_tree().process_frame
+		var focus := enemy.hit_center()
+		var distance := 14.0 if name != "heron" else 17.0
+		world.camera.global_position = focus + Vector3(0, maxf(3.5, enemy.center_height * 0.35), distance)
+		world.camera.look_at(focus, Vector3.UP)
+		await get_tree().create_timer(0.3).timeout
+		get_viewport().get_texture().get_image().save_png("%s/stage2-%s.png" % [out, name])
+		if name == "heron":
+			world.player.global_position = enemy.global_position + Vector3.RIGHT * 6.0
+			world.player.global_position.y = enemy.global_position.y
+			var comparison := enemy.global_position + Vector3(3, 4.5, 0)
+			world.camera.global_position = comparison + Vector3(14, 6, 23)
+			world.camera.look_at(comparison, Vector3.UP)
+			await get_tree().create_timer(0.3).timeout
+			get_viewport().get_texture().get_image().save_png("%s/stage2-heron-scale.png" % out)
+		enemy.queue_free()
+		await get_tree().process_frame
+
+
+## Staged attack/death stills, using the real mill yard and the combine's actual warning paths.
+func _capture_combine(world: World, out: String) -> void:
+	world.rail.d = Stage2.MIDBOSS_D - Combine.STANDOFF
+	world.rail.hold_at = world.rail.d
+	world.director.scenery.stream(world.rail.d, 100000)
+	world.terrain.stream(world.rail.d, true)
+	world.player._place(world.rail.d)
+	world.player.set_process(false)
+	world.camera.set_process(false)
+	var boss := Combine.new()
+	boss.position = Course.ground_at(Stage2.MIDBOSS_D, 0.0)
+	world.add_enemy(boss)
+	boss.set_process(false)
+	var focus := boss.global_position + Vector3.UP * 4.0
+	world.camera.global_position = focus - Course.forward(Stage2.MIDBOSS_D) * 27.0 + Course.right(Stage2.MIDBOSS_D) * 15.0 + Vector3.UP * 10.0
+	world.camera.look_at(focus)
+	# Let the sortie/section call-outs clear so they do not cover the grain tank.
+	await get_tree().create_timer(3.0).timeout
+	get_viewport().get_texture().get_image().save_png("%s/combine-model.png" % out)
+	boss._start_mow(world.player)
+	boss.behave(0.55)
+	await get_tree().create_timer(0.25).timeout
+	get_viewport().get_texture().get_image().save_png("%s/combine-mow-telegraph.png" % out)
+	boss._end_attack()
+	await get_tree().create_timer(1.0).timeout
+	boss._start_chaff(world.player)
+	boss.behave(0.6)
+	await get_tree().create_timer(0.25).timeout
+	get_viewport().get_texture().get_image().save_png("%s/combine-chaff-telegraph.png" % out)
+	boss.behave(0.21)
+	await get_tree().create_timer(0.12).timeout
+	get_viewport().get_texture().get_image().save_png("%s/combine-chaff-fan.png" % out)
+	await get_tree().create_timer(1.0).timeout
+	var hit := Hit.make(Hit.Kind.SHELL, 99999.0, boss.aim_parts().grain[0], Course.forward(Stage2.MIDBOSS_D))
+	hit.source = world.player
+	boss.take_hit(hit)
+	await get_tree().create_timer(0.18).timeout
+	get_viewport().get_texture().get_image().save_png("%s/combine-death.png" % out)
+	boss.behave(1.1)
+	await get_tree().create_timer(0.16).timeout
+	get_viewport().get_texture().get_image().save_png("%s/combine-wreck.png" % out)
+
+
+func _showcase_enemy_position(name: String) -> Vector3:
+	var d := 742.0
+	var p: Vector3
+	match name:
+		"airboat", "leech", "lotus_mine":
+			p = Course.to_world(d, -30.0)
+			p.y = Water.surface_at(p) - (0.15 if name == "airboat" else -0.04)
+		"spray_drone":
+			p = Course.ground_at(d, 0.0) + Vector3.UP * 8.0
+		"gnat":
+			p = Course.ground_at(d, 0.0) + Vector3.UP * 4.0
+		_:
+			p = Course.ground_at(d, 0.0)
+	return p
 
 
 func _stage_vfx(world: World) -> void:
