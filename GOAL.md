@@ -82,15 +82,13 @@ The tail carries no weapon (orca-class's 3 MW tail laser is dropped). The driver
 turret, so the tail needs no button: it acts on its own, with a short cooldown, and should feel alive, whipping,
 coiling and lashing with visible muscle and follow-through. Priorities:
 
-1. **Throw:** a held enemy dangles briefly, then is flung at the aimed target (or the nearest enemy ahead).
-   Thrown enemies are projectiles that damage what they hit.
-2. **Swat:** a diving drone or a swelling crawler close to the hull is batted away first (a "deflect").
-3. **Snatch:** a power-up in reach is yanked straight to the tank.
-4. **Grab / stab:** small enemies in reach are grabbed; large ones are stabbed, which staggers them and interrupts
+1. **Swat:** a diving drone or a swelling crawler close to the hull is batted away first (a "deflect").
+2. **Snatch:** a power-up in reach is yanked straight to the tank.
+3. **Stab:** enemies in reach are stabbed, which kills small ones outright and staggers large ones, interrupting
    telegraphed attacks.
 
 The tail also powers the **dash**: double-tap a direction and the claw kicks off the ground to hurl the hull that
-way. Sideways it dodges and lashes anything beside the hull (or hurls what the claw holds), forward it surges the
+way. Sideways it dodges and lashes anything beside the hull (a pickup the claw carries is delivered at once), forward it surges the
 rail, back it digs in to a near-instant stop. Each gives a brief dodge window and gouges the terrain.
 
 Controls are WASD and the mouse only: W/S steer forward and back and double as boost and brake, the left button
@@ -165,7 +163,7 @@ Each enemy has a distinct silhouette, a clear telegraph before it attacks, a sat
 | Attack helicopter | Paces the tank through the village, reservoir and overpass; alternates gun bursts and rocket pairs | Chin-gun sight beam before firing | A few coax hits, any cannon round; CIWS catches rockets |
 | Fungal crawler | Swarms over terrain; bursts into spores | Swells and brightens before bursting | Dragon's breath, ramming |
 | Spore spitter | Rooted; lobs arcing spore mortars | Glowing sac inflates | Any cannon round |
-| Bipedal walker | Reverse-jointed legs with wheeled feet; skates between lanes, then plants and fires a 15 mm burst or a missile pair | Crouches, eye flashes | Shoot the legs to topple it; grab and throw |
+| Bipedal walker | Reverse-jointed legs with wheeled feet; skates between lanes, then plants and fires a 15 mm burst or a missile pair | Crouches, eye flashes | Shoot the legs to topple it; tail stab |
 | Quad mech | Heavy four-legged walker with a quad 20 mm flak turret or a mortar | Barrels spin up / impact circles | Shoot legs off (two lost: it collapses) or the turret |
 | Fungal colossus (mid-boss) | Large rooted mass; tendril sweeps, spore barrages, spawns crawlers | Tendrils rear up; the ground cracks along the sweep line | Burn the weak points, then shoot the core |
 
@@ -222,7 +220,7 @@ turrets blow off and cartwheel away. A strict color language makes sides readabl
 is warm yellow, every enemy shot is hot pink-red with an orange rim, the rim on every enemy is hot pink-red, and loot
 is cyan (a beacon pillar and ring). Projectiles use these saturated accents with ink outlines so they cut through the pastel scene. A style meter ranks play from D to SSS and multiplies score:
 
-- Kills are named by how they happened (crushed, tail whip, thrown, burned, airburst, sky shot, collateral from a
+- Kills are named by how they happened (crushed, tail whip, burned, airburst, sky shot, collateral from a
   wreck the tank set off, multikill, deflect, demolition, close call). Repeating the same trick earns less.
 - Style drains over time and when the tank is hit.
 - From rank B up, mayhem patches the hull a little.
@@ -283,7 +281,7 @@ stage goes on.
 - [ ] Keyboard + mouse and gamepad both work, including rebinding.
 - [ ] 60 FPS in the heaviest wave (overpass) and the boss fight on the target hardware.
 - [ ] Headless tests cover weapon damage and counters, coax tier up/down, round magazines, CIWS heat and
-      intercepts, tail grab/throw/snatch/anchor, boss phase transitions, checkpoint and retry, and score/rank calculation.
+      intercepts, tail swat/snatch/stab/anchor, boss phase transitions, checkpoint and retry, and score/rank calculation.
 - [ ] A full playtest pass is recorded, with the tuning changes it caused.
 
 ## Out of scope
