@@ -1,19 +1,22 @@
 extends Node
 ## Renders the course from a camera at given distances and saves dithered screenshots.
-## Usage: xvfb-run -a godot --path . -- --run=res://tools/capture_course.gd --d=0,600 --out=builds/shots [--top] [--stage=2] [--props]
+## Usage: xvfb-run -a godot --path . -- --run=res://tools/capture_course.gd --d=600 --out=assets/ui/stage1.png [--stage=1] [--square] [--size=256] [--props]
+## Regenerate stage maps: xvfb-run -a godot --path . -- --run=res://tools/capture_course.gd --stage=1 --d=700 --u=8 --h=5 --props --square --size=256 --out=assets/ui/stage1.png and
+## xvfb-run -a godot --path . -- --run=res://tools/capture_course.gd --stage=2 --d=1500 --u=-10 --h=5 --props --square --size=256 --out=assets/ui/stage2.png (run `just stage-thumbnails`).
 
 
 func run() -> int:
 	var args: Dictionary = preload("res://scripts/main.gd").args()
 	var out: String = args.get("out", "builds/shots")
-	DirAccess.make_dir_recursive_absolute(out)
+	DirAccess.make_dir_recursive_absolute(out.get_base_dir() if args.has("square") else out)
 	var view := DitherView.new()
 	add_child(view)
 	var world := World.new()
 	world.stage_number = int(args.get("stage", "1"))
 	view.viewport.add_child(world)
-	var scenery := Scenery.new()
+	var scenery: Scenery
 	if args.has("props"):
+		scenery = Scenery.new()
 		world.add_child(scenery)
 		scenery.build()
 	for d_text: String in String(args.get("d", "0")).split(","):
@@ -21,7 +24,8 @@ func run() -> int:
 		world.rail.d = d
 		var start := Time.get_ticks_msec()
 		world.terrain.stream(d, true)
-		scenery.stream(d, 100000)
+		if args.has("props"):
+			scenery.stream(d, 100000)
 		print("stream ms ", Time.get_ticks_msec() - start)
 		if args.has("top"):
 			# Straight down from high above, road running up the frame, to show its shape.
@@ -33,9 +37,19 @@ func run() -> int:
 			eye.y += float(args.get("h", "7"))
 			world.camera.position = eye
 			world.camera.look_at(Course.ground_at(d + 30.0, 0.0) + Vector3.UP * 1.5)
-		for _i in 4:
+		for _i in 30:
 			await get_tree().process_frame
-		get_viewport().get_texture().get_image().save_png("%s/course_%04d.png" % [out, int(d)])
-		view.viewport.get_texture().get_image().save_png("%s/raw_%04d.png" % [out, int(d)])
+		var image := get_viewport().get_texture().get_image()
+		if args.has("square"):
+			var side := mini(image.get_width(), image.get_height())
+			var region := image.get_region(Rect2i((image.get_width() - side) / 2, (image.get_height() - side) / 2, side, side))
+			var output_size := int(args.get("size", "256"))
+			# The course is already dithered at 960x540; Lanczos averages the Bayer cells instead of
+			# copying a repeating 2x2 checker into the square thumbnail.
+			region.resize(output_size, output_size, Image.INTERPOLATE_LANCZOS)
+			region.save_png(out)
+		else:
+			image.save_png("%s/course_%04d.png" % [out, int(d)])
+			view.viewport.get_texture().get_image().save_png("%s/raw_%04d.png" % [out, int(d)])
 		print("saved ", d)
 	return 0

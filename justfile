@@ -81,6 +81,12 @@ strings:
 audio:
     uv run --with numpy tools/audio.py
 
+# Regenerate the square stage-select map thumbnails.
+stage-thumbnails: import
+    mkdir -p assets/ui
+    xvfb-run -a {{ quote(godot) }} --path . -- --run=res://tools/capture_course.gd --stage=1 --d=700 --u=8 --h=5 --props --square --size=256 --out=assets/ui/stage1.png
+    xvfb-run -a {{ quote(godot) }} --path . -- --run=res://tools/capture_course.gd --stage=2 --d=1500 --u=-10 --h=5 --props --square --size=256 --out=assets/ui/stage2.png
+
 # Measure terrain streaming CPU timings.
 benchmark: import
     {{ quote(godot) }} --headless --path . -- --run=res://tools/benchmark.gd
