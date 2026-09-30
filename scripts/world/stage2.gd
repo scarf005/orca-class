@@ -173,7 +173,7 @@ func height(d: float, u: float) -> float:
 func _surface(d: float, u: float, h: float) -> float:
 	var surface := -INF
 	var au := absf(u)
-	if _basin(d, u) < 5.0 and d > ARENA_CENTER_D - 100.0:
+	if _in_basin(d, u):
 		surface = arena_level
 	elif d >= WET_D.x and d <= WET_D.y and au <= WET_U and (d > 1230.0 or u < CANAL_U.y + 3.0 and u > CANAL_U.x - 3.0):
 		surface = LEVEL
@@ -182,6 +182,11 @@ func _surface(d: float, u: float, h: float) -> float:
 	elif d < 410.0 and au < valley_half_width(d):
 		surface = FLOOD_LEVEL
 	return surface if surface > h else -INF
+
+
+## Whether (d, u) lies in the arena basin the floodgate holds back.
+func _in_basin(d: float, u: float) -> bool:
+	return _basin(d, u) < 5.0 and d > ARENA_CENTER_D - 100.0
 
 
 func water_surface(c: Vector2) -> float:
@@ -198,14 +203,15 @@ func mud_at(d: float, u: float) -> bool:
 	return zone > 0.5 and _mud.get_noise_2d(d, u) > 0.25
 
 
-## Flat meshes over the deep water: the canal, marsh and levee, and the arena basin. Shallow water
-## is painted ground instead. Built at height 0; `water_level` places each.
+## Flat meshes over the deep water of the canal, marsh and levee, and over the whole flooded arena
+## basin: the boss drains it, so its floor is painted silt and only the mesh shows water. Shallow
+## water elsewhere is painted ground instead. Built at height 0; `water_level` places each.
 func water_meshes() -> Array[ArrayMesh]:
-	return [_cells(WET_D.x, WET_D.y), _cells(ARENA_CENTER_D - 100.0, GATE_D + 6.0)]
+	return [_cells(WET_D.x, WET_D.y), _cells(ARENA_CENTER_D - 100.0, GATE_D + 6.0, true)]
 
 
-## Quads over every grid cell with deep water in it.
-func _cells(d0: float, d1: float) -> ArrayMesh:
+## Quads over every grid cell with deep water in it, or, for the `basin`, any water at its full level.
+func _cells(d0: float, d1: float, basin := false) -> ArrayMesh:
 	var triangles := PackedVector3Array()
 	var d := d0
 	while d < d1:
@@ -216,7 +222,7 @@ func _cells(d0: float, d1: float) -> ArrayMesh:
 				var cd: float = d + corner.x
 				var cu: float = u + corner.y
 				var h := height(cd, cu)
-				if _surface(cd, cu, h) - h > Water.DEEP * 0.75:
+				if (_in_basin(cd, cu) and LEVEL > h) if basin else (_surface(cd, cu, h) - h > Water.DEEP * 0.75):
 					deep = true
 					break
 			if deep:
@@ -256,6 +262,8 @@ func ground_color(d: float, u: float, h: float, slope: float) -> Color:
 		color = Palette.PINE if slope < 0.9 else Palette.MOSS
 	elif band(d, CANAL_D.x - 10.0, CANAL_D.x + 10.0, CANAL_D.y - 10.0, CANAL_D.y + 10.0) > 0.3 and u > CANAL_U.x - 3.0 and u < CANAL_U.y + 3.0:
 		color = Palette.CONCRETE
+	elif _in_basin(d, u) and h < LEVEL:
+		color = Palette.OCHRE if h > LEVEL - 0.7 else Palette.STONE # Silt, under water until the gate falls.
 	elif mud_at(d, u) and depth < Water.DEEP:
 		color = Palette.OCHRE
 	elif depth > 0.0:
@@ -272,7 +280,7 @@ func ground_color(d: float, u: float, h: float, slope: float) -> Color:
 		color = Palette.MOSS if h > LEVEL else Palette.PINE
 	elif d > 2280.0:
 		color = Palette.STONE
-	if fungus_at(d, u) > 0.5 and depth <= 0.0 and rise < 0.35:
+	if fungus_at(d, u) > 0.5 and depth <= 0.0 and rise < 0.35 and not (_in_basin(d, u) and h < LEVEL):
 		color = Palette.FUNGUS if fungus_at(d, u) > 0.8 else Palette.LILAC
 	return color
 
