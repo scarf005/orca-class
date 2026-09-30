@@ -126,9 +126,9 @@ func test_every_ground_impact_ignites_a_zone_with_the_new_stats() -> void:
 	check_near(FireZone._zones[0].life, 6.0, 0.001, "for six seconds")
 	check_eq(FireZone.RADIUS, 3.5, "3.5 m wide")
 	check_eq(FireZone.DAMAGE_PER_SECOND, 20.0, "and 20 damage a second")
-	var victim := Ugv.new()
-	FireZone.on_flame_impact(null, _ahead(tank, 60.0), victim)
-	victim.free()
+	var victim := _ugv_at(world, tank, 60.0)
+	FireZone.on_flame_impact(null, victim.global_position, victim)
+	victim.queue_free()
 	check_eq(FireZone._zones.size(), 1, "a flame that hits an enemy leaves no fire on the ground")
 	var ugv := _ugv_at(world, tank, 40.0)
 	ugv.position = spot
