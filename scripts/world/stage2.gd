@@ -29,6 +29,9 @@ const PLAN := [
 ## The arena's water surface. Setting it moves both the water query and the mesh.
 var arena_level := LEVEL
 
+## How far the sun has come up (0 to 1) beyond the arena's early light; the boss fight pushes it to 1.
+var dawn := 0.0
+
 var _noise := make_noise(31, 0.004)
 var _detail := make_noise(37, 0.05)
 var _fungus := make_noise(41, 0.018)
@@ -43,20 +46,33 @@ func _init() -> void:
 	checkpoints = {"": 0.0, "midboss": MIDBOSS_D - 110.0, "boss": SECTION_STARTS[Section.ARENA] - 40.0}
 	start_rws = true
 	water_slows = true
+	dynamic_look = true
 	coax_tiers = {"": 2, "midboss": 2, "boss": 3}
 	midboss_d = MIDBOSS_D
 	arena_center_d = ARENA_CENTER_D
 	arena_radius = ARENA_RADIUS
-	sky_top = Color("7f8fd0")
-	sky_horizon = Color("ecc9d6")
-	sky_ground = Color("a898d8")
-	ambient = Color("a8a0d0")
-	fog_color = Color("dccadc")
-	fog_begin = 60.0
-	fog_end = 320.0
-	sun_rotation = Vector3(-24.0, 200.0, 0.0)
-	sun_color = Color("ffe0d0")
-	sun_energy = 0.95
+
+
+## Night on the floodplain, a lilac pre-dawn at the mill, thick mist in the marsh, a peach sky over
+## the levee and the arena, and full sunrise once `dawn` is 1.
+const LOOKS := [
+	[0.0, {"sky_top": Color("2f3a80"), "sky_horizon": Color("7f78c0"), "sky_ground": Color("50467e"), "ambient": Color("6f76c0"), "ambient_energy": 0.45, "fog_color": Color("8a84bc"), "fog_begin": 30.0, "fog_end": 230.0, "sun_rotation": Vector3(-34.0, 125.0, 0.0), "sun_color": Color("b4c0ff"), "sun_energy": 0.55}],
+	[1000.0, {"sky_top": Color("505fb0"), "sky_horizon": Color("d08fb4"), "sky_ground": Color("7462a4"), "ambient": Color("948cc4"), "ambient_energy": 0.5, "fog_color": Color("b49cbc"), "fog_begin": 40.0, "fog_end": 250.0, "sun_rotation": Vector3(-31.0, 125.0, 0.0), "sun_color": Color("f0c0c0"), "sun_energy": 0.7}],
+	[1500.0, {"sky_top": Color("6472bc"), "sky_horizon": Color("eeb4a8"), "sky_ground": Color("8c72a8"), "ambient": Color("9c94c8"), "ambient_energy": 0.5, "fog_color": Color("c4b4cc"), "fog_begin": 12.0, "fog_end": 130.0, "sun_rotation": Vector3(-29.0, 125.0, 0.0), "sun_color": Color("f4c4b0"), "sun_energy": 0.75}],
+	[2000.0, {"sky_top": Color("7f90d2"), "sky_horizon": Color("f6c0a4"), "sky_ground": Color("b08cb0"), "ambient": Color("b0a0c8"), "ambient_energy": 0.52, "fog_color": Color("dcc0c8"), "fog_begin": 40.0, "fog_end": 250.0, "sun_rotation": Vector3(-27.0, 125.0, 0.0), "sun_color": Color("fac8a0"), "sun_energy": 0.85}],
+	[2300.0, {"sky_top": Color("8ea2e6"), "sky_horizon": Color("ffcfa8"), "sky_ground": Color("d8a8b8"), "ambient": Color("c4acc8"), "ambient_energy": 0.55, "fog_color": Color("f0ccc0"), "fog_begin": 60.0, "fog_end": 360.0, "sun_rotation": Vector3(-25.0, 125.0, 0.0), "sun_color": Color("ffd4a8"), "sun_energy": 0.95}],
+]
+const SUNRISE := {"sky_top": Color("93b0ee"), "sky_horizon": Color("ffdcae"), "sky_ground": Color("f0bcb8"), "ambient": Color("d8b8c8"), "ambient_energy": 0.6, "fog_color": Color("f8d8c0"), "fog_begin": 80.0, "fog_end": 420.0, "sun_rotation": Vector3(-22.0, 125.0, 0.0), "sun_color": Color("fff0d0"), "sun_energy": 1.15}
+
+
+func look_at(d: float) -> Dictionary:
+	var look := blend_looks(LOOKS, d)
+	if dawn <= 0.0:
+		return look
+	var lit := {}
+	for key: String in look:
+		lit[key] = lerp(look[key], SUNRISE[key], dawn)
+	return lit
 
 
 func music(section: int) -> String:
@@ -236,7 +252,7 @@ func ground_color(d: float, u: float, h: float, slope: float) -> Color:
 	elif mud_at(d, u) and depth < Water.DEEP:
 		color = Palette.OCHRE
 	elif depth > 0.0:
-		color = Palette.SKY if depth < 0.4 else Palette.TEAL
+		color = Palette.SLATE if depth < 0.4 else Palette.DUSK # Ground colours read lighter than they are; these come out as water.
 	elif band(d, 990.0, 1030.0, 1270.0, 1300.0) > 0.5 and au < 70.0:
 		color = Palette.CONCRETE if au < 6.0 or fposmod(d, 30.0) < 3.0 else Palette.OCHRE
 	elif au < 6.0 and section_at(d) != Section.PADDIES:
@@ -244,7 +260,7 @@ func ground_color(d: float, u: float, h: float, slope: float) -> Color:
 		if absf(u) < 0.25 and fposmod(d, 12.0) < 6.0 and section_at(d) >= Section.PADDIES:
 			color = Palette.BUTTER
 	elif section_at(d) == Section.PADDIES:
-		color = Palette.LEAF if h > _terrace(au) + 0.2 else Palette.BUTTER
+		color = Palette.SAGE if h > _terrace(au) + 0.2 else Palette.STRAW
 	elif section_at(d) == Section.MARSH:
 		color = Palette.MOSS if h > LEVEL else Palette.PINE
 	elif d > 2280.0:

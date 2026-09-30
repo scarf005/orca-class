@@ -27,6 +27,7 @@ var rail := Rail.new()
 var stats := RunStats.new()
 var player: Tank
 var director: Director
+var sky_material := ProceduralSkyMaterial.new()
 var view: DitherView ## Set by whoever displays the world; used for screen flashes.
 var stage_number := 1 ## Set before the world enters the tree: the stage whose course and look it uses.
 
@@ -90,6 +91,8 @@ func _process(delta: float) -> void:
 		if is_instance_valid(projectile) and not projectile.is_queued_for_deletion():
 			projectile.step(step)
 	terrain.stream(rail.d)
+	if Course.stage.dynamic_look:
+		_apply_look(Course.stage.look_at(rail.d))
 	stats.tick(step)
 
 
@@ -372,9 +375,24 @@ func screen_flash(color: Color, amount: float) -> void:
 		view.flash(color, amount)
 
 
+## Sets the sky, fog and sun from a `StageDef.look_at` dictionary.
+func _apply_look(look: Dictionary) -> void:
+	sky_material.sky_top_color = look.sky_top
+	sky_material.sky_horizon_color = look.sky_horizon
+	sky_material.ground_horizon_color = look.sky_horizon
+	sky_material.ground_bottom_color = look.sky_ground
+	environment.ambient_light_color = look.ambient
+	environment.ambient_light_energy = look.ambient_energy
+	environment.fog_light_color = look.fog_color
+	environment.fog_depth_begin = look.fog_begin
+	environment.fog_depth_end = look.fog_end
+	sun.rotation_degrees = look.sun_rotation
+	sun.light_color = look.sun_color
+	sun.light_energy = look.sun_energy
+
+
 func _setup_environment() -> void:
 	var stage := Course.stage
-	var sky_material := ProceduralSkyMaterial.new()
 	sky_material.sky_top_color = stage.sky_top
 	sky_material.sky_horizon_color = stage.sky_horizon
 	sky_material.ground_horizon_color = stage.sky_horizon
@@ -414,3 +432,5 @@ func _setup_environment() -> void:
 	sun.directional_shadow_max_distance = 140.0
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	add_child(sun)
+	if stage.dynamic_look:
+		_apply_look(stage.look_at(rail.d))

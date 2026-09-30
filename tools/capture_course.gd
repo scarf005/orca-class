@@ -1,6 +1,6 @@
 extends Node
 ## Renders the course from a camera at given distances and saves dithered screenshots.
-## Usage: xvfb-run -a godot --path . -- --run=res://tools/capture_course.gd --d=0,600 --out=builds/shots [--top] [--stage=2]
+## Usage: xvfb-run -a godot --path . -- --run=res://tools/capture_course.gd --d=0,600 --out=builds/shots [--top] [--stage=2] [--props]
 
 
 func run() -> int:
@@ -12,11 +12,16 @@ func run() -> int:
 	var world := World.new()
 	world.stage_number = int(args.get("stage", "1"))
 	view.viewport.add_child(world)
+	var scenery := Scenery.new()
+	if args.has("props"):
+		world.add_child(scenery)
+		scenery.build()
 	for d_text: String in String(args.get("d", "0")).split(","):
 		var d := float(d_text)
 		world.rail.d = d
 		var start := Time.get_ticks_msec()
 		world.terrain.stream(d, true)
+		scenery.stream(d, 100000)
 		print("stream ms ", Time.get_ticks_msec() - start)
 		if args.has("top"):
 			# Straight down from high above, road running up the frame, to show its shape.

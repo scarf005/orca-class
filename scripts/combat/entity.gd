@@ -167,6 +167,8 @@ func show_damage(delta: float, size: float) -> void:
 func wade(delta: float, moving: Vector3, size: float) -> void:
 	var surface := -INF if flying else Water.surface_at(global_position)
 	var wet := surface > global_position.y
+	# Shallows raise less water than a deep ford.
+	size *= lerpf(0.4, 1.0, clampf((surface - global_position.y) / Water.DEEP, 0.0, 1.0))
 	if wet and not _wet:
 		World.current.fx.splash(global_position, size, surface)
 		Sfx.play("squelch", global_position, -4.0, 0.6)

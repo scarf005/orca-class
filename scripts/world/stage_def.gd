@@ -27,6 +27,7 @@ var fog_end := 420.0
 var sun_rotation := Vector3(-32.0, 125.0, 0.0)
 var sun_color := Color.WHITE
 var sun_energy := 1.0
+var dynamic_look := false ## Whether the look changes along the course: `look_at` then drives it.
 
 
 func section_at(d: float) -> int:
@@ -82,6 +83,29 @@ func mud_at(_d: float, _u: float) -> bool:
 
 func events(_hard: bool) -> Array[Dictionary]:
 	return []
+
+
+## The sky, fog and sun at course distance d, as a dictionary of the look fields above (`sky_top`,
+## `sky_horizon`, `sky_ground`, `ambient`, `ambient_energy`, `fog_color`, `fog_begin`, `fog_end`,
+## `sun_rotation`, `sun_color`, `sun_energy`). Only stages with `dynamic_look` are asked.
+func look_at(_d: float) -> Dictionary:
+	return {}
+
+
+## Blends keyframes `[[d, look], ...]` (sorted by d) into the look at `d`.
+static func blend_looks(keys: Array, d: float) -> Dictionary:
+	if d <= keys[0][0]:
+		return keys[0][1]
+	for i in range(1, keys.size()):
+		if d <= keys[i][0]:
+			var a: Array = keys[i - 1]
+			var b: Array = keys[i]
+			var t := smoothstep(0.0, 1.0, (d - a[0]) / (b[0] - a[0]))
+			var result := {}
+			for key: String in a[1]:
+				result[key] = lerp(a[1][key], b[1][key], t)
+			return result
+	return keys[-1][1]
 
 
 ## Music track for a section; empty leaves the current music (the boss event starts its own).

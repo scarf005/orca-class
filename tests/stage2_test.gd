@@ -143,7 +143,8 @@ func test_stage_2_starts_with_rws_and_second_tier_coax() -> void:
 func test_stage_2_world_uses_its_own_look_and_scenery() -> void:
 	var world := stage("", true, 2)
 	check_eq(Course.stage.number, 2, "the world switched the course")
-	check_near(world.environment.fog_depth_end, Course.stage.fog_end, 0.001, "fog from the stage")
+	await frames(2)
+	check_near(world.environment.fog_depth_end, Course.stage.look_at(world.rail.d).fog_end, 0.001, "fog from the stage's look")
 	check(world.environment.fog_depth_end < 420.0, "closer than stage 1's")
 	check(not world.director.scenery.specs.is_empty(), "the stage has scenery")
 	check(world.director.scenery.specs.all(func(s: Scenery.Spec) -> bool: return s.d < 2600.0), "and none of stage 1's dam or highway")
@@ -334,3 +335,43 @@ func test_stage_2_banners_and_strings() -> void:
 	world.director.section_changed.connect(func(section: int) -> void: banners.append(section))
 	await wait_until(func() -> bool: return banners.size() > 0, 60 * 6)
 	check_eq(banners, [Stage2.Section.ARENA], "the director announces stage 2's sections")
+
+
+func test_stage_2_look_runs_from_night_through_a_thick_marsh_to_dawn() -> void:
+	Course.use(2)
+	var stage_2 := Course.stage as Stage2
+	var night := stage_2.look_at(0.0)
+	var dawn := stage_2.look_at(2400.0)
+	var marsh := stage_2.look_at(1500.0)
+	check(night.sun_energy < dawn.sun_energy, "the light grows toward the arena (%.2f to %.2f)" % [night.sun_energy, dawn.sun_energy])
+	check(night.sky_top.get_luminance() < dawn.sky_top.get_luminance(), "the sky brightens")
+	check(night.sky_horizon.r < night.sky_horizon.b and dawn.sky_horizon.r > dawn.sky_horizon.b, "from blue to peach at the horizon")
+	check(marsh.fog_end < night.fog_end and marsh.fog_end < dawn.fog_end, "the marsh mist is the thickest (%.0f m)" % marsh.fog_end)
+	check(marsh.fog_end < stage_2.look_at(1000.0).fog_end and marsh.fog_end < stage_2.look_at(2000.0).fog_end, "thicker than at either side of it")
+	check_eq(stage_2.look_at(-100.0), night, "before the start it is night")
+	check_eq(stage_2.look_at(9000.0), stage_2.look_at(2300.0), "past the arena it holds")
+	var previous := stage_2.look_at(0.0)
+	var d := 10.0
+	while d < 2400.0:
+		var look := stage_2.look_at(d)
+		check(absf(look.fog_end - previous.fog_end) < 30.0 and absf(look.sun_energy - previous.sun_energy) < 0.05, "the look changes smoothly at %.0f" % d)
+		previous = look
+		d += 10.0
+	stage_2.dawn = 1.0
+	var sunrise := stage_2.look_at(2400.0)
+	check(sunrise.sun_energy > dawn.sun_energy and sunrise.sky_top.get_luminance() > dawn.sky_top.get_luminance(), "the sun comes up when dawn is set")
+	check_eq(Stage1.new().look_at(1000.0), {}, "stage 1 keeps its constant look")
+	check(not Stage1.new().dynamic_look, "and does not ask")
+
+
+func test_the_world_follows_the_look_along_the_course() -> void:
+	var world := stage("", true, 2)
+	await frames(2)
+	var night_fog := world.environment.fog_depth_end
+	world.rail.d = 1500.0
+	await frames(2)
+	check(world.environment.fog_depth_end < night_fog, "the mist thickens by the marsh (%.0f to %.0f)" % [night_fog, world.environment.fog_depth_end])
+	check_near(world.sun.light_energy, Course.stage.look_at(1500.0).sun_energy, 0.01, "and the sun follows")
+	var lake := stage("", true, 1)
+	await frames(2)
+	check_near(lake.environment.fog_depth_end, 420.0, 0.001, "stage 1 keeps its fog")
