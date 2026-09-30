@@ -62,6 +62,19 @@ func test_heading_clears_the_actual_fps_rect_in_both_locales() -> void:
 		check(not heading_rect.intersects(fps_rect), "%s stage title clears the FPS counter and its outline" % locale)
 	TranslationServer.set_locale(saved_locale)
 
+func test_stage_cards_use_native_map_size_and_nearest_filtering() -> void:
+	_title = StageSelect.new()
+	add_child(_title)
+	check_eq(_title.texture_filter, CanvasItem.TEXTURE_FILTER_NEAREST, "card explicitly uses nearest filtering")
+	for map: Texture2D in StageSelect.MAPS:
+		check_eq(map.get_size(), StageSelect.CARD_SIZE, "map is drawn at 1:1 native pixel size")
+	await frames(2)
+	var select := _title as StageSelect
+	var before := select._cards.duplicate()
+	select._unhandled_input(_key(KEY_D))
+	await frames(2)
+	check_eq(select._cards, before, "changing focus never resizes the map rectangles")
+
 func test_stage_maps_preserve_the_dither_palette_at_native_size() -> void:
 	for number in [1, 2]:
 		var image := Image.new()

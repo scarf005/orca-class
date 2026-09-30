@@ -1,6 +1,6 @@
 extends Node
 ## Renders the course from a camera at given distances and saves dithered screenshots.
-## Usage: xvfb-run -a godot --path . -- --run=res://tools/capture_course.gd --d=600 --out=assets/ui/stage1.png [--stage=1] [--square] [--size=256] [--props]
+## Usage: xvfb-run -a godot --path . -- --run=res://tools/capture_course.gd --d=600 --out=assets/ui/stage1.png [--stage=1] [--square] [--size=256] [--props] [--reference=frame.png]
 ## Regenerate stage maps: xvfb-run -a godot --path . -- --run=res://tools/capture_course.gd --stage=1 --d=700 --u=8 --h=5 --props --square --size=256 --out=assets/ui/stage1.png and
 ## xvfb-run -a godot --path . -- --run=res://tools/capture_course.gd --stage=2 --d=1500 --u=-10 --h=5 --props --square --size=256 --out=assets/ui/stage2.png (run `just stage-thumbnails`).
 
@@ -9,26 +9,11 @@ func run() -> int:
 	var args: Dictionary = preload("res://scripts/main.gd").args()
 	var out: String = args.get("out", "builds/shots")
 	DirAccess.make_dir_recursive_absolute(out.get_base_dir() if args.has("square") else out)
-	var output: Viewport = get_viewport()
 	var output_size := int(args.get("size", "256"))
-	if args.has("square"):
-		var square := SubViewport.new()
-		square.size = Vector2i(output_size, output_size)
-		square.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-		add_child(square)
-		output = square
 	var view := DitherView.new()
-	if args.has("square"):
-		output.add_child(view)
-	else:
-		add_child(view) # The root viewport is still setting up its children during Main._ready.
-	if args.has("square"):
-		# Quantize at the final size: resampling the shader output blends palette colors
-		# and erases its Bayer pattern. Capture the composed DitherView, never its raw texture.
-		view.viewport.size = Vector2i(output_size, output_size)
-		view.mask.size = view.viewport.size
-		for mask in view.class_masks:
-			mask.size = view.viewport.size / 2
+	add_child(view)
+	# Keep the game's native 960x540 view and shader grid. A square is a crop of the
+	# final displayed frame, not a smaller render or a resampled Bayer pattern.
 	var world := World.new()
 	world.stage_number = int(args.get("stage", "1"))
 	view.viewport.add_child(world)
@@ -58,9 +43,16 @@ func run() -> int:
 		for _i in 30:
 			await get_tree().process_frame
 		await RenderingServer.frame_post_draw
-		var image := output.get_texture().get_image()
+		var image := get_viewport().get_texture().get_image()
+		assert(image.get_size() == DitherView.RESOLUTION, "Capture must use the native displayed frame")
+		if args.has("reference"):
+			var reference: String = args.reference
+			DirAccess.make_dir_recursive_absolute(reference.get_base_dir())
+			image.save_png(reference)
 		if args.has("square"):
-			image.save_png(out)
+			assert(output_size > 0 and output_size <= image.get_height())
+			var origin := (image.get_size() - Vector2i(output_size, output_size)) / 2
+			image.get_region(Rect2i(origin, Vector2i(output_size, output_size))).save_png(out)
 		else:
 			image.save_png("%s/course_%04d.png" % [out, int(d)])
 			view.viewport.get_texture().get_image().save_png("%s/raw_%04d.png" % [out, int(d)])

@@ -7,7 +7,7 @@ signal back
 
 # The persistent FPS label occupies (16, 44)-(112, 60), plus its 2px outline.
 const HEADING_POSITION := Vector2(218, 48)
-const CARD_SIZE := Vector2(250, 250)
+const CARD_SIZE := Vector2(256, 256)
 const CARD_TOP := 82.0
 const CARD_GAP := 24.0
 const CARD_LEFT := 218.0
@@ -33,6 +33,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	font = get_theme_default_font()
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	queue_redraw()
 
 func _process(delta: float) -> void:
@@ -197,16 +198,17 @@ func _draw() -> void:
 		var pop := 5.0 if card_focus else 0.0
 		var draw_rect_at := Rect2(rect.position - Vector2.ONE * pop, rect.size + Vector2.ONE * pop * 2.0)
 		draw_rect(draw_rect_at, Palette.FUNGUS if card_focus else Palette.STONE, false, 4.0)
-		draw_texture_rect(MAPS[i], draw_rect_at, false)
+		# Only the focus border pops out; the map remains a native 1:1 crop.
+		draw_texture_rect(MAPS[i], rect, false)
 		if selected_stage != i + 1:
-			draw_rect(draw_rect_at, Color(0, 0, 0, 0.12))
-		draw_rect(draw_rect_at, Color(Palette.INK, 0.5), false, 1.0)
+			draw_rect(rect, Color(0, 0, 0, 0.12))
+		draw_rect(rect, Color(Palette.INK, 0.5), false, 1.0)
 		var label := "%d  %s" % [i + 1, tr(STAGE_NAMES[i])]
-		draw_string(font, draw_rect_at.position + Vector2(10, 25), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Palette.CREAM)
+		draw_string(font, rect.position + Vector2(10, 25), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Palette.CREAM)
 		var best := best_score(i + 1)
 		if best > 0:
 			var best_text := tr("STAGE_BEST") % best
-			draw_string(font, draw_rect_at.position + Vector2(10, draw_rect_at.size.y - 12), best_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Palette.BUTTER)
+			draw_string(font, rect.position + Vector2(10, rect.size.y - 12), best_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Palette.BUTTER)
 	var checkpoints := _checkpoints()
 	var prompt_y := 372.0
 	var focus_name := "%d  %s" % [selected_stage, tr(STAGE_NAMES[selected_stage - 1])]
