@@ -5,7 +5,9 @@ extends Enemy
 
 enum State { HIDDEN, TELEGRAPH, LATCHED }
 const TELEGRAPH_TIME := 0.65
+const LUNGE_SPEED := 55.0
 const LATCH_DPS := 2.6
+const LATCH_DISTANCE := 4.4
 
 var state := State.HIDDEN
 var latched := false
@@ -68,21 +70,27 @@ func behave(delta: float) -> void:
 			return
 		var direction := (target - global_position)
 		direction.y = 0.0
-		global_position += direction.normalized() * 18.0 * delta
+		if direction.length() > 0.05:
+			global_position += direction.normalized() * LUNGE_SPEED * delta
 		var surface := Water.surface_at(global_position)
 		if surface > -INF:
 			global_position.y = surface - 0.2
 		_body.scale = Vector3.ONE * (1.0 + sin(_state_time * 35.0) * 0.16)
 		World.current.fx.splash(global_position, 0.7, maxf(surface, global_position.y))
 		if _state_time >= TELEGRAPH_TIME:
-			_latch(tank)
+			if global_position.distance_to(tank.global_position) <= LATCH_DISTANCE and _wet_at(tank.global_position):
+				_latch(tank)
+			else:
+				# A warning without contact is a miss, never a teleporting latch.
+				state = State.HIDDEN
+				_cooldown = 0.8
+				_state_time = 0.0
 	elif state == State.LATCHED:
 		if tank.dead or not is_instance_valid(tank):
 			detach()
 			return
 		global_position = tank.global_position + Vector3(0, 0.55, 1.8)
-		var hit := Hit.make(Hit.Kind.BULLET, LATCH_DPS * delta, tank.hit_center(), Vector3.UP)
-		hit.caliber = 0
+		var hit := Hit.make(Hit.Kind.SPORE, LATCH_DPS * delta, tank.hit_center(), Vector3.UP)
 		hit.source = self
 		tank.take_hit(hit)
 		World.current.fx.sparks(global_position, Vector3.UP, 2, Palette.FUNGUS)
@@ -90,7 +98,7 @@ func behave(delta: float) -> void:
 			Sfx.play("leech_latch", global_position)
 
 func _latch(tank: Tank) -> void:
-	if not _wet_at(tank.global_position):
+	if global_position.distance_to(tank.global_position) > LATCH_DISTANCE or not _wet_at(global_position) or not _wet_at(tank.global_position):
 		state = State.HIDDEN
 		_cooldown = 1.0
 		return

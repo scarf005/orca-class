@@ -58,20 +58,28 @@ func build() -> void:
 	_gun.add_child(gun_instance)
 	_muzzle.position = Vector3(0, 0, -1.35)
 	_gun.add_child(_muzzle)
-	# Rear fan cage: blades and a hot centre make the module legible in a screenshot.
+	# Rear fan cage: four open rails surround three visible blades and a hot hub.
 	_fan.position = Vector3(0, 1.15, 1.95)
 	_hull.add_child(_fan)
-	var fan_mesh := LowPoly.new()
-	fan_mesh.box(Transform3D(), Vector3(2.0, 1.9, 0.18), Palette.INK)
-	fan_mesh.box(Transform3D(Basis(Vector3.BACK, PI * 0.5), Vector3.ZERO), Vector3(0.18, 1.8, 1.8), Palette.CORAL)
-	fan_mesh.glow = true
-	fan_mesh.prism(Transform3D(), 0.38, 0.12, 8, Palette.BUTTER)
-	var fan_instance := MeshInstance3D.new()
-	fan_instance.mesh = fan_mesh.mesh()
-	_fan.add_child(fan_instance)
+	var cage := LowPoly.new()
+	for i in 4:
+		var a := TAU * i / 4.0
+		cage.box(Transform3D(Basis(Vector3.BACK, a), Vector3(cos(a) * 0.72, sin(a) * 0.72, 0)), Vector3(0.12, 1.7, 0.12), Palette.INK)
+	var cage_instance := MeshInstance3D.new()
+	cage_instance.mesh = cage.mesh()
+	_fan.add_child(cage_instance)
+	var blades := LowPoly.new()
+	blades.glow = true
+	for i in 3:
+		var a := TAU * i / 3.0
+		blades.box(Transform3D(Basis(Vector3.BACK, a), Vector3(0, 0, 0.04)), Vector3(1.35, 0.11, 0.08), Palette.CORAL)
+	blades.blob(Transform3D(Basis(), Vector3(0, 0, 0.08)), 0.28, Palette.BUTTER)
+	var blade_instance := MeshInstance3D.new()
+	blade_instance.mesh = blades.mesh()
+	_fan.add_child(blade_instance)
 	_fan_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_fan_material.albedo_color = Palette.BUTTER
-	fan_instance.material_override = _fan_material
+	blade_instance.material_override = _fan_material
 	_lane = Course.to_course(global_position).y
 	_keep_on_water()
 	_buzz()
@@ -125,8 +133,12 @@ func behave(delta: float) -> void:
 		var direction := target - global_position
 		if direction.length() > 0.1:
 			velocity = velocity.move_toward(direction.normalized() * SPEED, 20.0 * delta)
-			global_position += velocity * delta
-			_keep_on_water()
+			var next := global_position + velocity * delta
+			# Reject a step that would cross a dry dike; never teleport from one water pocket to another.
+			if Water.surface_at(next) > Course.height_at(next) + 0.02:
+				global_position = next
+			else:
+				velocity = Vector3.ZERO
 			if velocity.length() > 0.1:
 				model.look_at(global_position + Vector3(velocity.x, 0, velocity.z), Vector3.UP)
 		_attack_timer -= delta
@@ -160,16 +172,15 @@ func _attack_burst(delta: float, tank: Tank) -> void:
 		return
 	_burst -= 1
 	_burst_timer = 0.1
-	var wanted := tank.hit_center()
-	# Keep 12.7 mm as a genuine BULLET. Tank.take_hit then applies small-arms armour and sensor rules.
+	# Aim the gunner's bore at an exposed roof sensor. The projectile really travels to that point;
+	# Projectile._hit then supplies its collision point and direction to Tank's small-arms rules.
+	var wanted := tank.model.sensor_position("laser") if tank.modules.laser_online() else tank.model.sensor_position("fcs")
 	var shot := fire_at("orb", _muzzle.global_position, wanted, 115.0, 4.0, Palette.HOT, Muzzle.AUTO)
 	shot.hit.caliber = 12
-	shot.hit.position = tank.model.sensor_position("laser") if tank.modules.laser_online() else tank.model.sensor_position("fcs")
-	shot.hit.direction = (shot.hit.position - _muzzle.global_position).normalized()
 	Sfx.play("airboat_gun", _muzzle.global_position, -3.0, randf_range(0.9, 1.1))
 
-func destroy_fan() -> void:
-	if fan_destroyed:
+func destroy_fan(hit: Hit = null) -> void:
+	if fan_destroyed or dead:
 		return
 	fan_destroyed = true
 	fan_hp = 0.0
@@ -180,6 +191,9 @@ func destroy_fan() -> void:
 	World.current.fx.smoke_column(_fan.global_position, 1.2, [Palette.INK, Palette.ASH])
 	Sfx.play("airboat_fan", _fan.global_position)
 	World.current.award(150, global_position, false)
+	# The counter is decisive: a broken fan leaves a dead boat, not a harmless moving hull.
+	var failure := hit if hit != null else Hit.make(Hit.Kind.SHELL, maxf(max_hp, 1.0), _fan.global_position, Vector3.BACK)
+	die(failure)
 
 func on_damaged(hit: Hit, amount: float) -> void:
 	super(hit, amount)
@@ -189,7 +203,7 @@ func on_damaged(hit: Hit, amount: float) -> void:
 	if local.z > 1.25 and local.y > 0.0:
 		fan_hp -= amount
 		if fan_hp <= 0.0:
-			destroy_fan()
+			destroy_fan(hit)
 
 func on_death(hit: Hit) -> void:
 	World.current.fx.splash(global_position, 3.0, maxf(Water.surface_at(global_position), global_position.y))

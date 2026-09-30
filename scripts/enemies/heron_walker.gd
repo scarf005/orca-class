@@ -24,6 +24,7 @@ func _init() -> void:
 	radius = 1.6
 	center_height = 3.6
 	stabbable = true
+	wreck_on_death = true
 	score = 500
 	debris = [Fx.Debris.METAL, Fx.Debris.PAINT]
 	weakness = {Hit.Kind.TAIL: 1.5, Hit.Kind.THROWN: 2.0}
@@ -77,6 +78,8 @@ func behave(delta: float) -> void:
 		model.rotation.z = lerpf(model.rotation.z, 0.95, delta * 3.0)
 		return
 	var offset := tank.global_position - global_position
+	var facing := atan2(-offset.x, -offset.z)
+	model.rotation.y = lerp_angle(model.rotation.y, facing, delta * 5.0)
 	offset.y = 0.0
 	var distance := offset.length()
 	if state == State.STILL:
@@ -103,10 +106,11 @@ func _attack(tank: Tank) -> void:
 	_eye_material.albedo_color = Palette.RED
 	var hit_point := tank.hit_center()
 	hit_point.y = _impact.y + 0.8
-	if tank.global_position.distance_to(_impact) <= 3.6 and not tank.dead:
+	if global_position.distance_to(tank.global_position) <= REACH and tank.global_position.distance_to(_impact) <= 3.6 and not tank.dead:
 		var hit := Hit.make(Hit.Kind.SHELL, 18.0, hit_point, (tank.global_position - global_position).normalized())
 		hit.source = self
 		tank.take_hit(hit)
+		World.current.fx.beam(_neck.global_position, _impact + Vector3.UP, Palette.HOT, 0.12, 0.18)
 		World.current.fx.impact_star(hit_point, 2.5, Palette.HOT)
 	Sfx.play("heron_stab", global_position)
 
@@ -133,7 +137,8 @@ func topple() -> void:
 func throw_from_tail() -> void:
 	if not fallen or dead:
 		return
-	var hit := Hit.make(Hit.Kind.THROWN, 999.0, hit_center(), Vector3.UP)
+	var direction := (global_position - player().global_position).normalized()
+	var hit := Hit.make(Hit.Kind.THROWN, 999.0, hit_center(), (direction + Vector3.UP * 0.35).normalized())
 	hit.source = player()
 	die(hit)
 	Sfx.play("heron_throw", global_position)

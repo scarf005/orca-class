@@ -11,6 +11,7 @@ var state := State.FLOATING
 var armed := false
 var detonated := false
 var _state_time := 0.0
+var _tick_timer := 0.0
 var _leaf_material := StandardMaterial3D.new()
 
 func _init() -> void:
@@ -26,19 +27,38 @@ func _init() -> void:
 	despawn_behind = 12.0
 
 func build() -> void:
+	# The pad is horizontal; the separate vein and spike meshes keep their coral silhouette.
 	var leaf := LowPoly.new()
 	leaf.glow = true
-	leaf.prism(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3.ZERO), 1.5, 0.12, 8, Palette.TEAL, 0.9)
-	for i in 8:
-		var a := TAU * i / 8.0
-		leaf.prism(Transform3D(Basis(Vector3.UP, a), Vector3(cos(a) * 0.9, 0.1, sin(a) * 0.9)), 0.16, 0.65, 4, Palette.CORAL, 0.0)
-	leaf.blob(Transform3D(Basis(), Vector3(0, 0.45, 0)), 0.38, Palette.FUNGUS, 0, 0.15, 8)
-	var mesh := MeshInstance3D.new()
-	mesh.mesh = leaf.mesh()
-	model.add_child(mesh)
+	leaf.prism(Transform3D(), 1.5, 0.12, 8, Palette.TEAL, 0.9)
+	var leaf_mesh := MeshInstance3D.new()
+	leaf_mesh.mesh = leaf.mesh()
+	model.add_child(leaf_mesh)
 	_leaf_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_leaf_material.albedo_color = Palette.TEAL
-	mesh.material_override = _leaf_material
+	leaf_mesh.material_override = _leaf_material
+	var veins := LowPoly.new()
+	veins.glow = true
+	for i in 8:
+		var a := TAU * i / 8.0
+		veins.box(Transform3D(Basis(Vector3.UP, a), Vector3(cos(a) * 0.45, 0.16, sin(a) * 0.45)), Vector3(1.5, 0.05, 0.07), Palette.CORAL)
+	var vein_mesh := MeshInstance3D.new()
+	vein_mesh.mesh = veins.mesh()
+	model.add_child(vein_mesh)
+	var spikes := LowPoly.new()
+	spikes.glow = true
+	for i in 8:
+		var a := TAU * i / 8.0
+		spikes.prism(Transform3D(Basis(Vector3.UP, a), Vector3(cos(a) * 0.9, 0.12, sin(a) * 0.9)), 0.16, 0.65, 4, Palette.CORAL, 0.0)
+	var spike_mesh := MeshInstance3D.new()
+	spike_mesh.mesh = spikes.mesh()
+	model.add_child(spike_mesh)
+	var core := LowPoly.new()
+	core.glow = true
+	core.blob(Transform3D(Basis(), Vector3(0, 0.48, 0)), 0.38, Palette.FUNGUS, 0, 0.15, 8)
+	var core_mesh := MeshInstance3D.new()
+	core_mesh.mesh = core.mesh()
+	model.add_child(core_mesh)
 	_keep_afloat()
 
 func _keep_afloat() -> bool:
@@ -60,8 +80,13 @@ func behave(delta: float) -> void:
 	if state == State.FLOATING and global_position.distance_to(tank.global_position) < 9.0:
 		state = State.ARMING
 		_state_time = 0.0
+		_tick_timer = 0.28
 		Sfx.play("lotus_tick", global_position)
 	elif state == State.ARMING:
+		_tick_timer -= delta
+		if _tick_timer <= 0.0:
+			_tick_timer = maxf(0.06, 0.28 - _state_time * 0.16)
+			Sfx.play("lotus_tick", global_position)
 		_leaf_material.albedo_color = Palette.WHITE if fmod(_state_time, 0.16) < 0.08 else Palette.FUNGUS
 		World.current.fx.marker(global_position, BLAST_RADIUS, maxf(ARM_TIME - _state_time, 0.0), Palette.HOT)
 		if _state_time >= ARM_TIME:

@@ -20,7 +20,7 @@ func _init() -> void:
 	max_hp = 8.0
 	hp = max_hp
 	radius = 1.3
-	center_height = 7.0
+	center_height = 0.7
 	flying = true
 	interceptable = true
 	stabbable = true
@@ -80,7 +80,8 @@ func behave(delta: float) -> void:
 		target.y = Course.height_at(target) + 8.0
 		velocity = velocity.move_toward((target - global_position).limit_length(23.0), 28.0 * delta)
 		global_position += velocity * delta
-		model.look_at(global_position + velocity, Vector3.UP)
+		if velocity.length() > 0.1:
+			model.look_at(global_position + velocity, Vector3.UP)
 		_attack_timer -= delta
 		if _attack_timer <= 0.0 and global_position.distance_to(tank.global_position) < 75.0:
 			state = State.TELEGRAPH
@@ -89,6 +90,10 @@ func behave(delta: float) -> void:
 	elif state == State.TELEGRAPH:
 		velocity = velocity.move_toward(Vector3.ZERO, 30.0 * delta)
 		_nozzle_material.albedo_color = Palette.WHITE if fmod(_state_time, 0.12) < 0.06 else Palette.CYAN
+		# Drips begin before the full boom: two thin falling beads make the 0.8 s warning visible.
+		if fmod(_state_time, 0.16) < delta:
+			for side in [-0.55, 0.55]:
+				World.current.fx.spawn(Fx.Kind.GLOW, global_position + Vector3(side, -0.65, -0.1), Vector3.DOWN * 1.8, 0.18, 0.35, Palette.MINT, {"end_size": 0.08, "fade": 0.2})
 		if _state_time >= TELEGRAPH_TIME:
 			_spray(tank)
 	elif state == State.SPRAY:

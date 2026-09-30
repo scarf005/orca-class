@@ -20,7 +20,7 @@ func _init() -> void:
 	max_hp = 10.0
 	hp = max_hp
 	radius = 2.4
-	center_height = 3.5
+	center_height = 0.8
 	flying = true
 	interceptable = true
 	stabbable = true
