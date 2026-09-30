@@ -78,6 +78,10 @@ func look_at(d: float) -> Dictionary:
 	return lit
 
 
+func boss_position() -> Vector3:
+	return Course.ground_at(GATE_D, 0.0)
+
+
 func music(section: int) -> String:
 	match section:
 		Section.ARENA:
@@ -342,8 +346,7 @@ func events(hard: bool) -> Array[Dictionary]:
 	wave.call(2165.0, "walker", {"count": 4, "formation": "behind", "spacing": 8.0})
 	wave.call(2200.0, "helicopter", {"count": 2, "formation": "sides", "height": 14.0, "spacing": 22.0, "ahead": 65.0})
 	e.append({"d": 2275.0, "type": "checkpoint", "name": "boss"})
-	# The boss is wired to an existing kind for now.
-	e.append({"d": 2345.0, "type": "boss", "kind": "gunship"})
+	e.append({"d": 2345.0, "type": "boss", "kind": "floodgate"})
 
 	if hard:
 		# Hard adds flankers to the build beats, never inside a release, so the peaks keep their breathing room.

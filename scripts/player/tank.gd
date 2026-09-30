@@ -300,6 +300,8 @@ func _move_arena(delta: float, input: Vector2) -> void:
 		current = right * _drift_dir * DASH_SPEED * (_drift / DASH_TIME) if absf(_drift_dir) > 0.0 else current
 	local_velocity = Vector2(current.x, current.z)
 	var p := global_position + current * delta
+	if is_instance_valid(World.current.boss) and World.current.boss is Floodgate:
+		p += (World.current.boss as Floodgate).current_force_for(global_position) * delta
 	var center := Course.to_world(Course.stage.arena_center_d, 0.0)
 	var flat := Vector2(p.x - center.x, p.z - center.z)
 	if flat.length() > Course.stage.arena_radius - 6.0:
@@ -558,11 +560,16 @@ func _aim_assist(delta: float) -> void:
 	for enemy in World.current.enemies:
 		if cam.is_position_behind(enemy.hit_center()):
 			continue
-		var screen := cam.unproject_position(enemy.hit_center())
-		var distance := screen.distance_to(aim_screen)
-		if distance < best_distance:
-			best_distance = distance
-			best = screen
+		var candidates := [enemy.hit_center()]
+		if enemy is Floodgate:
+			for part: Array in enemy.aim_parts().values():
+				candidates.append(part[0])
+		for point: Vector3 in candidates:
+			var screen := cam.unproject_position(point)
+			var distance := screen.distance_to(aim_screen)
+			if distance < best_distance:
+				best_distance = distance
+				best = screen
 	if best != Vector2.INF:
 		aim_screen = aim_screen.lerp(best, clampf(6.0 * delta, 0.0, 1.0))
 
@@ -633,10 +640,14 @@ func _update_weapons(delta: float) -> void:
 ## The point to lead on a locked target: the locked module's middle, else exactly where the sight
 ## rests when it is on the target, otherwise its middle (a soft lock pulls toward the center).
 func _aimed_spot(target: Entity) -> Vector3:
-	if target == coax_target and not coax_part.is_empty():
+	if target == coax_target:
 		var parts := target.aim_parts()
-		if parts.has(coax_part):
+		if not coax_part.is_empty() and parts.has(coax_part):
 			return parts[coax_part][0]
+		if target is Floodgate:
+			var part := _pick_part(target)
+			if parts.has(part):
+				return parts[part][0]
 	return aim_point if target == aim_target else Vector3.INF
 
 

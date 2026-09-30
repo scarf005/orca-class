@@ -962,7 +962,7 @@ func _begin_crash() -> void:
 	if _rotor_sound:
 		_rotor_sound.stop()
 	_crash_from = global_position
-	_crash_to = Dam.crash_point(Course.to_course(_crash_from).y) if is_instance_valid(Dam.current) else Vector3(_crash_from.x, Course.height_at(_crash_from), _crash_from.z)
+	_crash_to = Dam.crash_point(Course.to_course(_crash_from).y)
 	world.camera.watch(self)
 	hp = 0.0
 	world.boss_changed.emit(null)

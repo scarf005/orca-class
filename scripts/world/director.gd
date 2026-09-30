@@ -27,6 +27,7 @@ const ENEMY_SCRIPTS := {
 	"combine": "res://scripts/enemies/combine.gd",
 	"helicopter": "res://scripts/enemies/helicopter.gd",
 	"gunship": "res://scripts/enemies/gunship.gd",
+	"floodgate": "res://scripts/enemies/floodgate.gd",
 }
 
 const MIDBOSS_RESUME := 0.6 ## Seconds after the mid-boss dies before the rail runs again.

@@ -114,6 +114,7 @@ S = {
     "BOSS_COLOSSUS": ("균사 거인", "HYPHAL COLOSSUS"),
     "BOSS_COMBINE": ("감염된 콤바인", "INFECTED COMBINE"),
     "BOSS_GUNSHIP": ("감염된 대형 건십", "INFECTED HEAVY GUNSHIP"),
+    "BOSS_FLOODGATE": ("감염된 배수갑문", "INFECTED FLOODGATE FORTRESS"),
     "SHOUT_MISSION_START": ("작전 개시!!", "MISSION START!!"),
     "SHOUT_MISSION_COMPLETE": ("작전 완료!!", "MISSION COMPLETE!!"),
     "STAGE_CLEAR": ("1스테이지 돌파", "STAGE 1 CLEAR"),
