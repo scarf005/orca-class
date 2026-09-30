@@ -448,6 +448,10 @@ func _ram_enemies() -> void:
 	for entity: Entity in world.enemies.duplicate():
 		if entity.flying or not entity is Enemy or entity is Colossus:
 			continue
+		# Leeches are submerged or clamped to the hull; ramming must not erase the latch before
+		# the player can use the tail's swat priority.
+		if entity is CanalLeech:
+			continue
 		var offset := entity.global_position - global_position
 		offset.y = 0.0
 		if offset.length() < HULL_RADIUS + entity.radius:

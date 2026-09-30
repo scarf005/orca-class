@@ -9,11 +9,9 @@ const TELEGRAPH_TIME := 0.7
 var state := State.CLOUD
 var attack_timer := 1.8
 var swarm_size := 32
-var era_decided := false
 var _state_time := 0.0
 var _phase := randf() * TAU
 var _rotors: Array[MeshInstance3D] = []
-var _glow_materials: Array[StandardMaterial3D] = []
 
 func _init() -> void:
 	super()

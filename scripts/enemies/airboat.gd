@@ -135,10 +135,7 @@ func behave(delta: float) -> void:
 			velocity = velocity.move_toward(direction.normalized() * SPEED, 20.0 * delta)
 			var next := global_position + velocity * delta
 			# Reject a step that would cross a dry dike; never teleport from one water pocket to another.
-			if Water.surface_at(next) > Course.height_at(next) + 0.02:
-				global_position = next
-			else:
-				velocity = Vector3.ZERO
+			water_step(next)
 			if velocity.length() > 0.1:
 				model.look_at(global_position + Vector3(velocity.x, 0, velocity.z), Vector3.UP)
 		_attack_timer -= delta
@@ -156,6 +153,13 @@ func behave(delta: float) -> void:
 			_burst_timer = 0.0
 	elif state == State.BURST:
 		_attack_burst(delta, tank)
+
+func water_step(next: Vector3) -> bool:
+	if Water.surface_at(next) > Course.height_at(next) + 0.02:
+		global_position = next
+		return true
+	velocity = Vector3.ZERO
+	return false
 
 func _flash_fan() -> void:
 	_fan_material.albedo_color = Palette.WHITE if fmod(_state_time, 0.14) < 0.07 else Palette.HOT

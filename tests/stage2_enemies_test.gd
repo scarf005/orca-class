@@ -72,6 +72,7 @@ func test_spray_real_warning_strip_damage_bounds_and_expiry() -> void:
 	mist._process(0.15)
 	check(tank.hp < hp_before, "the strip damages a tank inside")
 	hp_before = tank.hp
+	tank.invuln = 0.0
 	tank.global_position = mist.global_position + Vector3.RIGHT * (mist.width + 1.0)
 	mist._process(0.15)
 	check_near(tank.hp, hp_before, 0.01, "the strip does not damage outside its width")
@@ -151,6 +152,25 @@ func test_leech_real_ripple_latch_drain_dry_refusal_blast_and_tail_priority() ->
 	blast_leech.take_hit(Hit.make(Hit.Kind.BLAST, 20.0, blast_leech.global_position))
 	check(blast_leech.dead, "a blast removes a leech")
 
+func test_leech_live_rail_latch_survives_ramming_and_drains() -> void:
+	_world = stage("", true, 2)
+	var tank := _world.player
+	tank.input_enabled = false
+	_world.rail.mode = Rail.Mode.HOLD
+	_world.rail.d = 1450.0
+	tank.course_offset = 0.0
+	tank.course_u = -40.0
+	tank.local_velocity = Vector2.ZERO
+	tank._place(_world.rail.d)
+	tank.tail.destroyed = true
+	var leech := _spawn(CanalLeech.new(), tank.global_position + Vector3.BACK * 2.0) as CanalLeech
+	await wait_until(func() -> bool: return leech.latched, 120)
+	check(leech.latched, "a live rail tick reaches the latch state")
+	var hp_before := tank.hp
+	await frames(20)
+	check(leech.latched and tank.hp < hp_before, "a latched leech survives ramming and drains while the tail is disabled")
+	check(tank.water_factor() < Tank.WADE_SPEED, "the live latch slows strafing")
+
 func test_eggs_real_swell_hatch_and_destroy_before_hatch() -> void:
 	_world = stage("", true, 2)
 	var tank := _freeze_tank()
@@ -190,8 +210,11 @@ func test_lotus_real_arm_detonation_damage_and_shot_counter() -> void:
 	check(mine.detonated and tank.hp < hp_before, "armed lotus detonates and damages the tank")
 	var safe_mine := _spawn(LotusMine.new(), p) as LotusMine
 	safe_mine.set_process(false)
+	tank.invuln = 0.0
 	hp_before = tank.hp
-	safe_mine.take_hit(Hit.make(Hit.Kind.BULLET, 20.0, safe_mine.global_position))
+	var safe_hit := Hit.make(Hit.Kind.BULLET, 20.0, safe_mine.global_position)
+	safe_hit.source = tank
+	safe_mine.take_hit(safe_hit)
 	check(safe_mine.dead and tank.hp == hp_before, "shooting a mine first prevents its damage")
 
 func test_gnats_real_warning_blast_no_era_and_ciws_overheat() -> void:
@@ -207,9 +230,26 @@ func test_gnats_real_warning_blast_no_era_and_ciws_overheat() -> void:
 	swarm.behave(GnatSwarm.TELEGRAPH_TIME - 0.01)
 	check(tank.hp == hp_before, "gnats wait through their warning")
 	swarm.behave(0.01)
-	check(tank.hp < hp_before and not swarm.era_decided, "gnat small blast hurts without an ERA decision")
+	check(tank.hp < hp_before, "gnat small blast hurts without an ERA decision")
 	var era_before: Dictionary = tank.modules.era.duplicate()
+	swarm.global_position = tank.global_position + Vector3.FORWARD * 20.0
+	var swat_swarm := _spawn(GnatSwarm.new(), tank.global_position + Vector3.FORWARD * 3.0) as GnatSwarm
+	swat_swarm.set_process(false)
+	swat_swarm.state = GnatSwarm.State.TELEGRAPH
+	tank.swat(false)
+	check(swat_swarm.dead, "gnats are fragile swat fodder")
+	swarm.global_position = tank.global_position + Vector3.FORWARD * 4.0 + Vector3.UP * 2.0
 	for _i in 14:
 		tank._update_ciws(0.1)
 	check(tank.ciws_heat >= 0.9 or tank.ciws_overheated, "the dense swarm stresses CIWS heat")
 	check(tank.modules.era == era_before, "gnats never consume ERA")
+
+func test_airboat_rejects_a_dry_step() -> void:
+	_world = stage("", true, 2)
+	var boat := _spawn(Airboat.new(), _water_point(730.0, -30.0)) as Airboat
+	await frames(2)
+	boat.set_process(false)
+	var before := boat.global_position
+	var dry := Course.ground_at(730.0, 18.0)
+	check(not boat.water_step(dry), "airboat rejects a step onto a dry dike")
+	check(boat.global_position.is_equal_approx(before), "the rejected water step does not teleport across land")
