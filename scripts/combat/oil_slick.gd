@@ -72,6 +72,11 @@ func light(point: Vector3) -> void:
 	Sfx.play("whoomp", point, 2.0, 0.8)
 
 
+## The point on the water's surface, or on the ground where the slick reaches the bank.
+func _on_surface(point: Vector3) -> Vector3:
+	return Vector3(point.x, maxf(Water.surface_at(point), Course.height_at(point)), point.z)
+
+
 func _process(delta: float) -> void:
 	if not burning:
 		return
@@ -86,10 +91,9 @@ func _process(delta: float) -> void:
 			var angle := offset + TAU * i / count
 			var point := _origin + Vector3(cos(angle), 0.0, sin(angle)) * ring
 			if contains(point):
-				point.y = Water.surface_at(point)
-				FireZone.ignite(point)
+				FireZone.ignite(_on_surface(point))
 		if ring == 0.0:
-			FireZone.ignite(Vector3(_origin.x, Water.surface_at(_origin), _origin.z))
+			FireZone.ignite(_on_surface(_origin))
 	if _reach > radius * 2.0:
 		_left -= delta
 		if _left <= 0.0:

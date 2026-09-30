@@ -229,3 +229,29 @@ func test_flying_enemies_ride_over_the_surge() -> void:
 	gate.take_hit(hit)
 	await frames(90)
 	check_eq(drone.hp, 500.0, "a flying drone is not touched")
+
+
+func test_a_slick_reaching_the_bank_keeps_its_fire_on_the_ground() -> void:
+	var world := stage("", true, 2)
+	world.rail.d = 1500.0
+	var slick := OilSlick.new()
+	world.add_child(slick)
+	slick.global_position = Course.ground_at(1500.0, 3.0)
+	slick.radius = 14.0
+	FireZone.ignite(Course.ground_at(1500.0, 3.0))
+	await frames(120)
+	for zone: FireZone in FireZone._zones:
+		if is_instance_valid(zone):
+			check(zone.global_position.is_finite(), "a fire zone stands at a real position, not (%s)" % zone.global_position)
+
+
+func test_a_vent_blown_up_before_its_turn_does_not_break_the_chain() -> void:
+	var world := stage("", true, 2)
+	world.rail.d = 1500.0
+	var first := _prop(world, "vent", 1500.0, 12.0)
+	var second := _prop(world, "vent", 1509.0, 12.0)
+	var third := _prop(world, "vent", 1518.0, 12.0)
+	first.take_hit(Hit.make(Hit.Kind.FIRE, 30.0, first.global_position))
+	second.take_hit(Hit.make(Hit.Kind.BLAST, 30.0, second.global_position)) # Before its turn in the chain.
+	await frames(120)
+	check(_down(second) and _down(third), "the rest still go up")

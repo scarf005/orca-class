@@ -255,9 +255,11 @@ func _burst_vent(world: World, hit: Hit) -> void:
 		world.award(score, global_position, false)
 	for other: Prop in world.props.in_radius(global_position, VENT_CHAIN_RANGE):
 		if other.vent and other != self and not other.dead:
+			var next: WeakRef = weakref(other) # It may be blown up by something else before its turn.
 			world.get_tree().create_timer(VENT_CHAIN_DELAY).timeout.connect(func() -> void:
-				if is_instance_valid(other) and not other.dead:
-					other.take_hit(Hit.make(Hit.Kind.FIRE, 999.0, other.global_position)))
+				var vent: Prop = next.get_ref()
+				if vent != null and not vent.dead:
+					vent.take_hit(Hit.make(Hit.Kind.FIRE, 999.0, vent.global_position)))
 
 
 func damage_multiplier(hit: Hit) -> float:
