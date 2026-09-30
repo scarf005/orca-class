@@ -139,7 +139,7 @@ slate- and tin-roofed houses, stacked soy-sauce jars (장독대), a village hall
 pavilion (정자), cultivators (경운기), persimmon trees, utility poles with sagging wires, a church with a steeple, a
 closed-down branch school (폐교), a reservoir (저수지) with its dam, and a highway overpass.
 
-Target length is 8–12 minutes for a first clear. Sections:
+Each stage lasts about 3–4 minutes for a first clear. Sections:
 
 1. **Farm road (농로):** a quiet opening. FPV drones arrive in sparse waves while the player
    learns to aim, fire and let the CIWS work. First coax pickup.
