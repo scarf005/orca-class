@@ -273,6 +273,12 @@ func ground_color(d: float, u: float, h: float, slope: float) -> Color:
 	return color
 
 
+## Stretches of the rail where nothing spawns, and the peaks of each section (where the encounters
+## thicken); the events below are laid out around both.
+const RELEASES := [Vector2(370.0, 445.0), Vector2(940.0, 1000.0), Vector2(1760.0, 1885.0), Vector2(2225.0, 2300.0)]
+const PEAKS := {Section.PADDIES: Vector2(700.0, 860.0), Section.MARSH: Vector2(1560.0, 1700.0), Section.LEVEE: Vector2(1890.0, 2215.0)}
+
+
 func events(hard: bool) -> Array[Dictionary]:
 	var e: Array[Dictionary] = []
 	var wave := func(d: float, kind: String, extra: Dictionary) -> void:
@@ -280,52 +286,70 @@ func events(hard: bool) -> Array[Dictionary]:
 		event.merge(extra)
 		e.append(event)
 
-	# Floodplain (quiet -> build): night mist, sparse drones, the first ground contact.
+	# Floodplain (quiet -> build): night mist, a few drones, the first ground contact in the shallows.
+	# Release 370-445.
 	wave.call(90.0, "fpv", {"count": 2, "formation": "line", "height": 9.0, "spacing": 7.0, "hover": 26.0})
 	wave.call(190.0, "fpv", {"count": 4, "formation": "v", "height": 8.0, "spacing": 5.0})
-	wave.call(300.0, "crawler", {"count": 4, "formation": "sides", "spacing": 16.0, "ahead": 70.0})
-	# Release 300-440: nothing spawns.
+	wave.call(280.0, "crawler", {"count": 4, "formation": "sides", "spacing": 16.0, "ahead": 70.0})
+	wave.call(340.0, "uav", {"count": 2, "formation": "line", "spacing": 10.0, "props": {"attack": "strafe"}})
 
-	# Paddies (build -> peak): the ground war returns along the dikes.
-	wave.call(440.0, "ugv", {"count": 3, "formation": "sides", "spacing": 8.0, "ahead": 95.0})
-	wave.call(520.0, "uav", {"count": 2, "formation": "line", "spacing": 10.0, "props": {"attack": "strafe"}})
-	wave.call(600.0, "spitter", {"count": 4, "formation": "sides", "spacing": 15.0, "ahead": 80.0})
-	wave.call(680.0, "crawler", {"count": 6, "formation": "scatter", "spacing": 18.0, "ahead": 60.0})
-	wave.call(760.0, "walker", {"count": 3, "formation": "behind", "spacing": 9.0})
-	wave.call(830.0, "fpv", {"count": 5, "formation": "ring", "height": 9.0, "spacing": 8.0, "stagger": 0.25})
-	wave.call(900.0, "ugv", {"count": 3, "formation": "column", "spacing": 14.0, "ahead": 100.0, "u": 4.0, "drop": "coax"})
-	wave.call(950.0, "helicopter", {"count": 1, "height": 13.0, "ahead": 110.0, "u": -10.0})
+	# Paddies (build -> peak): the fight runs along the dikes. Peak 700-860: a helicopter, a column on
+	# the dike, walkers, crawlers through the water. Release 940-1000 after the supply column.
+	wave.call(450.0, "ugv", {"count": 3, "formation": "sides", "spacing": 8.0, "ahead": 95.0, "u": 0.0})
+	wave.call(520.0, "spitter", {"count": 3, "formation": "sides", "spacing": 15.0, "ahead": 80.0})
+	wave.call(580.0, "uav", {"count": 2, "formation": "line", "spacing": 10.0, "props": {"attack": "bomb"}})
+	wave.call(640.0, "walker", {"count": 3, "formation": "behind", "spacing": 9.0})
+	wave.call(700.0, "helicopter", {"count": 1, "height": 13.0, "ahead": 110.0, "u": -10.0})
+	wave.call(730.0, "ugv", {"count": 3, "formation": "column", "spacing": 14.0, "ahead": 100.0, "u": -18.0})
+	wave.call(760.0, "crawler", {"count": 6, "formation": "scatter", "spacing": 18.0, "ahead": 60.0})
+	wave.call(790.0, "walker", {"count": 3, "formation": "line", "spacing": 7.0, "ahead": 85.0, "props": {"weapon": "missile"}})
+	wave.call(820.0, "fpv", {"count": 5, "formation": "ring", "height": 9.0, "spacing": 8.0, "stagger": 0.25})
+	wave.call(850.0, "uav", {"count": 2, "formation": "line", "spacing": 10.0, "props": {"attack": "bomb", "from_behind": true}})
+	wave.call(920.0, "ugv", {"count": 2, "formation": "column", "spacing": 12.0, "ahead": 100.0, "u": 18.0, "props": {"weapon": "supply"}, "drop": "coax"})
 
-	# Rice mill: the mid-boss holds the rail.
+	# Rice mill: the mid-boss holds the rail (its event is wired to an existing kind for now).
 	e.append({"d": 1010.0, "type": "checkpoint", "name": "midboss"})
 	wave.call(1060.0, "crawler", {"count": 5, "formation": "scatter", "spacing": 20.0, "ahead": 60.0})
 	e.append({"d": MIDBOSS_D - 110.0, "type": "midboss", "kind": "colossus", "hold": MIDBOSS_D - 56.0})
+	wave.call(1200.0, "crawler", {"count": 2, "formation": "sides", "spacing": 14.0, "ahead": 60.0})
 
-	# Marsh (build -> peak): drones out of the reeds, then helicopters over the water.
-	wave.call(1290.0, "fpv", {"count": 4, "formation": "scatter", "height": 1.5, "spacing": 3.0, "ahead": 60.0})
-	wave.call(1370.0, "uav", {"count": 3, "formation": "v", "spacing": 10.0, "props": {"attack": "bomb", "from_behind": true}})
+	# Marsh (quiet -> build -> peak): drones out of the reeds, bombers over the mist, crawlers through the
+	# methane vents. Peak 1560-1700. Release 1760-1885 after a supply column.
+	wave.call(1290.0, "fpv", {"count": 3, "formation": "scatter", "height": 1.5, "spacing": 3.0, "ahead": 60.0})
+	wave.call(1340.0, "crawler", {"count": 4, "formation": "flank", "u": 12.0, "spacing": 8.0, "ahead": 10.0})
+	wave.call(1400.0, "uav", {"count": 3, "formation": "v", "spacing": 10.0, "props": {"attack": "bomb", "from_behind": true}})
 	wave.call(1450.0, "spitter", {"count": 5, "formation": "line", "spacing": 4.0, "u": 20.0, "ahead": 85.0})
-	wave.call(1530.0, "crawler", {"count": 6, "formation": "flank", "u": -1.0, "spacing": 6.0, "ahead": 10.0})
-	wave.call(1610.0, "helicopter", {"count": 2, "formation": "sides", "height": 14.0, "spacing": 22.0, "ahead": 65.0})
-	wave.call(1690.0, "fpv", {"count": 8, "formation": "ring", "height": 5.0, "spacing": 8.0, "stagger": 0.18})
-	wave.call(1770.0, "ugv", {"count": 2, "formation": "line", "spacing": 8.0, "u": 4.0, "ahead": 100.0, "props": {"weapon": "atgm"}})
-	wave.call(1840.0, "ugv", {"count": 1, "u": 0.0, "ahead": 90.0, "props": {"weapon": "supply"}, "drop": "repair"})
+	wave.call(1500.0, "crawler", {"count": 5, "formation": "flank", "u": -1.0, "spacing": 6.0, "ahead": 10.0})
+	wave.call(1560.0, "helicopter", {"count": 2, "formation": "sides", "height": 14.0, "spacing": 22.0, "ahead": 65.0})
+	wave.call(1590.0, "fpv", {"count": 8, "formation": "ring", "height": 5.0, "spacing": 8.0, "stagger": 0.18})
+	wave.call(1620.0, "ugv", {"count": 2, "formation": "line", "spacing": 8.0, "u": 4.0, "ahead": 100.0, "props": {"weapon": "atgm"}})
+	wave.call(1650.0, "walker", {"count": 3, "formation": "line", "spacing": 6.0, "ahead": 80.0, "props": {"weapon": "missile"}})
+	wave.call(1680.0, "crawler", {"count": 7, "formation": "scatter", "spacing": 16.0, "ahead": 50.0})
+	wave.call(1700.0, "uav", {"count": 3, "formation": "line", "spacing": 10.0, "props": {"attack": "strafe"}})
+	wave.call(1730.0, "ugv", {"count": 1, "u": 0.0, "ahead": 90.0, "props": {"weapon": "supply"}, "drop": "repair"})
 
-	# Levee, the heaviest mixed gauntlet. Release from 2200 to the boss.
-	wave.call(1900.0, "walker", {"count": 4, "formation": "line", "spacing": 6.0, "ahead": 80.0, "props": {"weapon": "missile"}})
-	wave.call(1960.0, "quad", {"count": 2, "formation": "sides", "spacing": 7.0, "ahead": 100.0})
-	wave.call(2020.0, "helicopter", {"count": 3, "formation": "v", "height": 15.0, "spacing": 20.0, "ahead": 105.0})
-	wave.call(2080.0, "ugv", {"count": 5, "formation": "column", "spacing": 10.0, "ahead": 100.0})
-	wave.call(2130.0, "fpv", {"count": 8, "formation": "ring", "height": 9.0, "spacing": 9.0, "stagger": 0.15})
-	wave.call(2170.0, "uav", {"count": 3, "formation": "line", "spacing": 10.0, "props": {"attack": "bomb", "from_behind": true}})
+	# Levee, the heaviest mixed gauntlet on the embankment, water on both sides. Peak 1890-2215. Release
+	# 2225-2300, only the klaxon.
+	wave.call(1895.0, "walker", {"count": 4, "formation": "line", "spacing": 6.0, "ahead": 80.0, "props": {"weapon": "missile"}})
+	wave.call(1915.0, "ugv", {"count": 3, "formation": "sides", "spacing": 9.0, "ahead": 100.0})
+	wave.call(1935.0, "quad", {"count": 2, "formation": "sides", "spacing": 7.0, "ahead": 100.0})
+	wave.call(1975.0, "helicopter", {"count": 3, "formation": "v", "height": 15.0, "spacing": 20.0, "ahead": 105.0})
+	wave.call(2015.0, "ugv", {"count": 5, "formation": "column", "spacing": 10.0, "ahead": 100.0})
+	wave.call(2055.0, "fpv", {"count": 8, "formation": "ring", "height": 9.0, "spacing": 9.0, "stagger": 0.15})
+	wave.call(2095.0, "uav", {"count": 3, "formation": "line", "spacing": 10.0, "props": {"attack": "bomb", "from_behind": true}})
+	wave.call(2110.0, "walker", {"count": 3, "formation": "line", "spacing": 6.0, "ahead": 80.0, "props": {"weapon": "missile"}})
+	wave.call(2130.0, "crawler", {"count": 6, "formation": "flank", "u": 1.0, "spacing": 6.0, "ahead": 15.0})
+	wave.call(2165.0, "walker", {"count": 4, "formation": "behind", "spacing": 8.0})
+	wave.call(2200.0, "helicopter", {"count": 2, "formation": "sides", "height": 14.0, "spacing": 22.0, "ahead": 65.0})
 	e.append({"d": 2275.0, "type": "checkpoint", "name": "boss"})
 	# The boss is wired to an existing kind for now.
 	e.append({"d": 2345.0, "type": "boss", "kind": "gunship"})
 
 	if hard:
-		# Hard adds flankers to the build beats, never inside a release.
+		# Hard adds flankers to the build beats, never inside a release, so the peaks keep their breathing room.
 		wave.call(60.0, "fpv", {"count": 2, "formation": "sides", "height": 7.0, "spacing": 10.0})
-		wave.call(560.0, "ugv", {"count": 2, "formation": "sides", "spacing": 9.0, "ahead": 100.0, "props": {"weapon": "atgm"}})
-		wave.call(1330.0, "fpv", {"count": 3, "formation": "behind", "height": 6.0, "spacing": 5.0, "hover": 14.0, "approach": 1.0})
-		wave.call(2050.0, "fpv", {"count": 4, "formation": "ring", "height": 9.0, "spacing": 9.0})
+		wave.call(550.0, "ugv", {"count": 2, "formation": "sides", "spacing": 9.0, "ahead": 100.0, "props": {"weapon": "atgm"}})
+		wave.call(680.0, "fpv", {"count": 3, "formation": "behind", "height": 6.0, "spacing": 5.0, "hover": 14.0, "approach": 1.0})
+		wave.call(1320.0, "fpv", {"count": 3, "formation": "behind", "height": 6.0, "spacing": 5.0, "hover": 14.0, "approach": 1.0})
+		wave.call(1470.0, "uav", {"count": 2, "formation": "line", "spacing": 10.0, "props": {"attack": "strafe"}})
 	return e
