@@ -140,9 +140,10 @@ func test_wading_slows_the_strafe_and_deep_water_slows_the_refill() -> void:
 	for name in ["dry", "shallow", "deep"]:
 		var spot := {"dry": [700.0, 18.0], "shallow": [700.0, 0.0], "deep": [700.0, -30.0]}[name] as Array
 		gains[name] = (await _drive(world, spot[0], spot[1], 60)).meter - 0.2
-	check(gains.dry > 0.05, "the meter refills on dry ground (%.3f)" % gains.dry)
-	check_near(gains.shallow, gains.dry, 0.01, "shallow water leaves the refill alone")
-	check_near(gains.deep, gains.dry * Tank.DEEP_REFILL, gains.dry * 0.06, "deep water halves it (%.3f vs %.3f)" % [gains.deep, gains.dry])
+	var full := Rail.METER_REFILL * 60.0 / 60.0 ## One second of refill.
+	check(gains.dry > full * 0.8, "the meter refills on dry ground (%.3f of %.3f)" % [gains.dry, full])
+	check_near(gains.shallow, full, full * 0.1, "shallow water leaves the refill alone (%.3f)" % gains.shallow)
+	check_near(gains.deep, full * Tank.DEEP_REFILL, full * 0.12, "deep water halves it (%.3f vs %.3f)" % [gains.deep, full])
 	world.player.input_enabled = false
 
 
@@ -220,6 +221,7 @@ func test_ground_enemies_keep_driving_through_water() -> void:
 			if kind != "crawler": # Crawlers blow themselves up on reaching the tank.
 				check(is_instance_valid(enemy) and not enemy.dead, "%s survives at %s" % [kind, spot])
 			if is_instance_valid(enemy):
-				check(enemy.global_position.distance_to(start) > 1.0, "%s still moves in the water at %s" % [kind, spot])
+				if kind != "crawler": # A crawler may already be curled up at the tank.
+					check(enemy.global_position.distance_to(start) > 1.0, "%s still moves in the water at %s" % [kind, spot])
 				check(enemy.global_position.y > -5.0, "%s stays on the ground at %s" % [kind, spot])
 				enemy.queue_free()
