@@ -189,16 +189,5 @@ func is_checkpoint_unlocked(name: String, stage_number := stage) -> bool:
 	return bests.has(stage_key("checkpoint_" + name, stage_number))
 
 
-## Clearing a stage opens the next one.
-func unlock_stage(stage_number: int) -> void:
-	var key := "stage_%d" % stage_number
-	if stage_number > 1 and stage_number <= STAGE_COUNT and not bests.has(key):
-		submit_best(key, 1)
-
-
-func is_stage_unlocked(stage_number: int) -> bool:
-	return stage_number <= 1 or bests.has("stage_%d" % stage_number)
-
-
 func best_key(name: String, stage_number := stage) -> String:
 	return "%s_%s" % [stage_key(name, stage_number), "hard" if difficulty == Difficulty.HARD else "normal"]

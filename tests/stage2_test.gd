@@ -223,21 +223,6 @@ func test_progress_keys_are_per_stage() -> void:
 	_restore_bests()
 
 
-func test_stage_unlock_persists_and_stage_1_is_always_open() -> void:
-	_isolate_bests()
-	check(Game.is_stage_unlocked(1), "stage 1 is always open")
-	check(not Game.is_stage_unlocked(2), "stage 2 starts locked")
-	Game.unlock_stage(1)
-	Game.unlock_stage(Game.STAGE_COUNT + 1)
-	check(Game.bests.is_empty(), "there is nothing to unlock for stage 1 or beyond the last")
-	Game.unlock_stage(2)
-	check(Game.is_stage_unlocked(2), "clearing unlocks stage 2")
-	Game.bests = {}
-	Game._load_bests()
-	check(Game.is_stage_unlocked(2), "and it is saved")
-	_restore_bests()
-
-
 func test_results_offer_the_next_stage_only_when_there_is_one() -> void:
 	_isolate_bests()
 	for has_next in [true, false]:
@@ -256,64 +241,127 @@ func test_results_offer_the_next_stage_only_when_there_is_one() -> void:
 	_restore_bests()
 
 
-func test_game_screen_clear_unlocks_and_offers_stage_2_only_after_stage_1() -> void:
+func test_stage_select_has_both_stages_and_preserves_difficulty() -> void:
+	_isolate_bests()
+	var select := StageSelect.new()
+	select.difficulty = Game.Difficulty.HARD
+	add_child(select)
+	await frames(2)
+	check_eq(select.selected_stage, 1, "stage one is initially focused")
+	check_eq(select._checkpoints().size(), 0, "fresh bests show no checkpoints")
+	var right := InputEventKey.new()
+	right.physical_keycode = KEY_D
+	right.pressed = true
+	select._unhandled_input(right)
+	check_eq(select.selected_stage, 2, "A/D moves focus to stage two")
+	var started := []
+	select.selected.connect(func(chosen: Game.Difficulty, checkpoint: String, stage: int) -> void: started.append([chosen, checkpoint, stage]))
+	select._activate(2)
+	check_eq(started, [[Game.Difficulty.HARD, "", 2]], "stage two starts on selected difficulty")
+	Game.stage = 2
+	Game.unlock_checkpoint("midboss")
+	select.selected_stage = 2
+	check_eq(select._checkpoints(), ["midboss"] as Array[String], "only reached checkpoints appear")
+	Game.submit_best("s2_score_hard", 777)
+	check_eq(select.best_score(2), 777, "the focused difficulty shows its stage best")
+	check(select.MAPS[0] != null and select.MAPS[1] != null, "both map thumbnails load")
+	check_eq(select.MAPS[0].get_width(), 256, "stage one map is square")
+	check_eq(select.MAPS[1].get_height(), 256, "stage two map is square")
+	var checkpoint_started := []
+	select.selected.connect(func(chosen: Game.Difficulty, checkpoint: String, stage: int) -> void: checkpoint_started.append([chosen, checkpoint, stage]))
+	var down := InputEventKey.new()
+	down.physical_keycode = KEY_DOWN
+	down.pressed = true
+	select._unhandled_input(down)
+	var enter := InputEventKey.new()
+	enter.physical_keycode = KEY_ENTER
+	enter.keycode = KEY_ENTER
+	enter.pressed = true
+	select._unhandled_input(enter)
+	check_eq(checkpoint_started, [[Game.Difficulty.HARD, "midboss", 2]], "keyboard activates an unlocked checkpoint")
+	select.focus = StageSelect.Focus.CARD
+	var stick_down := InputEventJoypadMotion.new()
+	stick_down.axis = JOY_AXIS_LEFT_Y
+	stick_down.axis_value = 1.0
+	select._unhandled_input(stick_down)
+	check_eq(select.focus, StageSelect.Focus.CHECKPOINT, "gamepad down reaches checkpoint choices")
+	var stick_up := InputEventJoypadMotion.new()
+	stick_up.axis = JOY_AXIS_LEFT_Y
+	stick_up.axis_value = -1.0
+	select._unhandled_input(stick_up)
+	check_eq(select.focus, StageSelect.Focus.CARD, "gamepad up returns to the cards")
+	var went_back := [false]
+	select.back.connect(func() -> void: went_back[0] = true)
+	var escape := InputEventKey.new()
+	escape.physical_keycode = KEY_ESCAPE
+	escape.keycode = KEY_ESCAPE
+	escape.pressed = true
+	select._unhandled_input(escape)
+	check(went_back[0], "escape returns to the main menu")
+	select.queue_free()
+	_restore_bests()
+
+
+func test_game_screen_clear_retains_next_stage_only_for_stage_one() -> void:
 	_isolate_bests()
 	for number in [1, 2]:
 		var screen := GameScreen.new()
 		screen.stage = number
 		add_child(screen)
 		await frames(3)
-		check_eq(Game.stage, number, "the screen plays stage %d" % number)
-		check_eq(Course.stage.number, number, "on its course")
 		screen.world.stage_cleared.emit()
 		await wait_until(func() -> bool: return screen._results != null, 60 * 5)
-		check_eq(screen._results.has_next_stage, number == 1, "next stage offered after stage %d: %s" % [number, number == 1])
-		check_eq(Game.is_stage_unlocked(2), true, "stage 2 is open after clearing stage %d" % number)
-		check(not Game.bests.has("stage_3"), "there is no stage 3 to open")
+		check_eq(screen._results.has_next_stage, number == 1, "NEXT STAGE after stage %d" % number)
 		if number == 1:
 			var restarts := []
 			screen.restart.connect(func(name: String) -> void: restarts.append(name))
 			screen._results.next_stage.emit()
-			check_eq(Game.stage, 2, "next stage selects stage 2")
+			check_eq(Game.stage, 2, "NEXT STAGE selects stage two")
 			check_eq(restarts, [""], "and restarts from its beginning")
+		screen.world.camera.set_process(false)
+		screen.world.process_mode = Node.PROCESS_MODE_DISABLED
 		remove_child(screen)
 		screen.queue_free()
-		await frames(2)
+		await frames(3)
 	_restore_bests()
 
 
-func test_title_lists_stage_2_entries_once_unlocked() -> void:
+func test_title_sorties_open_stage_select_for_both_difficulties() -> void:
 	_isolate_bests()
 	var title: Control = load("res://scripts/ui/title.gd").new()
 	add_child(title)
 	await frames(2)
-	var labels := _labels(title._menu)
-	check(labels.has(tr("MENU_START_NORMAL")) and labels.has(tr("MENU_START_HARD")), "stage 1 sorties")
-	check(not labels.has(tr("S2_MENU_START_NORMAL")), "no stage 2 sortie while it is locked")
-	Game.unlock_stage(2)
-	title._show_main()
-	labels = _labels(title._menu)
-	check(labels.has(tr("S2_MENU_START_NORMAL")) and labels.has(tr("S2_MENU_START_HARD")), "stage 2 sorties once stage 1 is cleared")
-	check(not labels.has(tr("S2_MENU_FROM_MIDBOSS")) and not labels.has(tr("S2_MENU_FROM_BOSS")), "no stage 2 checkpoints yet")
-	check(not labels.has(tr("MENU_FROM_MIDBOSS")), "and no stage 1 ones")
-	Game.stage = 2
-	Game.unlock_checkpoint("midboss")
-	Game.stage = 1
-	title._show_main()
-	labels = _labels(title._menu)
-	check(labels.has(tr("S2_MENU_FROM_MIDBOSS")) and not labels.has(tr("S2_MENU_FROM_BOSS")), "a reached stage 2 checkpoint is listed")
-	check(not labels.has(tr("MENU_FROM_MIDBOSS")), "stage 1's is not")
+	var labels := _labels(title._menu as Menu)
+	check(labels.slice(0, 2) == [tr("MENU_START_NORMAL"), tr("MENU_START_HARD")], "main menu starts with two sortie difficulty entries")
+	check(tr("S2_MENU_START_NORMAL") not in labels and tr("S2_MENU_START_HARD") not in labels, "no per-stage sortie entries remain")
 	var started := []
 	title.start.connect(func(checkpoint: String) -> void: started.append([checkpoint, Game.stage, Game.difficulty]))
-	title._menu.items[labels.find(tr("S2_MENU_START_HARD"))].action.call()
-	check_eq(started, [["", 2, Game.Difficulty.HARD]], "the entry starts stage 2 on hard")
-	title._menu.items[labels.find(tr("S2_MENU_FROM_MIDBOSS"))].action.call()
-	check_eq(started[1], ["midboss", 2, Game.Difficulty.NORMAL], "the checkpoint entry starts stage 2 from there")
-	title._menu.items[labels.find(tr("MENU_START_NORMAL"))].action.call()
-	check_eq(started[2], ["", 1, Game.Difficulty.NORMAL], "and a stage 1 entry goes back to stage 1")
-	remove_child(title)
+	(title._menu as Menu).items[0].action.call()
+	check(title._menu is StageSelect, "normal sortie opens stage select")
+	var right := InputEventKey.new()
+	right.physical_keycode = KEY_D
+	right.keycode = KEY_D
+	right.pressed = true
+	(title._menu as StageSelect)._unhandled_input(right)
+	var enter := InputEventKey.new()
+	enter.physical_keycode = KEY_ENTER
+	enter.keycode = KEY_ENTER
+	enter.pressed = true
+	(title._menu as StageSelect)._unhandled_input(enter)
+	check_eq(started, [["", 2, Game.Difficulty.NORMAL]], "keyboard starts stage two")
+	title._show_main()
+	(title._menu as Menu).items[1].action.call()
+	check((title._menu as StageSelect).difficulty == Game.Difficulty.HARD, "hard sortie passes difficulty")
+	var pad_right := InputEventJoypadMotion.new()
+	pad_right.axis = JOY_AXIS_LEFT_X
+	pad_right.axis_value = 1.0
+	(title._menu as StageSelect)._unhandled_input(pad_right)
+	var pad_accept := InputEventJoypadButton.new()
+	pad_accept.button_index = JOY_BUTTON_A
+	pad_accept.pressed = true
+	(title._menu as StageSelect)._unhandled_input(pad_accept)
+	check_eq(started[1], ["", 2, Game.Difficulty.HARD], "gamepad starts stage two on hard")
 	title.queue_free()
-	await frames(2)
 	_restore_bests()
 
 

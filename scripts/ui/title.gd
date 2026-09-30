@@ -11,7 +11,7 @@ var world := World.new()
 var font: Font
 var _model := TankModel.new()
 var _tail := Tail.new()
-var _menu: Menu
+var _menu: Control
 var _time := 0.0
 
 
@@ -44,19 +44,24 @@ func _show_main() -> void:
 	_menu = Menu.new()
 	_menu.center = Vector2(760, 380)
 	_menu.width = 300
-	for number in range(1, Game.STAGE_COUNT + 1):
-		if not Game.is_stage_unlocked(number):
-			continue
-		_menu.add_item(tr(Game.string_key("MENU_START_NORMAL", number)), _begin.bind(Game.Difficulty.NORMAL, "", number))
-		_menu.add_item(tr(Game.string_key("MENU_START_HARD", number)), _begin.bind(Game.Difficulty.HARD, "", number))
-		for checkpoint in ["midboss", "boss"]:
-			if Game.is_checkpoint_unlocked(checkpoint, number):
-				_menu.add_item(tr(Game.string_key("MENU_FROM_" + checkpoint.to_upper(), number)), _begin.bind(Game.Difficulty.NORMAL, checkpoint, number))
+	_menu.add_item(tr("MENU_START_NORMAL"), _show_stage_select.bind(Game.Difficulty.NORMAL))
+	_menu.add_item(tr("MENU_START_HARD"), _show_stage_select.bind(Game.Difficulty.HARD))
 	_menu.add_item(tr("MENU_DEBUG_ROOM"), func() -> void: debug_room.emit())
 	_menu.add_item(tr("MENU_SETTINGS"), _show_settings)
 	if not OS.has_feature("web"):
 		_menu.add_item(tr("MENU_QUIT"), func() -> void: get_tree().quit())
 	add_child(_menu)
+
+
+func _show_stage_select(difficulty: Game.Difficulty) -> void:
+	if _menu:
+		_menu.queue_free()
+	var select := StageSelect.new()
+	select.difficulty = difficulty
+	select.selected.connect(_begin)
+	select.back.connect(_show_main)
+	_menu = select
+	add_child(select)
 
 
 func _show_settings() -> void:
