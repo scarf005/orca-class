@@ -169,17 +169,21 @@ func test_stage_2_boss_death_clears_the_stage() -> void:
 	var world := stage("boss", true, 2)
 	world.player.invulnerable = true
 	await wait_until(func() -> bool: return world.boss != null, 60 * 12)
-	var boss := world.boss as Gunship
+	var boss := world.boss as Floodgate
 	var cleared := [false]
 	world.stage_cleared.connect(func() -> void: cleared[0] = true)
-	boss.hp = 1.0
-	var hit := Hit.make(Hit.Kind.SHELL, 50.0, boss.global_position)
+	for battery: Floodgate.Battery in boss.batteries:
+		battery.hp = 1.0
+		boss.take_hit(Hit.make(Hit.Kind.SHELL, 50.0, battery.node.global_position + Vector3.UP))
+	await frames(240)
+	check(boss.phase != Floodgate.Phase.GATES, "all gate batteries open the drained phase")
+	boss.expose_core()
+	boss.core_hp = 1.0
+	var hit := Hit.make(Hit.Kind.SHELL, 50.0, boss.global_transform * Floodgate.CORE_OFFSET)
 	hit.pierce = true
 	boss.take_hit(hit)
-	check(boss._crash > 0.0, "the boss goes down")
-	var crash_to := boss._crash_to
-	check(await wait_until(func() -> bool: return cleared[0], 60 * 14), "the stage clears without a dam to crash into")
-	check(crash_to.y < 5.0, "the wreck came down on the ground")
+	check(await wait_until(func() -> bool: return cleared[0], 60 * 14), "the basin drains and the stage clears")
+	check_eq((Course.stage as Stage2).dawn, 1.0, "sunrise follows the core death")
 
 
 func test_stage_2_midboss_holds_and_releases_the_rail() -> void:
