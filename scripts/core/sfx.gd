@@ -75,6 +75,12 @@ const SOUNDS := {
 	"combine_auger": ["res://assets/audio/synth/combine_auger.wav", -1.0],
 	"combine_chaff": ["res://assets/audio/synth/combine_chaff.wav", -1.0],
 	"combine_death": ["res://assets/audio/synth/combine_death.wav", 0.0],
+	"boss_klaxon": ["res://assets/audio/synth/boss_klaxon.wav", -1.0],
+	"gate_break": ["res://assets/audio/synth/gate_break.wav", 0.0],
+	"torrent": ["res://assets/audio/synth/torrent.wav", -2.0],
+	"intake_suction": ["res://assets/audio/synth/intake_suction.wav", -2.0],
+	"geyser": ["res://assets/audio/synth/geyser.wav", -1.0],
+	"core_death": ["res://assets/audio/synth/core_death.wav", 0.0],
 }
 
 const POOL_SIZE := 40

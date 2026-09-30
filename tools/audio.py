@@ -1185,6 +1185,22 @@ def sfx4():
     write_wav("combine_death", boom * 1.7 + crack * 1.1 + fire * 0.9, 0.95)
 
 
+
+# --- Phase E floodgate fortress sounds ------------------------------------------------------
+def sfx5():
+    local = np.random.default_rng(2305)
+    def n(seconds):
+        return local.uniform(-1, 1, int(seconds * RATE))
+    def pulse(f0, f1, seconds, gain=1.0):
+        return sweep(f0, f1, seconds, "sine", 0.7) * env(int(seconds * RATE), 0.004, seconds * 0.7) * gain
+    write_wav("boss_klaxon", pulse(180, 520, 1.0) + pulse(90, 180, 1.0, 0.55), 0.9)
+    write_wav("gate_break", pulse(120, 32, 0.8, 1.4) + highpass(n(0.8), 1400) * 0.8, 0.72)
+    write_wav("torrent", lowpass(n(1.3), 2200) * env(int(1.3 * RATE), 0.02, 0.55) * 0.9 + pulse(70, 38, 1.3, 0.5), 0.8)
+    write_wav("intake_suction", pulse(900, 70, 1.1, 0.8) + lowpass(n(1.1), 650) * 0.7, 0.75)
+    write_wav("geyser", pulse(80, 420, 0.8, 1.2) + highpass(n(0.8), 1900) * 0.45, 0.78)
+    write_wav("core_death", pulse(170, 30, 1.25, 1.6) + lowpass(n(1.25), 1200) * 0.8, 0.9)
+
+
 if __name__ == "__main__":
     import sys
     parts = sys.argv[1:] or ["sfx", "music", "stage2"]
@@ -1204,5 +1220,8 @@ if __name__ == "__main__":
     if "sfx" in parts:
         sfx3()
         sfx4()
+        sfx5()
     elif "combine" in parts:
         sfx4()
+    if "floodgate" in parts:
+        sfx5()
