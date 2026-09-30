@@ -30,29 +30,44 @@ func _init() -> void:
 	weakness = {Hit.Kind.TAIL: 1.5}
 
 func build() -> void:
-	# The legs and neck are deliberately long and thin: the silhouette is roughly 2.5x the tank's
-	# mounted height, while the body and continuous stilt hit volumes remain easy to read.
+	# A heron on stilts, about 2.5x the tank's height: a tilted teardrop body with folded slate wings,
+	# a long straight neck carrying a dagger beak, and reverse-kneed legs. Fungus has broken through
+	# its back. The legs, body, neck and beak match the hit volumes in `hit_test`.
 	var body := LowPoly.new()
-	body.box(Transform3D(Basis(), Vector3(0, 5.98, 0)), Vector3(1.7, 1.82, 1.3), Palette.CREAM, Palette.PEACH)
-	body.box(Transform3D(Basis(), Vector3(0, 7.09, -0.15)), Vector3(1.2, 1.04, 0.9), Palette.SKY)
-	body.gable(Transform3D(Basis(), Vector3(0, 7.74, 0)), Vector3(1.4, 0.39, 1.0), Palette.MAUVE, Palette.LILAC)
+	var tilt := Basis(Vector3.RIGHT, 0.28)
+	body.blob(Transform3D(tilt.scaled(Vector3(0.95, 0.8, 1.55)), Vector3(0, 6.35, 0.15)), 1.05, Palette.WHITE, 1)
+	body.blob(Transform3D(tilt.scaled(Vector3(0.7, 0.55, 0.9)), Vector3(0, 5.95, -0.55)), 0.9, Palette.CREAM, 1)
+	for side in [-1.0, 1.0]:
+		var wing := Basis(Vector3.RIGHT, 0.32) * Basis(Vector3.FORWARD, side * 0.18)
+		body.box(Transform3D(wing, Vector3(side * 0.82, 6.55, 0.45)), Vector3(0.18, 0.95, 2.1), Palette.SLATE, Palette.STONE)
+		body.box(Transform3D(wing, Vector3(side * 0.86, 6.2, 1.35)), Vector3(0.14, 0.5, 0.9), Palette.INK)
+	body.tube(Transform3D(Basis(Vector3.RIGHT, 0.55), Vector3(0, 6.2, 1.45)), 0.35, 0.9, 5, Palette.STONE, 0.05)
+	body.flesh = true
+	for pustule: Array in [[Vector3(0.25, 7.05, 0.35), 0.34], [Vector3(-0.3, 6.95, 0.8), 0.26], [Vector3(0.05, 6.85, 1.2), 0.2]]:
+		body.blob(Transform3D(Basis(), pustule[0]), pustule[1], Palette.FUNGUS, 0, 0.3, 7)
+	body.flesh = false
 	var body_mesh := MeshInstance3D.new()
 	body_mesh.mesh = body.mesh()
 	model.add_child(body_mesh)
-	_neck.position = Vector3(0, 7.54, -0.35)
+	_neck.position = Vector3(0, 7.0, -0.95)
 	model.add_child(_neck)
 	var neck_mesh := LowPoly.new()
-	neck_mesh.prism(Transform3D(), 0.22, 2.99, 6, Palette.CREAM)
-	neck_mesh.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3(0, 2.93, 0)), 0.08, 1.56, 5, Palette.OCHRE)
+	neck_mesh.prism(Transform3D(), 0.26, 2.99, 6, Palette.WHITE, 0.15)
+	neck_mesh.blob(Transform3D(Basis().scaled(Vector3(0.8, 0.75, 1.1)), Vector3(0, 2.93, 0.05)), 0.34, Palette.WHITE, 1)
+	neck_mesh.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3(0, 2.9, -0.25)), 0.11, 1.56, 5, Palette.AMBER, 0.0)
+	# The black crest trails back from the crown in two thin plumes.
+	for side in [-1.0, 1.0]:
+		neck_mesh.tube(Transform3D(Basis(Vector3.RIGHT, -0.35) * Basis(Vector3.UP, side * 0.12), Vector3(side * 0.08, 3.1, 0.2)), 0.05, 1.1, 4, Palette.INK, 0.01)
 	var neck_instance := MeshInstance3D.new()
 	neck_instance.mesh = neck_mesh.mesh()
 	_neck.add_child(neck_instance)
 	var eye := MeshInstance3D.new()
 	var eye_poly := LowPoly.new()
 	eye_poly.glow = true
-	eye_poly.box(Transform3D(), Vector3(0.25, 0.18, 0.06), Palette.RED)
+	for side in [-1.0, 1.0]:
+		eye_poly.box(Transform3D(Basis(), Vector3(side * 0.27, 0, 0)), Vector3(0.06, 0.14, 0.2), Palette.RED)
 	eye.mesh = eye_poly.mesh()
-	eye.position = Vector3(0, 2.35, -0.13)
+	eye.position = Vector3(0, 3.0, -0.12)
 	_neck.add_child(eye)
 	_eye_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_eye_material.albedo_color = Palette.RED
@@ -60,10 +75,17 @@ func build() -> void:
 	for side in [-1.0, 1.0]:
 		var leg := Node3D.new()
 		leg.position = Vector3(side * 0.55, 0.0, 0.05)
+		# Hip to the backward-bent ankle, then straight down to splayed toes.
+		var hip := Vector3(0, 5.75, -0.1)
+		var ankle := Vector3(0, 2.9, 0.3)
+		var foot := Vector3(0, 0.12, -0.05)
 		var leg_poly := LowPoly.new()
-		leg_poly.prism(Transform3D(), 0.18, 5.2, 5, Palette.SLATE)
-		leg_poly.prism(Transform3D(Basis(), Vector3(0, 5.0, 0)), 0.14, 1.95, 5, Palette.CORAL)
-		leg_poly.box(Transform3D(Basis(), Vector3(0, 0.05, -0.3)), Vector3(0.55, 0.16, 0.9), Palette.INK)
+		leg_poly.prism(Transform3D(Basis(Quaternion(Vector3.UP, (ankle - hip).normalized())), hip), 0.2, hip.distance_to(ankle), 5, Palette.CORAL, 0.13)
+		leg_poly.prism(Transform3D(Basis(Quaternion(Vector3.UP, (foot - ankle).normalized())), ankle), 0.13, ankle.distance_to(foot), 5, Palette.CORAL, 0.1)
+		leg_poly.blob(Transform3D(Basis(), ankle), 0.2, Palette.SLATE)
+		for toe in [-0.5, 0.0, 0.5]:
+			leg_poly.tube(Transform3D(Basis(Vector3.UP, PI + toe), foot), 0.06, 0.75, 4, Palette.INK, 0.02)
+		leg_poly.tube(Transform3D(Basis(), foot), 0.05, 0.4, 4, Palette.INK, 0.02)
 		var leg_mesh := MeshInstance3D.new()
 		leg_mesh.mesh = leg_poly.mesh()
 		leg.add_child(leg_mesh)
@@ -141,7 +163,8 @@ func behave(delta: float) -> void:
 			_impact.y = Course.height_at(_impact)
 			Sfx.play("heron_warn", global_position)
 	elif state == State.TELEGRAPH:
-		_neck.rotation.x = lerpf(_neck.rotation.x, -0.85, delta * 5.0)
+		# The neck coils back before the lance strikes forward.
+		_neck.rotation.x = lerpf(_neck.rotation.x, 0.45, delta * 6.0)
 		_eye_material.albedo_color = Palette.WHITE if fmod(_state_time, 0.14) < 0.07 else Palette.RED
 		World.current.fx.marker(_impact, 3.2, maxf(TELEGRAPH_TIME - _state_time, 0.0), Palette.HOT)
 		if _state_time >= TELEGRAPH_TIME:
@@ -151,7 +174,7 @@ func _attack(tank: Tank) -> void:
 	state = State.STILL
 	_state_time = 0.0
 	_attack_timer = 2.8
-	_neck.rotation.x = 0.0
+	_neck.rotation.x = -1.15 # Snapped forward; it eases back up while still.
 	_eye_material.albedo_color = Palette.RED
 	var hit_point := tank.hit_center()
 	hit_point.y = _impact.y + 0.8
