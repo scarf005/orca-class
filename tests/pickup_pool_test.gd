@@ -9,7 +9,7 @@ func test_stage_loot_never_offers_canister_or_airburst() -> void:
 	for spec: Scenery.Spec in world.director.scenery.specs:
 		check(spec.pickup not in blocked, "placed loot excludes disabled rounds")
 	for hard in [false, true]:
-		for event: Dictionary in Stage1.events(hard):
+		for event: Dictionary in Stage1.new().events(hard):
 			check(event.get("drop", "") not in blocked, "enemy drops exclude disabled rounds")
 			check(event.get("reward", "") not in blocked, "hold rewards exclude disabled rounds")
 			if event.type == "pickup":

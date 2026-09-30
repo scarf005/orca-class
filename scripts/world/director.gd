@@ -3,7 +3,7 @@ extends Node
 ## Runs the stage script: fires events as the rail reaches them, spawns waves in formation,
 ## manages checkpoints, the mid-boss hold and the boss arena, and tracks sections.
 
-signal section_changed(section: Course.Section)
+signal section_changed(section: int)
 signal checkpoint_reached(name: String)
 signal storm(duration: float)
 signal incoming(from: Vector3) ## A wave is arriving from outside the view; the HUD points to it.
@@ -25,9 +25,6 @@ const ENEMY_SCRIPTS := {
 const MIDBOSS_RESUME := 0.6 ## Seconds after the mid-boss dies before the rail runs again.
 
 const BOSS_CLEAR_DELAY := 1.2 ## After the boss falls, so the breach lands before the call-out; the flood plays on behind it.
-
-## Checkpoint name -> rail distance to start from.
-const CHECKPOINTS := {"": 0.0, "midboss": Course.MIDBOSS_D - 110.0, "boss": Course.SECTION_STARTS[Course.Section.ARENA] - 40.0, "duel": DUEL_D}
 
 ## The duel prototype (`-- --duel`): the rail stands still on the farm straight and the hunters come
 ## again each time they are all down, so one fight can be played over and over.
@@ -56,7 +53,7 @@ const PURSUIT_MAX := 10 ## Pursuers alive at once, so a long crawl cannot bury t
 var events: Array[Dictionary] = []
 var slow_meter := 0.0 ## 0..1: fills while the tank is slow on the rail, drains while it is fast.
 var scenery := Scenery.new()
-var section := Course.Section.FARM
+var section := 0
 var _next_event := 0
 var _hard := false
 var _hold_group: Array[Enemy] = [] ## A hold keeps the rail stopped until these are gone.
@@ -71,11 +68,11 @@ var _pursuit_groups := 0 ## Groups sent in the current spell of slowness.
 func begin(checkpoint: String) -> void:
 	_hard = Game.difficulty == Game.Difficulty.HARD
 	var world := World.current
-	world.rail.d = CHECKPOINTS.get(checkpoint, 0.0)
+	world.rail.d = Course.stage.checkpoints.get(checkpoint, 0.0)
 	if not checkpoint.is_empty():
 		world.stats.ranked = false
 	_duel = checkpoint == "duel"
-	events = Stage1.events(_hard)
+	events = Course.stage.events(_hard)
 	if _duel:
 		events.clear()
 	events.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.d < b.d)
@@ -91,10 +88,11 @@ func begin(checkpoint: String) -> void:
 	scenery.build()
 	scenery.stream(world.rail.d, 100000)
 	section = Course.section_at(world.rail.d)
-	if checkpoint == "boss":
-		world.player.set_coax_tier(3)
-	elif checkpoint == "midboss":
-		world.player.set_coax_tier(2)
+	var tier: int = Course.stage.coax_tiers.get(checkpoint, 0)
+	if tier > 0:
+		world.player.set_coax_tier(tier)
+	if Course.stage.start_rws:
+		world.player.mount_rws()
 	_play_section_music()
 	if _duel:
 		world.rail.mode = Rail.Mode.HOLD
@@ -198,15 +196,9 @@ func _finish_section() -> void:
 
 
 func _play_section_music() -> void:
-	match section:
-		Course.Section.ARENA:
-			pass # The boss event starts the boss theme.
-		Course.Section.SCHOOL:
-			Sfx.play_music("res://assets/music/stage_b.ogg")
-		Course.Section.RESERVOIR, Course.Section.OVERPASS:
-			Sfx.play_music("res://assets/music/stage_b.ogg")
-		_:
-			Sfx.play_music("res://assets/music/stage_a.ogg")
+	var track := Course.stage.music(section)
+	if not track.is_empty(): # The boss event starts the boss theme.
+		Sfx.play_music(track)
 
 
 func _fire(event: Dictionary) -> void:
@@ -341,7 +333,7 @@ func _start_midboss(event: Dictionary) -> void:
 	world.rail.mode = Rail.Mode.HOLD
 	world.rail.hold_at = event.hold
 	var boss: Enemy = load(ENEMY_SCRIPTS[event.kind]).new()
-	boss.position = Course.ground_at(Course.MIDBOSS_D, 0.0)
+	boss.position = Course.ground_at(Course.stage.midboss_d, 0.0)
 	world.add_enemy(boss)
 	world.boss = boss
 	world.boss_changed.emit(boss)
@@ -355,7 +347,7 @@ func _start_boss(event: Dictionary) -> void:
 	var world := World.current
 	world.rail.mode = Rail.Mode.ARENA
 	var boss: Enemy = load(ENEMY_SCRIPTS[event.kind]).new()
-	boss.position = Course.to_world(Course.ARENA_CENTER_D + 70.0, 0.0, 45.0)
+	boss.position = Course.stage.boss_position()
 	world.add_enemy(boss)
 	world.boss = boss
 	world.boss_changed.emit(boss)

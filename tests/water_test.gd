@@ -37,7 +37,7 @@ func test_surface_at_finds_each_body_of_water() -> void:
 	var world := _arena()
 	await frames(2)
 	var reservoir := Course.to_world(2100.0, -30.0)
-	check_eq(Water.surface_at(reservoir), Course.WATER_LEVEL, "the reservoir is at its level")
+	check_eq(Water.surface_at(reservoir), Stage1.WATER_LEVEL, "the reservoir is at its level")
 	check_eq(Water.surface_at(Course.to_world(2100.0, 0.0)), -INF, "the road beside it is dry")
 	check_eq(Water.surface_at(Course.to_world(2100.0, -136.0)), -INF, "past the water's edge is dry")
 	check_eq(Water.surface_at(Course.to_world(1700.0, -30.0)), -INF, "before the reservoir starts is dry")

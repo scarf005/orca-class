@@ -6,7 +6,7 @@ func test_normal_flight_keeps_space_with_damaged_rotors_and_inward_momentum() ->
 	world.director._start_boss({"kind": "gunship"})
 	var boss := world.boss as Gunship
 	boss._next_attack = 1000.0
-	var center := Course.to_world(Course.ARENA_CENTER_D, 0.0)
+	var center := Course.to_world(Stage1.ARENA_CENTER_D, 0.0)
 	for phase in Gunship.Phase.values():
 		boss.phase = phase
 		for lost in 3:

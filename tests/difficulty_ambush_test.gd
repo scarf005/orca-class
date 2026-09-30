@@ -4,9 +4,9 @@ extends TestCase
 func test_events_match_real_buildings_only_on_hard() -> void:
 	Game.difficulty = Game.Difficulty.HARD
 	var world := stage()
-	var ambushes := Stage1.events(true).filter(func(e: Dictionary) -> bool: return e.type == "ambush")
+	var ambushes := Stage1.new().events(true).filter(func(e: Dictionary) -> bool: return e.type == "ambush")
 	check_eq(ambushes.size(), 7, "seven authored urban ambushes")
-	check_eq(Stage1.events(false).filter(func(e: Dictionary) -> bool: return e.type == "ambush").size(), 0, "normal and easy have no ambush events")
+	check_eq(Stage1.new().events(false).filter(func(e: Dictionary) -> bool: return e.type == "ambush").size(), 0, "normal and easy have no ambush events")
 	for event: Dictionary in ambushes:
 		var enemy := world.director.spawn_ambush(event)
 		check(enemy != null and enemy.hidden, "event has a real host at %.0f m" % event.building_d)

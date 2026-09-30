@@ -45,7 +45,7 @@ func run() -> int:
 		cleared = true
 		_section_end(world))
 	_section = world.director.section
-	world.director.section_changed.connect(func(section: Course.Section) -> void:
+	world.director.section_changed.connect(func(section: int) -> void:
 		_section_end(world)
 		_section = section)
 	if args.has("god"):
