@@ -28,6 +28,7 @@ var stats := RunStats.new()
 var player: Tank
 var director: Director
 var view: DitherView ## Set by whoever displays the world; used for screen flashes.
+var stage_number := 1 ## Set before the world enters the tree: the stage whose course and look it uses.
 
 var enemies: Array[Entity] = []
 var projectiles: Array[Projectile] = []
@@ -52,6 +53,7 @@ func _exit_tree() -> void:
 
 
 func _ready() -> void:
+	Course.use(stage_number)
 	_setup_environment()
 	add_child(terrain)
 	props.name = "Props"

@@ -61,7 +61,7 @@ func _ready() -> void:
 		_incoming.append({"position": from, "time": 0.0})
 		Sfx.ui("warn", 0.0, 1.3))
 	world.player.pickup_collected.connect(_on_pickup)
-	world.director.section_changed.connect(func(section: int) -> void: banner(tr("SECTION_%d" % section)))
+	world.director.section_changed.connect(func(section: int) -> void: banner(tr(Game.string_key("SECTION_%d" % section, world.stage_number))))
 	world.director.checkpoint_reached.connect(func(_name: String) -> void: banner(tr("CHECKPOINT")))
 
 

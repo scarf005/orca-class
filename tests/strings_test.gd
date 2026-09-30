@@ -26,6 +26,10 @@ func test_all_keys_translated() -> void:
 			check(not table[key][1].is_empty() and not table[key][2].is_empty(), "%s has both languages" % key)
 	for i in 6:
 		check(table.has("SECTION_%d" % i), "section %d named" % i)
+		check(table.has("S2_SECTION_%d" % i), "stage 2 section %d named" % i)
+	for name in ["MENU_START_NORMAL", "MENU_START_HARD", "MENU_FROM_MIDBOSS", "MENU_FROM_BOSS"]:
+		check(table.has("S2_" + name), "stage 2 %s named" % name)
+	check(table.has("MENU_NEXT_STAGE"), "next stage named")
 	for id in Pickup.IDS:
 		check(table.has("PICKUP_" + id.to_upper()), "pickup %s named" % id)
 	for round_id in Armament.ROUND_IDS.values():

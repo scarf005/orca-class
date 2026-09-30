@@ -44,12 +44,14 @@ func _show_main() -> void:
 	_menu = Menu.new()
 	_menu.center = Vector2(760, 380)
 	_menu.width = 300
-	_menu.add_item(tr("MENU_START_NORMAL"), _begin.bind(Game.Difficulty.NORMAL, ""))
-	_menu.add_item(tr("MENU_START_HARD"), _begin.bind(Game.Difficulty.HARD, ""))
-	if Game.is_checkpoint_unlocked("midboss"):
-		_menu.add_item(tr("MENU_FROM_MIDBOSS"), _begin.bind(Game.Difficulty.NORMAL, "midboss"))
-	if Game.is_checkpoint_unlocked("boss"):
-		_menu.add_item(tr("MENU_FROM_BOSS"), _begin.bind(Game.Difficulty.NORMAL, "boss"))
+	for number in range(1, Game.STAGE_COUNT + 1):
+		if not Game.is_stage_unlocked(number):
+			continue
+		_menu.add_item(tr(Game.string_key("MENU_START_NORMAL", number)), _begin.bind(Game.Difficulty.NORMAL, "", number))
+		_menu.add_item(tr(Game.string_key("MENU_START_HARD", number)), _begin.bind(Game.Difficulty.HARD, "", number))
+		for checkpoint in ["midboss", "boss"]:
+			if Game.is_checkpoint_unlocked(checkpoint, number):
+				_menu.add_item(tr(Game.string_key("MENU_FROM_" + checkpoint.to_upper(), number)), _begin.bind(Game.Difficulty.NORMAL, checkpoint, number))
 	_menu.add_item(tr("MENU_DEBUG_ROOM"), func() -> void: debug_room.emit())
 	_menu.add_item(tr("MENU_SETTINGS"), _show_settings)
 	if not OS.has_feature("web"):
@@ -66,8 +68,9 @@ func _show_settings() -> void:
 	add_child(settings)
 
 
-func _begin(difficulty: Game.Difficulty, checkpoint: String) -> void:
+func _begin(difficulty: Game.Difficulty, checkpoint: String, stage: int) -> void:
 	Game.difficulty = difficulty
+	Game.stage = stage
 	start.emit(checkpoint)
 
 
@@ -92,6 +95,6 @@ func _draw() -> void:
 	draw_string(font, Vector2(48, 128), logo, HORIZONTAL_ALIGNMENT_LEFT, -1, 96, Palette.FUNGUS)
 	draw_string(font, Vector2(52, 164), tr("TITLE_SUB"), HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Palette.CREAM)
 	draw_string(font, Vector2(52, 188), tr("TITLE_TAGLINE"), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.MIST)
-	var best := int(Game.bests.get(Game.best_key("score"), 0))
+	var best := int(Game.bests.get(Game.best_key("score", 1), 0))
 	if best > 0:
 		draw_string(font, Vector2(52, 512), tr("TITLE_BEST") % best, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.BUTTER)

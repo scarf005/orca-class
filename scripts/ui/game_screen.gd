@@ -9,6 +9,7 @@ var view := DitherView.new()
 var world := World.new()
 var hud := Hud.new()
 var checkpoint := ""
+var stage := 1
 var _reached_checkpoint := ""
 var _overlay: Menu
 var _results: Results
@@ -25,6 +26,8 @@ func _ready() -> void:
 	add_child(view)
 	world.view = view
 	world.process_mode = Node.PROCESS_MODE_PAUSABLE
+	world.stage_number = stage
+	Game.stage = stage
 	view.viewport.add_child(world)
 	world.start_stage(checkpoint)
 	_reached_checkpoint = checkpoint
@@ -48,9 +51,9 @@ func _process(delta: float) -> void:
 	if _storm_time > 0.0:
 		_storm_time -= delta
 		var k := clampf(minf(_storm_time, _storm_total - _storm_time) / 2.0, 0.0, 1.0)
-		world.environment.fog_depth_end = lerpf(420.0, 110.0, k)
-		world.environment.fog_depth_begin = lerpf(90.0, 20.0, k)
-		world.environment.fog_light_color = Color("f3d9d0").lerp(Palette.BLUSH, k)
+		world.environment.fog_depth_end = lerpf(Course.stage.fog_end, 110.0, k)
+		world.environment.fog_depth_begin = lerpf(Course.stage.fog_begin, 20.0, k)
+		world.environment.fog_light_color = Course.stage.fog_color.lerp(Palette.BLUSH, k)
 		hud.set_storm(k)
 
 
@@ -120,12 +123,17 @@ func _on_game_over() -> void:
 
 func _on_cleared() -> void:
 	_finished = true
+	Game.unlock_stage(stage + 1)
 	hud.shout(tr("SHOUT_MISSION_COMPLETE"), Palette.FUNGUS, 2.5)
 	await get_tree().create_timer(2.2).timeout
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	world.player.input_enabled = false
 	_results = Results.new()
 	_results.stats = world.stats
+	_results.has_next_stage = stage < Game.STAGE_COUNT
 	_results.retry.connect(func() -> void: restart.emit(""))
+	_results.next_stage.connect(func() -> void:
+		Game.stage = stage + 1
+		restart.emit(""))
 	_results.title_pressed.connect(func() -> void: quit_to_title.emit())
 	add_child(_results)

@@ -25,6 +25,14 @@ static var _map_size := Vector2i.ZERO
 static var _map := _build()
 
 
+## Makes stage `number` (1-based) the active one.
+static func use(number: int) -> void:
+	if number == stage.number:
+		return
+	stage = Stage1.new() if number == 1 else Stage2.new()
+	_map = _build()
+
+
 static func _build() -> PackedFloat32Array:
 	var raw := PackedFloat32Array()
 	for piece: Array in stage.plan:

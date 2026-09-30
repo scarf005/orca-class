@@ -1,7 +1,7 @@
 extends Node
 ## Plays the stage with a simple bot and saves screenshots, for smoke tests and visual checks.
 ## Usage: xvfb-run -a godot --path . -- --run=res://tools/autoplay.gd --seconds=30 --shots=5,10 \
-##        [--checkpoint=boss] [--out=builds/auto] [--god] [--scale=1] [--seed=1]
+##        [--checkpoint=boss] [--stage=2] [--out=builds/auto] [--god] [--scale=1] [--seed=1]
 ##        [--range=3000,3300] # print frame times within a course-distance interval
 
 var screen: GameScreen
@@ -20,6 +20,7 @@ func run() -> int:
 	Engine.time_scale = float(args.get("scale", "1"))
 	screen = GameScreen.new()
 	screen.checkpoint = args.get("checkpoint", "")
+	screen.stage = int(args.get("stage", "1"))
 	add_child(screen)
 	var world := screen.world
 	if args.has("god"):

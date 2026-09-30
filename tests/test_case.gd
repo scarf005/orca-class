@@ -26,9 +26,13 @@ func check_near(actual: float, expected: float, tolerance: float, message: Strin
 
 
 ## A running stage with the player, as the game creates it. Input is disabled so tests drive it.
-## The game starts without an RWS; tests get one unless they are about picking it up.
-func stage(checkpoint := "", rws := true) -> World:
+## Stage 1 starts without an RWS; tests get one unless they are about picking it up.
+func stage(checkpoint := "", rws := true, number := 1) -> World:
+	if is_instance_valid(_world):
+		remove_child(_world)
+		_world.queue_free()
 	_world = World.new()
+	_world.stage_number = number
 	add_child(_world)
 	_world.start_stage(checkpoint)
 	_world.player.input_enabled = false
@@ -62,3 +66,4 @@ func cleanup() -> void:
 		_world.queue_free()
 		_world = null
 	Engine.time_scale = 1.0
+	Course.use(1)

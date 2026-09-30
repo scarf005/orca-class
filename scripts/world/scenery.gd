@@ -100,15 +100,19 @@ var _groups: Array[Dictionary] = [] ## Compound id -> {piece index: Prop}, fille
 
 func build() -> void:
 	_rng.seed = 20260928
-	_farm()
-	_village()
-	_school()
-	_reservoir()
-	_overpass()
-	_arena()
-	_wires()
-	_spires()
-	_boom()
+	match Course.stage.number:
+		1:
+			_farm()
+			_village()
+			_school()
+			_reservoir()
+			_overpass()
+			_arena()
+			_wires()
+			_spires()
+			_boom()
+		2:
+			_plasmodium()
 	specs.sort_custom(func(a: Spec, b: Spec) -> bool: return a.d < b.d)
 	_prewarm()
 
@@ -346,6 +350,27 @@ func _arena() -> void:
 		add("spore_tower", Stage1.ARENA_CENTER_D + sin(angle) * 80.0, cos(angle) * 80.0)
 	_scatter("car", 3440.0, 3600.0, 4, 10.0, 60.0)
 	_fungus(3420.0, 3620.0, 1.2)
+
+
+## Stage 2's layout so far: reeds and fungal spires over the flooded valley, a few pickups and the
+## arena's rocks and towers.
+func _plasmodium() -> void:
+	_scatter("reeds", 20.0, 2280.0, 260, 8.0, 30.0)
+	_scatter("fungal_spire", 200.0, 2250.0, 24, 26.0, 48.0)
+	_scatter("barrel", 200.0, 2250.0, 10, 4.0, 11.0)
+	add_pickup("repair", 620.0, 4.0)
+	add_pickup("era", 1200.0, -4.0)
+	add_pickup("canister", 1500.0, 0.0)
+	add_pickup("repair", 1840.0, -3.0)
+	add_pickup("tail", 2000.0, 3.0)
+	for i in 10:
+		var angle := TAU * i / 10.0 + 0.3
+		var r := _rng.randf_range(35.0, 70.0)
+		add("rock", Course.stage.arena_center_d + sin(angle) * r, cos(angle) * r)
+	for i in 8:
+		var angle := TAU * i / 8.0
+		add("spore_tower", Course.stage.arena_center_d + sin(angle) * 80.0, cos(angle) * 80.0)
+	_fungus(20.0, 2400.0, 1.4)
 
 
 ## Explosive barrels in clusters along the road, and a gas station whose pumps go up like bombs.
