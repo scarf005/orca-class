@@ -27,6 +27,7 @@ class ChunkBuild:
 var threaded := OS.has_feature("threads")
 var _serial := {} ## index -> ChunkBuild, resumed within the frame budget without worker threads.
 var _chunks := {}
+var _corners := {} ## Bounded to the candidate window; chunk corners never move.
 var _pending := {} ## index -> WorkerThreadPool task id.
 var _built := {} ## index -> LowPoly builder finished on a worker thread.
 var _mutex := Mutex.new()
@@ -93,9 +94,21 @@ static func _water_mesh() -> ArrayMesh:
 func stream(d: float, wait := false) -> void:
 	var deadline := Time.get_ticks_usec() + STREAM_BUDGET_USEC
 	var last := int(floorf((d + AHEAD) / CHUNK_LENGTH))
+	var first := int(floorf((d - BEHIND_BENDS) / CHUNK_LENGTH))
+	var at := Course.to_world(d, 0.0)
+	var forward := Course.forward(d)
+	for index: int in _corners.keys():
+		if index < first or index > last:
+			_corners.erase(index)
 	var wanted := {}
-	for index in range(int(floorf((d - BEHIND_BENDS) / CHUNK_LENGTH)), last + 1):
-		if (index + 1) * CHUNK_LENGTH >= d - BEHIND or _in_front(index, d):
+	for index in range(first, last + 1):
+		if not _corners.has(index):
+			var corners := PackedVector3Array()
+			for cd in [index * CHUNK_LENGTH, (index + 1) * CHUNK_LENGTH]:
+				for u in [-HALF_WIDTH, HALF_WIDTH]:
+					corners.append(Course.to_world(cd, u))
+			_corners[index] = corners
+		if (index + 1) * CHUNK_LENGTH >= d - BEHIND or _in_front(_corners[index], at, forward):
 			wanted[index] = true
 	for index: int in _serial.keys():
 		if not wanted.has(index):
@@ -149,14 +162,11 @@ func stream(d: float, wait := false) -> void:
 			_chunks.erase(index)
 
 
-## Whether any corner of chunk `index` lies ahead of the rail's position at d.
-static func _in_front(index: int, d: float) -> bool:
-	var at := Course.to_world(d, 0.0)
-	var forward := Course.forward(d)
-	for cd in [index * CHUNK_LENGTH, (index + 1) * CHUNK_LENGTH]:
-		for u in [-HALF_WIDTH, HALF_WIDTH]:
-			if (Course.to_world(cd, u) - at).dot(forward) > -20.0:
-				return true
+## Whether any corner of a chunk lies ahead of the rail's position at d.
+static func _in_front(corners: PackedVector3Array, at: Vector3, forward: Vector3) -> bool:
+	for corner in corners:
+		if (corner - at).dot(forward) > -20.0:
+			return true
 	return false
 
 

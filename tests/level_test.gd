@@ -247,3 +247,10 @@ func test_telegraphed_blasts_hit_hard_enough_to_matter() -> void:
 	check(30.0 in damage, "the UAV bomb does 30")
 	check(24.0 in damage, "the quad mortar does 24")
 	check(20.0 in damage, "the spitter spore does 20")
+
+
+func test_geography_bands_preserve_ramps_plateaus_and_boundaries() -> void:
+	for span in [Vector4(-100, 20, 1500, 1560), Vector4(1760, 1840, 2560, 2680), Vector4(2900, 3000, 3300, 3400)]:
+		for x in [span.x - 1, span.x, span.x + 0.1, (span.x + span.y) * 0.5, span.y,
+			(span.y + span.z) * 0.5, span.z, (span.z + span.w) * 0.5, span.w - 0.1, span.w, span.w + 1]:
+			check_near(Course._band(x, span.x, span.y, span.z, span.w), smoothstep(span.x, span.y, x) * (1.0 - smoothstep(span.z, span.w, x)), 0.000001, "fast geography bands preserve the smoothstep shape")

@@ -68,3 +68,21 @@ func test_prepared_normals_follow_winding_and_survive_mesh_reuse() -> void:
 		for j in 3:
 			check(normals[i + j].is_equal_approx(expected), "cached flat normals follow the final clockwise face")
 	check_eq(first.surface_get_arrays(0)[Mesh.ARRAY_VERTEX].size(), 3, "extending a builder does not change a mesh already in use")
+
+
+func test_cached_corner_window_matches_uncached_bend_visibility() -> void:
+	var terrain := Terrain.new()
+	terrain.threaded = false
+	add_child(terrain)
+	for d in [0.0, 620.0, 1120.0, 2100.0, 3050.0, 3500.0, 600.0]:
+		terrain.stream(d, true)
+		var first := int(floorf((d - Terrain.BEHIND_BENDS) / Terrain.CHUNK_LENGTH))
+		var last := int(floorf((d + Terrain.AHEAD) / Terrain.CHUNK_LENGTH))
+		check_eq(terrain._corners.size(), last - first + 1, "cached bounds stay within the candidate window after a checkpoint jump")
+		for index in range(first, last + 1):
+			var wanted: bool = (index + 1) * Terrain.CHUNK_LENGTH >= d - Terrain.BEHIND
+			for cd in [index * Terrain.CHUNK_LENGTH, (index + 1) * Terrain.CHUNK_LENGTH]:
+				for u in [-Terrain.HALF_WIDTH, Terrain.HALF_WIDTH]:
+					wanted = wanted or (Course.to_world(cd, u) - Course.to_world(d, 0.0)).dot(Course.forward(d)) > -20.0
+			check_eq(terrain._chunks.has(index), wanted, "cached bounds preserve visible terrain through bends")
+	terrain.free()

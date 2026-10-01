@@ -12,8 +12,8 @@ func test_gravity_drag_and_fade_preserve_simulation() -> void:
 	check(p.velocity.is_equal_approx(Vector3(3, 0.75, 6)), "gravity precedes drag")
 	check(p.position.is_equal_approx(Vector3(2.5, 5.375, 6)), "motion uses the damped velocity")
 	var data: PackedFloat32Array = fx._buffers[Fx.Kind.GLOW]
-	check_near(data[16], 1.5, 0.00001, "shader size follows particle lifetime")
-	check_near(data[15], 1.0 - smoothstep(0.0, 1.0, 0.25), 0.00001, "screen-door fade remains unchanged")
+	check_near(lerpf(data[0], data[1], data[16] / data[2]), 1.5, 0.00001, "shader size follows particle lifetime")
+	check_near(1.0 - smoothstep(data[4], 1.0, data[16] / data[2]), 1.0 - smoothstep(0.0, 1.0, 0.25), 0.00001, "screen-door fade remains unchanged")
 	fx.free()
 
 
@@ -51,8 +51,8 @@ func test_growth_and_compaction_keep_shader_data_with_the_particle() -> void:
 	for i in 100:
 		var p: Fx.Particle = fx._pools[Fx.Kind.SOLID][i]
 		check_near(data[i * Fx.STRIDE + 3], i * 2 + 1, 0.00001, "compacted translation stays in order")
-		check_near(data[i * Fx.STRIDE + 16], p.layer, 0.00001, "compacted debris keeps its sprite")
-		check_near(data[i * Fx.STRIDE + 18], p.spin.x + p.spin.z * p.life, 0.00001, "compacted debris keeps its roll")
+		check_near(data[i * Fx.STRIDE + 9], p.layer, 0.00001, "compacted debris keeps its sprite")
+		check_near(data[i * Fx.STRIDE + 5] + data[i * Fx.STRIDE + 8] * data[i * Fx.STRIDE + 16], p.spin.x + p.spin.z * p.life, 0.00001, "compacted debris keeps its roll")
 	fx._process(3.0)
 	check_eq(mesh.visible_instance_count, 0, "expiry hides the whole pool")
 	fx.free()
@@ -168,3 +168,26 @@ func test_flying_shards_puff_their_own_color() -> void:
 		fx._process(0.05)
 	check(fx._pools[Fx.Kind.GLOW].is_empty(), "a glass shard leaves no puffs")
 	fx.queue_free()
+
+
+func test_reused_slots_refresh_parameters_and_growth_keeps_live_payloads() -> void:
+	for kind in [Fx.Kind.SOLID, Fx.Kind.GLOW, Fx.Kind.FLAME]:
+		var fx := Fx.new()
+		add_child(fx)
+		fx.spawn(kind, Vector3.ZERO, Vector3.ZERO, 0.1, 2.0, Color.RED)
+		fx._process(0.05)
+		fx._process(0.1)
+		fx.spawn(kind, Vector3.ONE, Vector3.ZERO, 3.0, 4.0, Color.BLUE, {"fade": 0.2})
+		fx._process(0.05)
+		for i in 200:
+			fx.spawn(kind, Vector3(i, 5, 0), Vector3.ZERO, 2.0, 1.0, Color.GREEN)
+		fx._process(0.05)
+		var data: PackedFloat32Array = fx._buffers[kind]
+		check_near(data[0], 4.0, 0.00001, "a reused slot gets the new particle's size")
+		check_near(data[2], 3.0, 0.00001, "a reused slot gets the new lifetime")
+		check_near(data[4], 0.2, 0.00001, "a reused slot gets the new fade threshold")
+		check_eq(Color(data[12], data[13], data[14]), Color.BLUE, "growth preserves the live slot's color")
+		check_near(data[16], 0.1, 0.00001, "growth preserves the live slot's age")
+		for i in range(1, 201):
+			check_eq(Color(data[i * Fx.STRIDE + 12], data[i * Fx.STRIDE + 13], data[i * Fx.STRIDE + 14]), Color.GREEN, "new slots upload their own color")
+		fx.free()

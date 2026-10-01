@@ -113,3 +113,20 @@ func test_particle_compaction_keeps_survivors_visible() -> void:
 	check_eq(fx._pools[Fx.Kind.GLOW][-1].position.x, 99.0, "the last surviving particle stays in order")
 	fx._process(1.0)
 	check_eq(mesh.visible_instance_count, 0, "expired particles are hidden")
+
+
+func test_flash_lights_leave_rendering_when_dark_and_reactivate_on_reuse() -> void:
+	var fx := Fx.new()
+	add_child(fx)
+	check(fx._flashes.all(func(light: OmniLight3D) -> bool: return not light.visible), "unused flash lights do not enter light culling")
+	fx.light_flash(Vector3.ONE, 3.0)
+	var light := fx._flashes[0]
+	check(light.visible, "an active flash still lights the scene")
+	fx._process(0.05)
+	check_near(light.light_energy, 1.5, 0.00001, "visibility does not alter the fade rate")
+	check(light.visible, "a fading flash stays visible until it reaches zero")
+	fx._process(0.05)
+	check(not light.visible and light.light_energy == 0.0, "an extinguished flash leaves rendering immediately")
+	fx.light_flash(Vector3.ZERO, 1.0)
+	check(light.visible and light.light_energy == 1.0, "the pooled light reactivates on reuse")
+	fx.free()

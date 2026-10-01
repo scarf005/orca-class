@@ -274,7 +274,13 @@ static func _paddy_plot(d: float, u: float) -> Vector2:
 
 ## 0 before a, ramps to 1 over [a, b], holds, then ramps back to 0 over [c, e].
 static func _band(x: float, a: float, b: float, c: float, e: float) -> float:
-	return smoothstep(a, b, x) * (1.0 - smoothstep(c, e, x))
+	if x <= a or x >= e:
+		return 0.0
+	if x < b:
+		return smoothstep(a, b, x)
+	if x > c:
+		return 1.0 - smoothstep(c, e, x)
+	return 1.0
 
 
 ## How overgrown the ground is (0..1). Fungus thickens as the stage goes on.

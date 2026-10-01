@@ -60,22 +60,21 @@ func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 
 static func segment_sphere(from: Vector3, to: Vector3, center: Vector3, r: float) -> float:
 	var d := to - from
-	var length := d.length()
-	if length < 0.0001:
+	var length_squared := d.length_squared()
+	if length_squared < 0.00000001:
 		return 0.0 if from.distance_to(center) <= r else -1.0
-	var dir := d / length
 	var m := from - center
-	var b := m.dot(dir)
+	var b := m.dot(d)
 	var c := m.dot(m) - r * r
 	if c <= 0.0:
 		return 0.0
 	if b > 0.0:
 		return -1.0
-	var disc := b * b - c
+	var disc := b * b - length_squared * c
 	if disc < 0.0:
 		return -1.0
-	var t := -b - sqrt(disc)
-	return t if t <= length else -1.0
+	var fraction := (-b - sqrt(disc)) / length_squared
+	return fraction * sqrt(length_squared) if fraction <= 1.0 else -1.0
 
 
 func damage_multiplier(hit: Hit) -> float:

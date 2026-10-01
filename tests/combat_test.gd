@@ -99,3 +99,15 @@ func test_props_block_and_break_under_ram() -> void:
 	world.props.add_child(prop)
 	var crushed := await wait_until(gone(prop), 5)
 	check(crushed, "crushable prop under the tank is crushed")
+
+
+func test_segment_sphere_preserves_distance_and_closed_boundaries() -> void:
+	check_near(Entity.segment_sphere(Vector3.ZERO, Vector3(10, 0, 0), Vector3(5, 0, 0), 1.0), 4.0, 0.00001, "a hit returns metres, not a segment fraction")
+	check_near(Entity.segment_sphere(Vector3.ZERO, Vector3(4, 0, 0), Vector3(5, 0, 0), 1.0), 4.0, 0.00001, "the endpoint touches the sphere")
+	check_near(Entity.segment_sphere(Vector3.ZERO, Vector3(10, 0, 0), Vector3(5, 1, 0), 1.0), 5.0, 0.00001, "a tangent counts as a hit")
+	check_eq(Entity.segment_sphere(Vector3.ZERO, Vector3(3, 0, 0), Vector3(5, 0, 0), 1.0), -1.0, "the segment cannot hit beyond its endpoint")
+	check_eq(Entity.segment_sphere(Vector3.ZERO, Vector3(10, 0, 0), Vector3(-5, 0, 0), 1.0), -1.0, "a sphere behind the start is missed")
+	check_eq(Entity.segment_sphere(Vector3.ZERO, Vector3(10, 0, 0), Vector3(5, 1.01, 0), 1.0), -1.0, "a near tangent outside the radius is missed")
+	check_eq(Entity.segment_sphere(Vector3.ZERO, Vector3.ZERO, Vector3.ZERO, 1.0), 0.0, "a stationary point inside hits immediately")
+	check_eq(Entity.segment_sphere(Vector3.ZERO, Vector3.ZERO, Vector3(2, 0, 0), 1.0), -1.0, "a stationary point outside misses")
+	check_eq(Entity.segment_sphere(Vector3.ZERO, Vector3.ONE, Vector3.ZERO, 1.0), 0.0, "a moving segment starting inside hits immediately")
