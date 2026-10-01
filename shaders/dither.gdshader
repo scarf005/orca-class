@@ -2,8 +2,9 @@ shader_type canvas_item;
 // Ordered-dither palette quantization of the low-resolution 3D view.
 // The Bayer matrix is indexed by source pixel, so the pattern stays fixed to the screen grid.
 
-uniform vec3 palette_lab[33];
-uniform vec3 palette_rgb[33];
+const int MAX_PALETTE_COLORS = 33;
+uniform vec3 palette_lab[MAX_PALETTE_COLORS];
+uniform vec3 palette_rgb[MAX_PALETTE_COLORS];
 uniform int palette_size = 1;
 uniform float spread = 0.08;
 uniform float strength : hint_range(0.0, 1.0) = 1.0;
@@ -53,7 +54,10 @@ void fragment() {
 		// instead of speckling unrelated hues together.
 		vec3 weight = vec3(1.0, 1.7, 1.7);
 		float best = 1e9;
-		for (int i = 0; i < palette_size; i++) {
+		for (int i = 0; i < MAX_PALETTE_COLORS; i++) {
+			if (i >= palette_size) {
+				break;
+			}
 			vec3 d = (lab - palette_lab[i]) * weight;
 			float dist = dot(d, d);
 			if (dist < best) {

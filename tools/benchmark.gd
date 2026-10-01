@@ -3,6 +3,10 @@ extends Node
 
 
 func run() -> int:
+	var fps: int = int(preload("res://scripts/main.gd").args().get("fps", "0"))
+	var particle_step: float = 1.0 / (fps if fps > 0.0 else 200.0)
+	var fire_fps: float = fps if fps > 0.0 else 60.0
+	var fire_step: float = 1.0 / fire_fps
 	var terrain := Terrain.new()
 	terrain.threaded = false
 	add_child(terrain)
@@ -25,7 +29,7 @@ func run() -> int:
 	timings.clear()
 	for frame in 160:
 		var start := Time.get_ticks_usec()
-		fx._process(1.0 / 200.0)
+		fx._process(particle_step)
 		if frame >= 40:
 			timings.append((Time.get_ticks_usec() - start) / 1000.0)
 	_report("particles_%d" % fx.particle_count(), timings)
@@ -83,16 +87,16 @@ func run() -> int:
 		FireZone.ignite(Course.ground_at(world.rail.d + 15.0 + (i % 8) * 8.0, (i / 8 - 2) * 8.0))
 	timings.clear()
 	var peak := 0
-	for frame in 240:
+	for frame in int(4.0 * fire_fps):
 		var start := Time.get_ticks_usec()
 		for enemy in world.enemies:
 			enemy.burning = 3.0
 			enemy.hp = enemy.max_hp
-			enemy._burn(1.0 / 60.0)
+			enemy._burn(fire_step)
 		for zone in FireZone._zones:
-			zone._process(1.0 / 60.0)
-		world.fx._process(1.0 / 60.0)
-		if frame >= 60:
+			zone._process(fire_step)
+		world.fx._process(fire_step)
+		if frame >= int(fire_fps):
 			timings.append((Time.get_ticks_usec() - start) / 1000.0)
 		peak = maxi(peak, world.fx.particle_count())
 	_report("fire_40_zones_10_burning_peak%d" % peak, timings)
@@ -113,6 +117,20 @@ func run() -> int:
 			timings.append((Time.get_ticks_usec() - start) / 1000.0)
 		fx._process(1.0 / 60.0)
 	_report("water_40_units_200_bounces", timings)
+	# Thirty targets tested against 32 short projectile sweeps; includes hits, tangents and misses.
+	var centers := PackedVector3Array()
+	for i in 30:
+		centers.append(Vector3((i % 6 - 3) * 1.5, i / 6, -4.0))
+	timings.clear()
+	for frame in 300:
+		var start := Time.get_ticks_usec()
+		for i in 32:
+			var from := Vector3((i % 8 - 4) * 0.5, i / 8, 0.0)
+			for center in centers:
+				Entity.segment_sphere(from, from + Vector3(0.2, 0.1, -6.0), center, 1.0)
+		if frame >= 60:
+			timings.append((Time.get_ticks_usec() - start) / 1000.0)
+	_report("sphere_sweeps_32_targets_30", timings)
 	return 0
 
 

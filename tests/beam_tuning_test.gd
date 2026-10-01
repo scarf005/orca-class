@@ -37,7 +37,7 @@ func test_duel_smoke_sliders_control_rendered_size_and_fade_and_save() -> void:
 		var visible: bool = world.fx._multimeshes[Fx.Kind.GLOW].visible_instance_count > 0
 		check(visible, "smoke remains visible during the sampled fade")
 		if visible:
-			samples.append(Vector2(buffer[16], buffer[15]))
+			samples.append(_rendered(buffer, 0))
 	check_eq(samples.size(), 3, "all slider settings produce observable smoke")
 	if samples.size() == 3:
 		check(samples[1].x < samples[0].x, "more shrink produces smaller rendered smoke")
@@ -131,3 +131,10 @@ func test_every_hitscan_cannon_canister_and_ciws_beam_narrows() -> void:
 		for i in beams.size():
 			check(beams[i].node.basis.x.length() < widths[i], "each hitscan beam narrows for round %s" % round)
 			check_near(beams[i].node.basis.z.length(), lengths[i], 0.0001, "the beam's endpoints stay fixed")
+
+
+## Size and opacity the particle shaders draw for slot `index` (see dither_fade.gdshader).
+func _rendered(buffer: PackedFloat32Array, index: int) -> Vector2:
+	var o := index * Fx.STRIDE
+	var t := buffer[o + 16] / buffer[o + 2]
+	return Vector2(lerpf(buffer[o], buffer[o + 1], t), 1.0 - smoothstep(buffer[o + 4], 1.0, t))

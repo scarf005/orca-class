@@ -312,3 +312,10 @@ func test_a_hold_gives_up_after_its_timeout_and_skips_when_nothing_is_there() ->
 	check_eq(world.rail.mode, Rail.Mode.HOLD, "a hold with a live enemy stops the rail")
 	await frames(45)
 	check_eq(world.rail.mode, Rail.Mode.RAIL, "and lets go after its timeout")
+
+
+func test_geography_bands_preserve_ramps_plateaus_and_boundaries() -> void:
+	for span in [Vector4(-100, 20, 1500, 1560), Vector4(1760, 1840, 2560, 2680), Vector4(2900, 3000, 3300, 3400)]:
+		for x in [span.x - 1, span.x, span.x + 0.1, (span.x + span.y) * 0.5, span.y,
+			(span.y + span.z) * 0.5, span.z, (span.z + span.w) * 0.5, span.w - 0.1, span.w, span.w + 1]:
+			check_near(StageDef.band(x, span.x, span.y, span.z, span.w), smoothstep(span.x, span.y, x) * (1.0 - smoothstep(span.z, span.w, x)), 0.000001, "fast geography bands preserve the smoothstep shape")

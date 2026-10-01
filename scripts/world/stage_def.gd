@@ -132,6 +132,8 @@ func boss_position() -> Vector3:
 
 ## 0 before a, ramps to 1 over [a, b], holds, then ramps back to 0 over [c, e].
 static func band(x: float, a: float, b: float, c: float, e: float) -> float:
+	if x <= a or x >= e:
+		return 0.0
 	return smoothstep(a, b, x) * (1.0 - smoothstep(c, e, x))
 
 

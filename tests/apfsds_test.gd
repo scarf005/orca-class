@@ -187,6 +187,15 @@ func test_beam_fades_into_shrinking_spiral_smoke() -> void:
 	check(first.life < first.max_life, "spiral smoke outlives the beam")
 	var smoke_index: int = world.fx._pools[Fx.Kind.GLOW].find(first)
 	if smoke_index >= 0:
-		check(world.fx._buffers[Fx.Kind.GLOW][smoke_index * Fx.STRIDE + 16] < first.size, "rendered smoke shrinks while disappearing")
-		check(world.fx._buffers[Fx.Kind.GLOW][smoke_index * Fx.STRIDE + 15] < 1.0, "smoke loses opacity while shrinking")
+		var buffer: PackedFloat32Array = world.fx._buffers[Fx.Kind.GLOW]
+		var rendered := _rendered(buffer, smoke_index)
+		check(rendered.x < buffer[smoke_index * Fx.STRIDE], "rendered smoke shrinks while disappearing")
+		check(rendered.y < 1.0, "smoke loses opacity while shrinking")
 	check(first.position != before_position, "the smoke helix drifts as the beam disappears")
+
+
+## Size and opacity the particle shaders draw for slot `index` (see dither_fade.gdshader).
+func _rendered(buffer: PackedFloat32Array, index: int) -> Vector2:
+	var o := index * Fx.STRIDE
+	var t := buffer[o + 16] / buffer[o + 2]
+	return Vector2(lerpf(buffer[o], buffer[o + 1], t), 1.0 - smoothstep(buffer[o + 4], 1.0, t))
