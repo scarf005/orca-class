@@ -72,8 +72,9 @@ func lay(last: Vector3, hull: Transform3D, offsets: Array, width: float, airborn
 		for offset: float in offsets:
 			var p: Vector3 = along + hull.basis.x * offset
 			# Above the smooth height by more than the terrain mesh strays from it between samples.
-			p.y = Course.height_at(p) + 0.22
-			var crushed := _over_fungus(p)
+			var course := Course.to_course(p)
+			p.y = Course.height(course.x, course.y) + 0.22
+			var crushed := Course.fungus_at(course.x, course.y) > FUNGUS_THRESHOLD and p.y > Course.WATER_LEVEL
 			crushed_prints += int(crushed)
 			multimesh.set_instance_transform(_next, Transform3D(yaw.scaled_local(Vector3(width * (CRUSHED_WIDTH if crushed else 1.0), 1.0, 1.0)), p))
 			multimesh.set_instance_color(_next, CRUSHED if crushed else MUD)
@@ -82,11 +83,6 @@ func lay(last: Vector3, hull: Transform3D, offsets: Array, width: float, airborn
 			_next = (_next + 1) % count_max
 			multimesh.visible_instance_count = mini(multimesh.visible_instance_count + 1, count_max)
 	return at
-
-
-func _over_fungus(p: Vector3) -> bool:
-	var course := Course.to_course(p)
-	return Course.fungus_at(course.x, course.y) > FUNGUS_THRESHOLD and p.y > Course.WATER_LEVEL
 
 
 ## Juice and spores flung up behind the tracks, with a squelch no more often than every 0.45 s.

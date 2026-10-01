@@ -14,10 +14,17 @@ const float BAYER[16] = float[16](0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0, 3.0
 void vertex() {
 	layer = INSTANCE_CUSTOM.x;
 	if (particles) {
-		float c = cos(INSTANCE_CUSTOM.z);
-		float s = sin(INSTANCE_CUSTOM.z);
+		layer = MODEL_MATRIX[1][2];
+		float age = INSTANCE_CUSTOM.x;
+		float t = age / MODEL_MATRIX[2][0];
+		float size = mix(MODEL_MATRIX[0][0], MODEL_MATRIX[1][0], t);
+		float roll = MODEL_MATRIX[1][1] + MODEL_MATRIX[0][2] * age;
+		COLOR.a = 1.0 - smoothstep(MODEL_MATRIX[0][1], 1.0, t);
+		MODELVIEW_MATRIX = VIEW_MATRIX * mat4(vec4(1.0, 0.0, 0.0, 0.0), vec4(0.0, 1.0, 0.0, 0.0), vec4(0.0, 0.0, 1.0, 0.0), MODEL_MATRIX[3]);
+		float c = cos(roll);
+		float s = sin(roll);
 		VERTEX.xy = mat2(vec2(c, s), vec2(-s, c)) * VERTEX.xy;
-		VERTEX = mat3(INV_VIEW_MATRIX) * VERTEX * INSTANCE_CUSTOM.y;
+		VERTEX = mat3(INV_VIEW_MATRIX) * VERTEX * size;
 	}
 }
 

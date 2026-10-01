@@ -14,14 +14,21 @@ const float BAYER[16] = float[16](0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0, 3.0
 
 void vertex() {
 	if (particles) {
-		vec3 c = cos(INSTANCE_CUSTOM.yzw);
-		vec3 s = sin(INSTANCE_CUSTOM.yzw);
+		float age = INSTANCE_CUSTOM.x;
+		float t = age / MODEL_MATRIX[2][0];
+		float size = mix(MODEL_MATRIX[0][0], MODEL_MATRIX[1][0], t);
+		vec3 angles = vec3(MODEL_MATRIX[1][1], MODEL_MATRIX[2][1], MODEL_MATRIX[0][2]) * age;
+		COLOR.a = 1.0 - smoothstep(MODEL_MATRIX[0][1], 1.0, t);
+		MODELVIEW_MATRIX = VIEW_MATRIX * mat4(vec4(1.0, 0.0, 0.0, 0.0), vec4(0.0, 1.0, 0.0, 0.0), vec4(0.0, 0.0, 1.0, 0.0), MODEL_MATRIX[3]);
+		MODELVIEW_NORMAL_MATRIX = mat3(VIEW_MATRIX);
+		vec3 c = cos(angles);
+		vec3 s = sin(angles);
 		// Basis.from_euler uses YXZ order: apply Z, then X, then Y.
 		mat3 rx = mat3(vec3(1.0, 0.0, 0.0), vec3(0.0, c.x, s.x), vec3(0.0, -s.x, c.x));
 		mat3 ry = mat3(vec3(c.y, 0.0, -s.y), vec3(0.0, 1.0, 0.0), vec3(s.y, 0.0, c.y));
 		mat3 rz = mat3(vec3(c.z, s.z, 0.0), vec3(-s.z, c.z, 0.0), vec3(0.0, 0.0, 1.0));
 		mat3 rotation = ry * rx * rz;
-		VERTEX = rotation * VERTEX * INSTANCE_CUSTOM.x;
+		VERTEX = rotation * VERTEX * size;
 		NORMAL = rotation * NORMAL;
 	}
 }
