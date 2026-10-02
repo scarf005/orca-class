@@ -30,6 +30,8 @@ func _ready() -> void:
 	_reached_checkpoint = checkpoint
 	hud.world = world
 	add_child(hud)
+	if checkpoint == "duel":
+		add_child(DuelPanel.new())
 	world.director.storm.connect(_on_storm)
 	world.director.checkpoint_reached.connect(func(name: String) -> void:
 		_reached_checkpoint = name

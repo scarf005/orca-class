@@ -12,6 +12,8 @@ func _ready() -> void:
 		return
 	if OS.get_cmdline_user_args().has("--play"):
 		start_game("")
+	elif OS.get_cmdline_user_args().has("--duel"):
+		start_game("duel")
 	elif OS.get_cmdline_user_args().has("--debug-room"):
 		_open_debug_room()
 	else:

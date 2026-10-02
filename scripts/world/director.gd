@@ -26,7 +26,22 @@ const MIDBOSS_RESUME := 0.6 ## Seconds after the mid-boss dies before the rail r
 const BOSS_CLEAR_DELAY := 1.2 ## After the boss falls, so the breach lands before the call-out; the flood plays on behind it.
 
 ## Checkpoint name -> rail distance to start from.
-const CHECKPOINTS := {"": 0.0, "midboss": Course.MIDBOSS_D - 110.0, "boss": Course.SECTION_STARTS[Course.Section.ARENA] - 40.0}
+const CHECKPOINTS := {"": 0.0, "midboss": Course.MIDBOSS_D - 110.0, "boss": Course.SECTION_STARTS[Course.Section.ARENA] - 40.0, "duel": DUEL_D}
+
+## The duel prototype (`-- --duel`): the rail stands still on the farm straight and the hunters come
+## again each time they are all down, so one fight can be played over and over.
+const DUEL_D := 100.0
+const DUEL_RESPAWN := 2.5
+## How many of each hunter a duel round sends, tuned live in the duel mode.
+static var duel_counts := {"helicopter": 1, "walker": 2, "uav": 0, "quad": 0, "ugv": 0, "fpv": 0}
+const DUEL := {
+	"helicopter": {"height": 13.0, "ahead": 90.0, "u": -8.0, "formation": "line", "spacing": 20.0},
+	"walker": {"formation": "sides", "spacing": 9.0, "ahead": 60.0},
+	"uav": {"formation": "line", "spacing": 10.0, "props": {"attack": "bomb"}},
+	"quad": {"formation": "sides", "spacing": 8.0, "ahead": 90.0},
+	"ugv": {"formation": "sides", "spacing": 8.0, "ahead": 80.0},
+	"fpv": {"formation": "v", "height": 8.0, "spacing": 5.0},
+}
 
 var events: Array[Dictionary] = []
 var scenery := Scenery.new()
@@ -35,6 +50,8 @@ var _next_event := 0
 var _hard := false
 var _hold_group: Array[Enemy] = [] ## A hold keeps the rail stopped until these are gone.
 var _hold_left := 0.0 ## Seconds before a hold gives up and lets the rail run anyway.
+var _duel := false
+var _duel_wait := 0.0
 
 
 func begin(checkpoint: String) -> void:
@@ -43,7 +60,10 @@ func begin(checkpoint: String) -> void:
 	world.rail.d = CHECKPOINTS.get(checkpoint, 0.0)
 	if not checkpoint.is_empty():
 		world.stats.ranked = false
+	_duel = checkpoint == "duel"
 	events = Stage1.events(_hard)
+	if _duel:
+		events.clear()
 	events.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.d < b.d)
 	# A checkpoint start skips everything before it.
 	while _next_event < events.size() and events[_next_event].d < world.rail.d:
@@ -62,6 +82,10 @@ func begin(checkpoint: String) -> void:
 	elif checkpoint == "midboss":
 		world.player.set_coax_tier(2)
 	_play_section_music()
+	if _duel:
+		world.rail.mode = Rail.Mode.HOLD
+		world.rail.hold_at = DUEL_D
+		_duel_wait = 1.5 # A beat to look around before the first hunters arrive.
 
 
 func _process(delta: float) -> void:
@@ -74,6 +98,15 @@ func _process(delta: float) -> void:
 		section = current
 		section_changed.emit(section)
 		_play_section_music()
+	if _duel:
+		_duel_wait = _duel_wait - delta if world.enemies.is_empty() else DUEL_RESPAWN
+		if _duel_wait <= 0.0:
+			_duel_wait = DUEL_RESPAWN
+			for kind: String in DUEL:
+				if duel_counts[kind] > 0:
+					var event: Dictionary = DUEL[kind].duplicate()
+					event.merge({"d": d, "kind": kind, "count": duel_counts[kind]})
+					spawn_wave(event)
 	if _hold_left > 0.0:
 		_hold_left -= delta
 		var alive := false

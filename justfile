@@ -16,6 +16,10 @@ run *args:
 play *args:
     {{ quote(godot) }} --path . -- --play "$@"
 
+# Fight one hunter group over and over (helicopter and walkers) on a held rail.
+duel *args:
+    {{ quote(godot) }} --path . -- --duel "$@"
+
 # Open the debug room.
 debug-room:
     {{ quote(godot) }} --path . -- --debug-room
