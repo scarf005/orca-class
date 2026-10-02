@@ -12,6 +12,13 @@ const POD_LOFT := Vector3(0, 6, 0) ## The pod aims above the tank: its missiles 
 const GUN_SPREAD := 0.03 ## Radians of scatter on every arm gun round.
 const WHEEL_RADIUS := 0.2
 const ROUND_SPEED := 100.0
+const KICK_RANGE := 7.0 ## A tank this close in front is kicked.
+const KICK_REACH := 8.0 ## It must still be this close when the kick lands.
+const KICK_WIND := 0.45
+const KICK_COOLDOWN := 2.5
+const KICK_DAMAGE := 18.0
+const KICK_SHOVE := 12.0 ## Sideways speed the kick adds to the tank.
+const KICK_ARC := 60.0 ## Degrees either side of where it faces.
 const FRONT_ARMOR := 0.25 ## Share of coax damage that gets through the front plate.
 
 var weapon := "gun" ## "gun" or "missile".
@@ -23,6 +30,8 @@ var _attack_timer := 1.6
 var _telegraph := 0.0
 var _burst := 0
 var _burst_timer := 0.0
+var _kick := 0.0 ## Seconds of the kick's wind-up left.
+var _kick_cooldown := 0.0
 var _aim := Vector3.ZERO ## Where the arm gun burst goes: fixed when the telegraph ends.
 var _crouch := 0.25 ## How far it sits into its knees: 0.25 rolling, 0.55 planted.
 var _body := Node3D.new()
@@ -143,7 +152,8 @@ func behave(delta: float) -> void:
 	if tank == null:
 		return
 	var here := Course.to_course(global_position)
-	var planted := _telegraph > 0.0 or _burst > 0 or crippled or is_staggered()
+	_kick_cooldown = maxf(0.0, _kick_cooldown - delta)
+	var planted := _telegraph > 0.0 or _burst > 0 or _kick > 0.0 or crippled or is_staggered()
 	_lane_timer -= delta
 	if _lane_timer <= 0.0:
 		_lane_timer = randf_range(1.2, 2.4)
@@ -163,6 +173,7 @@ func behave(delta: float) -> void:
 	_animate(delta, planted)
 	if crippled or is_staggered():
 		_telegraph = 0.0
+		_kick = 0.0
 		return
 	aim_barrel(_arm, _arm_aim(tank), BARREL_SLEW, delta)
 	aim_barrel(_pod, tank.hit_center() + POD_LOFT, BARREL_SLEW, delta)
@@ -181,6 +192,16 @@ func behave(delta: float) -> void:
 		_eye_material.albedo_color = Palette.WHITE if fmod(_telegraph, 0.1) < 0.05 else Palette.HOT
 		if _telegraph <= 0.0:
 			_attack(tank)
+		return
+	if _kick > 0.0:
+		_kick -= delta
+		_eye_material.albedo_color = Palette.WHITE if fmod(_kick, 0.1) < 0.05 else Palette.HOT
+		if _kick <= 0.0:
+			_land_kick(tank)
+		return
+	if _kick_cooldown <= 0.0 and _flat_distance(tank) < KICK_RANGE and _faces(tank):
+		_kick = KICK_WIND
+		Sfx.play("warn", global_position, -6.0, 1.6)
 		return
 	_attack_timer -= delta
 	var distance := global_position.distance_to(tank.global_position)
@@ -212,6 +233,34 @@ func _attack(tank: Tank) -> void:
 		missile.trail = Projectile.ROCKET_SMOKE
 		missile.life = 5.0
 	Sfx.play("launch", _pod_muzzle.global_position, 0.0, 1.3)
+
+
+func _flat_distance(tank: Tank) -> float:
+	return Vector2(tank.global_position.x - global_position.x, tank.global_position.z - global_position.z).length()
+
+
+## Whether the tank is inside the kick's arc ahead of the walker.
+func _faces(tank: Tank) -> bool:
+	var to_tank := tank.global_position - global_position
+	to_tank.y = 0.0
+	return rad_to_deg((-model.global_basis.z).angle_to(to_tank)) <= KICK_ARC
+
+
+## The kick lands: a ram hit and a shove sideways, if the tank has not backed out of reach.
+func _land_kick(tank: Tank) -> void:
+	var world := World.current
+	_kick_cooldown = KICK_COOLDOWN
+	_eye_material.albedo_color = Palette.HOT
+	_body.position.z = -0.3
+	if _flat_distance(tank) > KICK_REACH:
+		return
+	var hit := Hit.make(Hit.Kind.RAM, KICK_DAMAGE, tank.hit_center(), (tank.global_position - global_position).normalized())
+	hit.source = self
+	tank.take_hit(hit)
+	var lateral := tank.global_position.x - global_position.x if world.rail.mode == Rail.Mode.ARENA else Course.to_course(tank.global_position).y - Course.to_course(global_position).y
+	tank.local_velocity.x += signf(lateral) * KICK_SHOVE
+	world.fx.sparks(tank.hit_center(), hit.direction, 12, Palette.BUTTER, 12.0)
+	Sfx.play("impact", tank.global_position)
 
 
 ## What the arm turns onto: the lead on the sensor while a gun winds up, then that point held for
@@ -273,5 +322,6 @@ func on_damaged(hit: Hit, amount: float) -> void:
 func interrupt() -> void:
 	super()
 	_telegraph = 0.0
+	_kick = 0.0
 	_burst = 0
 	_eye_material.albedo_color = Palette.HOT

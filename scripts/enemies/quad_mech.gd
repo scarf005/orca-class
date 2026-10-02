@@ -13,6 +13,11 @@ const MORTAR_CORRECTION := 8.0 ## Degrees a shell may leave off the tube: it the
 const MORTAR_GRAVITY := 20.0
 const WHEEL_RADIUS := 0.4
 const STANCE_SPLAY := 0.12 ## Radians the shins splay outward.
+const STOMP_RANGE := 8.0 ## A tank this close is stomped.
+const STOMP_REACH := 6.0 ## The stomp shakes this far; the ring shows it.
+const STOMP_WIND := 0.6
+const STOMP_COOLDOWN := 3.0
+const STOMP_DAMAGE := 25.0
 const FRONT_ARMOR := 0.25 ## Share of coax damage that gets through the front plate.
 
 var weapon := "flak" ## "flak" or "mortar".
@@ -24,6 +29,8 @@ var _attack_timer := 2.0
 var _telegraph := 0.0
 var _burst := 0
 var _burst_timer := 0.0
+var _stomp := 0.0 ## Seconds of the stomp's wind-up left.
+var _stomp_cooldown := 0.0
 var _body := Node3D.new()
 var _turret := Node3D.new()
 var _gun := Node3D.new() ## Pivot the flak barrels or the mortar tube turn on; its -Z is the bore.
@@ -145,11 +152,24 @@ func behave(delta: float) -> void:
 		target_d = world.rail.d + tank.course_offset + KEEP_AHEAD
 	var pace := 1.0 - legs_lost() * 0.35
 	var move := Vector2.ZERO
-	if not collapsed() and not is_staggered():
+	if not collapsed() and not is_staggered() and _stomp <= 0.0:
 		move = Vector2(clampf(target_d - here.x, -16.0, 16.0), clampf(_lane - here.y, -3.5, 3.5)) * pace
 	var next := here + move * delta
 	global_position = Course.ground_at(next.x, next.y)
 	_animate(delta)
+	_stomp_cooldown = maxf(0.0, _stomp_cooldown - delta)
+	if collapsed() or is_staggered():
+		_stomp = 0.0
+	elif _stomp > 0.0:
+		_stomp -= delta
+		if _stomp <= 0.0:
+			_land_stomp(tank)
+		return
+	elif _stomp_cooldown <= 0.0 and _telegraph <= 0.0 and _burst == 0 and _flat_distance(tank) < STOMP_RANGE:
+		_stomp = STOMP_WIND
+		world.fx.marker(global_position, STOMP_REACH, STOMP_WIND, Palette.HOT)
+		Sfx.play("warn", global_position, 0.0, 0.6)
+		return
 	if disarmed or collapsed() or is_staggered():
 		_telegraph = 0.0
 		return
@@ -216,6 +236,25 @@ func _attack(tank: Tank) -> void:
 	Sfx.play("launch", from, 2.0, 0.6)
 
 
+func _flat_distance(tank: Tank) -> float:
+	return Vector2(tank.global_position.x - global_position.x, tank.global_position.z - global_position.z).length()
+
+
+## The stomp lands: a ram hit on the tank if it is still inside the ring.
+func _land_stomp(tank: Tank) -> void:
+	var world := World.current
+	_stomp_cooldown = STOMP_COOLDOWN
+	world.shake(0.5, global_position)
+	world.fx.shockwave(global_position, STOMP_REACH * 2.0, Palette.HOT)
+	world.fx.dust(global_position, 10, 3.0, Palette.OCHRE)
+	Sfx.play("blast_small", global_position, 2.0, 0.7)
+	if _flat_distance(tank) > STOMP_REACH:
+		return
+	var hit := Hit.make(Hit.Kind.RAM, STOMP_DAMAGE, tank.hit_center(), (tank.global_position - global_position).normalized())
+	hit.source = self
+	tank.take_hit(hit)
+
+
 ## Where flak is aimed: the tank, a little ahead of where it is going.
 func _flak_aim(tank: Tank) -> Vector3:
 	return tank.hit_center() + tank.velocity * 0.4
@@ -260,7 +299,7 @@ func _animate(delta: float) -> void:
 		(leg.wheel as Node3D).rotation.x -= spin
 	var sag := 1.8 if collapsed() else 0.0
 	_body.position.y = lerpf(_body.position.y, 2.6 - sag - bob * 0.08, 5.0 * delta)
-	_body.rotation.x = lerpf(_body.rotation.x, -tilt.y * 0.12 + clampf(lean.z * 0.005, -0.08, 0.08), 3.0 * delta)
+	_body.rotation.x = lerpf(_body.rotation.x, -tilt.y * 0.12 + clampf(lean.z * 0.005, -0.08, 0.08) + (0.3 if _stomp > 0.0 else 0.0), 3.0 * delta)
 	_body.rotation.z = lerpf(_body.rotation.z, tilt.x * 0.12 - clampf(lean.x * 0.005, -0.08, 0.08), 3.0 * delta)
 
 
@@ -308,4 +347,5 @@ func on_damaged(hit: Hit, amount: float) -> void:
 func interrupt() -> void:
 	super()
 	_telegraph = 0.0
+	_stomp = 0.0
 	_burst = 0
