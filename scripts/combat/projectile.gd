@@ -27,6 +27,7 @@ var interceptable := false
 var intercept_hp := 1.0 ## Laser dwell damage needed to destroy it.
 var radius := 0.0 ## Sweep radius; small for bullets, larger for thrown wrecks.
 var sure_target: Entity ## A locked full charge: nothing else stops it until it has struck this.
+var glow_trail := Color(0, 0, 0, 0) ## A glowing tracer streamed behind it; transparent disables.
 const ROCKET_SMOKE := Color("8c4a34") ## Reddish-brown motor smoke, readable against the pastel sky.
 
 var trail := Color(0, 0, 0, 0) ## Smoke trail color; transparent disables. A trail also means a lit motor.
@@ -104,6 +105,10 @@ func step(delta: float) -> void:
 	global_position = to
 	if velocity.length_squared() > 0.01:
 		look_at(to + velocity, Vector3.UP if absf(velocity.normalized().y) < 0.99 else Vector3.RIGHT)
+	if glow_trail.a > 0.0:
+		var fx := World.current.fx
+		fx.spawn(Fx.Kind.GLOW, to, Vector3.ZERO, 0.16, 0.9, glow_trail, {"end_size": 0.1, "fade": 0.0})
+		fx.spawn(Fx.Kind.GLOW, from.lerp(to, 0.5), Vector3.ZERO, 0.12, 0.5, Palette.WHITE, {"end_size": 0.05, "fade": 0.0})
 	if trail.a > 0.0:
 		_burn_motor(delta, to)
 	if flame_trail:
@@ -189,6 +194,7 @@ func _sweep(from: Vector3, to: Vector3) -> bool:
 		if pierce_entities:
 			_hit_entities.append(struck)
 			_apply(struck, point)
+			_pierce_blast(point, struck)
 			world.fx.sparks(point, -velocity.normalized(), 6, Palette.WHITE, 14.0)
 			return false
 		detonate(point, struck)
@@ -224,6 +230,7 @@ func _sweep(from: Vector3, to: Vector3) -> bool:
 		if pierce_entities:
 			_hit_entities.append(best_entity)
 			_apply(best_entity, point)
+			_pierce_blast(point, best_entity)
 			world.fx.sparks(point, -velocity.normalized(), 6, Palette.WHITE, 14.0)
 			return false
 		detonate(point, best_entity)
@@ -305,6 +312,15 @@ func detonate(point: Vector3, target: Entity) -> void:
 		Sfx.play(impact_sound, point)
 	impacted.emit(self, point, target)
 	queue_free()
+
+
+## A piercing round bursts where it first strikes an enemy, not where it finally stops far behind;
+## past that it only drills on.
+func _pierce_blast(point: Vector3, struck: Entity) -> void:
+	if blast_radius <= 0.0:
+		return
+	World.current.blast(point, blast_radius, blast_damage, team, hit, struck, blast_colors, splash_direction())
+	blast_radius = 0.0
 
 
 ## A small-arms round that the hull turned: it keeps its look and tumbles off in a random direction

@@ -35,6 +35,7 @@ const COAX_RANGE := 140.0
 const SOFT_LOCK_RADIUS := 40.0 ## Screen pixels (3D view) around the reticle; the FCS scales it.
 const LOCK_EDGE := Vector2(60.0, 180.0) ## 3D-view pixels from the screen edge: a locked target this close stops sideways driving, this far lets it run free.
 const LOCK_HOLD := 1.4
+const QUICK_SHELL_SCALE := 2.2 ## A quick shell's drawn size, so it reads in flight.
 const TAIL_FOLD_TIME := 0.06 ## Seconds the tail coils before it kicks off in a drift.
 const TAIL_HIT_RADIUS := 0.8 ## The claw end of the tail as a target, in metres.
 const TAIL_SMALL_ARMS := 2.0 ## Small-arms damage on the tail, which no armor guards.
@@ -111,7 +112,8 @@ var _ghost_hue := 0.0
 var anchor_cooldown := 0.0
 var _drift := 0.0
 var _drift_dir := 0.0
-var _drift_yaw := 0.0 ## The nose's swing against a sideways dash, eased in and out.
+var _drift_yaw := 0.0
+var _stabilized_yaw := 0.0 ## Hull yaw the turret was last laid against. ## The nose's swing against a sideways dash, eased in and out.
 var _respawn := 0.0
 var _barrel_recoil := 0.0
 var _last_position := Vector3.ZERO
@@ -620,6 +622,10 @@ func _update_aim(delta: float) -> void:
 	# The sight's range follows the locked target's lay point, else the aim point, and eases too.
 	sight_range = lerpf(sight_range, model.muzzle.global_position.distance_to(lay), ease_in)
 	_sight_lock = lock
+	# Stabilizer: the turret holds its bearing in the world while the hull swings under it (a drift,
+	# a hard turn), so only the traverse toward a new aim is rate-limited.
+	model.turret.rotation.y -= wrapf(hull_yaw - _stabilized_yaw, -PI, PI)
+	_stabilized_yaw = hull_yaw
 	var local := model.turret.global_transform.affine_inverse() * lay
 	var yaw := atan2(-local.x, -local.z)
 	model.turret.rotation.y = rotate_toward(model.turret.rotation.y, model.turret.rotation.y + yaw, TURRET_RATE * modules.traverse_factor() * delta)
@@ -735,7 +741,7 @@ func auto_fire_progress() -> float:
 
 ## How fast a round of this charge flies, for leading the lock: a quick shell flies, a full charge lands at once.
 func shell_speed(power := charge) -> float:
-	return Armament.SHELL_SPEED if power >= 1.0 else Armament.QUICK_SPEED
+	return Armament.SHELL_SPEED if power >= 1.0 else Armament.quick_speed(power)
 
 
 func _update_charge(delta: float) -> void:
@@ -1005,7 +1011,7 @@ func _fire_canister(muzzle: Vector3, aim_dir: Vector3) -> void:
 
 
 ## A 100 mm shell (APHE, HEAT, APFSDS or airburst). A quick shell (`power` below 1) is a projectile that
-## flies on at QUICK_SPEED; a full charge is hitscan: it lands this very frame and a tracer flash marks its
+## flies on at its charge step's quick speed; a full charge is hitscan: it lands this very frame and a tracer flash marks its
 ## line. Special rounds take their uncharged table for a quick shell and their charged one for a full charge.
 func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 0.0) -> void:
 	var world := World.current
@@ -1020,7 +1026,7 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 
 	shell.hit.power = power
 	shell.hit.stagger = 0.4
 	shell.gravity = 0.0
-	shell.life = 2.0 if full else Armament.SHELL_RANGE / Armament.QUICK_SPEED
+	shell.life = 2.0 if full else Armament.SHELL_RANGE / Armament.quick_speed(power)
 	shell.impact_sound = "impact"
 	shell.impacted.connect(_count_hit, CONNECT_ONE_SHOT)
 	match round:
@@ -1052,6 +1058,9 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 
 	shell.hit.damage *= Armament.SHELL_DAMAGE_SCALE
 	shell.blast_damage *= Armament.SHELL_DAMAGE_SCALE
 	if not full:
+		# A quick shell is a visible round: drawn big, with a glowing tracer streaming behind it.
+		shell.scale = Vector3.ONE * QUICK_SHELL_SCALE
+		shell.glow_trail = color
 		return
 	# A locked full charge always strikes its lock: aimed straight at it, through whatever is between.
 	if is_instance_valid(charge_lock) and round != Armament.Round.AIRBURST:

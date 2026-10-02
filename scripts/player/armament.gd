@@ -30,7 +30,14 @@ const SHELL_SPEED := 1700.0 ## Full-charge rounds are hitscan; this only sets th
 const SHELL_RANGE := 420.0
 const SHELL_DAMAGE := 1500.0
 ## Tuned live in the duel mode, hence static vars.
-static var QUICK_SPEED := 260.0 ## A quick shell is a visible projectile along the barrel, without gravity.
+## A quick shell is a visible projectile along the barrel, without gravity, at the speed of the charge
+## step it left at: one lock box, or two.
+static var QUICK_SPEED_1 := 400.0
+static var QUICK_SPEED_2 := 400.0
+
+
+static func quick_speed(power: float) -> float:
+	return QUICK_SPEED_1 if power < 0.5 else QUICK_SPEED_2
 
 static var COAX_BURST_ROUNDS := 4 ## Rounds a press fires from the coax (from each gun of the tier), however long the button is held.
 static var TAP_TIME := 0.3 ## A hold this long locks the target and starts the charge; a shorter click is only a coax burst.

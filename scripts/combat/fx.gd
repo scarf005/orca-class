@@ -15,6 +15,7 @@ const RICOCHET_LIFE := Vector2(0.25, 0.4)
 const RICOCHET_SPREAD := 0.35
 const TRAIL_MIN_SPEED := 4.0 ## Shards stop trailing once they slow down on the ground.
 static var BLAST_POPS := 2 ## Most secondary pops a big blast sets off (tuned live in the duel mode).
+static var DEBRIS_LIFE := 3.6 ## Longest a shard lies about before it is gone (tuned live in the duel mode).
 static var DEBRIS_SMOKE_LIFE := 0.5 ## Seconds the smoke a flying shard or wreck leaves hangs in the air (tuned live in the duel mode).
 
 ## SOLID: flat pixel-art debris sprites that face the camera and tumble in the screen plane.
@@ -663,7 +664,7 @@ func shatter(bounds: AABB, materials: Array, push := Vector3.ZERO, share := 1.0,
 
 ## `heft` 1 for a big chunk: it lingers, tumbles slowly and drops harder.
 func _shard(position: Vector3, velocity: Vector3, size: float, material: Debris, heft := 0.0) -> void:
-	var life := randf_range(2.2, 3.6) if heft > 0.0 else randf_range(0.9, 2.6)
+	var life := minf(randf_range(2.2, 3.6) if heft > 0.0 else randf_range(0.9, 2.6), DEBRIS_LIFE)
 	spawn(Kind.SOLID, position, velocity, life, size, Color.WHITE, {"gravity": 22.0 + 6.0 * heft, "bounce": true, "spin": randf_range(0.7, 1.7) * (0.4 if heft > 0.0 else 1.0), "end_size": size * 0.8, "trail": DEBRIS_TRAILS[material], "material": material})
 
 

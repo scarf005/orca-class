@@ -83,7 +83,7 @@ func test_release_short_of_full_fires_one_visible_quick_shell() -> void:
 	var shells := _shells(world)
 	check_eq(shells.size(), 1, "it is a projectile still in flight, not hitscan")
 	var shell: Projectile = shells[0]
-	check_near(shell.velocity.length(), Armament.QUICK_SPEED, 0.01, "it flies at QUICK_SPEED")
+	check_near(shell.velocity.length(), Armament.quick_speed(shell.hit.power), 0.01, "it flies at its charge step's quick speed")
 	check_eq(shell.gravity, 0.0, "without gravity")
 	check_near(shell.hit.power, power, 0.03, "its power is the charge")
 	check_near(shell.hit.damage, lerpf(Armament.QUICK_DAMAGE.x, Armament.QUICK_DAMAGE.y, shell.hit.power), 0.01, "damage lerps with it")
