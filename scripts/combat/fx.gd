@@ -7,7 +7,7 @@ const MAX_PARTICLES := 4000
 const SOFT_CAP := 1200
 const MAX_SCORCH := 60
 const FLASH_LIGHTS := 12 ## Pooled lights for blasts, muzzles and fires; the dimmest one is reused.
-const BLAST_PACE := 0.8 ## Explosions play out in this fraction of their original time.
+static var BLAST_PACE := 0.55 ## Explosions play out in this fraction of their original time (tuned live in the duel mode).
 const DEBRIS_SIZE := 1.8 ## Flat shards are drawn this much bigger than the size callers ask for.
 const RICOCHET_SPEED := Vector2(0.4, 0.6) ## Share of its speed a glancing round keeps.
 const RICOCHET_DEFAULT_SPEED := 100.0 ## For a hit that carries no speed.
@@ -441,6 +441,8 @@ func explosion(position: Vector3, damage_radius: float, palette := [Palette.BUTT
 	# The main ball, then smaller ones budding off around it (thrown on along the attack).
 	var life := (0.45 + radius * 0.06) * BLAST_PACE
 	fireball(position + Vector3.UP * radius * 0.15, radius * 0.25, radius * 0.75, life)
+	# The first instant is a white-hot star, so the blast lands with a snap before it rolls.
+	impact_star(position + Vector3.UP * radius * 0.2, radius * 0.9, Palette.WHITE)
 	for i in 3 + int(n * 0.6):
 		var out := (Vector3(randf_range(-1, 1), randf_range(-0.2, 1.0), randf_range(-1, 1)).normalized() + push * 0.8).normalized()
 		fireball(position + out * radius * randf_range(0.35, 0.7) + Vector3.UP * radius * 0.2, radius * 0.12, radius * randf_range(0.3, 0.5), life * randf_range(0.7, 1.1))

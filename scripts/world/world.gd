@@ -170,7 +170,7 @@ const PROJECTILE_SHAPES := {
 	"pellet": ["orb", 0.18, 0.0, 1.8],
 	"shell": ["streak", 0.55, 7.0, 2.4],
 	"dart": ["streak", 0.22, 10.0, 2.4],
-	"orb": ["streak", 0.5, 3.2, 2.4],
+	"orb": ["streak", 0.22, 6.5, 2.0], ## Enemy machine-gun rounds: as lean as the coax's tracers.
 	"mortar": ["orb", 0.5, 0.0, 1.5],
 	"fire": ["orb", 0.55, 0.0, 2.0],
 	"rocket": ["missile", 0.2, 1.1, 2.0],

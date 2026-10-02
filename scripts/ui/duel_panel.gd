@@ -33,6 +33,7 @@ var _rows: Array = [
 	["Near sight along the barrel (0-1)", func() -> float: return Hud.NEAR_SIGHT, func(v: float) -> void: Hud.NEAR_SIGHT = v, 0.1, 0.95, 0.05],
 	["Track marks last (s)", func() -> float: return TrackMarks.FADE_START, func(v: float) -> void: TrackMarks.FADE_START = v, 0.5, 30.0, 0.5],
 	["Track marks wear away (s)", func() -> float: return TrackMarks.FADE_TIME, func(v: float) -> void: TrackMarks.FADE_TIME = v, 0.2, 20.0, 0.2],
+	["Explosion pace (x time)", func() -> float: return Fx.BLAST_PACE, func(v: float) -> void: Fx.BLAST_PACE = v, 0.2, 1.5, 0.05],
 	["Hit weight (x)", func() -> float: return Tank.HIT_WEIGHT, func(v: float) -> void: Tank.HIT_WEIGHT = v, 0.0, 3.0, 0.05],
 ]
 var _grid := GridContainer.new()

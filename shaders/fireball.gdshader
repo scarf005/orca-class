@@ -41,7 +41,10 @@ void fragment() {
 	}
 	float heat = facing * 1.1 + (n - 0.5) * 0.35 - progress * 1.3;
 	vec3 c = smoke;
-	if (heat > 0.75) {
+	if (progress < 0.07) {
+		// The first frames are white-hot through and through: a flash, then the bands.
+		c = hot;
+	} else if (heat > 0.75) {
 		c = hot;
 	} else if (heat > 0.5) {
 		c = yellow;
