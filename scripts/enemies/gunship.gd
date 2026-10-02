@@ -29,7 +29,7 @@ const GATLINGS := ["gatling_l", "gatling_r"]
 const PART_LABELS := {"rotor_l": "ROTOR L", "rotor_r": "ROTOR R", "chin": "ATGM", "pod_l": "RACK L", "pod_r": "RACK R",
 	"gatling_l": "GUN L", "gatling_r": "GUN R", "nose_gun": "CANNON", "bay": "BOMBS"}
 const WINDOW := [2.2, 1.6, 1.6] ## Seconds of steady hover after each attack, per phase: time for a full charge and its aim.
-const GUN_SPEED := 180.0
+const GUN_SPEED := MG_SPEED
 const ROCKET_SPEED := 85.0
 const ATGM_SPEED := 45.0
 const BOMB_FLIGHT := 0.9 ## Seconds from the bay to the ground for the first bomb.

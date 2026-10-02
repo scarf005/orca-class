@@ -227,7 +227,7 @@ func _strafe_run(delta: float, tank: Tank, ahead: float) -> void:
 	_strafe_point += _strafe_step
 	var ground := _strafe_point + Vector3(randf_range(-0.8, 0.8), 0, randf_range(-0.8, 0.8))
 	ground.y = Course.height_at(ground)
-	var shot := fire_along("orb", _muzzle, 150.0, 5.0, Palette.HOT, ground - _muzzle.global_position, 4.0, 0.0, Muzzle.LIGHT)
+	var shot := fire_along("orb", _muzzle, MG_SPEED, 5.0, Palette.HOT, ground - _muzzle.global_position, 4.0, 0.0, Muzzle.LIGHT)
 	shot.hit.caliber = 23
 	Sfx.play("enemy_gun", global_position, -4.0, 1.2)
 	if _strafe == 0:

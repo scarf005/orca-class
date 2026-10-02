@@ -8,7 +8,7 @@ const KEEP_AHEAD := 48.0
 const PACE_TIME := 13.0 ## After this long it stops pacing the rail and falls behind.
 const BARREL_SLEW := 3.0 ## Radians per second the gun turns onto the tank.
 const GUN_SPREAD := 0.03 ## Radians of scatter on every round.
-const ROUND_SPEED := 95.0
+const ROUND_SPEED := MG_SPEED
 const FRONT_ARMOR := 0.25 ## Share of coax damage that gets through the front plate.
 
 var weapon := "gun"

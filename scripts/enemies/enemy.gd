@@ -9,6 +9,7 @@ const BURN_FLAME_INTERVAL := 0.1 ## Seconds between the tongues a burning body t
 const BURN_LIGHT_RADIUS := 2.2 ## Bodies this big light the ground while they burn.
 const SWAY_LIMIT := 30.0 ## Acceleration (m/s²) that the body's lean and bob stop reading.
 const SWAY_RATE := 6.0 ## Per second the smoothed acceleration closes on the measured one.
+const MG_SPEED := 150.0 ## Every enemy machine gun fires as fast a round as the coax: the telegraph is the warning, not a slow round.
 
 var score := 100
 var velocity := Vector3.ZERO

@@ -185,7 +185,7 @@ func behave(delta: float) -> void:
 		if _burst_timer <= 0.0:
 			_burst -= 1
 			_burst_timer = 0.07
-			var shot := fire_along("orb", _muzzle, 90.0, 4.0, Palette.HOT, _flak_aim(tank) - _muzzle.global_position, 3.0, GUN_SPREAD, Muzzle.AUTO)
+			var shot := fire_along("orb", _muzzle, MG_SPEED, 4.0, Palette.HOT, _flak_aim(tank) - _muzzle.global_position, 3.0, GUN_SPREAD, Muzzle.AUTO)
 			shot.hit.caliber = 20
 			Sfx.play("enemy_gun", _muzzle.global_position, -2.0, 0.85)
 		return
