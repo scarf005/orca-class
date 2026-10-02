@@ -312,6 +312,7 @@ func _advance_pool(kind: Kind, delta: float, trails: Array[Particle], splashes: 
 
 
 func _process(delta: float) -> void:
+	delta = World.current.unfrozen(delta) if World.current else delta
 	var trails: Array[Particle] = []
 	var splashes: Array[Particle] = []
 	for kind: Kind in _pools:

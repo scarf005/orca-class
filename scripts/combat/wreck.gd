@@ -9,6 +9,9 @@ var blast_radius := 4.0
 var by_player := false
 var explodes := true ## Pieces (a blown-off turret) just crash and burn.
 var _smoke := 0.0
+var _size := 1.0
+static var _live: Array[Wreck] = []
+static var BLAST_THROW := 0.04 ## m/s a blast adds to a wreck per point of its damage, at its middle (tuned live in the duel mode).
 
 
 ## Takes over `model` (already in the world) and throws it up from `center`, plus `push` along
@@ -25,11 +28,34 @@ static func launch(model: Node3D, center: Vector3, size: float, player_kill: boo
 	wreck.spin = Vector3(randf_range(-6, 6), randf_range(-4, 4), randf_range(-6, 6)) / sqrt(maxf(size, 1.0))
 	wreck.blast_radius = 2.5 + size
 	wreck.by_player = player_kill
+	wreck._size = size
 	return wreck
+
+
+func _enter_tree() -> void:
+	_live.append(self)
+
+
+func _exit_tree() -> void:
+	_live.erase(self)
+
+
+## A blast throws the wrecks around it: outward from its middle (and on along `push`), harder the
+## closer and the bigger the blast, lighter pieces more.
+static func blast_push(point: Vector3, radius: float, damage: float, push := Vector3.ZERO) -> void:
+	for wreck in _live:
+		var away := wreck.global_position - point
+		var distance := away.length()
+		if distance > radius * 1.5:
+			continue
+		var falloff := 1.0 - clampf(distance / (radius * 1.5), 0.0, 1.0)
+		var dir := (away.normalized() + Vector3.UP * 0.4 + push * 0.5).normalized()
+		wreck.velocity += dir * damage * BLAST_THROW * falloff / sqrt(maxf(wreck._size, 1.0))
 
 
 func _process(delta: float) -> void:
 	var world := World.current
+	delta = world.unfrozen(delta)
 	velocity.y -= 22.0 * delta
 	global_position += velocity * delta
 	rotation += spin * delta

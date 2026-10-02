@@ -349,6 +349,7 @@ func blast(point: Vector3, radius: float, damage: float, team: Entity.Team, temp
 		applied.damage = damage * falloff
 		applied.direction = ((entity.hit_center() - point).normalized() + push).normalized()
 		entity.take_hit(applied)
+	Wreck.blast_push(point, radius, damage, push)
 
 
 ## Spawns a pickup, swapped for something the tank can use if it would be wasted.
@@ -431,6 +432,12 @@ func shake(amount: float, source := Vector3.INF) -> void:
 
 
 ## Freezes time briefly so heavy hits land.
+## `delta` as real time while a hitstop slows the world: debris and wrecks burst out at once
+## instead of hanging frozen for the stop.
+func unfrozen(delta: float) -> float:
+	return delta / maxf(Engine.time_scale, 0.001) if _hitstop > 0.0 else delta
+
+
 func hitstop(duration: float) -> void:
 	if duration <= _hitstop:
 		return

@@ -16,8 +16,10 @@ var _rows: Array = [
 	["Quick shell speed (m/s)", func() -> float: return Armament.QUICK_SPEED, func(v: float) -> void: Armament.QUICK_SPEED = v, 60.0, 800.0, 10.0],
 	["Turret traverse (rad/s)", func() -> float: return Tank.TURRET_RATE, func(v: float) -> void: Tank.TURRET_RATE = v, 2.0, 30.0, 0.5],
 	["Gun elevation (rad/s)", func() -> float: return Tank.PITCH_RATE, func(v: float) -> void: Tank.PITCH_RATE = v, 1.0, 30.0, 0.5],
-	["Kill throw cap (x)", func() -> float: return Enemy.KILL_THROW_MAX, func(v: float) -> void: Enemy.KILL_THROW_MAX = v, 0.5, 45.0, 0.5],
-	["Dismember speed (m/s)", func() -> float: return Enemy.DISMEMBER_SPEED, func(v: float) -> void: Enemy.DISMEMBER_SPEED = v, 0.0, 60.0, 1.0],
+	["Kill throw cap (x)", func() -> float: return Enemy.KILL_THROW_MAX, func(v: float) -> void: Enemy.KILL_THROW_MAX = v, 0.5, Enemy.KILL_THROW_UNCAPPED, 0.5],
+	["Dismember speed (m/s)", func() -> float: return Enemy.DISMEMBER_SPEED, func(v: float) -> void: Enemy.DISMEMBER_SPEED = v, 0.0, 200.0, 1.0],
+	["Dismember focus by momentum", func() -> float: return Enemy.DISMEMBER_FOCUS, func(v: float) -> void: Enemy.DISMEMBER_FOCUS = v, 0.0, 3.0, 0.05],
+	["Blast throw (m/s per dmg)", func() -> float: return Wreck.BLAST_THROW, func(v: float) -> void: Wreck.BLAST_THROW = v, 0.0, 0.3, 0.005],
 	["Hit weight (x)", func() -> float: return Tank.HIT_WEIGHT, func(v: float) -> void: Tank.HIT_WEIGHT = v, 0.0, 3.0, 0.05],
 ]
 var _grid := GridContainer.new()
@@ -58,10 +60,10 @@ func _ready() -> void:
 		var value := Label.new()
 		value.custom_minimum_size = Vector2(56, 0)
 		value.add_theme_color_override("font_color", Palette.BUTTER)
-		value.text = _format(slider.value, row[5])
+		value.text = _format(slider.value, row[5], row[4])
 		slider.value_changed.connect(func(v: float) -> void:
 			row[2].call(v)
-			value.text = _format(v, row[5])
+			value.text = _format(v, row[5], row[4])
 			save_values())
 		_grid.add_child(name)
 		_grid.add_child(slider)
@@ -77,8 +79,10 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-static func _format(v: float, step: float) -> String:
-	return str(int(v)) if step >= 1.0 else ("%.2f" % v)
+static func _format(v: float, step: float, top: float) -> String:
+	if top == Enemy.KILL_THROW_UNCAPPED and v >= top:
+		return "no cap"
+	return str(int(v)) if step >= 1.0 else ("%.3f" % v if step < 0.01 else "%.2f" % v)
 
 
 func save_values() -> void:

@@ -284,6 +284,7 @@ func on_death(hit: Hit) -> void:
 
 
 static var DISMEMBER_SPEED := 16.0 ## Outward speed (m/s) a shell kill tears the pieces apart at (tuned live in the duel mode).
+static var DISMEMBER_FOCUS := 1.0 ## How much a harder shot narrows the burst toward its own flight (0: always a full burst).
 
 
 ## A shell tears the hull apart: every piece of the model flies off on its own, outward from the
@@ -298,19 +299,24 @@ func _dismember(center: Vector3, push: Vector3, by_player: bool) -> void:
 		sizes.append((pieces[i].global_basis * pieces[i].mesh.get_aabb().size).length() if pieces[i].mesh else 0.5)
 		if sizes[i] > sizes[biggest]:
 			biggest = i
+	# The more momentum the shot carries, the more the burst leans into its flight.
+	var focus := clampf(1.0 - exp(-DISMEMBER_FOCUS * push.length() * 0.3), 0.0, 0.95)
 	for i in pieces.size():
 		var piece := pieces[i]
 		var at := piece.global_transform * piece.mesh.get_aabb().get_center() if piece.mesh else piece.global_position
 		var out := at - center
 		out.y = maxf(out.y, 0.0) + 0.8
 		out = (out.normalized() + Vector3(randf_range(-1, 1), randf_range(0, 1), randf_range(-1, 1)) * 0.6).normalized()
+		if push.length_squared() > 0.0001:
+			out = out.slerp(push.normalized(), focus)
 		var size := maxf(sizes[i] * 0.5, 0.3)
 		Wreck.launch(piece, at, size, by_player, (out * DISMEMBER_SPEED * randf_range(0.7, 1.4) + push * 6.0) * sqrt(maxf(size, 1.0)), i == biggest)
 	model.queue_free()
 
 
 const KILL_SHELL_SPEED := 260.0 ## A shell this fast throws the remains at the base push; faster ones by their kinetic energy.
-static var KILL_THROW_MAX := 3.0 ## Cap on that energy multiplier (tuned live in the duel mode).
+static var KILL_THROW_MAX := 3.0 ## Cap on that energy multiplier (tuned live in the duel mode); KILL_THROW_UNCAPPED or more lifts it.
+const KILL_THROW_UNCAPPED := 45.0
 
 
 ## How hard and which way the killing blow throws the remains: shells send them flying on along the
@@ -323,7 +329,7 @@ static func kill_push(hit: Hit) -> Vector3:
 	match hit.kind:
 		Hit.Kind.SHELL:
 			var energy := pow(hit.speed / KILL_SHELL_SPEED, 2.0) if hit.speed > 0.0 else 1.0
-			return dir * clampf(energy, 0.5, KILL_THROW_MAX)
+			return dir * maxf(energy, 0.5) if KILL_THROW_MAX >= KILL_THROW_UNCAPPED else dir * clampf(energy, 0.5, KILL_THROW_MAX)
 		Hit.Kind.RAM, Hit.Kind.THROWN, Hit.Kind.TAIL:
 			return dir
 		Hit.Kind.BLAST, Hit.Kind.FRAGMENT:
