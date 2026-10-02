@@ -486,7 +486,9 @@ func _draw_reticle() -> void:
 	var far := p.sight_point()
 	_draw_cursor(cursor)
 	if p.is_charging():
-		_draw_charge_ring(cursor, p.charge_ring_radius() * SCALE, p.charge, charged_lock, 1.0 - p.auto_fire_progress())
+		if p.current_round == Armament.Round.CANISTER:
+			# The canister has no lock: the ring is where its balls land.
+			_draw_charge_ring(cursor, p.charge_ring_radius() * SCALE, p.charge, false, 1.0 - p.auto_fire_progress())
 	if cam.is_position_behind(far):
 		return
 	var c := cam.unproject_position(far) * SCALE
@@ -531,19 +533,15 @@ func _draw_reticle() -> void:
 		bracket_color = Palette.WHITE if _lock_time < 0.12 else Palette.FRIENDLY
 	elif candidate:
 		bracket_color = Color(Palette.FRIENDLY, 0.6)
-	var width := 1.0 if candidate else (3.0 if charged_lock else 2.0)
-	var arm := 9.0 if not charged_lock else 13.0
-	for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
-		var at := center + corner * s
-		if charged_lock:
-			draw_line(at, at - Vector2(corner.x * arm, 0), Palette.INK, width + 3.0)
-			draw_line(at, at - Vector2(0, corner.y * arm), Palette.INK, width + 3.0)
-		draw_line(at, at - Vector2(corner.x * arm, 0), bracket_color, width)
-		draw_line(at, at - Vector2(0, corner.y * arm), bracket_color, width)
+	var width := 1.0 if candidate else 2.0
 	if charged_lock:
-		if _lock_time < 0.12:
-			draw_arc(center, s * 1.6 + _lock_time * 160.0, 0.0, TAU, 32, Color(Palette.WHITE, 1.0 - _lock_time / 0.12), 2.0)
-		_text(center + Vector2(0, -s - 12), tr("CHARGE_LOCK"), Palette.FRIENDLY, 12, HORIZONTAL_ALIGNMENT_CENTER, 0)
+		_draw_lock_boxes(center, s, p.charge)
+	else:
+		_lock_boxes = 0
+		for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+			var at := center + corner * s
+			draw_line(at, at - Vector2(corner.x * 9.0, 0), bracket_color, width)
+			draw_line(at, at - Vector2(0, corner.y * 9.0), bracket_color, width)
 	if candidate:
 		return
 	if k >= 1.0:
@@ -571,6 +569,40 @@ func _draw_cursor(at: Vector2) -> void:
 ## The charge, around the cursor at the radius it locks within: segments fill clockwise from the
 ## top; full, the ring closes solid with a notch at the top and pulses, and a thin outer arc drains
 ## to the moment the gun fires by itself (`auto_left`, 1 to 0).
+## Ex-Zodiac style: the charge stacks up to LOCK_BOXES orange square sights on the lock, each one
+## spinning in from wide as it is added (one at the lock, the last at full charge).
+const LOCK_BOXES := 3
+const LOCK_BOX_IN := 0.16 ## Seconds a new box takes to spin in and settle.
+var _lock_boxes := 0
+var _lock_box_times: Array[float] = [0.0, 0.0, 0.0]
+
+
+func _draw_lock_boxes(center: Vector2, size: float, charge: float) -> void:
+	var count := 1 + floori(charge * (LOCK_BOXES - 1) + 0.0001)
+	while _lock_boxes < count:
+		_lock_box_times[_lock_boxes] = _time
+		_lock_boxes += 1
+	_lock_boxes = mini(_lock_boxes, count)
+	var full := charge >= 1.0
+	for i in _lock_boxes:
+		var k := clampf((_time - _lock_box_times[i]) / LOCK_BOX_IN, 0.0, 1.0)
+		var settle := ease(k, 0.35)
+		var half := lerpf(size * 3.0, size * (1.0 + i * 0.32), settle)
+		# Spins in a half turn as it lands, then keeps turning slowly, alternate boxes the other way.
+		var angle := (1.0 - settle) * PI * 0.5 + _time * (0.8 + i * 0.5) * (1.0 if i % 2 == 0 else -1.0)
+		var color := Palette.WHITE if k < 1.0 or (full and fmod(_time, 0.2) < 0.08) else Palette.AMBER
+		var corners: Array[Vector2] = []
+		for c in 4:
+			corners.append(center + Vector2(half, 0).rotated(angle + PI * 0.25 + c * PI * 0.5) * sqrt(2.0))
+		for c in 4:
+			var a := corners[c]
+			var b := corners[(c + 1) % 4]
+			var arm := (b - a) * 0.28
+			for seg: Array in [[a, a + arm], [b, b - arm]]:
+				draw_line(seg[0], seg[1], Palette.INK, 5.0)
+				draw_line(seg[0], seg[1], color, 2.0)
+
+
 func _draw_charge_ring(at: Vector2, radius: float, charge: float, locked: bool, auto_left: float) -> void:
 	const SEGMENTS := 16
 	if charge >= 1.0:
