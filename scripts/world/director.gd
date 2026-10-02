@@ -76,8 +76,10 @@ func _process(delta: float) -> void:
 		_play_section_music()
 	if _hold_left > 0.0:
 		_hold_left -= delta
-		_hold_group = _hold_group.filter(func(enemy: Enemy) -> bool: return is_instance_valid(enemy) and not enemy.dead)
-		if _hold_group.is_empty() or _hold_left <= 0.0:
+		var alive := false
+		for enemy in _hold_group:
+			alive = alive or (is_instance_valid(enemy) and not enemy.dead)
+		if not alive or _hold_left <= 0.0:
 			_hold_left = 0.0
 			_hold_group.clear()
 			world.rail.mode = Rail.Mode.RAIL

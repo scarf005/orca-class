@@ -270,10 +270,10 @@ func test_a_hold_stops_the_rail_until_its_group_is_gone() -> void:
 	check_eq(world.rail.mode, Rail.Mode.HOLD, "the rail holds")
 	await frames(60)
 	check_eq(world.rail.mode, Rail.Mode.HOLD, "and keeps holding while they live")
-	for enemy in spawned:
-		enemy.die(Hit.make(Hit.Kind.SHELL, 9999.0, enemy.global_position))
-	await frames(2)
-	check_eq(world.rail.mode, Rail.Mode.RAIL, "the rail runs once the group is gone")
+	spawned[0].die(Hit.make(Hit.Kind.SHELL, 9999.0, spawned[0].global_position))
+	spawned[1].despawn()
+	await frames(10)
+	check_eq(world.rail.mode, Rail.Mode.RAIL, "the rail runs once the group is gone, killed or freed")
 
 
 func test_a_hold_gives_up_after_its_timeout_and_skips_when_nothing_is_there() -> void:
