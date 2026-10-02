@@ -322,7 +322,7 @@ func _dismember(center: Vector3, push: Vector3, by_player: bool) -> void:
 
 ## A main-gun round tears what it kills to pieces: a direct hit, or the blast of its filler next to it.
 static func torn_apart(hit: Hit) -> bool:
-	return hit != null and hit.caliber >= 100 and hit.kind in [Hit.Kind.SHELL, Hit.Kind.BLAST]
+	return hit != null and (hit.weapon == "canister" or (hit.caliber >= 100 and hit.kind in [Hit.Kind.SHELL, Hit.Kind.BLAST]))
 
 
 ## How far (0..1) a shell kill's pieces bend from a full burst toward the shot: more with more
@@ -331,6 +331,7 @@ static func dismember_focus(push: Vector3) -> float:
 	return clampf(1.0 - exp(-DISMEMBER_FOCUS * push.length() * 0.3), 0.0, 0.95)
 
 
+const CANISTER_THROW := 3.0
 const KILL_SHELL_SPEED := 260.0 ## A shell this fast throws the remains at the base push; faster ones by their kinetic energy.
 static var KILL_THROW_MAX := 3.0 ## Cap on that energy multiplier (tuned live in the duel mode); KILL_THROW_UNCAPPED or more lifts it.
 const KILL_THROW_UNCAPPED := 45.0
@@ -343,6 +344,8 @@ static func kill_push(hit: Hit) -> Vector3:
 	if hit == null:
 		return Vector3.ZERO
 	var dir := Vector3(hit.direction.x, maxf(hit.direction.y, 0.0) * 0.5, hit.direction.z).normalized()
+	if hit.weapon == "canister":
+		return dir * CANISTER_THROW # A face full of tungsten throws what it kills straight back.
 	match hit.kind:
 		Hit.Kind.SHELL:
 			var energy := pow(hit.speed / KILL_SHELL_SPEED, 2.0) if hit.speed > 0.0 else 1.0

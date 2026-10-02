@@ -350,6 +350,10 @@ func splash_direction() -> Vector3:
 func _airburst(point: Vector3) -> void:
 	var world := World.current
 	world.fx.explosion(point, 2.8, [Palette.WHITE, Palette.SKY, Palette.BUTTER])
+	# A flak burst: a black puff that hangs in the sky where the shell went off, ringed by a dark shock.
+	for i in 6:
+		world.fx.smoke_puff(point + Vector3(randf_range(-1, 1), randf_range(-0.6, 0.6), randf_range(-1, 1)) * 1.4, 3.2, Vector3(0, -2.5, 0))
+	world.fx.shockwave(point, 7.0, Palette.INK, 0.25)
 	var forward := velocity.normalized()
 	for i in airburst_fragments:
 		var dir := (forward + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 0.55).normalized()

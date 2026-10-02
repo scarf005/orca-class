@@ -1029,7 +1029,8 @@ func _fire_canister(muzzle: Vector3, aim_dir: Vector3, power := 0.0) -> void:
 		pellet.hit = Hit.make(Hit.Kind.BULLET, 90.0, muzzle)
 		pellet.hit.caliber = 20
 		pellet.hit.source = self
-		pellet.hit.weapon = "cannon"
+		pellet.hit.weapon = "canister" # Shreds: what it kills is torn apart and flung back.
+		pellet.hit.stagger = 0.4
 		pellet.impacted.connect(_count_hit, CONNECT_ONE_SHOT)
 		var end := pellet.resolve_now(Armament.CANISTER_RANGE)
 		world.fx.beam(muzzle, end, Palette.WHITE, 0.06, 0.08)

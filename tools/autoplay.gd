@@ -123,8 +123,8 @@ func _killed(_victim: Entity, hit: Hit) -> void:
 	if hit:
 		if hit.is_collateral() or hit.weapon == "collateral":
 			source = "collateral"
-		elif hit.weapon in ["cannon", "dash", "reflect"]:
-			source = hit.weapon
+		elif hit.weapon in ["cannon", "canister", "dash", "reflect"]:
+			source = "cannon" if hit.weapon == "canister" else hit.weapon
 		elif hit.by_player():
 			match hit.kind:
 				Hit.Kind.BULLET: source = "coax"
