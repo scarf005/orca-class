@@ -98,6 +98,7 @@ func on_damaged(hit: Hit, amount: float) -> void:
 	if not _falling and local.z > 1.0:
 		engine_hp -= amount
 		if engine_hp <= 0.0:
+			killing_hit = hit.copy()
 			_falling = true
 			World.current.fx.explosion(_prop.global_position, 0.8)
 			World.current.fx.burn(_prop.global_position, 0.1, 0.5)

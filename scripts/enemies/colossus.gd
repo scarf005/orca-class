@@ -204,6 +204,7 @@ func take_hit(hit: Hit) -> void:
 			core.mesh.visible = true
 			stagger = 2.0
 	if core.hp <= 0.0:
+		killing_hit = hit.copy()
 		_begin_death()
 
 

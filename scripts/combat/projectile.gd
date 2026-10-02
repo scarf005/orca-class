@@ -265,6 +265,8 @@ func _airburst(point: Vector3) -> void:
 		var dir := (forward + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 0.55).normalized()
 		var fragment := World.current.spawn_projectile(team, point, dir * 90.0, "fragment")
 		fragment.hit = Hit.make(Hit.Kind.FRAGMENT, hit.damage, point)
+		fragment.hit.source = hit.source if is_instance_valid(hit.source) else null
+		fragment.hit.weapon = hit.weapon
 		fragment.life = 0.26
 		fragment.terrain_only_after = 0.0
 	Sfx.play("airburst", point)

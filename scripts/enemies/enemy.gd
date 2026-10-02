@@ -35,6 +35,8 @@ var model := Node3D.new()
 var age := 0.0
 var _last_position := Vector3.ZERO
 var _burn_tick := 0.0
+var _burn_hit: Hit
+var killing_hit: Hit ## The lethal hit retained through a delayed crash or death throes.
 var _flame_tick := 0.0
 
 
@@ -142,6 +144,7 @@ func on_damaged(hit: Hit, amount: float) -> void:
 		stagger = maxf(stagger, hit.stagger)
 	if hit.incendiary:
 		burning = 3.0
+		_burn_hit = hit.copy()
 
 
 ## Shared by ordinary enemies and bosses with their own module damage rules.
@@ -180,6 +183,9 @@ func _burn(delta: float) -> void:
 		_burn_tick = 0.25
 		if not dead:
 			var burn := Hit.make(Hit.Kind.FIRE, 5.0, hit_center())
+			if _burn_hit:
+				burn.source = _burn_hit.source if is_instance_valid(_burn_hit.source) else null
+				burn.weapon = _burn_hit.weapon
 			take_hit(burn)
 
 
@@ -216,6 +222,12 @@ func despawn() -> void:
 	queue_free()
 
 
+func die(hit: Hit) -> void:
+	if not dead:
+		World.current.killed.emit(self, killing_hit if killing_hit else hit)
+	super.die(hit)
+
+
 func on_death(hit: Hit) -> void:
 	var world := World.current
 	var center := hit_center()
@@ -223,6 +235,7 @@ func on_death(hit: Hit) -> void:
 	var push := kill_push(hit)
 	# The death blast hurts whatever is close, so packed enemies go up in chains.
 	var chain := Hit.new()
+	chain.weapon = "collateral"
 	chain.source = world.player if by_player else null
 	world.blast(center, death_radius * 1.4, 35.0, Team.PLAYER if by_player else Team.NEUTRAL, chain, self, [Palette.WHITE, Palette.AMBER, Palette.HOT, Palette.CORAL], push)
 	# A hull stays whole as a wreck and sheds only some of itself; an overkill (a 100 mm hit) tears

@@ -5,6 +5,7 @@ extends Node3D
 
 signal scored(points: int, position: Vector3, combo: int)
 signal boss_changed(boss: Entity) ## Null when the boss bar should hide.
+signal killed(victim: Entity, hit: Hit)
 signal stage_cleared
 signal game_over
 signal intercepted(position: Vector3) ## The laser CIWS burned something out of the air.

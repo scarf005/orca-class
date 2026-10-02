@@ -5,12 +5,21 @@ extends Node
 ##        [--range=3000,3300] # print frame times within a course-distance interval
 
 var screen: GameScreen
+var bot := "hold"
+var cleared := false
+var kill_sources := {"coax": 0, "cannon": 0, "ram": 0, "dash": 0, "tail": 0, "ciws": 0, "collateral": 0, "other": 0}
+var _tap_down := false
+var _section := 0
 
 
 func run() -> int:
 	var args: Dictionary = preload("res://scripts/main.gd").args()
 	if args.has("seed"):
 		seed(int(args.seed))
+	bot = args.get("bot", "hold")
+	if bot not in ["hold", "idle", "tap"]:
+		push_error("Unknown bot mode: %s" % bot)
+		return 1
 	var out: String = args.get("out", "builds/auto")
 	DirAccess.make_dir_recursive_absolute(out)
 	var seconds := float(args.get("seconds", "20"))
@@ -22,6 +31,14 @@ func run() -> int:
 	screen.checkpoint = args.get("checkpoint", "")
 	add_child(screen)
 	var world := screen.world
+	world.killed.connect(_killed)
+	world.stage_cleared.connect(func() -> void:
+		cleared = true
+		_section_end(world))
+	_section = world.director.section
+	world.director.section_changed.connect(func(section: Course.Section) -> void:
+		_section_end(world)
+		_section = section)
 	if args.has("god"):
 		world.player.invulnerable = true
 	var elapsed := 0.0
@@ -31,6 +48,7 @@ func run() -> int:
 	var frame_times := PackedFloat32Array()
 	var range_bounds := String(args.get("range", "")).split(",", false)
 	var range_times := PackedFloat32Array()
+	var front_total := 0.0
 	var boss_start := -1.0
 	var boss_end := -1.0
 	while elapsed < seconds:
@@ -40,6 +58,9 @@ func run() -> int:
 		var delta := get_process_delta_time()
 		elapsed += delta
 		frames += 1
+		for enemy in world.enemies:
+			if not enemy.dead and not world.camera.is_position_behind(enemy.hit_center()):
+				front_total += 1.0
 		if frames > 30:
 			frame_times.append(frame_ms)
 			if range_bounds.size() == 2 and world.rail.d >= float(range_bounds[0]) and world.rail.d < float(range_bounds[1]):
@@ -79,8 +100,34 @@ func run() -> int:
 	print("AUTOPLAY d=%.0f score=%d kills=%d/%d lives=%d hp=%.0f enemies=%d projectiles=%d frames=%d slow=%d worst=%.1fms" % [
 		world.rail.d, stats.score, stats.kills, stats.spawned, stats.lives, world.player.hp, world.enemies.size(),
 		world.projectiles.size(), frames, slow_frames, worst])
+	print("PROBE bot=%s cleared=%s dead=%s time=%.2f d=%.0f lives=%d damage_taken=%.2f kills=%d/%d front_mean=%.2f coax=%d cannon=%d ram=%d dash=%d tail=%d ciws=%d collateral=%d other=%d cannon_shots=%d" % [
+		bot, cleared and not world.player.dead, world.player.dead, stats.time, world.rail.d, stats.lives, stats.damage_taken, stats.kills, stats.spawned, front_total / maxi(frames, 1),
+		kill_sources.coax, kill_sources.cannon, kill_sources.ram, kill_sources.dash, kill_sources.tail, kill_sources.ciws, kill_sources.collateral, kill_sources.other, stats.shots])
+	for action in ["fire_coax", "fire_cannon", "move_left", "move_right"]:
+		Input.action_release(action)
 	Engine.time_scale = 1.0
 	return 0
+
+
+func _section_end(world: World) -> void:
+	print("SECTION section=%d lives=%d hp=%.2f kills=%d/%d" % [_section, world.stats.lives, world.player.hp, world.stats.kills, world.stats.spawned])
+
+
+func _killed(_victim: Entity, hit: Hit) -> void:
+	var source := "other"
+	if hit:
+		if hit.is_collateral() or hit.weapon == "collateral":
+			source = "collateral"
+		elif hit.weapon in ["cannon", "dash"]:
+			source = hit.weapon
+		elif hit.by_player():
+			match hit.kind:
+				Hit.Kind.BULLET: source = "coax"
+				Hit.Kind.SHELL, Hit.Kind.BLAST, Hit.Kind.FRAGMENT: source = "cannon"
+				Hit.Kind.RAM: source = "ram"
+				Hit.Kind.TAIL: source = "tail"
+				Hit.Kind.LASER: source = "ciws"
+	kill_sources[source] += 1
 
 
 ## A bot that aims at the nearest enemy, fires everything and weaves.
@@ -96,11 +143,24 @@ func _drive(world: World, t: float) -> void:
 			target = enemy
 	if target:
 		tank.aim_screen = world.camera.unproject_position(target.hit_center())
-		Input.action_press("fire_cannon")
 	else:
 		tank.aim_screen = Vector2(DitherView.RESOLUTION) * Vector2(0.5, 0.4)
+	if bot == "idle":
+		Input.action_release("fire_coax")
 		Input.action_release("fire_cannon")
-	Input.action_press("fire_coax")
+	else:
+		Input.action_press("fire_coax")
+		if bot == "tap":
+			if _tap_down:
+				Input.action_release("fire_cannon")
+				_tap_down = false
+			elif target and tank.reload <= 0.0:
+				Input.action_press("fire_cannon")
+				_tap_down = true
+		elif target:
+			Input.action_press("fire_cannon")
+		else:
+			Input.action_release("fire_cannon")
 	var weave := sin(t * 0.7)
 	if weave > 0.3:
 		Input.action_press("move_right")

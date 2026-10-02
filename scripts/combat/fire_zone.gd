@@ -19,6 +19,7 @@ const FAR := Vector2(50.0, 130.0) ## Distances from the camera over which a zone
 static var _zones: Array[FireZone] = []
 
 var life := LIFE
+var weapon := "collateral"
 var _age := 0.0
 var _tick := 0.0
 var _phase := randf() * TAU
@@ -29,12 +30,13 @@ var _rim := MeshInstance3D.new()
 var _core := MeshInstance3D.new()
 
 
-static func ignite(point: Vector3) -> void:
+static func ignite(point: Vector3, cause := "collateral") -> void:
 	for zone in _zones:
 		if is_instance_valid(zone) and zone.global_position.distance_to(point) < RADIUS:
 			zone.life = maxf(zone.life, LIFE)
 			return
 	var zone := FireZone.new()
+	zone.weapon = cause
 	World.current.add_child(zone)
 	zone.global_position = point
 	_zones.append(zone)
@@ -47,7 +49,7 @@ static func ignite(point: Vector3) -> void:
 ## Dragon's breath sets the ground alight wherever a flame lands.
 static func on_flame_impact(_projectile: Projectile, point: Vector3, target: Entity) -> void:
 	if target == null:
-		ignite(point)
+		ignite(point, "cannon")
 
 
 static func _patch(b: LowPoly, color: Color) -> void:
@@ -148,6 +150,7 @@ func _process(delta: float) -> void:
 			var burn := Hit.make(Hit.Kind.FIRE, DAMAGE_PER_SECOND * 0.2, global_position)
 			burn.incendiary = true
 			burn.source = World.current.player
+			burn.weapon = weapon
 			entity.take_hit(burn)
 	for prop: Prop in world.props.in_radius(global_position, RADIUS):
 		if prop.burnable:

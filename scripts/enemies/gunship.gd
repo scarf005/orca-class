@@ -434,6 +434,7 @@ func take_hit(hit: Hit) -> void:
 		if _attack in [Attack.GUN, Attack.ATGM] and _attack_time < 0.8:
 			_end_attack()
 	if hp <= 0.0 or not (_live("rotor_l") or _live("rotor_r")):
+		killing_hit = hit.copy()
 		_begin_crash()
 		return
 	_update_phase()

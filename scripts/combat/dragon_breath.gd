@@ -59,6 +59,7 @@ func _process(delta: float) -> void:
 	while _blasts < BLASTS.size() and _time >= BLASTS[_blasts] / MEAN_SPEED:
 		var burst := Hit.make(Hit.Kind.BLAST, 0.0, from)
 		burst.source = tank
+		burst.weapon = "cannon"
 		burst.stagger = 1.0
 		burst.incendiary = true
 		world.blast(from + direction * BLASTS[_blasts], BLAST_RADIUS, BLAST_DAMAGE, Entity.Team.PLAYER, burst, null, [Palette.WHITE, Palette.BUTTER, Palette.AMBER, Palette.HOT], direction)
@@ -76,6 +77,7 @@ func _emit(from: Vector3, index: int) -> void:
 	var flame := World.current.spawn_projectile(Entity.Team.PLAYER, from, dir * speed, "fire", HEAT[index % HEAT.size()])
 	flame.hit = Hit.make(Hit.Kind.FIRE, FLAME_DAMAGE, from, dir)
 	flame.hit.source = tank
+	flame.hit.weapon = "cannon"
 	flame.hit.incendiary = true
 	flame.gravity = 6.0
 	flame.life = RANGE / speed
@@ -97,4 +99,5 @@ func _scorch(from: Vector3) -> void:
 		var burn := Hit.make(Hit.Kind.FIRE, SCORCH_DAMAGE, enemy.hit_center(), direction)
 		burn.incendiary = true
 		burn.source = tank
+		burn.weapon = "cannon"
 		enemy.take_hit(burn)

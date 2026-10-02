@@ -725,6 +725,7 @@ func _fire_canister(muzzle: Vector3, aim_dir: Vector3) -> void:
 		pellet.hit = Hit.make(Hit.Kind.BULLET, 90.0, muzzle)
 		pellet.hit.caliber = 20
 		pellet.hit.source = self
+		pellet.hit.weapon = "cannon"
 		pellet.impacted.connect(_count_hit, CONNECT_ONE_SHOT)
 		var end := pellet.resolve_now(CANISTER_RANGE)
 		world.fx.beam(muzzle, end, Palette.WHITE, 0.06, 0.08)
@@ -741,6 +742,7 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3) -> void:
 	shell.hit = Hit.make(Hit.Kind.SHELL, Armament.SHELL_DAMAGE, muzzle)
 	shell.hit.caliber = 100
 	shell.hit.source = self
+	shell.hit.weapon = "cannon"
 	shell.hit.stagger = 0.4
 	shell.gravity = 0.0
 	shell.life = 2.0
@@ -785,6 +787,7 @@ func _cannon_hit() -> Hit:
 	var hit := Hit.make(Hit.Kind.BLAST, 0.0, global_position)
 	hit.source = self
 	hit.stagger = 1.0
+	hit.weapon = "cannon"
 	return hit
 
 
@@ -988,6 +991,7 @@ func swat(start_state := true) -> void:
 			var hit := Hit.make(Hit.Kind.TAIL, 30.0, entity.hit_center(), (entity.hit_center() - global_position).normalized())
 			hit.stagger = 0.6
 			hit.source = self
+			hit.weapon = "dash" if not start_state else ""
 			entity.take_hit(hit)
 			world.fx.sparks(entity.hit_center(), hit.direction, 8, Palette.FUNGUS)
 	for prop: Prop in world.props.in_radius(global_position, 7.0):

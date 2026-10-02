@@ -61,6 +61,7 @@ func _land(ground: float) -> void:
 		queue_free()
 		return
 	var chain := Hit.new()
+	chain.weapon = "collateral"
 	chain.source = world.player if by_player else null
 	world.blast(at, blast_radius, 45.0, Entity.Team.PLAYER if by_player else Entity.Team.NEUTRAL, chain, null, [Palette.WHITE, Palette.AMBER, Palette.HOT, Palette.INK])
 	world.fx.smoke_column(at, blast_radius, [Palette.DUSK, Palette.INK, Palette.SLATE])
