@@ -3,7 +3,8 @@ extends Enemy
 ## Stage 1 boss: a heavy synchrocopter gunship overtaken by mycelium, after Armored Core VI's
 ## AH12 HC: a long armored hull, two intermeshing rotors on masts splayed in a V above it, stub
 ## wings ending in huge missile racks, gatling turrets on the shoulders and a searchlight nose.
-## Nose and flank plates protect the hull; three bare-airframe cannon hits bring it down.
+## Nose and flank plates protect the hull: a full charge or a HEAT round pops one, a plain shell only
+## cracks it. Three bare-airframe cannon hits bring it down, and a full charge counts as two.
 ## Every weapon and rotor is its own module with its own health: hitting one hurts only it, and
 ## wrecking it tears it off the airframe and silences that attack. One rotor lost lowers and banks
 ## the craft, both lost crash it. Weapons: two shoulder gatlings, a nose cannon, a chin ATGM drum,
@@ -14,14 +15,15 @@ enum Phase { HUNTER, STRIPPED, INFECTED }
 enum Attack { NONE, GUN, ROCKETS, ATGM, DRONES, DIVE, BOMBS, CANNON }
 
 const BODY_HP := 1600.0
-const CANNON_SHARE := 0.34 ## Hull taken by one main-gun shell on bare airframe: three clean hits.
+const CANNON_SHARE := 0.34 ## Hull taken by one main-gun shell on bare airframe: three clean hits (a full charge takes two shares).
 const PLATED_SHARE := 0.03 ## Hull taken when an ERA plate eats the shell.
-const ERA_HP := 100.0 ## One shell pops a plate; machine guns chew through it slowly.
+const ERA_HP := 100.0 ## A full charge or HEAT pops a plate, a plain shell cracks half of it; machine guns chew through it slowly.
 const MODULE_HP := {"rotor_l": 150.0, "rotor_r": 150.0, "chin": 90.0, "pod_l": 140.0, "pod_r": 140.0,
 	"gatling_l": 80.0, "gatling_r": 80.0, "nose_gun": 110.0, "bay": 120.0}
 const GATLINGS := ["gatling_l", "gatling_r"]
 const PART_LABELS := {"rotor_l": "ROTOR L", "rotor_r": "ROTOR R", "chin": "ATGM", "pod_l": "RACK L", "pod_r": "RACK R",
 	"gatling_l": "GUN L", "gatling_r": "GUN R", "nose_gun": "CANNON", "bay": "BOMBS"}
+const WINDOW := [2.2, 1.6, 1.6] ## Seconds of steady hover after each attack, per phase: time for a full charge and its aim.
 const GUN_SPEED := 180.0
 const ROCKET_SPEED := 85.0
 const ATGM_SPEED := 45.0
@@ -395,8 +397,9 @@ func take_hit(hit: Hit) -> void:
 		return
 	var world := World.current
 	var cannon := hit.kind == Hit.Kind.SHELL and hit.caliber >= 100
+	var charged := hit.power >= 1.0
 	var amount := hit.damage * damage_multiplier(hit)
-	var hull := max_hp * CANNON_SHARE if cannon else amount
+	var hull := max_hp * CANNON_SHARE * (2.0 if charged else 1.0) if cannon else amount
 	var local := model.global_transform.affine_inverse() * hit.position
 	var struck := _struck_part(hit.position)
 	var plate := _plate_facing(local)
@@ -410,10 +413,14 @@ func take_hit(hit: Hit) -> void:
 	elif plate != "" and _live(plate) and hit.kind != Hit.Kind.FIRE:
 		# ERA on the struck facing detonates outward and eats the shell.
 		var era: Part = parts[plate]
-		era.hp -= amount
+		era.hp -= ERA_HP * (1.0 if charged or hit.pierce else 0.5) if cannon else amount
 		world.fx.sparks(hit.position, -hit.direction, 8, Palette.WHITE, 9.0)
 		if era.hp <= 0.0:
 			_lose_part(era, hit.direction)
+		else:
+			# A plate that held: cracked, glowing and shedding chips.
+			world.fx.sparks(hit.position, -hit.direction, 14, Palette.AMBER, 14.0)
+			world.fx.debris(hit.position, 6, [Fx.Debris.ARMOR], 9.0, 0.3, -hit.direction)
 		hull = max_hp * PLATED_SHARE if cannon else amount * 0.1
 	hp -= hull
 	impact_feedback(hit, amount, hp <= 0.0 or not (_live("rotor_l") or _live("rotor_r")))
@@ -572,6 +579,9 @@ func behave(delta: float) -> void:
 	var orbit_radius := [70.0, 50.0, 42.0][phase] as float
 	var altitude := [24.0, 18.0, 15.0][phase] as float
 	var speed := [0.18, 0.3, 0.42][phase] as float
+	var window := _attack == Attack.NONE ## Between attacks it hangs almost still: the moment to charge a shot.
+	if window:
+		speed *= 0.15
 	if not (_live("rotor_l") and _live("rotor_r")):
 		speed *= 0.6
 		altitude *= 0.7
@@ -584,7 +594,8 @@ func behave(delta: float) -> void:
 	goal.y = Course.height_at(goal) + altitude
 	if phase == Phase.INFECTED:
 		_jitter = _jitter.lerp(Vector3(randf_range(-6, 6), randf_range(-3, 3), randf_range(-6, 6)), delta * 2.0)
-		goal += _jitter
+		if not window:
+			goal += _jitter
 		_spore_timer -= delta
 		if _spore_timer <= 0.0:
 			_spore_timer = 0.7
@@ -717,8 +728,11 @@ func _update_attack(delta: float, tank: Tank) -> void:
 			if _attack_time > 0.6:
 				var wave := {"d": 0.0, "kind": "fpv", "count": 3 if not _hard else 5, "formation": "ring", "height": 0.0, "spacing": 5.0, "ahead": 0.0, "hover": 18.0, "approach": 1.0}
 				var spawned: Array[Enemy] = World.current.director.spawn_wave(wave)
+				# They rise in front of the tank, low and outside the laser's reach, so some meet the tail or the hull.
+				var ahead := -tank.global_basis.z
 				for drone in spawned:
-					drone.global_position = global_position + Vector3(randf_range(-4, 4), -1.0, randf_range(-4, 4))
+					drone.global_position = tank.global_position + ahead.rotated(Vector3.UP, randf_range(-0.7, 0.7)) * randf_range(26.0, 34.0)
+					drone.global_position.y = Course.height_at(drone.global_position) + 1.5
 				_end_attack()
 		Attack.DIVE:
 			if _attack_time > 2.2:
@@ -769,8 +783,7 @@ func _end_attack() -> void:
 	_cannon_hold = Vector3.ZERO
 	_rack_aim.clear()
 	set_meta("locking", false)
-	var pause := [2.2, 1.6, 1.1][phase] as float
-	_next_attack = pause * (0.8 if _hard else 1.0) + randf() * 0.6
+	_next_attack = (WINDOW[phase] as float) * (0.8 if _hard else 1.0) + randf() * 0.6
 
 
 func _gun(delta: float, tank: Tank) -> void:

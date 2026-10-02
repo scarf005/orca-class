@@ -52,6 +52,7 @@ func run() -> int:
 	var front_total := 0.0
 	var boss_start := -1.0
 	var boss_end := -1.0
+	var boss_phase := 0
 	while elapsed < seconds:
 		var start := Time.get_ticks_usec()
 		await get_tree().process_frame
@@ -85,13 +86,15 @@ func run() -> int:
 			get_viewport().get_texture().get_image().save_png("%s/t%03d.png" % [out, int(elapsed)])
 		if world.boss != null and boss_start < 0.0:
 			boss_start = elapsed
+		if boss_end < 0.0 and is_instance_valid(world.boss) and world.boss is Gunship:
+			boss_phase = maxi(boss_phase, world.boss.phase + 1)
 		if world.boss == null and boss_start >= 0.0 and boss_end < 0.0:
 			boss_end = elapsed
 		if world.player.dead or screen._finished:
 			break
 	var stats := world.stats
 	if boss_start >= 0.0:
-		print("AUTOPLAY boss_fight=%.1fs" % ((boss_end if boss_end >= 0.0 else elapsed) - boss_start))
+		print("AUTOPLAY boss_fight=%.1fs phase=%d" % [(boss_end if boss_end >= 0.0 else elapsed) - boss_start, boss_phase])
 	if not frame_times.is_empty():
 		frame_times.sort()
 		print("BENCH median=%.2fms p95=%.2fms samples=%d" % [frame_times[frame_times.size() / 2], frame_times[int(frame_times.size() * 0.95)], frame_times.size()])

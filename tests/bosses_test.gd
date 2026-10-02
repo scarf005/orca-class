@@ -148,18 +148,24 @@ func _shell(at: Vector3, direction := Vector3.FORWARD) -> Hit:
 	return hit
 
 
+func _charged(at: Vector3, direction := Vector3.FORWARD) -> Hit:
+	var hit := _shell(at, direction)
+	hit.power = 1.0
+	return hit
+
+
 ## A world point on the airframe at a model-local spot.
 func _on(boss: Gunship, local: Vector3) -> Vector3:
 	return boss.model.global_transform * local
 
 
-func test_gunship_era_eats_a_shell_then_bare_hull_takes_a_third() -> void:
+func test_gunship_era_eats_a_charge_then_bare_hull_takes_a_third() -> void:
 	var world := stage("boss")
 	var boss := _gunship(world)
 	var flank := Vector3(-2.8, 0.0, 0.8)
-	boss.take_hit(_shell(_on(boss, flank)))
+	boss.take_hit(_charged(_on(boss, flank)))
 	check_near(boss.hp, boss.max_hp * (1.0 - Gunship.PLATED_SHARE), 0.5, "a plated flank only loses the plate")
-	check(not boss._live("era_left"), "the shell pops the left plate")
+	check(not boss._live("era_left"), "the full charge pops the left plate")
 	check(boss._live("era_right") and boss._live("era_front"), "other plates hold")
 	boss.take_hit(_shell(_on(boss, flank)))
 	check_near(boss.hp, boss.max_hp * (1.0 - Gunship.PLATED_SHARE - Gunship.CANNON_SHARE), 0.5, "the bared flank takes a third")
@@ -173,6 +179,39 @@ func test_gunship_era_eats_a_shell_then_bare_hull_takes_a_third() -> void:
 	check(hp - boss.hp < boss.max_hp * 0.01, "machine guns only scratch it")
 
 
+func test_gunship_plain_shells_crack_a_plate_and_two_pop_it() -> void:
+	var world := stage("boss")
+	var boss := _gunship(world)
+	var nose := _on(boss, Vector3(0, 0.4, -7.0))
+	boss.take_hit(_shell(nose))
+	check(boss._live("era_front"), "one plain shell leaves the nose plate standing")
+	check_near(boss.parts.era_front.hp, Gunship.ERA_HP * 0.5, 0.01, "but cracked half through")
+	check_near(boss.hp, boss.max_hp * (1.0 - Gunship.PLATED_SHARE), 0.5, "the airframe behind it is spared")
+	boss.take_hit(_shell(nose))
+	check(not boss._live("era_front"), "the second plain shell pops it")
+
+
+func test_gunship_heat_pops_a_plate_in_one_hit() -> void:
+	var world := stage("boss")
+	var boss := _gunship(world)
+	var heat := _shell(_on(boss, Vector3(0, 0.4, -7.0)))
+	heat.pierce = true
+	boss.take_hit(heat)
+	check(not boss._live("era_front"), "a HEAT round pops a plate outright")
+
+
+func test_gunship_full_charge_counts_as_two_airframe_hits() -> void:
+	var world := stage("boss")
+	var boss := _gunship(world)
+	boss.phase = Gunship.Phase.INFECTED
+	var tail := _on(boss, Vector3(0, 0.3, 7.0))
+	boss.take_hit(_charged(tail))
+	check_near(boss.hp, boss.max_hp * (1.0 - 2.0 * Gunship.CANNON_SHARE), 0.5, "a full charge takes two shares of bare hull")
+	check(boss._crash <= 0.0, "one full charge does not bring it down")
+	boss.take_hit(_shell(tail))
+	check(boss._crash > 0.0, "a full charge and a plain shell do: three shares")
+
+
 func test_gunship_three_bare_shells_bring_it_down() -> void:
 	var world := stage("boss")
 	var boss := _gunship(world)
@@ -180,6 +219,41 @@ func test_gunship_three_bare_shells_bring_it_down() -> void:
 		check(boss._crash <= 0.0, "still flying before shell %d" % (i + 1))
 		boss.take_hit(_shell(_on(boss, Vector3(0, 0.3, 7.0))))
 	check(boss._crash > 0.0, "three shells on bare airframe start the crash")
+
+
+func test_gunship_holds_a_still_charge_window_after_each_attack() -> void:
+	var world := stage("boss")
+	var boss := _gunship(world)
+	for phase in Gunship.Phase.values():
+		boss.phase = phase
+		boss._attack = Gunship.Attack.GUN
+		boss._end_attack()
+		var window: float = Gunship.WINDOW[phase]
+		check(boss._next_attack >= window, "phase %d waits at least %.1f s before the next attack" % [phase, window])
+		check(window >= 1.6, "a full charge (0.95 s) and its aim fit in the window")
+		boss._next_attack = window
+		var shots := world.projectiles.filter(func(p: Projectile) -> bool: return p.team == Entity.Team.ENEMY).size()
+		for i in int(window * 60.0) - 2:
+			boss.behave(1.0 / 60.0)
+			check_eq(boss._attack, Gunship.Attack.NONE, "no attack starts inside the window")
+		check_eq(world.projectiles.filter(func(p: Projectile) -> bool: return p.team == Entity.Team.ENEMY).size(), shots, "nothing is fired inside the window")
+
+
+func test_gunship_drone_call_in_rises_low_in_front_of_the_tank() -> void:
+	var world := stage("boss")
+	var boss := _gunship(world)
+	boss.phase = Gunship.Phase.STRIPPED
+	boss._attack = Gunship.Attack.DRONES
+	boss._attack_time = 1.0
+	boss._update_attack(0.0, world.player)
+	var drones := world.enemies.filter(func(e: Entity) -> bool: return e is FpvDrone)
+	check(drones.size() >= 3, "a handful of drones is called in")
+	var ahead := -world.player.global_basis.z
+	for drone: Entity in drones:
+		var offset := drone.global_position - world.player.global_position
+		check(offset.dot(ahead) > 15.0, "each rises ahead of the tank")
+		check(offset.length() > Tank.CIWS_RANGE, "outside the laser's reach")
+		check(drone.global_position.y - Course.height_at(drone.global_position) < 3.0, "at ground level")
 
 
 func test_gunship_phases_follow_hull() -> void:
