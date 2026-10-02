@@ -211,6 +211,18 @@ func _burn_flames(delta: float) -> void:
 		fx.light_flash(center, randf_range(2.5, 4.0), Palette.AMBER, 5.0 + death_radius * 2.0)
 
 
+## True during an attack wind-up that a hard enough hit breaks.
+func telegraphing() -> bool:
+	return false
+
+
+## A full-charge main-gun hit that lands on a wind-up earns INTERRUPT, kill or not.
+func take_hit(hit: Hit) -> void:
+	if hit.power >= 1.0 and not dead and not invulnerable and telegraphing() and hit.damage * damage_multiplier(hit) > 0.0:
+		World.current.style_event("INTERRUPT", 90.0)
+	super(hit)
+
+
 ## Cancels a telegraphed attack (tail stab, heavy stagger).
 func interrupt() -> void:
 	stagger = maxf(stagger, 1.0)

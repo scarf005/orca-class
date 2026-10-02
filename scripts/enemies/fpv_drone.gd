@@ -160,6 +160,10 @@ func bat(direction: Vector3) -> void:
 	_set_state(State.TUMBLE)
 
 
+func telegraphing() -> bool:
+	return state == State.TELEGRAPH
+
+
 func interrupt() -> void:
 	super()
 	if state == State.TELEGRAPH:

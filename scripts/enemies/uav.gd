@@ -96,6 +96,10 @@ func build() -> void:
 	Sfx.loop("jet", self, -4.0)
 
 
+func telegraphing() -> bool:
+	return _strafe > 0
+
+
 func on_damaged(hit: Hit, amount: float) -> void:
 	super(hit, amount)
 	var local := model.global_transform.affine_inverse() * hit.position

@@ -183,6 +183,10 @@ func damage_multiplier(hit: Hit) -> float:
 	return super(hit) * frontal_armor(hit, FRONT_ARMOR)
 
 
+func telegraphing() -> bool:
+	return _telegraph > 0.0
+
+
 func on_damaged(hit: Hit, amount: float) -> void:
 	super(hit, amount)
 	amount /= frontal_armor(hit, FRONT_ARMOR) # The front plate guards the hull, not the modules behind it.

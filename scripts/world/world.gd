@@ -342,7 +342,7 @@ func style_event(trick: String, points: float) -> void:
 	stats.add_style(trick, points)
 
 
-## Style for a kill, named after how it died. Quick kills chain, and a chain that grows through 3,
+## Style for a kill, named after how it died (a full-charge main-gun kill is CHARGED whatever it hit). Quick kills chain, and a chain that grows through 3,
 ## 6 and 10 kills earns a bigger trick at each step.
 func kill_style(hit: Hit, victim: Entity) -> void:
 	if hit == null or not hit.by_player():
@@ -352,13 +352,13 @@ func kill_style(hit: Hit, victim: Entity) -> void:
 	match hit.kind:
 		Hit.Kind.RAM:
 			trick = "CRUSH"
-			points = 70.0
+			points = 90.0
 		Hit.Kind.TAIL:
-			trick = "TAILWHIP"
-			points = 55.0
+			trick = "LASH"
+			points = 80.0
 		Hit.Kind.THROWN:
 			trick = "THROWN"
-			points = 75.0
+			points = 90.0
 		Hit.Kind.FIRE:
 			trick = "BURNED"
 			points = 50.0
@@ -367,7 +367,7 @@ func kill_style(hit: Hit, victim: Entity) -> void:
 			points = 50.0
 		Hit.Kind.LASER:
 			trick = "ZAPPED"
-			points = 35.0
+			points = 10.0
 		Hit.Kind.BULLET:
 			trick = "COAX"
 			points = 20.0
@@ -375,7 +375,10 @@ func kill_style(hit: Hit, victim: Entity) -> void:
 			trick = "COLLATERAL" if hit.is_collateral() else "SPLASH"
 			points = 70.0 if hit.is_collateral() else 40.0
 		Hit.Kind.SHELL:
-			if victim.flying:
+			if hit.power >= 1.0:
+				trick = "CHARGED"
+				points = 80.0
+			elif victim.flying:
 				trick = "SKYSHOT"
 				points = 60.0
 	if hit.incendiary and hit.kind != Hit.Kind.FIRE:

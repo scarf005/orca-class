@@ -114,7 +114,7 @@ func die(hit: Hit) -> void:
 		world.fx.dust(global_position, 4, 1.0, Palette.MIST)
 		Sfx.play("wood", global_position, 0.0, randf_range(0.8, 1.1))
 		if hit != null and hit.by_player():
-			world.style_event("DEMOLITION", 8.0)
+			world.style_event("DEMOLITION", 4.0)
 		topple(hit != null and hit.by_player(), global_position - push)
 		return
 	super(hit)
@@ -190,7 +190,7 @@ func _run_over(world: World, push: Vector3) -> void:
 			world.fx.shatter(visual_bounds(), debris, push * 2.0)
 	if score > 0:
 		world.award(score, global_position, false)
-	world.style_event("CRUSH", 12.0)
+	world.style_event("CRUSH", 6.0)
 
 
 ## A squelch, a puff of spores and flesh bits, and the same shape pressed flat and darkened where
@@ -260,7 +260,7 @@ func on_death(hit: Hit) -> void:
 	if score > 0:
 		world.award(score, global_position, false)
 	if hit != null and hit.by_player():
-		world.style_event("DEMOLITION", 8.0 + footprint * 6.0)
+		world.style_event("DEMOLITION", 4.0 + footprint * 3.0)
 		if rammed and footprint > 2.5:
 			# Bulldozed buildings go up in a cloud of plaster.
 			world.fx.dust(global_position + Vector3.UP, 16, footprint * 1.2, Palette.MIST)

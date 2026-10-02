@@ -54,6 +54,10 @@ func build() -> void:
 	_stalk.add_child(_sac)
 
 
+func telegraphing() -> bool:
+	return _telegraph > 0.0
+
+
 func behave(delta: float) -> void:
 	var tank := player()
 	if tank == null:

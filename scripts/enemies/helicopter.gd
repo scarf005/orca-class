@@ -209,6 +209,10 @@ func _fire(tank: Tank) -> void:
 	Sfx.play("launch" if _rockets else "enemy_gun", from, -4.0)
 
 
+func telegraphing() -> bool:
+	return _telegraph > 0.0
+
+
 func interrupt() -> void:
 	super()
 	_telegraph = 0.0
