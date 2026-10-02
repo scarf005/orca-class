@@ -139,9 +139,9 @@ func test_helicopter_telegraphs_bursts_and_cleans_up() -> void:
 	check_eq(world.stats.kills, 0, "leaving is not a player kill")
 
 
-# --- Pacing: build, peak and release per section (post-FODDER, hard scaling as the Director applies it).
+# --- Pacing: build, peak and release per section (hard scaling as the Director applies it).
 
-const BUDGETS := {Course.Section.FARM: 35, Course.Section.VILLAGE: 70, Course.Section.RESERVOIR: 65, Course.Section.OVERPASS: 75}
+const BUDGETS := {Course.Section.FARM: 18, Course.Section.VILLAGE: 35, Course.Section.RESERVOIR: 33, Course.Section.OVERPASS: 29}
 const PEAKS := {Course.Section.VILLAGE: Vector2(1085.0, 1195.0), Course.Section.RESERVOIR: Vector2(2185.0, 2370.0), Course.Section.OVERPASS: Vector2(3065.0, 3235.0)}
 const GROUND := ["ugv", "walker", "spitter", "crawler", "quad"]
 
@@ -153,7 +153,7 @@ func _waves(hard: bool) -> Array[Dictionary]:
 
 
 func _size(wave: Dictionary, hard: bool) -> int:
-	var count := ceili(wave.get("count", 1) * Director.FODDER.get(wave.kind, 1.0))
+	var count: int = wave.get("count", 1)
 	return ceili(count * wave.get("hard_scale", 1.4)) if hard else count
 
 
@@ -183,7 +183,7 @@ func test_section_budgets_hold() -> void:
 	for section: Course.Section in BUDGETS:
 		var total := _total(_section_waves(waves, section), false)
 		check(absf(total - BUDGETS[section]) <= BUDGETS[section] * 0.15, "section %d holds ~%d enemies (got %d)" % [section, BUDGETS[section], total])
-	check_eq(_total(_section_waves(waves, Course.Section.SCHOOL), false), 10, "the school is unchanged")
+	check_eq(_total(_section_waves(waves, Course.Section.SCHOOL), false), 6, "the school holds one crawler pack")
 
 
 func test_no_window_of_150m_exceeds_the_cap() -> void:
@@ -260,3 +260,32 @@ func test_telegraphed_blasts_hit_hard_enough_to_matter() -> void:
 	check(30.0 in damage, "the UAV bomb does 30")
 	check(24.0 in damage, "the quad mortar does 24")
 	check(20.0 in damage, "the spitter spore does 20")
+
+
+func test_a_hold_stops_the_rail_until_its_group_is_gone() -> void:
+	var world := stage()
+	await frames(10)
+	var spawned: Array[Enemy] = world.director.spawn_wave({"d": world.rail.d, "kind": "ugv", "count": 2, "formation": "line", "ahead": 60.0, "spacing": 8.0})
+	world.director._fire({"d": world.rail.d, "type": "hold", "at": world.rail.d + 5.0, "timeout": 30.0})
+	check_eq(world.rail.mode, Rail.Mode.HOLD, "the rail holds")
+	await frames(60)
+	check_eq(world.rail.mode, Rail.Mode.HOLD, "and keeps holding while they live")
+	for enemy in spawned:
+		enemy.die(Hit.make(Hit.Kind.SHELL, 9999.0, enemy.global_position))
+	await frames(2)
+	check_eq(world.rail.mode, Rail.Mode.RAIL, "the rail runs once the group is gone")
+
+
+func test_a_hold_gives_up_after_its_timeout_and_skips_when_nothing_is_there() -> void:
+	var world := stage()
+	await frames(10)
+	for enemy in world.enemies.duplicate():
+		enemy.despawn()
+	world.director._fire({"d": world.rail.d, "type": "hold", "at": world.rail.d + 5.0, "timeout": 30.0})
+	check_eq(world.rail.mode, Rail.Mode.RAIL, "an empty hold does not stop the rail")
+	var spawned: Array[Enemy] = world.director.spawn_wave({"d": world.rail.d, "kind": "ugv", "count": 1, "ahead": 60.0})
+	spawned[0].invulnerable = true
+	world.director._fire({"d": world.rail.d, "type": "hold", "at": world.rail.d + 5.0, "timeout": 0.5})
+	check_eq(world.rail.mode, Rail.Mode.HOLD, "a hold with a live enemy stops the rail")
+	await frames(45)
+	check_eq(world.rail.mode, Rail.Mode.RAIL, "and lets go after its timeout")

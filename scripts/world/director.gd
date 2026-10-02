@@ -23,9 +23,6 @@ const ENEMY_SCRIPTS := {
 
 const MIDBOSS_RESUME := 0.6 ## Seconds after the mid-boss dies before the rail runs again.
 
-## Swarm enemies come in bigger numbers than the stage script lists: mayhem needs fodder.
-const FODDER := {"fpv": 1.5, "crawler": 1.6}
-
 const BOSS_CLEAR_DELAY := 1.2 ## After the boss falls, so the breach lands before the call-out; the flood plays on behind it.
 
 ## Checkpoint name -> rail distance to start from.
@@ -36,6 +33,8 @@ var scenery := Scenery.new()
 var section := Course.Section.FARM
 var _next_event := 0
 var _hard := false
+var _hold_group: Array[Enemy] = [] ## A hold keeps the rail stopped until these are gone.
+var _hold_left := 0.0 ## Seconds before a hold gives up and lets the rail run anyway.
 
 
 func begin(checkpoint: String) -> void:
@@ -65,7 +64,7 @@ func begin(checkpoint: String) -> void:
 	_play_section_music()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	var world := World.current
 	var d := world.rail.d
 	scenery.stream(d)
@@ -75,6 +74,13 @@ func _process(_delta: float) -> void:
 		section = current
 		section_changed.emit(section)
 		_play_section_music()
+	if _hold_left > 0.0:
+		_hold_left -= delta
+		_hold_group = _hold_group.filter(func(enemy: Enemy) -> bool: return is_instance_valid(enemy) and not enemy.dead)
+		if _hold_group.is_empty() or _hold_left <= 0.0:
+			_hold_left = 0.0
+			_hold_group.clear()
+			world.rail.mode = Rail.Mode.RAIL
 	while _next_event < events.size() and events[_next_event].d <= d:
 		_fire(events[_next_event])
 		_next_event += 1
@@ -110,8 +116,12 @@ func _fire(event: Dictionary) -> void:
 		"checkpoint":
 			checkpoint_reached.emit(event.name)
 		"hold":
-			world.rail.mode = Rail.Mode.HOLD
-			world.rail.hold_at = event.at
+			# Everything already in play ahead of the tank has to go before the rail runs on.
+			_hold_group.assign(world.enemies.filter(func(enemy: Enemy) -> bool: return Course.to_course(enemy.global_position).x > world.rail.d - 10.0))
+			if not _hold_group.is_empty():
+				world.rail.mode = Rail.Mode.HOLD
+				world.rail.hold_at = event.at
+				_hold_left = event.get("timeout", 30.0)
 		"release":
 			world.rail.mode = Rail.Mode.RAIL
 		"boss":
@@ -129,7 +139,7 @@ func _fire(event: Dictionary) -> void:
 func spawn_wave(event: Dictionary) -> Array[Enemy]:
 	var world := World.current
 	var spawned: Array[Enemy] = []
-	var count: int = ceili(event.get("count", 1) * FODDER.get(event.kind, 1.0))
+	var count: int = event.get("count", 1)
 	if _hard:
 		count = int(ceil(count * event.get("hard_scale", 1.4)))
 	var kind: String = event.kind
