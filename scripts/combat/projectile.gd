@@ -33,11 +33,13 @@ var color := Palette.FRIENDLY ## Body color, set from the team when spawned.
 var terrain_only_after := 0.0 ## Ignores entities until this distance (avoids hitting the shooter).
 var ricochet := false ## Small-caliber rounds glance off the ground with sparks.
 var impact_sound := ""
-var halo: MeshInstance3D ## Enemy shots twinkle: this glow flickers, each shot out of step.
+var halo: MeshInstance3D ## Enemy shots blink: this glow and `core` flash, each shot out of step.
+var core: MeshInstance3D
 
 const FLAME_TRAIL_INTERVAL := 0.05
 const FLAME_TRAIL_LIFE := 0.3
-const FLICKER_RATE := 70.0 ## Radians per second of the enemy shot halo flicker.
+const FLICKER_RATE := 50.0 ## Radians per second of the enemy shot blink (about 8 flashes a second).
+const GLANCE_LIFE := 0.6 ## Seconds a round that glanced off the hull tumbles on before it is gone.
 
 var _traveled := 0.0
 var _phase := randf() * TAU
@@ -46,6 +48,7 @@ var _hit_entities: Array[Entity] = []
 var _trail_timer := 0.0
 var _motor_light: OmniLight3D
 var _lead_velocity := Vector3.INF ## The target velocity the lead is computed from.
+var _glanced := false ## Bounced off the hull: it only tumbles away, harmless, and touches nothing.
 
 
 func _ready() -> void:
@@ -60,10 +63,16 @@ func _exit_tree() -> void:
 
 func step(delta: float) -> void:
 	_age += delta
-	if halo:
-		var wave := sin(_age * FLICKER_RATE + _phase)
-		halo.set_instance_shader_parameter(&"instance_alpha", 0.75 + 0.25 * wave)
-		halo.scale = Vector3.ONE * (1.0 + 0.2 * wave)
+	if _glanced:
+		# A turned round is no threat: it stops blinking and shrinks away as it tumbles.
+		scale = Vector3.ONE * lerpf(0.25, 0.7, clampf(life / GLANCE_LIFE, 0.0, 1.0))
+	elif halo:
+		# A hard on/off blink, not a soft shimmer, so every enemy round catches the eye.
+		var on := sin(_age * FLICKER_RATE + _phase) > -0.2
+		halo.set_instance_shader_parameter(&"instance_alpha", 1.0 if on else 0.3)
+		halo.scale = Vector3.ONE * (1.5 if on else 0.9)
+		if core:
+			core.scale = Vector3.ONE * (1.25 if on else 1.0)
 	life -= delta
 	if life <= 0.0:
 		if fuse_distance > 0.0:
@@ -77,6 +86,11 @@ func step(delta: float) -> void:
 	velocity.y -= gravity * delta
 	var from := global_position
 	var to := from + velocity * delta
+	if _glanced:
+		global_position = to
+		if velocity.length_squared() > 0.01:
+			look_at(to + velocity, Vector3.UP if absf(velocity.normalized().y) < 0.99 else Vector3.RIGHT)
+		return
 	var step_length := from.distance_to(to)
 	if fuse_distance > 0.0 and _traveled + step_length >= fuse_distance:
 		to = from + velocity.normalized() * (fuse_distance - _traveled)
@@ -242,7 +256,7 @@ func _ground_hit(from: Vector3, to: Vector3) -> float:
 	return b * from.distance_to(to)
 
 
-func _apply(target: Entity, point: Vector3) -> void:
+func _apply(target: Entity, point: Vector3) -> Hit:
 	var applied := hit.copy()
 	if applied.source == null and team == Entity.Team.PLAYER:
 		applied.source = World.current.player
@@ -250,6 +264,7 @@ func _apply(target: Entity, point: Vector3) -> void:
 	applied.direction = velocity.normalized()
 	applied.speed = velocity.length()
 	target.take_hit(applied)
+	return applied
 
 
 func detonate(point: Vector3, target: Entity) -> void:
@@ -257,7 +272,10 @@ func detonate(point: Vector3, target: Entity) -> void:
 	if hit.source == null and team == Entity.Team.PLAYER:
 		hit.source = world.player
 	if target:
-		_apply(target, point)
+		var applied := _apply(target, point)
+		if target is Tank and Tank.is_small_arms(applied):
+			_glance(point, target)
+			return
 	if airburst_fragments > 0:
 		_airburst(point)
 	elif blast_radius > 0.0:
@@ -272,6 +290,22 @@ func detonate(point: Vector3, target: Entity) -> void:
 		Sfx.play(impact_sound, point)
 	impacted.emit(self, point, target)
 	queue_free()
+
+
+## A small-arms round that the hull turned: it keeps its look and tumbles off in a random direction
+## away from the armor at nearly its own speed, with the armor's ping.
+func _glance(point: Vector3, target: Entity) -> void:
+	var normal := (point - target.hit_center()).normalized()
+	var out := velocity.normalized().bounce(normal) + normal * 0.6 + Vector3(randf_range(-1, 1), randf_range(-0.3, 1), randf_range(-1, 1)) * 0.8
+	velocity = out.normalized() * velocity.length() * randf_range(0.85, 1.1)
+	gravity = 6.0
+	life = GLANCE_LIFE
+	interceptable = false
+	_glanced = true
+	global_position = point + normal * 0.3
+	if halo:
+		halo.set_instance_shader_parameter(&"instance_alpha", 0.5)
+	Sfx.play("hit_confirm", point, -6.0, randf_range(1.7, 2.1)) # The armor's ping.
 
 
 ## Where a blast from this round carries: on along its flight, deflected up off the ground.

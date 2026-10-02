@@ -181,6 +181,8 @@ const HOSTILE_CORE := 1.8 ## Enemy shot core size relative to a player round's.
 static var _shape_meshes := {}
 static var _halo_material := _make_halo_material()
 static var _core_material := _make_core_material()
+static var _ink_material := _make_ink_material()
+const INK_SHAPES := ["shell", "dart"] ## The tank's own rounds, whose rim the final pass does not draw.
 
 
 ## Shots are drawn at their true saturated color: vertex colors read as sRGB, unlit. The scene's
@@ -190,6 +192,15 @@ static func _make_core_material() -> StandardMaterial3D:
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.vertex_color_use_as_albedo = true
 	material.vertex_color_is_srgb = true
+	return material
+
+
+## An inverted hull: only the back faces of a slightly fatter copy show, as a dark rim around the round.
+static func _make_ink_material() -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.cull_mode = BaseMaterial3D.CULL_FRONT
+	material.albedo_color = Palette.INK
 	return material
 
 
@@ -244,6 +255,13 @@ static func _projectile_meshes(shape: String, color: Color, hostile := false) ->
 			core.tube(Transform3D(Basis(), Vector3(0, 0, length)), r * 0.8 * head, width * 1.5 * head, 6, hot, 0.0)
 			halo.blob(Transform3D(Basis(), Vector3(0, 0, length + 0.3)), width * halo_scale, color, 0, 0.2, 7)
 	var meshes: Array[Mesh] = [core.mesh(), halo.mesh()]
+	if not hostile and shape in INK_SHAPES:
+		# The tank's rounds have no rim from the final pass, so they carry an ink outline of their own.
+		var ink := LowPoly.new()
+		var r := width * 0.5 + 0.09
+		ink.tube(Transform3D(forward, Vector3.ZERO), r, width * 0.9 + 0.12, 6, Palette.INK, 0.0)
+		ink.tube(Transform3D(Basis(), Vector3.ZERO), r, length + 0.15, 6, Palette.INK, 0.0)
+		meshes.append(ink.mesh())
 	_shape_meshes[key] = meshes
 	return meshes
 
@@ -258,10 +276,7 @@ static func projectile_visual(shape: String, color: Color, hostile := false) -> 
 		mesh.mesh = meshes[i]
 		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		mesh.layers |= ActorLayer.LAYER | (ActorLayer.HOSTILE_SHOT if hostile else 0)
-		if i == 0:
-			mesh.material_override = _core_material
-		else:
-			mesh.material_override = _halo_material
+		mesh.material_override = [_core_material, _halo_material, _ink_material][i]
 		result.append(mesh)
 	return result
 
@@ -278,6 +293,7 @@ func spawn_projectile(team: Entity.Team, position: Vector3, velocity: Vector3, s
 	for mesh in visuals:
 		projectile.add_child(mesh)
 	if hostile:
+		projectile.core = visuals[0]
 		projectile.halo = visuals[1]
 	_projectile_container.add_child(projectile)
 	projectile.global_position = position
@@ -295,6 +311,7 @@ func reskin_projectile(projectile: Projectile) -> void:
 	for mesh in projectile_visual(projectile.shape, projectile.color):
 		projectile.add_child(mesh)
 	projectile.halo = null
+	projectile.core = null
 
 
 ## Every enemy shot is HOSTILE; the tank's own shots are warm (flames keep their fire colors), so
