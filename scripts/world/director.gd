@@ -26,7 +26,7 @@ const MIDBOSS_RESUME := 0.6 ## Seconds after the mid-boss dies before the rail r
 ## Swarm enemies come in bigger numbers than the stage script lists: mayhem needs fodder.
 const FODDER := {"fpv": 1.5, "crawler": 1.6}
 
-const BOSS_CLEAR_DELAY := 6.5 ## After the boss falls, so the dam's breach and flood play out.
+const BOSS_CLEAR_DELAY := 1.2 ## After the boss falls, so the breach lands before the call-out; the flood plays on behind it.
 
 ## Checkpoint name -> rail distance to start from.
 const CHECKPOINTS := {"": 0.0, "midboss": Course.MIDBOSS_D - 110.0, "boss": Course.SECTION_STARTS[Course.Section.ARENA] - 40.0}

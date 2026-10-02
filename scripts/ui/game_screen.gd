@@ -121,7 +121,7 @@ func _on_game_over() -> void:
 func _on_cleared() -> void:
 	_finished = true
 	hud.shout(tr("SHOUT_MISSION_COMPLETE"), Palette.FUNGUS, 2.5)
-	await get_tree().create_timer(2.2).timeout
+	await get_tree().create_timer(1.6).timeout
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	world.player.input_enabled = false
 	_results = Results.new()

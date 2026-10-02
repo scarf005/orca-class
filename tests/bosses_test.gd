@@ -338,11 +338,10 @@ func test_gunship_crash_clears_stage_once_the_breach_has_played_out() -> void:
 	boss.take_hit(hit)
 	check(boss._crash > 0.0, "zero hp starts the crash")
 	check(await wait_until(func() -> bool: return fell[0], 60 * 6), "the gunship hits the dam")
-	await frames(60 * 4)
-	check(not cleared[0], "the stage does not clear while the dam is still breaking")
-	var ok := await wait_until(func() -> bool: return cleared[0], 60 * 5)
-	check(ok, "crash into the dam clears the stage")
-	check_near(Director.BOSS_CLEAR_DELAY, 6.5, 0.01, "a long breather after the boss falls")
+	await frames(30)
+	check(not cleared[0], "the stage does not clear before the breach lands")
+	var ok := await wait_until(func() -> bool: return cleared[0], 60 * 2)
+	check(ok, "the stage clears soon after the crash into the dam")
 
 
 func test_gunship_crashes_into_the_dam_face_in_plain_view() -> void:
