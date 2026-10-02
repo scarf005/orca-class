@@ -4,6 +4,12 @@ A Star Fox-style action shooter in pastel, ditherpunk 3D. You play Ha Yoon (í•˜ì
 *Orca-class*, pushing through a fungus-infested, abandoned Korean countryside. This goal covers one complete,
 polished **Stage 1**, with enemies, a mid-boss, a final boss, power-ups, scoring and a results screen.
 
+**Why this game exists:** in anime and shooting games the tank is the firework that fighters and walking mechs
+blow up on their way past. Here the tank wins. The enemies are the hunters that usually prey on tanks (helicopters,
+UAVs, drones, walkers), dangerous and fast and coming from above; the tank shrugs off what they throw and knocks them
+down with one heavy shot. Every system and encounter is judged by how well it delivers that reversal, and cut if it
+does not.
+
 The bar: intense, fun, readable, and "one more run" addictive. It must feel hand-made, not like AI slop (see
 [Quality bar](#quality-bar)).
 
