@@ -8,7 +8,8 @@ const PATH := "user://duel_tuning.cfg"
 ## [label, getter, setter, min, max, step]
 var _rows: Array = [
 	["Coax burst (rounds)", func() -> float: return Armament.COAX_BURST_ROUNDS, func(v: float) -> void: Armament.COAX_BURST_ROUNDS = int(v), 1.0, 20.0, 1.0],
-	["Tap / lock delay (s)", func() -> float: return Armament.TAP_TIME, func(v: float) -> void: Armament.TAP_TIME = v, 0.0, 0.6, 0.01],
+	["Coax burst gap (s)", func() -> float: return Armament.COAX_BURST_GAP, func(v: float) -> void: Armament.COAX_BURST_GAP = v, 0.0, 2.0, 0.05],
+	["Charge delay (s)", func() -> float: return Armament.TAP_TIME, func(v: float) -> void: Armament.TAP_TIME = v, 0.0, 0.6, 0.01],
 	["Full charge (s)", func() -> float: return Armament.FULL_TIME, func(v: float) -> void: Armament.FULL_TIME = v, 0.3, 3.0, 0.05],
 	["Auto fire (s)", func() -> float: return Armament.AUTO_FIRE_TIME, func(v: float) -> void: Armament.AUTO_FIRE_TIME = v, 0.5, 5.0, 0.05],
 	["Recover after shot (s)", func() -> float: return Armament.CANNON_RECOVER, func(v: float) -> void: Armament.CANNON_RECOVER = v, 0.0, 2.5, 0.05],

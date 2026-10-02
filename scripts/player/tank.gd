@@ -41,8 +41,10 @@ const TAIL_HIT_RADIUS := 0.8 ## The claw end of the tail as a target, in metres.
 const TAIL_SMALL_ARMS := 2.0 ## Small-arms damage on the tail, which no armor guards.
 static var DRIFT_ANGLE := deg_to_rad(60.0) ## How far a sideways dash swings the nose against its slide (tuned live in the duel mode).
 const DRIFT_TURN := Vector2(14.0, 5.0) ## Per second the drift swings in, and back out.
-const AREA_ROUNDS := [Armament.Round.CANISTER, Armament.Round.AIRBURST] ## Rounds with no lock and no full charge.
-const AREA_CHARGE := 0.99 ## How far those charge: just short of full, so they never turn hitscan. ## A held soft lock lasts out to this many radii from the reticle.
+const AREA_ROUNDS := [Armament.Round.CANISTER, Armament.Round.AIRBURST, Armament.Round.DRAGON] ## Rounds with no lock.
+## The charge step at which a special round fires on its own (0 the first box, 0.5 the second); the
+## shells not listed charge on to full.
+const ROUND_STEP := {Armament.Round.AIRBURST: 0.0, Armament.Round.DRAGON: 0.0, Armament.Round.CANISTER: 0.5}
 const LOCK_SWITCH := 0.6 ## Another enemy takes a held lock only when this much nearer the reticle.
 const SIGHT_RATE := 10.0 ## Per second the chevron's range eases toward the range it rests on.
 const PART_LOCK_RADIUS := 90.0 ## Screen pixels: on a target made of modules, the nearest one within this is locked.
@@ -96,7 +98,8 @@ var _fire_released := false
 var _auto_fire := false ## The hold reached the auto-fire time: the gun fires this frame.
 var _spent := false ## The gun fired by itself: the button has to come up before a new hold counts.
 var _recover := 0.0 ## Seconds until a hold can charge again after a shot.
-var _burst := 0.0 ## Seconds of coax fire left from the last press.
+var _burst := 0.0 ## Seconds of coax fire left in the current burst.
+var _burst_gap := 0.0 ## Seconds until the coax may start its next burst.
 var _full_click := false
 var _coax_timers: Array[float] = []
 
@@ -750,10 +753,6 @@ func _update_charge(delta: float) -> void:
 		return
 	var held := Input.is_action_pressed("fire")
 	_fire_released = _fire_held and not held
-	if held and not _fire_held:
-		# Every press gives a burst; holding does not keep the coax going. Half an interval short, so
-		# the last round lands inside it.
-		_burst = (Armament.COAX_BURST_ROUNDS - 0.5) * Armament.GUNS[Armament.tier_calibers(coax_tier)[0]].interval
 	if not held:
 		_spent = false
 	var waited := minf(_recover, delta)
@@ -763,11 +762,11 @@ func _update_charge(delta: float) -> void:
 		_hold += delta - waited # Only the time after recovery counts.
 		if before < Armament.TAP_TIME and _hold >= Armament.TAP_TIME:
 			Sfx.play("charge", global_position)
-		_auto_fire = _hold >= auto_fire_hold()
+		_auto_fire = _hold >= auto_fire_hold() or (ROUND_STEP.has(current_round) and _hold >= Armament.TAP_TIME + ROUND_STEP[current_round] * charge_time())
 	elif not _fire_released: # The release frame keeps the charge it let go with.
 		_hold = 0.0
-	# Canister and airburst are area rounds: they never reach a full, aimed charge.
-	charge = clampf((_hold - Armament.TAP_TIME) / charge_time(), 0.0, AREA_CHARGE if current_round in AREA_ROUNDS else 1.0)
+	# Special rounds stop at their step and go: they never reach a full, aimed charge.
+	charge = clampf((_hold - Armament.TAP_TIME) / charge_time(), 0.0, ROUND_STEP.get(current_round, 1.0))
 	if charge >= 1.0 and not _full_click:
 		_full_click = true
 		Sfx.play("charge_full", global_position)
@@ -782,7 +781,7 @@ func charge_ring_radius() -> float:
 		return Armament.LOCK_RADIUS
 	var cam := World.current.camera
 	var distance := model.muzzle.global_position.distance_to(aim_point)
-	var radius := distance * Armament.CANISTER_SPREAD
+	var radius := distance * canister_spread(charge)
 	var center := cam.unproject_position(aim_point)
 	var pixels := maxf(center.distance_to(cam.unproject_position(aim_point + cam.global_basis.x * radius)), center.distance_to(cam.unproject_position(aim_point + cam.global_basis.y * radius)))
 	return clampf(pixels, 8.0, 220.0)
@@ -831,6 +830,13 @@ func _update_charge_lock() -> void:
 
 func _update_weapons(delta: float) -> void:
 	coax_part = _pick_part(coax_target)
+	# The coax fires bursts on its own at whatever the sight soft-locks, a short pause between them;
+	# the coax button fires them at will, target or not.
+	_burst_gap -= delta
+	if input_enabled and _burst <= 0.0 and _burst_gap <= 0.0 and (Input.is_action_pressed("coax") or is_instance_valid(coax_target)):
+		# Half an interval short, so the last round lands inside it.
+		_burst = (Armament.COAX_BURST_ROUNDS - 0.5) * Armament.GUNS[Armament.tier_calibers(coax_tier)[0]].interval
+		_burst_gap = _burst + Armament.COAX_BURST_GAP
 	if input_enabled and _burst > 0.0:
 		_burst -= delta
 		var calibers := Armament.tier_calibers(coax_tier)
@@ -975,7 +981,7 @@ func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO, power := 0.0) -> v
 		World.current.stats.charged_shots += 1
 	match round:
 		Armament.Round.CANISTER:
-			_fire_canister(muzzle, shot_dir.call(200.0))
+			_fire_canister(muzzle, shot_dir.call(200.0), power)
 		Armament.Round.DRAGON:
 			DragonBreath.fire(self, shot_dir.call(DragonBreath.MEAN_SPEED), from, float(power >= 1.0))
 		_:
@@ -989,14 +995,19 @@ func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO, power := 0.0) -> v
 
 
 ## A wall of tungsten balls, and a muzzle blast that flattens everything just ahead.
-func _fire_canister(muzzle: Vector3, aim_dir: Vector3) -> void:
+## The canister's cone tightens with the charge step: wide at the first box, choked at the second.
+static func canister_spread(power: float) -> float:
+	return lerpf(Armament.CANISTER_SPREAD.x, Armament.CANISTER_SPREAD.y, clampf(power / 0.5, 0.0, 1.0))
+
+
+func _fire_canister(muzzle: Vector3, aim_dir: Vector3, power := 0.0) -> void:
 	var world := World.current
 	world.blast(muzzle + aim_dir * 7.0, 6.0, 260.0, Team.PLAYER, _cannon_hit(), null, [Palette.WHITE, Palette.BUTTER, Palette.AMBER], aim_dir)
 	# Fifty hitscan balls land at once, each drawn as a yellow streak.
 	var side := aim_dir.cross(Vector3.UP if absf(aim_dir.y) < 0.99 else Vector3.RIGHT).normalized()
 	var up := side.cross(aim_dir)
 	for i in 50:
-		var spread := Vector2.from_angle(randf() * TAU) * sqrt(randf()) * Armament.CANISTER_SPREAD
+		var spread := Vector2.from_angle(randf() * TAU) * sqrt(randf()) * canister_spread(power)
 		var dir := (aim_dir + side * spread.x + up * spread.y).normalized()
 		var pellet := world.spawn_projectile(Team.PLAYER, muzzle, dir * 200.0, "pellet", Palette.BUTTER)
 		pellet.hit = Hit.make(Hit.Kind.BULLET, 90.0, muzzle)

@@ -41,6 +41,7 @@ S = {
     "ACTION_MOVE_RIGHT": ("오른쪽", "RIGHT"),
     "ACTION_FIRE": ("발사", "FIRE"),
     "ACTION_DASH": ("대시", "DASH"),
+    "ACTION_COAX": ("기총", "COAX"),
     "ACTION_PAUSE": ("일시정지", "PAUSE"),
     "MOUSE_1": ("마우스 왼쪽", "LMB"),
     "MOUSE_2": ("마우스 오른쪽", "RMB"),

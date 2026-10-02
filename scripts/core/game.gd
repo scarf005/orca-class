@@ -22,12 +22,13 @@ static func default_bindings() -> Dictionary:
 		"aim_right": [_axis(JOY_AXIS_RIGHT_X, 1.0)],
 		"fire": [_mouse(MOUSE_BUTTON_LEFT), _axis(JOY_AXIS_TRIGGER_RIGHT, 1.0)],
 		"dash": [_key(KEY_SPACE), _mouse(MOUSE_BUTTON_RIGHT)],
+		"coax": [_key(KEY_SHIFT), _button(JOY_BUTTON_X)],
 		"roll_left": [_button(JOY_BUTTON_LEFT_SHOULDER)],
 		"roll_right": [_button(JOY_BUTTON_RIGHT_SHOULDER)],
 		"pause": [_key(KEY_ESCAPE), _button(JOY_BUTTON_START)],
 	}
 
-const REBINDABLE: Array[StringName] = [&"move_forward", &"move_back", &"move_left", &"move_right", &"fire", &"dash", &"pause"]
+const REBINDABLE: Array[StringName] = [&"move_forward", &"move_back", &"move_left", &"move_right", &"fire", &"coax", &"dash", &"pause"]
 
 ## Tools and tests run silent (pass `--sound` to hear them).
 var silent := false

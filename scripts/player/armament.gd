@@ -39,8 +39,9 @@ static var QUICK_SPEED_2 := 400.0
 static func quick_speed(power: float) -> float:
 	return QUICK_SPEED_1 if power < 0.5 else QUICK_SPEED_2
 
-static var COAX_BURST_ROUNDS := 4 ## Rounds a press fires from the coax (from each gun of the tier), however long the button is held.
-static var TAP_TIME := 0.3 ## A hold this long locks the target and starts the charge; a shorter click is only a coax burst.
+static var COAX_BURST_GAP := 0.35 ## Seconds between the coax's bursts while it keeps firing (tuned live in the duel mode).
+static var COAX_BURST_ROUNDS := 6 ## Rounds a press fires from the coax (from each gun of the tier), however long the button is held.
+static var TAP_TIME := 0.0 ## Seconds a press waits before it locks and starts charging (0: at once).
 static var FULL_TIME := 1.0 ## Seconds of hold for a full charge.
 static var AUTO_FIRE_TIME := 1.5 ## Seconds of hold at which the gun fires by itself; the button must be pressed again.
 static var CANNON_RECOVER := 0.8 ## After a shot the gun cannot fire or charge for this long.
@@ -57,7 +58,7 @@ const HEAT_STAGGER := Vector2(1.0, 2.5)
 const HEAT_RADIUS := Vector2(9.0, 12.0)
 const APFSDS_RANGE := Vector2(1.0, 1.4)
 const APFSDS_DAMAGE := Vector2(1.0, 1.5)
-const CANISTER_SPREAD := 0.13 ## Radians: a wide cone, the close-swarm round, the same however the gun is charged.
+const CANISTER_SPREAD := Vector2(0.16, 0.07) ## Radians of cone at the first and second charge step.
 const CANISTER_RANGE := 70.0
 const AIRBURST_FRAGMENTS := Vector2(70.0, 110.0)
 const AIRBURST_ARM := 30.0 ## The proximity fuse arms this far from the muzzle.
