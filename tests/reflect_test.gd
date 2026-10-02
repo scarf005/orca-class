@@ -77,6 +77,16 @@ func test_outside_a_dash_or_beyond_5_m_nothing_reflects() -> void:
 	check_eq(rocket.team, Entity.Team.PLAYER, "while the near one is turned")
 
 
+func test_a_dash_in_play_reflects_nothing_while_switched_off() -> void:
+	var world := _rig()
+	var tank := world.player
+	var shooter := _shooter(world, 40.0)
+	var rocket := _rocket(world, shooter, 4.0)
+	tank.dash(Vector2.RIGHT)
+	tank.tick(1.0 / 60.0)
+	check_eq(rocket.team, Entity.Team.ENEMY, "the dash leaves enemy shots alone")
+
+
 func test_a_reflected_shot_without_a_shooter_goes_straight_back_and_a_bomb_flies_straight() -> void:
 	var world := _rig()
 	var tank := world.player

@@ -23,6 +23,7 @@ const CIWS_COOL_RATE := 0.22
 const CIWS_LASER_DPS := 6.0
 const CIWS_ENTITY_DPS := 22.0
 const ANCHOR_COOLDOWN := 0.6
+const REFLECT := false ## Dash reflection is switched off for now.
 const REFLECT_RANGE := 5.0 ## A dash turns back every hostile shot this close to the hull.
 const REFLECT_SPEED := 1.2
 const REFLECT_DAMAGE := 120.0
@@ -196,7 +197,8 @@ func tick(delta: float) -> void:
 	_update_aim(delta)
 	_update_weapons(delta)
 	_update_ciws(delta)
-	_reflect_shots()
+	if REFLECT:
+		_reflect_shots()
 	tail.update(delta, global_basis, lateral_velocity)
 	auto_tail() # The tail and the coax work on their own; only driving and the main gun take input.
 	_update_pickups()

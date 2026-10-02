@@ -89,8 +89,7 @@ coiling and lashing with visible muscle and follow-through. Priorities:
 
 The tail also powers the **dash**: press Space and the claw kicks off the ground to hurl the hull the way it is
 steered (A or D sideways, W forward, S to dig in; with nothing held, the way it last steered sideways). Sideways it dodges and lashes anything beside the hull (a pickup the claw carries is delivered at once), forward it surges the
-rail, back it digs in to a near-instant stop. Each gives a brief dodge window and gouges the terrain, and a dash reflects every hostile shot that comes within 5 m
-back at its shooter.
+rail, back it digs in to a near-instant stop. Each gives a brief dodge window and gouges the terrain.
 
 Controls are WASD and the mouse, plus Space to dash: W/S steer forward and back and double as boost and brake, the
 left button fires the coax (it leads whatever the sight soft-locks), the right button charges the main gun while
