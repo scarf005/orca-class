@@ -464,24 +464,19 @@ func _draw_reticle() -> void:
 		return
 	var cam := world.camera
 	var cursor := p.aim_screen * SCALE
-	var target := p.charge_lock if is_instance_valid(p.charge_lock) else p.coax_target
 	var charged_lock := is_instance_valid(p.charge_lock)
+	# While charging, the brackets show what the charge has (or would) lock; otherwise the coax's soft lock.
+	var target: Entity = p.charge_lock if charged_lock else (p.charge_candidate if p.is_charging() else p.coax_target)
 	var color := Palette.HOSTILE if is_instance_valid(target) else Palette.CYAN
-	# Like Star Fox's two sights, both marks sit on the line the barrel points along: the ring close
-	# in front of the muzzle, the chevron out at the range the sight rests on. Lined up, they show
-	# where the gun fires; the mouse only leaves a small cursor the turret swings toward.
-	var muzzle := p.model.muzzle.global_position
-	var barrel_dir := -p.model.barrel.global_basis.z
+	# The chevron sits where the barrel points, out at the range the sight rests on: the gun fires
+	# there. The cursor is where the turret swings toward, and the charge fills around it.
 	var far := p.sight_point()
-	var near := muzzle + barrel_dir * 14.0
-	draw_circle(cursor, 2.0, Palette.WHITE)
-	draw_arc(cursor, 4.0, 0, TAU, 10, Palette.INK, 1.0)
+	_draw_cursor(cursor)
 	if p.is_charging():
-		draw_arc(cursor, p.charge_ring_radius() * SCALE, 0.0, TAU, 48, Palette.FRIENDLY, 2.0)
-	if cam.is_position_behind(far) or cam.is_position_behind(near):
+		_draw_charge_ring(cursor, p.charge_ring_radius() * SCALE, p.charge, charged_lock)
+	if cam.is_position_behind(far):
 		return
 	var c := cam.unproject_position(far) * SCALE
-	var n := cam.unproject_position(near) * SCALE
 	# Chevron and stadia.
 	draw_polyline(PackedVector2Array([c + Vector2(-9, 9), c, c + Vector2(9, 9)]), color, 2.0)
 	for side in [-1.0, 1.0]:
@@ -494,11 +489,6 @@ func _draw_reticle() -> void:
 	if p.modules.lock_factor() > 0.0:
 		_text(c + Vector2(50, -4), "%04d" % int(p.sight_range), color, 12)
 	_text(c + Vector2(50, 10), ROUND_CODES[p.current_round], Armament.ROUND_COLORS[p.current_round], 12)
-	# Charge ring: twelve segments fill as the shot charges.
-	for k in 12:
-		var a0 := -PI * 0.5 + TAU * k / 12.0 + 0.06
-		var filled := float(k) / 12.0 < p.charge
-		draw_arc(n, 30, a0, a0 + TAU / 12.0 - 0.12, 4, Armament.ROUND_COLORS[p.current_round] if filled else Color(Palette.STONE, 0.5), 3.0 if filled else 1.0)
 	# Lock: brackets snap in from wide when a new target (or a new module of it) is acquired.
 	var part := p.charge_part if charged_lock else p.coax_part
 	if target != _lock or part != _lock_part:
@@ -521,12 +511,28 @@ func _draw_reticle() -> void:
 	var center := cam.unproject_position(focus) * SCALE
 	var k := clampf(_lock_time / 0.2, 0.0, 1.0)
 	var s := lerpf(46.0, 18.0 + size * 3.0, ease(k, 0.4))
+	var candidate := p.is_charging() and not charged_lock
+	# A fresh charge lock clamps on white-hot, then settles to the friendly colour; a candidate is a thin hint.
+	var bracket_color := Palette.HOSTILE
+	if charged_lock:
+		bracket_color = Palette.WHITE if _lock_time < 0.12 else Palette.FRIENDLY
+	elif candidate:
+		bracket_color = Color(Palette.FRIENDLY, 0.6)
+	var width := 1.0 if candidate else (3.0 if charged_lock else 2.0)
+	var arm := 9.0 if not charged_lock else 13.0
 	for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
 		var at := center + corner * s
-		draw_line(at, at - Vector2(corner.x * 9, 0), Palette.FRIENDLY if charged_lock else Palette.HOSTILE, 2.0)
-		draw_line(at, at - Vector2(0, corner.y * 9), Palette.FRIENDLY if charged_lock else Palette.HOSTILE, 2.0)
+		if charged_lock:
+			draw_line(at, at - Vector2(corner.x * arm, 0), Palette.INK, width + 3.0)
+			draw_line(at, at - Vector2(0, corner.y * arm), Palette.INK, width + 3.0)
+		draw_line(at, at - Vector2(corner.x * arm, 0), bracket_color, width)
+		draw_line(at, at - Vector2(0, corner.y * arm), bracket_color, width)
 	if charged_lock:
+		if _lock_time < 0.12:
+			draw_arc(center, s * 1.6 + _lock_time * 160.0, 0.0, TAU, 32, Color(Palette.WHITE, 1.0 - _lock_time / 0.12), 2.0)
 		_text(center + Vector2(0, -s - 12), tr("CHARGE_LOCK"), Palette.FRIENDLY, 12, HORIZONTAL_ALIGNMENT_CENTER, 0)
+	if candidate:
+		return
 	if k >= 1.0:
 		var distance := int(focus.distance_to(p.global_position))
 		_text(center + Vector2(0, s + 14), "%s  %dm" % [name, distance], Palette.HOSTILE, 12, HORIZONTAL_ALIGNMENT_CENTER, 0)
@@ -539,6 +545,34 @@ func _draw_reticle() -> void:
 			draw_line(center, lp, Color(Palette.HOSTILE, 0.5), 1.0)
 			draw_colored_polygon(PackedVector2Array([lp + Vector2(0, -6), lp + Vector2(6, 0), lp + Vector2(0, 6), lp + Vector2(-6, 0)]), Palette.BUTTER)
 			draw_polyline(PackedVector2Array([lp + Vector2(0, -6), lp + Vector2(6, 0), lp + Vector2(0, 6), lp + Vector2(-6, 0), lp + Vector2(0, -6)]), Palette.INK, 1.0)
+
+
+## The mouse cursor: a small open cross, so the target under it stays visible.
+func _draw_cursor(at: Vector2) -> void:
+	for dir: Vector2 in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+		draw_line(at + dir * 4.0, at + dir * 10.0, Palette.INK, 4.0)
+	for dir: Vector2 in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+		draw_line(at + dir * 4.0, at + dir * 10.0, Palette.WHITE, 2.0)
+
+
+## The charge, around the cursor at the radius it locks within: segments fill clockwise from the
+## top; full, the ring closes solid and pulses.
+func _draw_charge_ring(at: Vector2, radius: float, charge: float, locked: bool) -> void:
+	const SEGMENTS := 16
+	if charge >= 1.0:
+		var pulse := 0.5 + 0.5 * sin(_time * 18.0)
+		draw_arc(at, radius, 0.0, TAU, 48, Palette.INK, 6.0)
+		draw_arc(at, radius, 0.0, TAU, 48, Palette.WHITE.lerp(Palette.FRIENDLY, 0.4 + pulse * 0.6) if not locked else Palette.FRIENDLY, 3.0)
+		return
+	for k in SEGMENTS:
+		var a0 := -PI * 0.5 + TAU * k / SEGMENTS + 0.04
+		var a1 := a0 + TAU / SEGMENTS - 0.08
+		if float(k) / SEGMENTS < charge:
+			draw_arc(at, radius, a0, a1, 4, Palette.INK, 6.0)
+			draw_arc(at, radius, a0, a1, 4, Palette.FRIENDLY, 3.0)
+		else:
+			draw_arc(at, radius, a0, a1, 4, Color(Palette.INK, 0.6), 3.0)
+			draw_arc(at, radius, a0, a1, 4, Palette.MIST, 1.0)
 
 
 func _draw_hit_marker() -> void:

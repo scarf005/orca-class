@@ -23,12 +23,14 @@ func _step(tank: Tank, delta: float) -> void:
 func test_clicks_and_early_releases_fire_nothing_and_reset() -> void:
 	var world := _rig()
 	var tank := world.player
-	for _i in 30:
+	for _i in 10:
 		Input.action_press("fire_cannon")
 		_step(tank, 1.0 / 60.0)
 		Input.action_release("fire_cannon")
 		_step(tank, 1.0 / 60.0)
-	check_eq(world.stats.shots, 0, "clicking fires nothing")
+	check_eq(world.stats.shots, 0, "a few clicks fire nothing")
+	_step(tank, 1.0)
+	check_eq(tank.charge, 0.0, "and what they built drains away")
 	Input.action_press("fire_cannon")
 	_step(tank, Armament.CHARGE_DELAY - 0.01)
 	check_eq(tank.charge, 0.0, "no charge before the delay")
@@ -39,11 +41,17 @@ func test_clicks_and_early_releases_fire_nothing_and_reset() -> void:
 	Input.action_release("fire_cannon")
 	_step(tank, 0.0)
 	check_eq(world.stats.shots, 0, "releasing before full fires nothing")
-	check_eq(tank.charge, 0.0, "and resets the charge")
+	var kept := tank.charge
+	_step(tank, Armament.CHARGE_TIME * 0.1)
+	check_near(tank.charge, kept - 0.1 * Armament.CHARGE_DRAIN, 0.001, "the charge drains back instead of vanishing")
 	Input.action_press("fire_cannon")
-	_step(tank, Armament.CHARGE_DELAY + 0.01)
-	check_near(tank.charge, 0.01 / Armament.CHARGE_TIME, 0.001, "the next press starts over")
+	_step(tank, 0.01)
+	check(tank.charge > kept - 0.1 * Armament.CHARGE_DRAIN, "and a quick re-press resumes from what is left")
 	Input.action_release("fire_cannon")
+	_step(tank, 0.0)
+	_step(tank, (Armament.CHARGE_DELAY + Armament.CHARGE_TIME) / Armament.CHARGE_DRAIN + 0.01)
+	check_eq(tank.charge, 0.0, "left alone, it drains to nothing")
+	check_eq(world.stats.shots, 0, "and never fires")
 
 
 func test_full_charge_holds_and_release_fires_exactly_one_shell() -> void:
@@ -154,6 +162,7 @@ func test_single_lock_holds_drops_and_reacquires() -> void:
 	_step(tank, Armament.CHARGE_DELAY + Armament.CHARGE_TIME - 0.01)
 	tank._update_charge_lock()
 	check(tank.charge_lock == null, "no lock before full charge")
+	check(tank.charge_candidate == first, "but the brackets already show what it will lock")
 	var locks: Array[Entity] = []
 	tank.charge_locked.connect(func(target: Entity) -> void: locks.append(target))
 	_step(tank, 0.02)

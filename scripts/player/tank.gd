@@ -75,6 +75,7 @@ var round_count := 0
 var charge := 0.0
 var charge_lock: Entity
 var charge_part := ""
+var charge_candidate: Entity ## What a full charge would lock right now, shown while charging.
 var _charge_time := 0.0
 var _cannon_held := false
 var _cannon_released := false
@@ -547,10 +548,10 @@ func _update_aim(delta: float) -> void:
 	_sight_lock = lock
 	var local := model.turret.global_transform.affine_inverse() * lay
 	var yaw := atan2(-local.x, -local.z)
-	model.turret.rotation.y = rotate_toward(model.turret.rotation.y, model.turret.rotation.y + yaw, 7.0 * modules.traverse_factor() * delta)
+	model.turret.rotation.y = rotate_toward(model.turret.rotation.y, model.turret.rotation.y + yaw, 12.0 * modules.traverse_factor() * delta)
 	var to_aim := local - model.gun_pivot.position
 	var pitch := clampf(atan2(to_aim.y, Vector2(to_aim.x, to_aim.z).length()), deg_to_rad(-8.0), deg_to_rad(55.0))
-	model.gun_pivot.rotation.x = move_toward(model.gun_pivot.rotation.x, pitch, 3.0 * delta)
+	model.gun_pivot.rotation.x = move_toward(model.gun_pivot.rotation.x, pitch, 9.0 * delta)
 	_barrel_recoil = move_toward(_barrel_recoil, 0.0, delta * 2.5)
 	model.barrel.position.z = _barrel_recoil
 
@@ -628,6 +629,7 @@ func _cancel_charge() -> void:
 	_full_click = false
 	charge_lock = null
 	charge_part = ""
+	charge_candidate = null
 
 
 func is_charging() -> bool:
@@ -650,17 +652,21 @@ func _update_charge(delta: float) -> void:
 		_charge_time += delta
 		if before < Armament.CHARGE_DELAY and _charge_time >= Armament.CHARGE_DELAY:
 			Sfx.play("charge", global_position)
-		charge = clampf((_charge_time - Armament.CHARGE_DELAY) / charge_time(), 0.0, 1.0)
-		if charge >= 1.0 and not _full_click:
-			_full_click = true
-			Sfx.play("charge_full", global_position)
+	elif not _cannon_released: # The release frame keeps the charge it let go with.
+		_charge_time = maxf(0.0, _charge_time - delta * Armament.CHARGE_DRAIN)
+	charge = clampf((_charge_time - Armament.CHARGE_DELAY) / charge_time(), 0.0, 1.0)
+	if charge >= 1.0 and not _full_click:
+		_full_click = true
+		Sfx.play("charge_full", global_position)
+	elif charge < 1.0:
+		_full_click = false
 	_cannon_held = held
 
 
 ## Canister shows the actual cone footprint at the sight's range, in 3D-view pixels.
 func charge_ring_radius() -> float:
 	if current_round != Armament.Round.CANISTER:
-		return lerpf(Armament.CHARGE_RING.x, Armament.CHARGE_RING.y, charge)
+		return Armament.LOCK_RADIUS
 	var cam := World.current.camera
 	var distance := model.muzzle.global_position.distance_to(aim_point)
 	var radius := distance * Armament.CANISTER_SPREAD
@@ -682,8 +688,9 @@ func _update_charge_lock() -> void:
 	if (not is_charging() and not _cannon_released) or modules.lock_factor() <= 0.0:
 		charge_lock = null
 		charge_part = ""
+		charge_candidate = null
 		return
-	if is_instance_valid(charge_lock) and _charge_distance(charge_lock, charge_part) <= Armament.CHARGE_RING.y * LOCK_HOLD:
+	if is_instance_valid(charge_lock) and _charge_distance(charge_lock, charge_part) <= Armament.LOCK_RADIUS * LOCK_HOLD:
 		return
 	charge_lock = null
 	charge_part = ""
@@ -697,10 +704,12 @@ func _update_charge_lock() -> void:
 			best = distance
 			candidate = enemy
 			part = nearest_part
+	charge_candidate = candidate
 	if charge >= 1.0 and candidate:
 		charge_lock = candidate
 		charge_part = part
 		charge_locked.emit(candidate)
+		Sfx.play("lock", global_position, 2.0, 1.2)
 
 
 func _update_weapons(delta: float) -> void:
@@ -719,7 +728,13 @@ func _update_weapons(delta: float) -> void:
 	if _cannon_released:
 		if input_enabled and charge >= 1.0:
 			fire_cannon(Vector3.INF, Vector3.ZERO, 1.0)
-		_cancel_charge()
+			_cancel_charge()
+		else:
+			# Let go early: the charge drains back instead of vanishing, and a click says so.
+			Sfx.ui("ui_move", -8.0, 0.7)
+			charge_lock = null
+			charge_part = ""
+			charge_candidate = null
 
 
 ## The fire-control system's soft lock: the enemy under the reticle, else the one nearest it on
@@ -796,7 +811,7 @@ func _lock_distance(enemy: Entity) -> float:
 
 ## Where the chevron sits: along the barrel at the smoothed sight range.
 func sight_point() -> Vector3:
-	return model.muzzle.global_position - model.barrel.global_basis.z * maxf(sight_range, 30.0)
+	return model.muzzle.global_position - model.barrel.global_basis.z * maxf(sight_range, 8.0)
 
 
 ## Rounds leave along the barrel: the ballistic computer may correct only a few degrees off it,
@@ -980,12 +995,17 @@ func _cannon_feedback(muzzle: Vector3, dir: Vector3, power := 0.0) -> void:
 ## Main-gun impacts. A shell landing on an enemy freezes the frame for a beat and bucks the camera.
 func _count_hit(projectile: Projectile, point: Vector3, target: Entity) -> void:
 	var world := World.current
-	world.shake(0.3, point)
+	var power := projectile.hit.power if projectile.hit else 0.0
+	world.shake(lerpf(0.3, 0.55, power), point)
 	if target and target.team == Team.ENEMY:
 		world.stats.shot_hits += 1
-		world.hitstop(0.045)
-		world.fx.light_flash(point, 16.0, Palette.WHITE, 22.0)
-		world.fx.sparks(point, projectile.splash_direction(), 18, Palette.WHITE, 18.0)
+		# The hit lands with its own weight: a freeze, a white flash and a ring on the target.
+		world.hitstop(lerpf(0.045, 0.08, power))
+		world.fx.light_flash(point, lerpf(16.0, 26.0, power), Palette.WHITE, 22.0)
+		world.fx.impact_star(point, lerpf(2.6, 4.5, power), Palette.WHITE)
+		world.fx.shockwave(point, lerpf(5.0, 11.0, power), Palette.WHITE, 0.18)
+		world.fx.sparks(point, projectile.splash_direction(), 18 + int(power * 14), Palette.WHITE, 18.0)
+		world.camera.kick(0.04 * power)
 
 
 ## What the laser burns next: the incoming projectile that arrives soonest, or a drone close enough

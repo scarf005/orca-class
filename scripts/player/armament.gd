@@ -30,8 +30,9 @@ const SHELL_RANGE := 420.0
 const SHELL_DAMAGE := 1500.0
 
 const CHARGE_DELAY := 0.15
-const CHARGE_TIME := 0.8
-const CHARGE_RING := Vector2(160.0, 68.0) ## 3D-view pixels; the full-charge ring exceeds the soft lock.
+const CHARGE_TIME := 0.55
+const CHARGE_DRAIN := 3.0 ## A release short of full drains the charge this many times faster than it builds, so a quick re-press resumes.
+const LOCK_RADIUS := 64.0 ## 3D-view pixels around the reticle that a charge picks and locks its target within.
 const APHE_DAMAGE := Vector2(1.0, 2.0)
 const APHE_RADIUS := Vector2(5.0, 9.0)
 const APHE_BLAST := Vector2(600.0, 600.0)
