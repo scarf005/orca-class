@@ -1,5 +1,5 @@
 extends TestCase
-## Destruction: crushing buildings and enemies, collateral chains, style from kills, mayhem healing.
+## Destruction: crushing buildings and enemies, collateral chains, style from kills.
 
 
 func _prop(world: World, kind: String, at: Vector3, hp: float) -> Prop:
@@ -75,13 +75,13 @@ func test_kill_tricks_named_by_weapon() -> void:
 		check(name in names, "%s awarded" % name)
 
 
-func test_high_style_heals_and_hits_cost_style() -> void:
+func test_high_style_does_not_heal_and_hits_cost_style() -> void:
 	var world := stage()
 	var tank := world.player
 	world.stats.style = RunStats.STYLE_RANKS[3]
 	tank.hp = 50.0
 	world.style_event("CRUSH", 100.0)
-	check(tank.hp > 50.0, "mayhem at rank B+ patches the hull")
+	check_eq(tank.hp, 50.0, "high style does not patch the hull")
 	var style := world.stats.style
 	tank.take_hit(Hit.make(Hit.Kind.SHELL, 20.0, tank.hit_center(), Vector3.FORWARD))
 	check(world.stats.style < style, "getting hit costs style")

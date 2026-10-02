@@ -11,6 +11,8 @@ signal game_over
 signal intercepted(position: Vector3) ## The laser CIWS burned something out of the air.
 signal hit_confirmed(killed: bool) ## Player damage accepted by an enemy, including boss modules.
 
+const NANITE_LIFE := Vector2(0.5, 1.0)
+const NANITE_HP := 0.5
 const CHAIN_GAP := 0.5 ## Kills closer together than this keep a chain going.
 ## Chain size -> [trick, style]. Each is awarded once as the chain grows through it.
 const CHAIN_TRICKS := {3: ["MULTIKILL", 90.0], 6: ["MASSACRE", 160.0], 10: ["ANNIHILATION", 260.0]}
@@ -35,6 +37,7 @@ var projectiles: Array[Projectile] = []
 var pickups: Array[Pickup] = []
 var boss: Entity
 
+var _nanites: Array[Dictionary] = []
 var _hitstop := 0.0
 var _chain := 0
 var _last_kill := -INF
@@ -53,6 +56,7 @@ func _exit_tree() -> void:
 
 
 func _ready() -> void:
+	killed.connect(_release_nanites)
 	_setup_environment()
 	add_child(terrain)
 	props.name = "Props"
@@ -90,6 +94,41 @@ func _process(delta: float) -> void:
 			projectile.step(step)
 	terrain.stream(rail.d)
 	stats.tick(step)
+	_update_nanites(step)
+
+
+## Melee salvage follows the moving claw mount; a missing tail receives it at the hull's rear.
+func _release_nanites(victim: Entity, hit: Hit) -> void:
+	if not victim is Enemy or not hit or not hit.salvage or not hit.source is Tank:
+		return
+	var total := clampf((victim as Enemy).death_radius * 4.0, 2.0, 15.0)
+	var count := ceili(total / NANITE_HP)
+	for i in count:
+		var at := victim.hit_center()
+		_nanites.append({"start": at, "at": at, "bend": Vector3(randf_range(-2, 2), randf_range(1, 3), randf_range(-2, 2)), "time": 0.0, "life": randf_range(NANITE_LIFE.x, NANITE_LIFE.y), "hp": total / count})
+
+
+func _update_nanites(delta: float) -> void:
+	if not is_instance_valid(player) or player.dead:
+		_nanites.clear()
+		return
+	var target := player.global_position + player.global_basis.z * 2.5 + Vector3.UP
+	if not player.tail.destroyed and is_instance_valid(player.tail.mount):
+		target = player.tail.mount.global_position
+	for i in range(_nanites.size() - 1, -1, -1):
+		var particle := _nanites[i]
+		particle.time += delta
+		var progress := clampf(particle.time / particle.life, 0.0, 1.0)
+		var at: Vector3 = particle.start.lerp(target, progress * progress) + particle.bend * sin(progress * PI)
+		fx.spawn(Fx.Kind.GLOW, at, Vector3.ZERO, 0.07, 0.24, Palette.NANITE, {"end_size": 0.08})
+		fx.beam(particle.at, at, Palette.NANITE, 0.08, 0.06)
+		particle.at = at
+		if progress >= 1.0:
+			if player._respawn <= 0.0:
+				var before := player.hp
+				player.hp = minf(player.max_hp, player.hp + particle.hp)
+				stats.melee_healing += player.hp - before
+			_nanites.remove_at(i)
 
 
 func register(entity: Entity) -> void:
@@ -264,6 +303,7 @@ func blast(point: Vector3, radius: float, damage: float, team: Entity.Team, temp
 	Sfx.play("blast_small" if radius < 3.5 else "blast", point, 0.0, randf_range(0.9, 1.15))
 	var hit := template.copy() if template else Hit.new()
 	hit.kind = Hit.Kind.BLAST
+	hit.salvage = false
 	hit.position = point
 	var victims: Array = targets_for(team).duplicate()
 	victims.append_array(props.in_radius(point, radius))
@@ -297,11 +337,9 @@ func award(points: int, position: Vector3, is_kill := true) -> void:
 	scored.emit(gained, position, stats.combo)
 
 
-## Style for a trick. From rank B up, mayhem patches the hull a little (like blood in ULTRAKILL).
+## Style for a trick multiplies score, never hull health.
 func style_event(trick: String, points: float) -> void:
-	var gained := stats.add_style(trick, points)
-	if stats.style_rank() >= 2 and player and not player.dead:
-		player.hp = minf(player.max_hp, player.hp + gained * 0.03)
+	stats.add_style(trick, points)
 
 
 ## Style for a kill, named after how it died. Quick kills chain, and a chain that grows through 3,

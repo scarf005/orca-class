@@ -426,6 +426,7 @@ func _ram_enemies() -> void:
 		if offset.length() < HULL_RADIUS + entity.radius:
 			var ram := Hit.make(Hit.Kind.RAM, RAM_DAMAGE, entity.hit_center(), (-global_basis.z))
 			ram.source = self
+			ram.salvage = true
 			ram.stagger = 1.5
 			entity.take_hit(ram)
 			world.shake(0.3)
@@ -1103,6 +1104,7 @@ func swat(start_state := true) -> void:
 			hit.stagger = 0.6
 			hit.source = self
 			hit.weapon = "dash" if not start_state else ""
+			hit.salvage = not start_state
 			entity.take_hit(hit)
 			world.fx.sparks(entity.hit_center(), hit.direction, 8, Palette.FUNGUS)
 	for prop: Prop in world.props.in_radius(global_position, 7.0):
@@ -1195,7 +1197,9 @@ func collect(pickup: Pickup) -> void:
 			else:
 				world.award(2000, global_position, false)
 		"repair":
-			hp = minf(hp + 35.0, max_hp)
+			var before := hp
+			hp = minf(hp + 10.0, max_hp)
+			world.stats.repair_healing += hp - before
 			modules.repair_all()
 			if not tail.destroyed:
 				tail.repair(60.0)

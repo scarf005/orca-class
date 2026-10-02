@@ -35,8 +35,10 @@ const WHITE := Color("fffaf5")
 const HOT := Color("ff3565")
 const AMBER := Color("ffb01f")
 const CYAN := Color("2fd3ea")
+const NANITE := Color("4dff88")
 ## The color language. Nothing else in the scene uses these for anything else: warm yellow is yours,
-## hot pink-red is theirs (enemy shots add a red-orange rim, apart from your amber), cyan is loot.
+## hot pink-red is theirs (enemy shots add a red-orange rim, apart from your amber), cyan is loot;
+## green is healing.
 ## The rim is drawn by the final pass, so it is not in ALL.
 const FRIENDLY := AMBER
 const HOSTILE := HOT
@@ -45,5 +47,5 @@ const LOOT := CYAN
 
 const ALL: Array[Color] = [
 	INK, DUSK, SLATE, MOSS, PINE, SAGE, LEAF, HULL, HULL_LIGHT, MINT, TEAL, SKY, PERIWINKLE, LILAC, MAUVE,
-	BLUSH, FUNGUS, PEACH, CORAL, RED, BUTTER, STRAW, OCHRE, WOOD, CONCRETE, STONE, ASH, MIST, CREAM, WHITE, HOT, AMBER, CYAN,
+	BLUSH, FUNGUS, PEACH, CORAL, RED, BUTTER, STRAW, OCHRE, WOOD, CONCRETE, STONE, ASH, MIST, CREAM, WHITE, HOT, AMBER, CYAN, NANITE,
 ]

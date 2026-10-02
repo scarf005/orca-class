@@ -18,6 +18,19 @@ func test_killed_once_and_retains_delivery() -> void:
 	check_eq(hit.copy().weapon, "cannon", "splash retains delivery")
 
 
+func test_probe_excludes_enemy_self_ram() -> void:
+	var world := stage()
+	var probe := preload("res://tools/autoplay.gd").new()
+	var hit := Hit.make(Hit.Kind.RAM, 999.0, Vector3.ZERO)
+	probe._killed(null, hit)
+	check_eq(probe.kill_sources.ram, 0, "enemy self-ram is not player ram")
+	check_eq(probe.kill_sources.other, 1, "enemy self-ram remains accounted for")
+	hit.source = world.player
+	probe._killed(null, hit)
+	check_eq(probe.kill_sources.ram, 1, "tank ram is credited")
+	probe.free()
+
+
 func test_despawn_is_not_a_kill() -> void:
 	var world := stage()
 	var events: Array[Entity] = []

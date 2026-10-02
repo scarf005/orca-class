@@ -101,9 +101,9 @@ func run() -> int:
 	print("AUTOPLAY d=%.0f score=%d kills=%d/%d lives=%d hp=%.0f enemies=%d projectiles=%d frames=%d slow=%d worst=%.1fms" % [
 		world.rail.d, stats.score, stats.kills, stats.spawned, stats.lives, world.player.hp, world.enemies.size(),
 		world.projectiles.size(), frames, slow_frames, worst])
-	print("PROBE bot=%s cleared=%s dead=%s time=%.2f d=%.0f lives=%d damage_taken=%.2f kills=%d/%d front_mean=%.2f coax=%d cannon=%d ram=%d dash=%d tail=%d ciws=%d collateral=%d other=%d cannon_shots=%d charged_shots=%d" % [
+	print("PROBE bot=%s cleared=%s dead=%s time=%.2f d=%.0f lives=%d damage_taken=%.2f kills=%d/%d front_mean=%.2f coax=%d cannon=%d ram=%d dash=%d tail=%d ciws=%d collateral=%d other=%d cannon_shots=%d charged_shots=%d healing_melee=%.2f healing_repair=%.2f" % [
 		bot, cleared and not world.player.dead, world.player.dead, stats.time, world.rail.d, stats.lives, stats.damage_taken, stats.kills, stats.spawned, front_total / maxi(frames, 1),
-		kill_sources.coax, kill_sources.cannon, kill_sources.ram, kill_sources.dash, kill_sources.tail, kill_sources.ciws, kill_sources.collateral, kill_sources.other, stats.shots, stats.charged_shots])
+		kill_sources.coax, kill_sources.cannon, kill_sources.ram, kill_sources.dash, kill_sources.tail, kill_sources.ciws, kill_sources.collateral, kill_sources.other, stats.shots, stats.charged_shots, stats.melee_healing, stats.repair_healing])
 	for action in ["fire_coax", "fire_cannon", "move_left", "move_right"]:
 		Input.action_release(action)
 	Engine.time_scale = 1.0
@@ -125,7 +125,7 @@ func _killed(_victim: Entity, hit: Hit) -> void:
 			match hit.kind:
 				Hit.Kind.BULLET: source = "coax"
 				Hit.Kind.SHELL, Hit.Kind.BLAST, Hit.Kind.FRAGMENT: source = "cannon"
-				Hit.Kind.RAM: source = "ram"
+				Hit.Kind.RAM: source = "ram" if hit.source is Tank else "other"
 				Hit.Kind.TAIL: source = "tail"
 				Hit.Kind.LASER: source = "ciws"
 	kill_sources[source] += 1

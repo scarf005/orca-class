@@ -224,7 +224,10 @@ func despawn() -> void:
 
 func die(hit: Hit) -> void:
 	if not dead:
-		World.current.killed.emit(self, killing_hit if killing_hit else hit)
+		var lethal := killing_hit if killing_hit else hit
+		if lethal and lethal.kind == Hit.Kind.THROWN and lethal.source is Tank:
+			lethal.salvage = true
+		World.current.killed.emit(self, lethal)
 	super.die(hit)
 
 

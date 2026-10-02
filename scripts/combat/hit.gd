@@ -12,6 +12,7 @@ var direction := Vector3.FORWARD
 var speed := 0.0 ## How fast the round was flying, when a projectile delivered it.
 var source: Node3D
 var weapon := "" ## Delivery source retained by splash and burning (cannon, dash, collateral).
+var salvage := false ## Driver-controlled melee yields nanites, never its collateral damage.
 var pierce := false ## Ignores armor (HEAT, APFSDS).
 var incendiary := false
 var stagger := 0.0 ## Seconds of stagger inflicted on enemies that can be staggered.
@@ -49,6 +50,7 @@ func copy() -> Hit:
 	hit.speed = speed
 	hit.source = source if is_instance_valid(source) else null
 	hit.weapon = weapon
+	hit.salvage = salvage
 	hit.pierce = pierce
 	hit.incendiary = incendiary
 	hit.stagger = stagger
