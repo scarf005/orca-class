@@ -631,7 +631,8 @@ func debris(position: Vector3, count: int, materials: Array, force := 6.0, size 
 ## along `push`), as many and as big as the thing was. `share` < 1 when part of it stays behind.
 ## The count varies about 30% per break; a few chunks are big and slow, the rest small, quick and
 ## some skid low along the ground.
-func shatter(bounds: AABB, materials: Array, push := Vector3.ZERO, share := 1.0) -> void:
+## `burst` scales how fast the pieces fly out, whatever their direction.
+func shatter(bounds: AABB, materials: Array, push := Vector3.ZERO, share := 1.0, burst := 1.0) -> void:
 	var extent := bounds.size
 	var volume := maxf(extent.x * extent.y * extent.z, 0.05)
 	var count := int(clampf(1.5 * pow(volume, 2.0 / 3.0) * share * randf_range(0.7, 1.3), 3.0, 70.0))
@@ -651,7 +652,7 @@ func shatter(bounds: AABB, materials: Array, push := Vector3.ZERO, share := 1.0)
 		if skid:
 			out.y = minf(out.y, 0.12)
 		out += push * 1.4
-		var speed := randf_range(5.0, 12.0) * speed_scale * (0.55 if big else 1.1)
+		var speed := randf_range(5.0, 12.0) * speed_scale * (0.55 if big else 1.1) * burst
 		_shard(at, out * speed, _shard_scale(big) * size, materials[randi() % materials.size()], 1.0 if big else 0.0)
 
 

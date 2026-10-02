@@ -257,7 +257,12 @@ func on_death(hit: Hit) -> void:
 	# A hull stays whole as a wreck and sheds only some of itself; an overkill (a 100 mm hit) tears
 	# off more and throws it harder. Anything without a hull goes to pieces.
 	var remains := wreck_on_death
-	world.fx.shatter(visual_bounds(), debris, push, (0.7 if overkilled else 0.35) if remains else 1.0)
+	var share := (0.7 if overkilled else 0.35) if wreck_on_death else 1.0
+	if hit != null and hit.kind == Hit.Kind.SHELL:
+		# A shell's energy sets how fast the chips fly; only the focus decides how much they follow the shot.
+		world.fx.shatter(visual_bounds(), debris, push.normalized() * dismember_focus(push), share, 1.0 + push.length() * 0.5)
+	else:
+		world.fx.shatter(visual_bounds(), debris, push, share)
 	world.fx.smoke_column(center, death_radius, [Palette.DUSK, Palette.INK, Palette.ASH])
 	if remains:
 		# The entity stops ticking after death, so its flash cannot expire on detached wrecks.
@@ -299,8 +304,7 @@ func _dismember(center: Vector3, push: Vector3, by_player: bool) -> void:
 		sizes.append((pieces[i].global_basis * pieces[i].mesh.get_aabb().size).length() if pieces[i].mesh else 0.5)
 		if sizes[i] > sizes[biggest]:
 			biggest = i
-	# The more momentum the shot carries, the more the burst leans into its flight.
-	var focus := clampf(1.0 - exp(-DISMEMBER_FOCUS * push.length() * 0.3), 0.0, 0.95)
+	var focus := dismember_focus(push)
 	for i in pieces.size():
 		var piece := pieces[i]
 		var at := piece.global_transform * piece.mesh.get_aabb().get_center() if piece.mesh else piece.global_position
@@ -310,8 +314,16 @@ func _dismember(center: Vector3, push: Vector3, by_player: bool) -> void:
 		if push.length_squared() > 0.0001:
 			out = out.slerp(push.normalized(), focus)
 		var size := maxf(sizes[i] * 0.5, 0.3)
-		Wreck.launch(piece, at, size, by_player, (out * DISMEMBER_SPEED * randf_range(0.7, 1.4) + push * 6.0) * sqrt(maxf(size, 1.0)), i == biggest)
+		# The shot's energy only makes them fly faster; their direction is the burst bent by the focus.
+		var speed := (DISMEMBER_SPEED + push.length() * 6.0) * randf_range(0.7, 1.4)
+		Wreck.launch(piece, at, size, by_player, out * speed * sqrt(maxf(size, 1.0)), i == biggest)
 	model.queue_free()
+
+
+## How far (0..1) a shell kill's pieces bend from a full burst toward the shot: more with more
+## momentum, scaled by DISMEMBER_FOCUS; at 0 they always burst all round.
+static func dismember_focus(push: Vector3) -> float:
+	return clampf(1.0 - exp(-DISMEMBER_FOCUS * push.length() * 0.3), 0.0, 0.95)
 
 
 const KILL_SHELL_SPEED := 260.0 ## A shell this fast throws the remains at the base push; faster ones by their kinetic energy.
