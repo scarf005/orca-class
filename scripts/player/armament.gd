@@ -23,16 +23,17 @@ const OFFERED: Array[Round] = [Round.CANISTER, Round.DRAGON, Round.AIRBURST]
 ## Rounds loaded per special-round pickup.
 const MAGAZINE := {Round.HEAT: 6, Round.CANISTER: 6, Round.DRAGON: 6, Round.APFSDS: 6, Round.AIRBURST: 6}
 
-## A real 100 mm gun on the fire button, Star Fox style: a click fires a quick shell, a hold past TAP_TIME
-## locks its target and charges it. Let go early for a quick shell, at full charge for a hitscan that
-## pierces. The coax fires by itself at whatever the sight soft-locks.
+## A real 100 mm gun on the same button as the coax, Star Fox style: a click is a coax burst, a hold past
+## TAP_TIME locks the target and charges the shell. Let go early for a quick shell, at full charge for a
+## hitscan that pierces.
 const SHELL_SPEED := 1700.0 ## Full-charge rounds are hitscan; this only sets their lead (none, in effect).
 const SHELL_RANGE := 420.0
 const SHELL_DAMAGE := 1500.0
 ## Tuned live in the duel mode, hence static vars.
 static var QUICK_SPEED := 260.0 ## A quick shell is a visible projectile along the barrel, without gravity.
 
-static var TAP_TIME := 0.15 ## A hold this long locks the target and starts the charge; a shorter click is a quick shell.
+const COAX_BURST := 0.22 ## Seconds of coax fire a press gives, however long the button is held.
+static var TAP_TIME := 0.3 ## A hold this long locks the target and starts the charge; a shorter click is only a coax burst.
 static var FULL_TIME := 1.0 ## Seconds of hold for a full charge.
 static var AUTO_FIRE_TIME := 1.5 ## Seconds of hold at which the gun fires by itself; the button must be pressed again.
 static var CANNON_RECOVER := 0.8 ## After a shot the gun cannot fire or charge for this long.

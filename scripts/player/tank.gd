@@ -86,6 +86,7 @@ var _fire_released := false
 var _auto_fire := false ## The hold reached the auto-fire time: the gun fires this frame.
 var _spent := false ## The gun fired by itself: the button has to come up before a new hold counts.
 var _recover := 0.0 ## Seconds until a hold can charge again after a shot.
+var _burst := 0.0 ## Seconds of coax fire left from the last press.
 var _full_click := false
 var _coax_timers: Array[float] = []
 
@@ -634,6 +635,7 @@ func _cancel_charge() -> void:
 	_fire_released = false
 	_spent = false
 	_recover = 0.0
+	_burst = 0.0
 
 
 func _reset_charge() -> void:
@@ -676,6 +678,8 @@ func _update_charge(delta: float) -> void:
 		return
 	var held := Input.is_action_pressed("fire")
 	_fire_released = _fire_held and not held
+	if held and not _fire_held:
+		_burst = Armament.COAX_BURST # Every press gives a burst; holding does not keep the coax going.
 	if not held:
 		_spent = false
 	var waited := minf(_recover, delta)
@@ -750,8 +754,8 @@ func _update_charge_lock() -> void:
 
 func _update_weapons(delta: float) -> void:
 	coax_part = _pick_part(coax_target)
-	# The coax works on its own: it fires whenever the sight soft-locks an enemy.
-	if input_enabled and is_instance_valid(coax_target):
+	if input_enabled and _burst > 0.0:
+		_burst -= delta
 		var calibers := Armament.tier_calibers(coax_tier)
 		for i in calibers.size():
 			_coax_timers[i] -= delta
@@ -763,7 +767,7 @@ func _update_weapons(delta: float) -> void:
 		for i in _coax_timers.size():
 			_coax_timers[i] = maxf(_coax_timers[i] - delta, 0.0)
 	if _fire_released or _auto_fire:
-		if input_enabled and _hold > 0.0:
+		if input_enabled and _hold >= Armament.TAP_TIME:
 			fire_cannon(Vector3.INF, Vector3.ZERO, charge)
 			_recover = Armament.CANNON_RECOVER
 			_spent = _auto_fire
