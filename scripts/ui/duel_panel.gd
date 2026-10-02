@@ -50,6 +50,7 @@ func _ready() -> void:
 		slider.min_value = row[3]
 		slider.max_value = row[4]
 		slider.step = row[5]
+		slider.focus_mode = Control.FOCUS_NONE # Tab stays the panel's toggle.
 		slider.value = row[1].call()
 		var value := Label.new()
 		value.custom_minimum_size = Vector2(56, 0)
@@ -64,7 +65,8 @@ func _ready() -> void:
 		_grid.add_child(value)
 
 
-func _unhandled_input(event: InputEvent) -> void:
+# _input, not _unhandled_input: a focused slider would take Tab for focus navigation first.
+func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_TAB:
 		visible = not visible
 		get_tree().paused = visible
