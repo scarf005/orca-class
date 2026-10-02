@@ -38,8 +38,8 @@ starting values for tuning.
 | System | Spec | Role |
 | --- | --- | --- |
 | Hull | Armored tracked hull; high front armor, weak rear; shield/HP bar | Front-facing damage is reduced, so the player learns to face threats |
-| 100 mm gun | No reload: hold to charge for about 1 s, release at full charge for a heavy shell and blast; a charged reticle locks one target; heavy recoil pushes the tank back | The big punch; one shell kills most small enemies, staggers large ones and blasts the pack around them |
-| 8 mm coaxial gun | High rate of fire, low damage, follows the turret | Always-on fire; upgradable (below) |
+| 100 mm gun | No reload: hold the fire button past a tap to charge (full at 1 s, fires itself at 1.5 s) and lock one target; release early for a quick shell, at full charge for a hitscan that pierces; half a second of recovery after each shot; heavy recoil pushes the tank back | The big punch; one shell kills most small enemies, staggers large ones and blasts the pack around them |
+| 8 mm coaxial gun | High rate of fire, low damage, follows the turret | Every press of the fire button is a short burst; upgradable (below) |
 | RWS: 200 kW laser CIWS | Not fitted at the start: an RWS pickup (the first sits before the first FPV wave) mounts it. Automatic; zaps incoming missiles, rockets, shells and FPV drones in a short radius; heats with each engagement | Defensive layer. Saturation attacks can overheat it, and then the player must dodge |
 | Tracks | At speed the tank flattens every building, wreck and ground enemy in its path. Big landmarks (church, branch school, the old zelkova) are modular: each piece breaks on its own, and what rested on it topples. Only the dam stands | Aggressive driving is rewarded |
 | Reactive armor | ERA bricks: 4 front, 3 per side, none at the rear | Each brick stops one shaped charge from its facing |
@@ -87,14 +87,16 @@ coiling and lashing with visible muscle and follow-through. Priorities:
 3. **Stab:** enemies in reach are stabbed, which kills small ones outright and staggers large ones, interrupting
    telegraphed attacks.
 
-The tail also powers the **dash**: press Space and the claw kicks off the ground to hurl the hull the way it is
+The tail also powers the **dash**: press Space or the right button and the claw kicks off the ground to hurl the hull the way it is
 steered (A or D sideways, W forward, S to dig in; with nothing held, the way it last steered sideways). Sideways it dodges and lashes anything beside the hull (a pickup the claw carries is delivered at once), forward it surges the
 rail, back it digs in to a near-instant stop. Each gives a brief dodge window and gouges the terrain.
 
-Controls are WASD and the mouse, plus Space to dash: W/S steer forward and back and double as boost and brake, the
-left button fires the coax (it leads whatever the sight soft-locks), the right button charges the main gun while
-held and fires a heavy shot on release; rapid fire is the coax's job. Rounds leave along the barrel, never more
-than a few degrees off where the turret points.
+Controls are WASD and the mouse, plus Space to dash: W/S steer forward and back and double as boost and brake. One
+fire button, the left one, does both guns, Star Fox style: a press is a short coax burst (it leads whatever the
+sight soft-locks), and a hold past a tap charges the main gun, which locks the enemy nearest the cursor and lays
+the turret on it. Release early for a quick shell (a visible round, bigger the longer the charge), or at full charge
+for a hitscan shell that pierces; held on, the gun fires itself. The right button dashes too. Rounds leave along the
+barrel, never more than a few degrees off where the turret points.
 
 The tail is a target: rear hits hurt it, and it can be torn off (see Modules).
 
