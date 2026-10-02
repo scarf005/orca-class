@@ -16,7 +16,10 @@ const CAP_HP := 150.0
 const CORE_HP := 900.0
 const ROUND_DAMAGE := 40.0 ## What one plain main-gun round is worth; a full charge is worth two.
 const BURN_TIME := 4.0 ## Seconds a node keeps taking full damage after fire touched it.
-const WINDOW := 1.5 ## Seconds after each attack with none new: time for a full charge and its aim.
+const WINDOW := 1.0 ## Seconds after each attack with none new: time for a full charge and its aim.
+const STRIKE_DAMAGE := 33.0 ## Tendril lash and spore burst: a third of the tank's armor before its facing counts.
+const SWEEP_RISE := 0.8 ## Seconds the tendril rears up over the sweep's starting edge.
+const SWEEP_LASH := 0.3 ## Seconds the lash takes across the corridor.
 const DYING_TIME := 1.0 ## Seconds from the killing blow to the final blast.
 const DEATH_BLAST_RATE := 19.0 ## Random blasts a second while dying, as dense as the old 8 a second over 2.4 s.
 const DEATH_SINK := 0.6 ## How much of its height it sinks by then.
@@ -36,7 +39,7 @@ var parts: Array[Part] = []
 var core: Part
 var _attack := Attack.NONE
 var _attack_time := 0.0
-var _next_attack := 2.5
+var _next_attack := 1.5
 var _sweep_side := 1.0
 var _sweep_full := false
 var _sweep_hit := false
@@ -286,11 +289,11 @@ func behave(delta: float) -> void:
 		Attack.SWEEP:
 			_update_sweep(delta, tank)
 		Attack.BARRAGE:
-			if _attack_time >= 0.9:
+			if _attack_time >= 0.6:
 				_barrage(tank)
 				_end_attack()
 		Attack.SPAWN:
-			if _attack_time >= 0.6:
+			if _attack_time >= 0.4:
 				_spawn_crawlers()
 				_end_attack()
 
@@ -301,7 +304,7 @@ func _core_phase() -> bool:
 
 func _choose_attack() -> void:
 	var roll := randf()
-	if roll < 0.5:
+	if roll < 0.4:
 		_attack = Attack.SWEEP
 		var tank := player()
 		_sweep_full = _core_phase() and randf() < 0.5
@@ -309,7 +312,7 @@ func _choose_attack() -> void:
 		_sweep_d = World.current.rail.d + tank.course_offset
 		_sweep_hit = false
 		_telegraph_sweep()
-	elif roll < 0.8:
+	elif roll < 0.7:
 		_attack = Attack.BARRAGE
 		flash()
 		Sfx.play("squelch", global_position, 4.0, 0.5)
@@ -322,7 +325,7 @@ func _choose_attack() -> void:
 func _end_attack() -> void:
 	_attack = Attack.NONE
 	var pace := 0.7 if _core_phase() else 1.0
-	_next_attack = WINDOW + randf_range(0.0, 1.0) * pace * (0.8 if _hard else 1.0)
+	_next_attack = WINDOW + randf_range(0.0, 0.5) * pace * (0.8 if _hard else 1.0)
 	for segment in _tendril:
 		segment.visible = false
 
@@ -347,19 +350,19 @@ func _update_sweep(delta: float, tank: Tank) -> void:
 	var start_u := 20.0 * _sweep_side if not _sweep_full else 20.0 * _sweep_side
 	var end_u := 0.0 if not _sweep_full else -20.0 * _sweep_side
 	var tip: Vector3
-	if _attack_time < 1.3:
+	if _attack_time < SWEEP_RISE:
 		# Rear up high over the sweep's starting edge.
-		var k := _attack_time / 1.3
+		var k := _attack_time / SWEEP_RISE
 		tip = Course.ground_at(_sweep_d, start_u) + Vector3.UP * lerpf(4.0, 12.0, k)
 	else:
-		var k := clampf((_attack_time - 1.3) / 0.45, 0.0, 1.0)
+		var k := clampf((_attack_time - SWEEP_RISE) / SWEEP_LASH, 0.0, 1.0)
 		var u := lerpf(start_u, end_u, k)
 		tip = Course.ground_at(_sweep_d, u) + Vector3.UP * lerpf(12.0, 1.2, minf(k * 3.0, 1.0))
 		if k > 0.2:
 			world.fx.dust(tip, 2, 1.5, Palette.OCHRE)
 		if not _sweep_hit and absf(tank.course_u - u) < 3.0 and absf(world.rail.d + tank.course_offset - _sweep_d) < 5.0 and tip.y - tank.global_position.y < 3.0:
 			_sweep_hit = true
-			var hit := Hit.make(Hit.Kind.RAM, 26.0, tip, (tank.global_position - root).normalized())
+			var hit := Hit.make(Hit.Kind.RAM, STRIKE_DAMAGE, tip, (tank.global_position - root).normalized())
 			hit.source = self
 			tank.take_hit(hit)
 			if tank.damage_multiplier(hit) > 0.0:
@@ -380,9 +383,9 @@ func _update_sweep(delta: float, tank: Tank) -> void:
 func _barrage(tank: Tank) -> void:
 	var world := World.current
 	var from := global_position + Vector3(0, 11.0, 0)
-	var count := 6 if not _core_phase() else 9
+	var count := 9 if not _core_phase() else 13
 	for i in count:
-		var flight := 1.5 + i * 0.08
+		var flight := 1.1 + i * 0.05
 		var target := tank.global_position + tank.velocity * flight * 0.5 + Vector3(randf_range(-9, 9), 0, randf_range(-6, 6))
 		if i == 0:
 			target = tank.global_position
@@ -394,7 +397,7 @@ func _barrage(tank: Tank) -> void:
 		mortar.hit = Hit.make(Hit.Kind.SPORE, 0.0, from)
 		mortar.hit.source = self
 		mortar.blast_radius = 3.0
-		mortar.blast_damage = 11.0
+		mortar.blast_damage = STRIKE_DAMAGE
 		mortar.blast_colors = [Palette.WHITE, Palette.BLUSH, Palette.FUNGUS, Palette.LILAC]
 		mortar.interceptable = true
 		mortar.intercept_hp = 1.0
@@ -406,7 +409,7 @@ func _barrage(tank: Tank) -> void:
 
 func _spawn_crawlers() -> void:
 	var world := World.current
-	for i in (3 if not _hard else 5):
+	for i in (4 if not _hard else 6):
 		var crawler: Crawler = load("res://scripts/enemies/crawler.gd").new()
 		var angle := randf_range(-0.8, 0.8)
 		crawler.position = global_position + Vector3(sin(angle) * 11.0, 0, cos(angle) * 11.0)

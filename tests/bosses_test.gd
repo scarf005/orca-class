@@ -164,6 +164,20 @@ func test_colossus_leaves_a_charge_window_after_each_attack() -> void:
 	check_eq(world.enemies.size(), crawlers, "and nothing is spawned in it")
 
 
+func test_colossus_sweep_costs_an_ignoring_tank_a_third_of_its_armor() -> void:
+	var world := stage()
+	var boss := _colossus(world)
+	var tank := world.player
+	tank.invuln = 0.0
+	var before := tank.hp
+	var lash := Hit.make(Hit.Kind.RAM, Colossus.STRIKE_DAMAGE, tank.global_position)
+	lash.source = boss
+	var scale := tank.damage_multiplier(lash)
+	tank.take_hit(lash)
+	check_near(Colossus.STRIKE_DAMAGE, tank.max_hp / 3.0, 1.0, "a strike is a third of the armor before facing")
+	check_near(before - tank.hp, Colossus.STRIKE_DAMAGE * scale, 0.01, "and the tank loses exactly that, scaled by facing")
+
+
 func test_colossus_heat_interrupts_sweep() -> void:
 	var world := stage()
 	var boss := _colossus(world)
