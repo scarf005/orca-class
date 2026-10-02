@@ -21,6 +21,7 @@ const LIP := Vector3(0.0, 29.0, -8.0) ## Where the reservoir spills over the ban
 const SPILL_SPEED := 10.0
 const SPILL_GRAVITY := 20.0
 const TORRENT_DELAY := 0.8 ## Seconds after the impact before water breaks through.
+const RUMBLE_TIME := 4.5 ## The torrent booms while it breaks through, fading out over this long, then goes quiet.
 const FLOOD_DELAY := 1.5
 const FLOOD_TIME := 7.0 ## The flood takes this long to reach its full spread.
 const FLOOD_REACH := 130.0 ## How far from the foot it ends up, in metres.
@@ -388,6 +389,7 @@ func _emit_spray(delta: float, flow: float) -> void:
 						var half := minf(115.0, 22.0 + flood_reach() * 0.85)
 						fx.spawn(Fx.Kind.GLOW, to_global(Vector3(randf_range(-half, half), FLOOD_Y + 0.3, edge + randf_range(-3, 1))), basis * Vector3(0, randf_range(1, 3), randf_range(2, 6)), randf_range(0.5, 0.9), 0.8, Palette.WHITE, {"end_size": 1.6, "gravity": 4.0, "fade": 0.4})
 	_next_rumble -= delta
-	if _next_rumble <= 0.0:
+	var fade := (_clock - TORRENT_DELAY) / RUMBLE_TIME
+	if _next_rumble <= 0.0 and fade < 1.0:
 		_next_rumble = 1.4
-		Sfx.play("launch", to_global(Vector3((_gap.x + _gap.y) * 0.5, 10.0, landing)), 8.0, 0.35)
+		Sfx.play("launch", to_global(Vector3((_gap.x + _gap.y) * 0.5, 10.0, landing)), lerpf(8.0, -8.0, fade), 0.35)
