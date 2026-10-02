@@ -280,14 +280,22 @@ func on_death(hit: Hit) -> void:
 		world.spawn_pickup(drop, center + Vector3.UP * 0.5)
 
 
-## How hard and which way the killing blow throws the remains: shells and rams send them flying
-## on along the shot, blasts shove them out, bullets barely nudge.
+const KILL_SHELL_SPEED := 260.0 ## A shell this fast throws the remains at the base push; faster ones by their kinetic energy.
+static var KILL_THROW_MAX := 3.0 ## Cap on that energy multiplier (tuned live in the duel mode).
+
+
+## How hard and which way the killing blow throws the remains: shells send them flying on along the
+## shot as hard as their kinetic energy (speed squared), rams fling them, blasts shove them out,
+## bullets barely nudge.
 static func kill_push(hit: Hit) -> Vector3:
 	if hit == null:
 		return Vector3.ZERO
 	var dir := Vector3(hit.direction.x, maxf(hit.direction.y, 0.0) * 0.5, hit.direction.z).normalized()
 	match hit.kind:
-		Hit.Kind.SHELL, Hit.Kind.RAM, Hit.Kind.THROWN, Hit.Kind.TAIL:
+		Hit.Kind.SHELL:
+			var energy := pow(hit.speed / KILL_SHELL_SPEED, 2.0) if hit.speed > 0.0 else 1.0
+			return dir * clampf(energy, 0.5, KILL_THROW_MAX)
+		Hit.Kind.RAM, Hit.Kind.THROWN, Hit.Kind.TAIL:
 			return dir
 		Hit.Kind.BLAST, Hit.Kind.FRAGMENT:
 			return dir * 0.6
