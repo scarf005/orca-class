@@ -71,12 +71,15 @@ func test_full_screen_scales_without_whole_number_letterboxing() -> void:
 	check(ProjectSettings.get_setting("display/window/stretch/scale_mode") == "fractional", "the canvas scales to fill the screen")
 
 
-func test_helicopter_waves_and_gunship_boss_on_both_difficulties() -> void:
+func test_air_hunters_and_gunship_boss_on_both_difficulties() -> void:
 	for hard in [false, true]:
 		var events := Stage1.events(hard)
-		var waves := events.filter(func(e: Dictionary) -> bool: return e.type == "wave" and e.kind == "helicopter")
+		var waves := events.filter(func(e: Dictionary) -> bool: return e.type == "wave" and e.kind in ["helicopter", "tiltrotor"])
+		var tiltrotors := events.filter(func(e: Dictionary) -> bool: return e.type == "wave" and e.kind == "tiltrotor")
 		for section in [Course.Section.VILLAGE, Course.Section.RESERVOIR, Course.Section.OVERPASS]:
-			check(waves.any(func(e: Dictionary) -> bool: return Course.section_at(e.d) == section), "helicopters patrol section %d" % section)
+			check(waves.any(func(e: Dictionary) -> bool: return Course.section_at(e.d) == section), "helicopters or tiltrotors patrol section %d" % section)
+			check_eq(tiltrotors.filter(func(e: Dictionary) -> bool: return Course.section_at(e.d) == section).size(), 1, "one tiltrotor in section %d" % section)
+		check(tiltrotors.all(func(e: Dictionary) -> bool: return _size(e, hard) == 1), "a tiltrotor wave is never scaled up")
 		var bosses := events.filter(func(e: Dictionary) -> bool: return e.type == "boss")
 		check_eq(bosses.size(), 1, "stage has one final boss")
 		check_eq(bosses[0].kind, "gunship", "stage ends with the new gunship")

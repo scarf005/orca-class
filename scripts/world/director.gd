@@ -18,6 +18,7 @@ const ENEMY_SCRIPTS := {
 	"quad": "res://scripts/enemies/quad_mech.gd",
 	"colossus": "res://scripts/enemies/colossus.gd",
 	"helicopter": "res://scripts/enemies/helicopter.gd",
+	"tiltrotor": "res://scripts/enemies/tiltrotor.gd",
 	"gunship": "res://scripts/enemies/gunship.gd",
 }
 
@@ -33,9 +34,10 @@ const CHECKPOINTS := {"": 0.0, "midboss": Course.MIDBOSS_D - 110.0, "boss": Cour
 const DUEL_D := 100.0
 const DUEL_RESPAWN := 2.5
 ## How many of each hunter a duel round sends, tuned live in the duel mode.
-static var duel_counts := {"helicopter": 1, "walker": 2, "uav": 0, "quad": 0, "ugv": 0, "fpv": 0}
+static var duel_counts := {"helicopter": 0, "tiltrotor": 1, "walker": 2, "uav": 0, "quad": 0, "ugv": 0, "fpv": 0}
 const DUEL := {
 	"helicopter": {"height": 13.0, "ahead": 90.0, "u": -8.0, "formation": "line", "spacing": 20.0},
+	"tiltrotor": {"height": 10.0, "ahead": 150.0, "u": 16.0, "formation": "line", "spacing": 20.0},
 	"walker": {"formation": "sides", "spacing": 9.0, "ahead": 60.0},
 	"uav": {"formation": "line", "spacing": 10.0, "props": {"attack": "bomb"}},
 	"quad": {"formation": "sides", "spacing": 8.0, "ahead": 90.0},

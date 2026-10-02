@@ -147,7 +147,7 @@ func _build_tanks(d: float) -> void:
 
 func _build_enemies(d: float) -> void:
 	_row_title(1)
-	var kinds := [["FPV", "fpv", {}], ["UGV GUN", "ugv", {"weapon": "gun"}], ["UGV ATGM", "ugv", {"weapon": "atgm"}], ["UGV SUPPLY", "ugv", {"weapon": "supply"}], ["UAV", "uav", {}], ["HELICOPTER", "helicopter", {}], ["CRAWLER", "crawler", {}], ["SPITTER", "spitter", {}], ["WALKER GUN", "walker", {"weapon": "gun"}], ["WALKER MISSILE", "walker", {"weapon": "missile"}], ["QUAD FLAK", "quad", {"weapon": "flak"}], ["QUAD MORTAR", "quad", {"weapon": "mortar"}]]
+	var kinds := [["FPV", "fpv", {}], ["UGV GUN", "ugv", {"weapon": "gun"}], ["UGV ATGM", "ugv", {"weapon": "atgm"}], ["UGV SUPPLY", "ugv", {"weapon": "supply"}], ["UAV", "uav", {}], ["HELICOPTER", "helicopter", {}], ["TILTROTOR", "tiltrotor", {}], ["CRAWLER", "crawler", {}], ["SPITTER", "spitter", {}], ["WALKER GUN", "walker", {"weapon": "gun"}], ["WALKER MISSILE", "walker", {"weapon": "missile"}], ["QUAD FLAK", "quad", {"weapon": "flak"}], ["QUAD MORTAR", "quad", {"weapon": "mortar"}]]
 	for i in kinds.size():
 		var enemy: Enemy = load(Director.ENEMY_SCRIPTS[kinds[i][1]]).new()
 		for key in kinds[i][2]:
