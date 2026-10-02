@@ -200,6 +200,12 @@ func _on(boss: Gunship, local: Vector3) -> Vector3:
 	return boss.model.global_transform * local
 
 
+## `count` full-charge shells into a module.
+func _cannon_on(boss: Gunship, part: String, count: int) -> void:
+	for i in count:
+		boss.take_hit(_charged(_on(boss, boss.parts[part].offset)))
+
+
 func test_gunship_era_eats_a_charge_then_bare_hull_takes_a_third() -> void:
 	var world := stage("boss")
 	var boss := _gunship(world)
@@ -249,17 +255,20 @@ func test_gunship_full_charge_counts_as_two_airframe_hits() -> void:
 	boss.take_hit(_charged(tail))
 	check_near(boss.hp, boss.max_hp * (1.0 - 2.0 * Gunship.CANNON_SHARE), 0.5, "a full charge takes two shares of bare hull")
 	check(boss._crash <= 0.0, "one full charge does not bring it down")
+	boss.take_hit(_charged(tail))
+	check(boss._crash <= 0.0, "two leave a sliver")
 	boss.take_hit(_shell(tail))
-	check(boss._crash > 0.0, "a full charge and a plain shell do: three shares")
+	check(boss._crash > 0.0, "a plain shell finishes it: five shares in all")
 
 
-func test_gunship_three_bare_shells_bring_it_down() -> void:
+func test_gunship_five_bare_shells_bring_an_infected_one_down() -> void:
 	var world := stage("boss")
 	var boss := _gunship(world)
-	for i in 3:
+	boss.phase = Gunship.Phase.INFECTED
+	for i in 5:
 		check(boss._crash <= 0.0, "still flying before shell %d" % (i + 1))
 		boss.take_hit(_shell(_on(boss, Vector3(0, 0.3, 7.0))))
-	check(boss._crash > 0.0, "three shells on bare airframe start the crash")
+	check(boss._crash > 0.0, "five shells on bare airframe start the crash")
 
 
 func test_gunship_holds_a_still_charge_window_after_each_attack() -> void:
@@ -300,17 +309,21 @@ func test_gunship_drone_call_in_rises_low_in_front_of_the_tank() -> void:
 func test_gunship_phases_follow_hull() -> void:
 	var world := stage("boss")
 	var boss := _gunship(world)
-	boss.take_hit(_shell(_on(boss, Vector3(0, 0.3, 7.0))))
-	check_eq(boss.phase, Gunship.Phase.STRIPPED, "a third of its hull gone: it closes in")
-	boss.take_hit(_shell(_on(boss, Vector3(0, 0.3, 7.0))))
+	var tail := _on(boss, Vector3(0, 0.3, 7.0))
+	boss.take_hit(_shell(tail))
+	check_eq(boss.phase, Gunship.Phase.HUNTER, "a quarter of its hull gone: it still hunts")
+	boss.take_hit(_shell(tail))
+	check_eq(boss.phase, Gunship.Phase.STRIPPED, "under seven tenths: it closes in")
+	boss.take_hit(_shell(tail))
+	boss.take_hit(_shell(tail))
 	check_eq(boss.phase, Gunship.Phase.INFECTED, "one shell from death: it turns")
 
 
 func test_gunship_modules_change_the_fight() -> void:
 	var world := stage("boss")
 	var boss := _gunship(world)
-	boss.take_hit(_shell(_on(boss, boss.parts.chin.offset)))
-	check(not boss._live("chin"), "a shell wrecks the chin drum")
+	_cannon_on(boss, "chin", Gunship.MODULE_HITS)
+	check(not boss._live("chin"), "two shells wreck the chin drum")
 	boss.phase = Gunship.Phase.STRIPPED
 	var chosen := {}
 	for i in 60:
@@ -351,28 +364,105 @@ func test_gunship_gatling_warns_after_chin_wreck_is_freed() -> void:
 	check(world.fx._transients.size() > before, "a live gatling still draws its warning after the chin wreck is gone")
 
 
+func test_gunship_rotor_takes_three_cannon_hits() -> void:
+	var world := stage("boss")
+	var boss := _gunship(world)
+	_cannon_on(boss, "rotor_l", 2)
+	check(boss._live("rotor_l"), "a rotor survives two cannon hits")
+	check_near(boss.parts.rotor_l.hp, Gunship.MODULE_HP.rotor_l / 3.0, 0.01, "with one hit left")
+	check_eq(boss.hp, boss.max_hp, "the airframe behind a module is spared")
+	_cannon_on(boss, "rotor_l", 1)
+	check(not boss._live("rotor_l"), "the third wrecks it")
+
+
+func test_gunship_other_modules_take_two_cannon_hits() -> void:
+	var world := stage("boss")
+	var boss := _gunship(world)
+	for part in ["nose_gun", "chin", "pod_l", "pod_r", "bay"]:
+		_cannon_on(boss, part, 1)
+		check(boss._live(part), "%s survives one cannon hit" % part)
+		_cannon_on(boss, part, 1)
+		check(not boss._live(part), "%s falls to the second" % part)
+
+
+func test_gunship_coax_alone_needs_eight_seconds_for_a_rotor() -> void:
+	var world := stage("boss")
+	var boss := _gunship(world)
+	var spec: Dictionary = Armament.GUNS[Armament.tier_calibers(0)[0]]
+	var time := 0.0
+	while boss._live("rotor_l") and time < 600.0:
+		var round := Hit.make(Hit.Kind.BULLET, spec.damage, _on(boss, boss.parts.rotor_l.offset))
+		round.caliber = Armament.tier_calibers(0)[0]
+		boss.take_hit(round)
+		time += spec.interval
+	check(time >= 8.0, "tier-1 coax takes %.1f s to wreck a rotor" % time)
+	check(time < 600.0, "but it does wreck it")
+
+
+func test_gunship_cannot_crash_before_the_last_phase() -> void:
+	var world := stage("boss")
+	var boss := _gunship(world)
+	_cannon_on(boss, "rotor_l", Gunship.ROTOR_HITS)
+	_cannon_on(boss, "rotor_r", Gunship.ROTOR_HITS)
+	check(boss._crash <= 0.0, "losing both rotors in the first phase does not crash it")
+	check_eq(boss.phase, Gunship.Phase.STRIPPED, "it recovers into the next phase")
+	check_near(boss.hp, boss.max_hp * Gunship.PHASE_MARKS[0], 0.5, "at that phase's entry hull")
+	for name in Gunship.ROTORS:
+		check(boss._live(name), "%s is back" % name)
+		check_near(boss.parts[name].hp, Gunship.MODULE_HP[name] / Gunship.ROTOR_HITS, 0.01, "with one hit left")
+	var live := boss._rotors.keys().size()
+	check_eq(live, 2, "both rotors spin again")
+	_cannon_on(boss, "rotor_l", 1)
+	_cannon_on(boss, "rotor_r", 1)
+	check(boss._crash <= 0.0, "second phase: the same loss recovers once more")
+	check_eq(boss.phase, Gunship.Phase.INFECTED, "into the last phase")
+	check_near(boss.hp, boss.max_hp * Gunship.PHASE_MARKS[1], 0.5, "at its entry hull")
+	_cannon_on(boss, "rotor_l", 1)
+	_cannon_on(boss, "rotor_r", 1)
+	check(boss._crash > 0.0, "the last phase crashes on both rotors lost")
+
+
+func test_gunship_emptied_hull_recovers_into_the_next_phase() -> void:
+	var world := stage("boss")
+	var boss := _gunship(world)
+	boss.hp = 1.0
+	boss.take_hit(_shell(_on(boss, Vector3(0, 0.3, 7.0))))
+	check(boss._crash <= 0.0, "an emptied hull does not crash it before the last phase")
+	check_eq(boss.phase, Gunship.Phase.STRIPPED, "it recovers into the next phase")
+	check_near(boss.hp, boss.max_hp * Gunship.PHASE_MARKS[0], 0.5, "at that phase's entry hull")
+	boss.hp = 1.0
+	boss.take_hit(_shell(_on(boss, Vector3(0, 0.3, 7.0))))
+	check_eq(boss.phase, Gunship.Phase.INFECTED, "and again")
+	boss.hp = 1.0
+	boss.take_hit(_shell(_on(boss, Vector3(0, 0.3, 7.0))))
+	check(boss._crash > 0.0, "an emptied hull crashes it in the last phase")
+
+
 func test_gunship_rotors_are_independent_and_both_lost_crash() -> void:
 	var world := stage("boss")
 	var boss := _gunship(world)
 	var events: Array[bool] = []
 	world.hit_confirmed.connect(func(killed: bool) -> void: events.append(killed))
+	boss.phase = Gunship.Phase.INFECTED
 	var hit := _shell(_on(boss, boss.parts.rotor_l.offset))
 	hit.source = world.player
-	boss.take_hit(hit)
+	for i in Gunship.ROTOR_HITS:
+		boss.take_hit(hit)
 	check(not boss._live("rotor_l") and boss._live("rotor_r"), "the left rotor can be destroyed independently")
 	check(boss._crash <= 0.0, "one rotor keeps it flying")
-	check_eq(events, [false], "one lost rotor confirms a hit, not a kill")
+	check_eq(events, [false, false, false], "a lost rotor confirms its hits, not a kill")
 	boss.stagger = 0.0
 	boss._velocity = Vector3.ZERO
 	boss.behave(0.1)
 	check(boss.model.rotation.z > 0.0, "the gunship banks toward its lost left rotor")
 	hit = _shell(_on(boss, boss.parts.rotor_r.offset))
 	hit.source = world.player
+	for i in Gunship.ROTOR_HITS:
+		boss.take_hit(hit)
+	check(boss._crash > 0.0, "losing both rotors in the last phase starts the crash while hull would survive")
+	check_eq(events.slice(3), [false, false, true], "the second rotor confirms the kill immediately")
 	boss.take_hit(hit)
-	check(boss._crash > 0.0, "losing both rotors starts the crash while hull would survive")
-	check_eq(events, [false, true], "the second rotor confirms the kill immediately")
-	boss.take_hit(hit)
-	check_eq(events.size(), 2, "crashing wreck does not confirm further hits")
+	check_eq(events.size(), 6, "crashing wreck does not confirm further hits")
 
 
 func test_gunship_rotor_blades_can_be_shot_and_destroyed_blades_do_not_block() -> void:
@@ -386,7 +476,8 @@ func test_gunship_rotor_blades_can_be_shot_and_destroyed_blades_do_not_block() -
 	check(distance >= 0.0, "shots can hit the thin swept rotor disc")
 	var point := from + (to - from).normalized() * distance
 	check_eq(boss._struck_part(point), boss.parts.rotor_l, "blade impact damages its rotor module")
-	boss.take_hit(_shell(point, Vector3.DOWN))
+	for i in Gunship.ROTOR_HITS:
+		boss.take_hit(_shell(_on(boss, tip), Vector3.DOWN)) # The craft lurches under each hit, so aim afresh.
 	from = _on(boss, tip + Vector3.UP * 5.0)
 	to = _on(boss, tip + Vector3.DOWN * 5.0)
 	check_eq(boss.hit_test(from, to), -1.0, "destroyed outboard rotor no longer blocks shots")
@@ -463,6 +554,7 @@ func test_gunship_crash_clears_stage_once_the_breach_has_played_out() -> void:
 	var fell := [false]
 	world.stage_cleared.connect(func() -> void: cleared[0] = true)
 	boss.died.connect(func(_e: Entity) -> void: fell[0] = true)
+	boss.phase = Gunship.Phase.INFECTED
 	boss.hp = 1.0
 	var hit := Hit.make(Hit.Kind.SHELL, 50.0, boss.global_position)
 	hit.pierce = true
@@ -481,6 +573,7 @@ func test_gunship_crashes_into_the_dam_face_in_plain_view() -> void:
 	await frames(2)
 	check(is_instance_valid(Dam.current), "the dam stands in the arena")
 	boss.global_position = Course.to_world(Course.ARENA_CENTER_D, 30.0, 20.0)
+	boss.phase = Gunship.Phase.INFECTED
 	var hit := Hit.make(Hit.Kind.SHELL, 5000.0, boss.global_position)
 	hit.pierce = true
 	boss.take_hit(hit)
@@ -509,6 +602,7 @@ func test_crash_breaks_the_dam_near_the_impact_and_floods_the_arena() -> void:
 	check(dam.pieces.all(func(p: Dam.Piece) -> bool: return p.state == Dam.State.STANDING), "it stands whole before the crash")
 	check(dam.torrent == null and dam.flood == null, "no water yet")
 	boss.global_position = Course.to_world(Course.ARENA_CENTER_D, -40.0, 20.0)
+	boss.phase = Gunship.Phase.INFECTED
 	var hit := Hit.make(Hit.Kind.SHELL, 5000.0, boss.global_position)
 	hit.pierce = true
 	boss.take_hit(hit)

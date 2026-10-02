@@ -4,10 +4,11 @@ extends Enemy
 ## AH12 HC: a long armored hull, two intermeshing rotors on masts splayed in a V above it, stub
 ## wings ending in huge missile racks, gatling turrets on the shoulders and a searchlight nose.
 ## Nose and flank plates protect the hull: a full charge or a HEAT round pops one, a plain shell only
-## cracks it. Three bare-airframe cannon hits bring it down, and a full charge counts as two.
-## Every weapon and rotor is its own module with its own health: hitting one hurts only it, and
-## wrecking it tears it off the airframe and silences that attack. One rotor lost lowers and banks
-## the craft, both lost crash it. Weapons: two shoulder gatlings, a nose cannon, a chin ATGM drum,
+## cracks it. A few bare-airframe cannon hits empty the hull, and a full charge counts as two.
+## Every weapon and rotor is its own module with its own health: hitting one hurts only it (a rotor
+## takes three cannon hits, anything else two), and wrecking it tears it off the airframe and
+## silences that attack. One rotor lost lowers and banks the craft. Only the last phase can crash:
+## earlier, losing both rotors or the hull makes it recover into the next phase instead. Weapons: two shoulder gatlings, a nose cannon, a chin ATGM drum,
 ## two wing rocket racks and a belly bomb bay. The three phases add flares, drone calls and the
 ## infected dive before the crash into the dam.
 
@@ -15,7 +16,11 @@ enum Phase { HUNTER, STRIPPED, INFECTED }
 enum Attack { NONE, GUN, ROCKETS, ATGM, DRONES, DIVE, BOMBS, CANNON }
 
 const BODY_HP := 1600.0
-const CANNON_SHARE := 0.34 ## Hull taken by one main-gun shell on bare airframe: three clean hits (a full charge takes two shares).
+const CANNON_SHARE := 0.23 ## Hull taken by one main-gun shell on bare airframe: three clean hits (a full charge takes two shares).
+const ROTOR_HITS := 3 ## Cannon hits that wreck a rotor.
+const MODULE_HITS := 2 ## Cannon hits that wreck any other module.
+const COAX_MODULE := 0.5 ## Share of a machine-gun round's damage a module takes.
+const PHASE_MARKS := [0.7, 0.34] ## Hull fraction at which the next phase begins.
 const PLATED_SHARE := 0.03 ## Hull taken when an ERA plate eats the shell.
 const ERA_HP := 100.0 ## A full charge or HEAT pops a plate, a plain shell cracks half of it; machine guns chew through it slowly.
 const MODULE_HP := {"rotor_l": 150.0, "rotor_r": 150.0, "chin": 90.0, "pod_l": 140.0, "pod_r": 140.0,
@@ -101,7 +106,7 @@ func _init() -> void:
 	despawn_behind = 0.0
 	debris = [Fx.Debris.ARMOR, Fx.Debris.METAL, Fx.Debris.GLASS, Fx.Debris.FLESH]
 	set_meta("title", "BOSS_GUNSHIP")
-	set_meta("phase_marks", [0.7, 0.34])
+	set_meta("phase_marks", PHASE_MARKS)
 
 
 func build() -> void:
@@ -148,37 +153,8 @@ func build() -> void:
 	var body := MeshInstance3D.new()
 	body.mesh = b.mesh()
 	model.add_child(body)
-	# Intermeshing rotors: each head leans outward on its mast and spins the opposite way.
 	for side in [-1.0, 1.0]:
-		var part_name := "rotor_l" if side < 0.0 else "rotor_r"
-		var hub := Vector3(side * 1.3, 5.2, 0.2)
-		_add_part(part_name, hub, 1.4, MODULE_HP[part_name], _mast_mesh())
-		var mast: Node3D = parts[part_name].node
-		mast.rotation.z = -side * ROTOR_TILT
-		var rotor := Node3D.new()
-		mast.add_child(rotor)
-		var r := LowPoly.new()
-		r.prism(Transform3D(), 0.75, 0.55, 8, Palette.INK)
-		for i in 2:
-			var xf := Transform3D(Basis(Vector3.UP, PI * i), Vector3.ZERO)
-			r.box(xf.translated_local(Vector3(ROTOR_RADIUS * 0.5, 0.3, 0)), Vector3(ROTOR_RADIUS, 0.16, 1.0), Palette.SLATE)
-			r.box(xf.translated_local(Vector3(ROTOR_RADIUS - 0.65, 0.39, 0)), Vector3(1.3, 0.04, 1.0), Palette.BUTTER)
-		var blades := MeshInstance3D.new()
-		blades.mesh = r.mesh()
-		rotor.add_child(blades)
-		var d := LowPoly.new()
-		d.glow = true
-		for i in 24:
-			var a0 := TAU * i / 24.0
-			var a1 := TAU * (i + 1) / 24.0
-			d.tri(Vector3(0, 0.3, 0), Vector3(cos(a0) * ROTOR_RADIUS, 0.3, sin(a0) * ROTOR_RADIUS), Vector3(cos(a1) * ROTOR_RADIUS, 0.3, sin(a1) * ROTOR_RADIUS), Palette.MIST, Vector3.UP)
-		var disc := MeshInstance3D.new()
-		disc.mesh = d.mesh()
-		disc.material_override = World._halo_material
-		disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		mast.add_child(disc)
-		_discs.append(disc)
-		_rotors[part_name] = rotor
+		_build_rotor(side)
 	# Shoulder gatling turrets: four barrels each on a ball mount.
 	for side in [-1.0, 1.0]:
 		var turret := Node3D.new()
@@ -254,6 +230,39 @@ func _ready() -> void:
 	# The spinning discs are blur, not airframe: no hostile outline around a rotor's whole sweep.
 	for disc in _discs:
 		ActorLayer.unmark(disc, ActorLayer.HOSTILE)
+
+
+## Intermeshing rotors: each head leans outward on its mast and spins the opposite way.
+func _build_rotor(side: float) -> void:
+	var part_name := "rotor_l" if side < 0.0 else "rotor_r"
+	var hub := Vector3(side * 1.3, 5.2, 0.2)
+	_add_part(part_name, hub, 1.4, MODULE_HP[part_name], _mast_mesh())
+	var mast: Node3D = parts[part_name].node
+	mast.rotation.z = -side * ROTOR_TILT
+	var rotor := Node3D.new()
+	mast.add_child(rotor)
+	var r := LowPoly.new()
+	r.prism(Transform3D(), 0.75, 0.55, 8, Palette.INK)
+	for i in 2:
+		var xf := Transform3D(Basis(Vector3.UP, PI * i), Vector3.ZERO)
+		r.box(xf.translated_local(Vector3(ROTOR_RADIUS * 0.5, 0.3, 0)), Vector3(ROTOR_RADIUS, 0.16, 1.0), Palette.SLATE)
+		r.box(xf.translated_local(Vector3(ROTOR_RADIUS - 0.65, 0.39, 0)), Vector3(1.3, 0.04, 1.0), Palette.BUTTER)
+	var blades := MeshInstance3D.new()
+	blades.mesh = r.mesh()
+	rotor.add_child(blades)
+	var d := LowPoly.new()
+	d.glow = true
+	for i in 24:
+		var a0 := TAU * i / 24.0
+		var a1 := TAU * (i + 1) / 24.0
+		d.tri(Vector3(0, 0.3, 0), Vector3(cos(a0) * ROTOR_RADIUS, 0.3, sin(a0) * ROTOR_RADIUS), Vector3(cos(a1) * ROTOR_RADIUS, 0.3, sin(a1) * ROTOR_RADIUS), Palette.MIST, Vector3.UP)
+	var disc := MeshInstance3D.new()
+	disc.mesh = d.mesh()
+	disc.material_override = World._halo_material
+	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mast.add_child(disc)
+	_discs.append(disc)
+	_rotors[part_name] = rotor
 
 
 ## A rotor head: the swashplate and hub on a short mast (the mast rises from the spine pylon).
@@ -404,8 +413,8 @@ func take_hit(hit: Hit) -> void:
 	var struck := _struck_part(hit.position)
 	var plate := _plate_facing(local)
 	if struck and struck.module:
-		# A module takes the hit alone and shields the airframe behind it; a shell wrecks it outright.
-		struck.hp -= INF if cannon else amount
+		# A module takes the hit alone and shields the airframe behind it; a shell takes its fixed share.
+		struck.hp -= MODULE_HP[struck.name] / float(ROTOR_HITS if struck.name in ROTORS else MODULE_HITS) if cannon else amount * COAX_MODULE
 		world.fx.sparks(hit.position, -hit.direction, 10, Palette.BUTTER, 12.0)
 		if struck.hp <= 0.0:
 			_lose_part(struck, hit.direction)
@@ -423,7 +432,8 @@ func take_hit(hit: Hit) -> void:
 			world.fx.debris(hit.position, 6, [Fx.Debris.ARMOR], 9.0, 0.3, -hit.direction)
 		hull = max_hp * PLATED_SHARE if cannon else amount * 0.1
 	hp -= hull
-	impact_feedback(hit, amount, hp <= 0.0 or not (_live("rotor_l") or _live("rotor_r")))
+	var falls := hp <= 0.0 or not (_live("rotor_l") or _live("rotor_r"))
+	impact_feedback(hit, amount, falls and phase == Phase.INFECTED)
 	if cannon:
 		# A 100 mm shell lands like a truck: a blast on the skin, the whole craft lurches and rolls.
 		world.fx.explosion(hit.position, 2.2, [Palette.WHITE, Palette.BUTTER, Palette.AMBER, Palette.CORAL], hit.direction)
@@ -440,9 +450,12 @@ func take_hit(hit: Hit) -> void:
 		stagger = maxf(stagger, 0.6)
 		if _attack in [Attack.GUN, Attack.ATGM] and _attack_time < 0.8:
 			_end_attack()
-	if hp <= 0.0 or not (_live("rotor_l") or _live("rotor_r")):
+	if falls and phase == Phase.INFECTED:
 		killing_hit = hit.copy()
 		_begin_crash()
+		return
+	if falls:
+		_recover()
 		return
 	_update_phase()
 
@@ -535,21 +548,45 @@ func _lose_part(part: Part, direction := Vector3.ZERO) -> void:
 func _update_phase() -> void:
 	if _crash > 0.0 or hp <= 0.0:
 		return
-	var world := World.current
 	var ratio := hp / max_hp
 	var lost := MODULE_HP.keys().filter(func(name: String) -> bool: return not _live(name)).size()
-	if phase == Phase.HUNTER and (ratio < 0.7 or lost >= 3 or PLATES.all(func(plate: String) -> bool: return not _live(plate))):
-		phase = Phase.STRIPPED
-		_resupply()
+	if phase == Phase.HUNTER and (ratio < PHASE_MARKS[0] or lost >= 3 or PLATES.all(func(plate: String) -> bool: return not _live(plate))):
+		_advance_phase()
+	elif phase == Phase.STRIPPED and (ratio < PHASE_MARKS[1] or lost >= 6):
+		_advance_phase()
+
+
+func _advance_phase() -> void:
+	phase = (phase + 1) as Phase
+	_resupply()
+	if phase == Phase.STRIPPED:
 		_grow_fungus(6)
 		_next_attack = 1.0
-	elif phase == Phase.STRIPPED and (ratio < 0.34 or lost >= 6):
-		phase = Phase.INFECTED
-		_resupply()
+	else:
 		_grow_fungus(14)
-		world.screen_flash(Palette.FUNGUS, 0.4)
+		World.current.screen_flash(Palette.FUNGUS, 0.4)
 		Sfx.play("roar", global_position, 6.0, 0.7)
 		_next_attack = 0.8
+
+
+## Before the last phase it cannot fall: with the hull emptied or both rotors gone it comes back
+## into the next phase at that phase's hull, its lost rotors regrown with one hit left.
+func _recover() -> void:
+	var world := World.current
+	var entry: float = max_hp * PHASE_MARKS[phase]
+	hp = entry if hp <= 0.0 else minf(hp, entry)
+	for name: String in ROTORS:
+		if not _live(name):
+			_build_rotor(-1.0 if name == "rotor_l" else 1.0)
+			var part: Part = parts[name]
+			part.module = true
+			part.hp = MODULE_HP[name] / ROTOR_HITS
+			ActorLayer.unmark(_discs.back(), ActorLayer.HOSTILE)
+			var at: Vector3 = model.global_transform * part.offset
+			world.fx.smoke(at, 8, 3.0, [Palette.STONE, Palette.ASH, Palette.DUSK])
+			world.fx.sparks(at, Vector3.UP, 24, Palette.BUTTER, 16.0)
+	_end_attack()
+	_advance_phase()
 
 
 ## Drops fresh ERA and a regrowth pod near the tank at each phase change.
@@ -667,7 +704,14 @@ func _aim_weapons(delta: float, tank: Tank) -> void:
 func _smoke_modules(delta: float) -> void:
 	var world := World.current
 	for name: String in MODULE_HP:
-		if not _live(name) and randf() < delta * 16.0:
+		var part: Part = parts[name]
+		var wear: float = 1.0 - part.hp / MODULE_HP[name]
+		if part.hp > 0.0 and wear > 0.0 and randf() < delta * 12.0 * wear:
+			# A hurt module trails smoke and throws sparks the worse it is.
+			var at: Vector3 = model.global_transform * part.offset
+			world.fx.smoke(at, 1, 1.5, [Palette.STONE, Palette.ASH, Palette.DUSK])
+			world.fx.sparks(at, Vector3.UP, 3, Palette.BUTTER, 6.0)
+		if part.hp <= 0.0 and randf() < delta * 16.0:
 			var at: Vector3 = model.global_transform * parts[name].offset
 			for i in 2:
 				world.fx.spawn(Fx.Kind.FLAME, at + Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)), Vector3.UP * randf_range(3.0, 5.0), randf_range(0.4, 0.6), randf_range(1.8, 2.8), [Palette.AMBER, Palette.BUTTER, Palette.CORAL][randi() % 3], {"drag": 1.0})
