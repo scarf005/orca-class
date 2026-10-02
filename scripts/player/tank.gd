@@ -679,7 +679,9 @@ func _update_charge(delta: float) -> void:
 	var held := Input.is_action_pressed("fire")
 	_fire_released = _fire_held and not held
 	if held and not _fire_held:
-		_burst = Armament.COAX_BURST # Every press gives a burst; holding does not keep the coax going.
+		# Every press gives a burst; holding does not keep the coax going. Half an interval short, so
+		# the last round lands inside it.
+		_burst = (Armament.COAX_BURST_ROUNDS - 0.5) * Armament.GUNS[Armament.tier_calibers(coax_tier)[0]].interval
 	if not held:
 		_spent = false
 	var waited := minf(_recover, delta)

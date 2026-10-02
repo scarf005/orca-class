@@ -36,8 +36,7 @@ func test_a_press_fires_one_coax_burst_and_holding_does_not_extend_it() -> void:
 	for _i in 30:
 		_step(tank, 1.0 / 60.0)
 	var burst := _bullets(world)
-	var interval: float = Armament.GUNS[Armament.tier_calibers(0)[0]].interval
-	check_eq(burst, ceili(Armament.COAX_BURST / interval), "a burst is COAX_BURST of fire at the tier's interval")
+	check_eq(burst, Armament.COAX_BURST_ROUNDS, "a burst is COAX_BURST_ROUNDS rounds")
 	_step(tank, 0.3)
 	check_eq(_bullets(world), burst, "holding adds no more coax rounds")
 	Input.action_release("fire")

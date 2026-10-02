@@ -32,7 +32,7 @@ const SHELL_DAMAGE := 1500.0
 ## Tuned live in the duel mode, hence static vars.
 static var QUICK_SPEED := 260.0 ## A quick shell is a visible projectile along the barrel, without gravity.
 
-const COAX_BURST := 0.22 ## Seconds of coax fire a press gives, however long the button is held.
+static var COAX_BURST_ROUNDS := 4 ## Rounds a press fires from the coax (from each gun of the tier), however long the button is held.
 static var TAP_TIME := 0.3 ## A hold this long locks the target and starts the charge; a shorter click is only a coax burst.
 static var FULL_TIME := 1.0 ## Seconds of hold for a full charge.
 static var AUTO_FIRE_TIME := 1.5 ## Seconds of hold at which the gun fires by itself; the button must be pressed again.
