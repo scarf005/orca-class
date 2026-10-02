@@ -29,6 +29,7 @@ var _rows: Array = [
 	["Debris smoke life (s)", func() -> float: return Fx.DEBRIS_SMOKE_LIFE, func(v: float) -> void: Fx.DEBRIS_SMOKE_LIFE = v, 0.05, 3.0, 0.05],
 	["Drift nose swing (deg)", func() -> float: return rad_to_deg(Tank.DRIFT_ANGLE), func(v: float) -> void: Tank.DRIFT_ANGLE = deg_to_rad(v), 0.0, 120.0, 1.0],
 	["Gunners aim at tail (share)", func() -> float: return Gunnery.TAIL_CHANCE, func(v: float) -> void: Gunnery.TAIL_CHANCE = v, 0.0, 1.0, 0.05],
+	["Near sight along the barrel (0-1)", func() -> float: return Hud.NEAR_SIGHT, func(v: float) -> void: Hud.NEAR_SIGHT = v, 0.1, 0.95, 0.05],
 	["Hit weight (x)", func() -> float: return Tank.HIT_WEIGHT, func(v: float) -> void: Tank.HIT_WEIGHT = v, 0.0, 3.0, 0.05],
 ]
 var _grid := GridContainer.new()

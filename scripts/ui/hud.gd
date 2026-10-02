@@ -485,7 +485,7 @@ func _draw_reticle() -> void:
 	# ranging box close in front of the muzzle and the chevron out at the range the sight rests on.
 	# Lined up over a target, the gun is on it. The mouse only leaves a dot the turret swings toward.
 	var far := p.sight_point()
-	var near := p.model.muzzle.global_position - p.model.barrel.global_basis.z * NEAR_SIGHT
+	var near := p.model.muzzle.global_position.lerp(far, NEAR_SIGHT)
 	_draw_cursor(cursor)
 	if not cam.is_position_behind(near):
 		_draw_near_sight(cam.unproject_position(near) * SCALE, Palette.CREAM)
@@ -568,7 +568,8 @@ func _draw_cursor(at: Vector2) -> void:
 	draw_circle(at, 1.5, Palette.WHITE)
 
 
-const NEAR_SIGHT := 8.0 ## Metres in front of the muzzle the near sight sits.
+## How far along the way from the muzzle to the far sight the near sight sits (tuned live in the duel mode).
+static var NEAR_SIGHT := 0.7
 
 
 ## The near sight: a gunner's ranging box, four corner brackets with a short tick at each side,
