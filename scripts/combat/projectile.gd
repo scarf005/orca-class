@@ -26,6 +26,7 @@ var flame_trail := false ## Leaves a stream of flame behind: white-hot young, re
 var interceptable := false
 var intercept_hp := 1.0 ## Laser dwell damage needed to destroy it.
 var radius := 0.0 ## Sweep radius; small for bullets, larger for thrown wrecks.
+var sure_target: Entity ## A locked full charge: nothing else stops it until it has struck this.
 const ROCKET_SMOKE := Color("8c4a34") ## Reddish-brown motor smoke, readable against the pastel sky.
 
 var trail := Color(0, 0, 0, 0) ## Smoke trail color; transparent disables. A trail also means a lit motor.
@@ -178,6 +179,20 @@ func resolve_now(max_range: float) -> Vector3:
 ## Returns true when the projectile stopped.
 func _sweep(from: Vector3, to: Vector3) -> bool:
 	var world := World.current
+	if is_instance_valid(sure_target) and not sure_target.dead:
+		var t := sure_target.hit_test(from, to, maxf(radius, 1.0))
+		if t < 0.0:
+			return false # Through terrain, props and other enemies on its way.
+		var struck := sure_target
+		sure_target = null
+		var point := from + (to - from).normalized() * t
+		if pierce_entities:
+			_hit_entities.append(struck)
+			_apply(struck, point)
+			world.fx.sparks(point, -velocity.normalized(), 6, Palette.WHITE, 14.0)
+			return false
+		detonate(point, struck)
+		return true
 	var best_t := INF
 	var best_entity: Entity = null
 	if _traveled >= terrain_only_after:

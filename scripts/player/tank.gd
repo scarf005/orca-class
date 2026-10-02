@@ -34,7 +34,9 @@ const DASH_SPEED := 2.0 * DASH_DISTANCE / DASH_TIME ## Starts this fast and ease
 const COAX_RANGE := 140.0
 const SOFT_LOCK_RADIUS := 40.0 ## Screen pixels (3D view) around the reticle; the FCS scales it.
 const LOCK_EDGE := Vector2(60.0, 180.0) ## 3D-view pixels from the screen edge: a locked target this close stops sideways driving, this far lets it run free.
-const LOCK_HOLD := 1.4 ## A held soft lock lasts out to this many radii from the reticle.
+const LOCK_HOLD := 1.4
+const AREA_ROUNDS := [Armament.Round.CANISTER, Armament.Round.AIRBURST] ## Rounds with no lock and no full charge.
+const AREA_CHARGE := 0.99 ## How far those charge: just short of full, so they never turn hitscan. ## A held soft lock lasts out to this many radii from the reticle.
 const LOCK_SWITCH := 0.6 ## Another enemy takes a held lock only when this much nearer the reticle.
 const SIGHT_RATE := 10.0 ## Per second the chevron's range eases toward the range it rests on.
 const PART_LOCK_RADIUS := 90.0 ## Screen pixels: on a target made of modules, the nearest one within this is locked.
@@ -717,7 +719,8 @@ func _update_charge(delta: float) -> void:
 		_auto_fire = _hold >= auto_fire_hold()
 	elif not _fire_released: # The release frame keeps the charge it let go with.
 		_hold = 0.0
-	charge = clampf((_hold - Armament.TAP_TIME) / charge_time(), 0.0, 1.0)
+	# Canister and airburst are area rounds: they never reach a full, aimed charge.
+	charge = clampf((_hold - Armament.TAP_TIME) / charge_time(), 0.0, AREA_CHARGE if current_round in AREA_ROUNDS else 1.0)
 	if charge >= 1.0 and not _full_click:
 		_full_click = true
 		Sfx.play("charge_full", global_position)
@@ -748,7 +751,7 @@ func _charge_distance(target: Entity, part: String) -> float:
 
 
 func _update_charge_lock() -> void:
-	if (not is_charging() and not _fire_released) or modules.lock_factor() <= 0.0:
+	if (not is_charging() and not _fire_released) or modules.lock_factor() <= 0.0 or current_round in AREA_ROUNDS:
 		charge_lock = null
 		charge_part = ""
 		charge_candidate = null
@@ -1007,6 +1010,12 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 
 			shell.proximity = lerpf(Armament.AIRBURST_PROXIMITY.x, Armament.AIRBURST_PROXIMITY.y, table)
 	if not full:
 		return
+	# A locked full charge always strikes its lock: aimed straight at it, through whatever is between.
+	if is_instance_valid(charge_lock) and round != Armament.Round.AIRBURST:
+		var at := _aimed_spot(charge_lock)
+		at = charge_lock.hit_center() if at == Vector3.INF else at
+		shell.velocity = (at - muzzle).normalized() * shell.velocity.length()
+		shell.sure_target = charge_lock
 	var reach := Armament.SHELL_RANGE * (lerpf(Armament.APFSDS_RANGE.x, Armament.APFSDS_RANGE.y, table) if round == Armament.Round.APFSDS else 1.0)
 	var end := shell.resolve_now(reach)
 	world.fx.beam(muzzle, end, Palette.WHITE, 0.5, 0.1)

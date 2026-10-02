@@ -37,7 +37,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	visible = false
 	set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT)
-	position = Vector2(16, 60)
+	position = Vector2(16, 50)
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(Palette.INK, 0.92)
 	style.content_margin_left = 12
@@ -47,7 +47,12 @@ func _ready() -> void:
 	add_theme_stylebox_override("panel", style)
 	_grid.columns = 3
 	_grid.add_theme_constant_override("h_separation", 12)
-	add_child(_grid)
+	# Too many rows for the screen: they scroll, the panel stays inside the view.
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size = Vector2(0, get_viewport_rect().size.y - 100.0)
+	scroll.add_child(_grid)
+	add_child(scroll)
 	load_values()
 	for row: Array in _rows:
 		var name := Label.new()
