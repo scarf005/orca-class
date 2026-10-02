@@ -443,7 +443,7 @@ func test_gunship_rotors_are_independent_and_both_lost_crash() -> void:
 	var boss := _gunship(world)
 	var events: Array[bool] = []
 	world.hit_confirmed.connect(func(killed: bool) -> void: events.append(killed))
-	boss.phase = Gunship.Phase.INFECTED
+	boss.phase = Gunship.Phase.STRIPPED # The infected phase's erratic jitter would randomize the lean.
 	var hit := _shell(_on(boss, boss.parts.rotor_l.offset))
 	hit.source = world.player
 	for i in Gunship.ROTOR_HITS:
@@ -453,8 +453,10 @@ func test_gunship_rotors_are_independent_and_both_lost_crash() -> void:
 	check_eq(events, [false, false, false], "a lost rotor confirms its hits, not a kill")
 	boss.stagger = 0.0
 	boss._velocity = Vector3.ZERO
+	boss.model.rotation.z = 0.0 # Each hit lurches it at random; start level.
 	boss.behave(0.1)
 	check(boss.model.rotation.z > 0.0, "the gunship banks toward its lost left rotor")
+	boss.phase = Gunship.Phase.INFECTED
 	hit = _shell(_on(boss, boss.parts.rotor_r.offset))
 	hit.source = world.player
 	for i in Gunship.ROTOR_HITS:
