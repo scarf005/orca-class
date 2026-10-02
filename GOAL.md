@@ -167,13 +167,14 @@ Each enemy has a distinct silhouette, a clear telegraph before it attacks, a sat
 | Enemy | Behavior | Telegraph | Counter |
 | --- | --- | --- | --- |
 | FPV drone | Fast kamikaze swarm; weaves, then dives | Buzzing rises in pitch; its camera light turns red before the dive | Coax, canister, CIWS |
-| UGV (tracked) | Armored gun or ATGM carrier; strafes from cover | ATGM: laser designator line, then launch | HEAT, APFSDS; CIWS catches ATGMs |
+| UGV (tracked) | Armored gun or ATGM carrier; strafes from cover; a gun UGV the tank has passed in its lane rams it | ATGM: laser designator line, then launch; ram: tracks spin up in dust for 0.6 s | HEAT, APFSDS; CIWS catches ATGMs |
 | UAV (fixed-wing) | Makes bombing and strafing passes; drops loitering munitions | Shadow and dither sweep across the ground before the pass | Airburst, coax |
-| Attack helicopter | Paces the tank through the village, reservoir and overpass; alternates gun bursts and rocket pairs | Chin-gun sight beam before firing | A few coax hits, any cannon round; CIWS catches rockets |
+| Attack helicopter | Paces the tank through the village, reservoir and overpass; cycles gun bursts, rocket pairs and a strafing run down the tank's lane | Chin-gun sight beam before firing; for the run it walks along the ground toward the tank | A few coax hits, any cannon round; CIWS catches rockets |
+| Tiltrotor gunship | Flies in with rotors forward, tilts them up to hover beside the rail, drops 2-3 FPV drones or a crawler pack, rakes the road with a door-gun sweep, then leaves | A laser line on the ground before the beam sweeps across it | One full charge or two quick shells; shoot a nacelle off and it spins down and crashes |
 | Fungal crawler | Swarms over terrain; bursts into spores | Swells and brightens before bursting | Dragon's breath, ramming |
 | Spore spitter | Rooted; lobs arcing spore mortars | Glowing sac inflates | Any cannon round |
-| Bipedal walker | Reverse-jointed legs with wheeled feet; skates between lanes, then plants and fires a 15 mm burst or a missile pair | Crouches, eye flashes | Shoot the legs to topple it; tail stab |
-| Quad mech | Heavy four-legged walker with a quad 20 mm flak turret or a mortar | Barrels spin up / impact circles | Shoot legs off (two lost: it collapses) or the turret |
+| Bipedal walker | Reverse-jointed legs with wheeled feet; skates between lanes, then plants and fires a 15 mm burst or a ripple of four leading missiles | Crouches, eye flashes; the missile pod opens for 0.8 s | Shoot the legs to topple it; tail stab |
+| Quad mech | Heavy four-legged walker with a quad 20 mm flak turret or a mortar that lays a line of impact circles across the road with one gap | Barrels spin up / impact circles | Shoot legs off (two lost: it collapses) or the turret |
 | Fungal colossus (mid-boss) | Large rooted mass; tendril sweeps, spore barrages, spawns crawlers | Tendrils rear up; the ground cracks along the sweep line | Burn the weak points, then shoot the core |
 
 ### Boss: twin-rotor gunship

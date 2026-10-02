@@ -144,7 +144,7 @@ func test_helicopter_telegraphs_bursts_and_cleans_up() -> void:
 
 # --- Pacing: build, peak and release per section (hard scaling as the Director applies it).
 
-const BUDGETS := {Course.Section.FARM: 18, Course.Section.VILLAGE: 35, Course.Section.RESERVOIR: 33, Course.Section.OVERPASS: 29}
+const BUDGETS := {Course.Section.FARM: 12, Course.Section.VILLAGE: 22, Course.Section.RESERVOIR: 22, Course.Section.OVERPASS: 20}
 const PEAKS := {Course.Section.VILLAGE: Vector2(1085.0, 1195.0), Course.Section.RESERVOIR: Vector2(2185.0, 2370.0), Course.Section.OVERPASS: Vector2(3065.0, 3235.0)}
 const GROUND := ["ugv", "walker", "spitter", "crawler", "quad"]
 
@@ -186,7 +186,7 @@ func test_section_budgets_hold() -> void:
 	for section: Course.Section in BUDGETS:
 		var total := _total(_section_waves(waves, section), false)
 		check(absf(total - BUDGETS[section]) <= BUDGETS[section] * 0.15, "section %d holds ~%d enemies (got %d)" % [section, BUDGETS[section], total])
-	check_eq(_total(_section_waves(waves, Course.Section.SCHOOL), false), 6, "the school holds one crawler pack")
+	check_eq(_total(_section_waves(waves, Course.Section.SCHOOL), false), 4, "the school holds one crawler pack")
 
 
 func test_no_window_of_150m_exceeds_the_cap() -> void:
