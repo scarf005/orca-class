@@ -1,6 +1,7 @@
 class_name Helicopter
 extends Enemy
-## Ordinary attack helicopter: paces the rail, telegraphs gun bursts and rocket pairs, then leaves.
+## Ordinary attack helicopter: paces the rail, telegraphs gun bursts, rocket pairs and a strafing run
+## (the chin gun's sight beam walks along the ground down the tank's lane, then the rounds follow it), then leaves.
 
 const KEEP_AHEAD := 55.0
 const PACE_TIME := 12.0
@@ -8,6 +9,10 @@ const BARREL_SLEW := 2.5 ## Radians per second the chin gun and the rocket pods 
 const GUN_SPREAD := 0.01 ## Radians of scatter on every gun round.
 const ROCKET_SPREAD := 0.015
 const ROCKET_SPEED := 55.0
+const STRAFE_LEAD := 60.0 ## Meters ahead of the tank the sight starts walking its lane.
+const STRAFE_WALK := 40.0 ## Meters per second the sight walks down the lane during the telegraph.
+const STRAFE_STEP := 3.0 ## Meters the walking line advances per round.
+const STRAFE_ROUNDS := 22
 
 var _rotor := Node3D.new()
 var _tail_rotor := Node3D.new()
@@ -22,6 +27,9 @@ var _telegraph := 0.0
 var _burst := 0
 var _shot_timer := 0.0
 var _rockets := false
+var _strafing := false ## This attack is a strafing run down the tank's lane.
+var _strafe_d := 0.0 ## Where along the road the walking sight is.
+var _strafe_u := 0.0 ## The lane it walks, fixed when the telegraph starts.
 var _rocket_aim := Vector3.ZERO ## Where the pair is fixed on at the end of the telegraph, led for the rockets' flight.
 var _hard := false
 
@@ -160,30 +168,38 @@ func behave(delta: float) -> void:
 		return
 	if _telegraph > 0.0:
 		_telegraph -= delta
-		world.fx.beam(_chin.global_position, tank.hit_center(), Palette.CORAL, 0.035, 0.05)
+		if _strafing:
+			_strafe_d -= STRAFE_WALK * delta
+		world.fx.beam(_chin.global_position, _aim_point(tank) if _strafing else tank.hit_center(), Palette.CORAL, 0.035, 0.05)
 		if _telegraph <= 0.0:
 			_rocket_aim = _aim_point(tank)
-			_burst = 2 if _rockets else 6
+			_burst = STRAFE_ROUNDS if _strafing else (2 if _rockets else 6)
 			_shot_timer = 0.0
 	elif _burst > 0:
 		_shot_timer -= delta
 		if _shot_timer <= 0.0:
 			_fire(tank)
 			_burst -= 1
-			_shot_timer = 0.22 if _rockets else 0.12
+			_shot_timer = 0.05 if _strafing else (0.22 if _rockets else 0.12)
 			if _burst == 0:
-				_rockets = not _rockets
+				_next_attack()
 				_attack_timer = 2.4 if _hard else 3.2
 	else:
 		_attack_timer -= delta
 		if _attack_timer <= 0.0 and to_tank.length() < 130.0:
 			_telegraph = 0.8
+			if _strafing:
+				var lane := Course.to_course(tank.global_position + tank.velocity * 0.4)
+				_strafe_d = lane.x + STRAFE_LEAD
+				_strafe_u = lane.y
 			Sfx.play("warn", global_position, -4.0)
 
 
 ## Where the next round is meant to land: a rocket pair's fixed point once the telegraph ends, else the
 ## tank led for the shot's flight time (rockets fully, gun rounds a little).
 func _aim_point(tank: Tank) -> Vector3:
+	if _strafing:
+		return _strafe_point()
 	if _rockets and _burst > 0:
 		return _rocket_aim
 	var target := tank.hit_center()
@@ -191,7 +207,32 @@ func _aim_point(tank: Tank) -> Vector3:
 	return target + tank.velocity * flight * (1.0 if _rockets else 0.6)
 
 
+## The attacks cycle gun burst, rocket pair, strafing run.
+func _next_attack() -> void:
+	if _strafing:
+		_strafing = false
+	elif _rockets:
+		_rockets = false
+		_strafing = true
+	else:
+		_rockets = true
+
+
+## The ground point the strafing sight is on.
+func _strafe_point() -> Vector3:
+	var point := Course.to_world(_strafe_d, _strafe_u)
+	point.y = Course.height_at(point)
+	return point
+
+
 func _fire(tank: Tank) -> void:
+	if _strafing:
+		_strafe_d -= STRAFE_STEP
+		var spot := _strafe_point() + Vector3(randf_range(-0.8, 0.8), 0.0, randf_range(-0.8, 0.8))
+		var bullet := fire_along("orb", _chin_muzzle, MG_SPEED, 4.0, Palette.HOT, spot - _chin_muzzle.global_position, 6.0, 0.0, Muzzle.AUTO)
+		bullet.hit.caliber = 30
+		Sfx.play("enemy_gun", _chin_muzzle.global_position, -4.0)
+		return
 	var muzzle := _pod_muzzles[_burst % 2] if _rockets else _chin_muzzle
 	var from := muzzle.global_position
 	var wanted := _aim_point(tank) - from

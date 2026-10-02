@@ -1,7 +1,8 @@
 class_name QuadMech
 extends Enemy
 ## Four-legged heavy mech on wheeled feet. It rolls ahead of the tank with its legs held in one stance and a turret on its back:
-## "flak" spins up four 20 mm barrels and hoses the tank; "mortar" lobs shells onto marked circles.
+## "flak" spins up four 20 mm barrels and hoses the tank; "mortar" drops a line of marked impact circles across
+## the tank's path with one gap to drift through.
 ## Each leg can be shot off; with two gone it collapses.
 
 const KEEP_AHEAD := 55.0
@@ -9,7 +10,11 @@ const PACE_TIME := 16.0
 const LEG_HP := 8.0
 const BARREL_SLEW := 2.5 ## Radians per second the gun (or mortar tube) turns onto its aim.
 const GUN_SPREAD := 0.03 ## Radians of scatter on every flak round.
-const MORTAR_CORRECTION := 8.0 ## Degrees a shell may leave off the tube: it then lands where it actually flies.
+const MORTAR_SLOTS := 5 ## Circles in the line across the road; one stays empty.
+const MORTAR_SPACING := 6.0
+const MORTAR_LEAD := 1.9 ## Seconds ahead the line is laid where the tank will be.
+const MORTAR_SMOKE := Palette.DUSK ## Dark trail behind a shell.
+const MORTAR_CORRECTION := 14.0 ## Degrees a shell may leave off the tube: it then lands where it actually flies.
 const MORTAR_GRAVITY := 20.0
 const WHEEL_RADIUS := 0.4
 const STANCE_SPLAY := 0.12 ## Radians the shins splay outward.
@@ -178,7 +183,7 @@ func behave(delta: float) -> void:
 	if weapon == "flak":
 		aim_barrel(_gun, _flak_aim(tank), BARREL_SLEW, delta)
 	else:
-		slew_barrel(_gun, _lob(_muzzle.global_position, _mortar_target(tank, 0), 1.7), BARREL_SLEW, delta)
+		slew_barrel(_gun, _lob(_muzzle.global_position, _mortar_target(tank, (MORTAR_SLOTS - 1) * 0.5), 1.7), BARREL_SLEW, delta)
 	if _burst > 0:
 		_burst_timer -= delta
 		_barrels.rotation.z += delta * 30.0
@@ -213,9 +218,15 @@ func _attack(tank: Tank) -> void:
 	var world := World.current
 	var from := _muzzle.global_position
 	muzzle_blast(from, -_muzzle.global_basis.z, Muzzle.HEAVY, "mortar")
-	for i in (4 if _hard else 3):
-		var flight := 1.7 + i * 0.12
-		var target := _mortar_target(tank, i)
+	var slots := MORTAR_SLOTS + (2 if _hard else 0)
+	var gap := randi() % slots
+	var fired := 0
+	for slot in slots:
+		if slot == gap:
+			continue
+		var flight := 1.7 + fired * 0.12
+		fired += 1
+		var target := _mortar_target(tank, slot, slots)
 		var lob := _lob(from, target, flight)
 		# The shell leaves the tube along its bore (the tube may be a few degrees off this arc) and
 		# lands where that flight actually ends.
@@ -232,6 +243,7 @@ func _attack(tank: Tank) -> void:
 		shell.interceptable = true
 		shell.intercept_hp = 1.0
 		shell.life = air + 1.0
+		shell.trail = MORTAR_SMOKE
 		world.fx.marker(target, 3.4, air, Palette.HOT)
 	Sfx.play("launch", from, 2.0, 0.6)
 
@@ -260,9 +272,11 @@ func _flak_aim(tank: Tank) -> Vector3:
 	return tank.hit_center() + tank.velocity * 0.4
 
 
-## Where mortar shell `index` of a volley is meant to come down: the tank's path, the later ones scattered.
-func _mortar_target(tank: Tank, index: int) -> Vector3:
-	var target := tank.global_position + tank.velocity * (1.7 + index * 0.12) + Vector3(randf_range(-5, 5), 0, randf_range(-5, 5)) * float(index > 0)
+## Where slot `slot` of a line of `slots` circles across the road comes down: the line is laid across
+## where the tank will be, centred on its lateral position.
+func _mortar_target(tank: Tank, slot: float, slots := MORTAR_SLOTS) -> Vector3:
+	var centre := Course.to_course(tank.global_position + tank.velocity * MORTAR_LEAD)
+	var target := Course.to_world(centre.x, centre.y + (slot - (slots - 1) * 0.5) * MORTAR_SPACING)
 	target.y = Course.height_at(target)
 	return target
 

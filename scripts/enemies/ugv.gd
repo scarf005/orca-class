@@ -2,7 +2,8 @@ class_name Ugv
 extends Enemy
 ## Tracked unmanned ground vehicle. Keeps ahead of the tank, hopping between lanes.
 ## `weapon`: "gun" fires telegraphed 30 mm bursts, "atgm" paints the tank with a laser before
-## launching a guided missile, "supply" carries a pickup and tries to get away.
+## launching a guided missile, "supply" carries a pickup and tries to get away. A "gun" UGV the tank has
+## driven past in its own lane spins its tracks up in a cloud of dust (0.6 s) and rams it from behind.
 
 const KEEP_AHEAD := 48.0
 const PACE_TIME := 13.0 ## After this long it stops pacing the rail and falls behind.
@@ -10,6 +11,14 @@ const BARREL_SLEW := 3.0 ## Radians per second the gun turns onto the tank.
 const GUN_SPREAD := 0.03 ## Radians of scatter on every round.
 const ROUND_SPEED := MG_SPEED
 const FRONT_ARMOR := 0.25 ## Share of coax damage that gets through the front plate.
+const RAM_WIND := 0.6 ## Seconds the tracks spin up, throwing dust, before the charge.
+const RAM_SPEED := 30.0
+const RAM_TIME := 1.6 ## The charge ends this long after it starts, hit or miss.
+const RAM_REACH := Vector2(8.0, 60.0) ## It picks a tank this far ahead along the road ...
+const RAM_LANE := 3.5 ## ... and this close to its own lane.
+const RAM_COOLDOWN := 5.0
+const RAM_DAMAGE := 20.0
+const RAM_SHOVE := 12.0 ## Sideways speed the hit adds to the tank.
 
 var weapon := "gun"
 var _at_tail := false ## This burst goes for the tank's tail, not its roof sensors.
@@ -19,6 +28,9 @@ var _attack_timer := 2.0
 var _telegraph := 0.0
 var _burst := 0
 var _burst_timer := 0.0
+var _ram_wind := 0.0
+var _ram := 0.0 ## Seconds of the charge left.
+var _ram_cooldown := 0.0
 var _aim := Vector3.ZERO ## Where the gun burst goes: fixed when the telegraph ends.
 var _turret: Node3D
 var _barrel: Node3D ## Gun or launcher pivot on the turret; its -Z is the bore.
@@ -135,6 +147,8 @@ func behave(delta: float) -> void:
 	# Faster than the rail, so a UGV dropped in behind the tank overtakes it and pulls ahead.
 	var speed := 0.0 if is_staggered() or immobile else world.rail.speed + 14.0
 	var move := Vector2(clampf(target_d - here.x, -speed, speed), clampf(_lane - here.y, -6.0, 6.0) if not immobile else 0.0)
+	if weapon == "gun":
+		move = _ram_step(delta, tank, here, move)
 	var next := here + move * delta
 	var p := Course.ground_at(next.x, next.y)
 	global_position = p
@@ -173,7 +187,7 @@ func behave(delta: float) -> void:
 			_attack()
 		return
 	_attack_timer -= delta
-	if _attack_timer <= 0.0 and distance < 110.0 and distance > 12.0:
+	if _attack_timer <= 0.0 and distance < 110.0 and distance > 12.0 and _ram_wind <= 0.0 and _ram <= 0.0:
 		_telegraph = 1.4 if weapon == "atgm" else 0.5
 		_at_tail = randf() < Gunnery.TAIL_CHANCE
 		if weapon == "atgm":
@@ -181,12 +195,54 @@ func behave(delta: float) -> void:
 		_attack_timer = (3.8 if weapon == "atgm" else 2.4) * (0.75 if _hard else 1.0)
 
 
+## Winds up and charges at a tank that is ahead of it in its lane; returns the drive for this frame.
+func _ram_step(delta: float, tank: Tank, here: Vector2, move: Vector2) -> Vector2:
+	_ram_cooldown = maxf(0.0, _ram_cooldown - delta)
+	if immobile or is_staggered():
+		_ram_wind = 0.0
+		_ram = 0.0
+		return move
+	var ahead := Course.to_course(tank.global_position) - here
+	if _ram_wind <= 0.0 and _ram <= 0.0:
+		if _ram_cooldown <= 0.0 and _burst == 0 and _telegraph <= 0.0 and ahead.x > RAM_REACH.x and ahead.x < RAM_REACH.y and absf(ahead.y) < RAM_LANE:
+			_ram_wind = RAM_WIND
+			Sfx.play("warn", global_position, -2.0, 0.7)
+		return move
+	if fmod(age, 0.1) < delta:
+		for x in [-0.95, 0.95]:
+			World.current.fx.dust(model.to_global(Vector3(x, 0.1, 1.4)), 2, 1.2, Palette.STRAW)
+	if _ram_wind > 0.0:
+		_ram_wind -= delta
+		_eye_material.albedo_color = Palette.WHITE if fmod(_ram_wind, 0.12) < 0.06 else Palette.RED
+		if _ram_wind <= 0.0:
+			_eye_material.albedo_color = Palette.RED
+			_ram = RAM_TIME
+		return Vector2.ZERO
+	_ram -= delta
+	if Vector2(tank.global_position.x - global_position.x, tank.global_position.z - global_position.z).length() < radius + tank.radius + 0.5 and not tank.dead:
+		_land_ram(tank)
+	return Vector2(RAM_SPEED, clampf(ahead.y, -8.0, 8.0))
+
+
+func _land_ram(tank: Tank) -> void:
+	var world := World.current
+	_ram = 0.0
+	_ram_cooldown = RAM_COOLDOWN
+	var hit := Hit.make(Hit.Kind.RAM, RAM_DAMAGE, tank.hit_center(), (tank.global_position - global_position).normalized())
+	hit.source = self
+	tank.take_hit(hit)
+	tank.local_velocity.x += signf(Course.to_course(tank.global_position).y - Course.to_course(global_position).y) * RAM_SHOVE
+	world.fx.sparks(tank.hit_center(), hit.direction, 12, Palette.BUTTER, 12.0)
+	world.shake(0.4, global_position)
+	Sfx.play("impact", tank.global_position)
+
+
 func damage_multiplier(hit: Hit) -> float:
 	return super(hit) * frontal_armor(hit, FRONT_ARMOR)
 
 
 func telegraphing() -> bool:
-	return _telegraph > 0.0
+	return _telegraph > 0.0 or _ram_wind > 0.0
 
 
 func on_damaged(hit: Hit, amount: float) -> void:
@@ -246,6 +302,7 @@ func _aim_point(tank: Tank) -> Vector3:
 
 
 func _cancel() -> void:
+	_ram_wind = 0.0
 	if _telegraph > 0.0:
 		_telegraph = 0.0
 		set_meta("locking", false)
@@ -255,4 +312,5 @@ func _cancel() -> void:
 func interrupt() -> void:
 	super()
 	_cancel()
+	_ram = 0.0
 	_burst = 0

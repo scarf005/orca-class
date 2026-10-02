@@ -1,8 +1,8 @@
 class_name Walker
 extends Enemy
 ## Bipedal walker with wheels on its feet. It rolls between lanes ahead of the tank, then plants
-## its feet, crouches with a flashing eye and fires: a 15 mm burst from its arm gun, or a pair of
-## missiles from its shoulder pod. A hit low on the legs breaks them and it topples.
+## its feet, crouches with a flashing eye and fires: a 15 mm burst from its arm gun, or a ripple of four
+## missiles from its shoulder pod, whose lid opens for the whole 0.8 s wind-up. A hit low on the legs breaks them and it topples.
 
 const KEEP_AHEAD := 42.0
 const PACE_TIME := 14.0
@@ -10,6 +10,10 @@ const SKATE_SPEED := 18.0
 const BARREL_SLEW := 3.0 ## Radians per second the arm gun and the pod turn onto the tank.
 const POD_LOFT := Vector3(0, 6, 0) ## The pod aims above the tank: its missiles pop up, then steer down onto it.
 const GUN_SPREAD := 0.03 ## Radians of scatter on every arm gun round.
+const MISSILE_WIND := 0.8 ## Seconds the pod's lid is open before the first missile leaves.
+const RIPPLE := 4 ## Missiles in a salvo.
+const RIPPLE_GAP := 0.16
+const LID_OPEN := 1.7
 const WHEEL_RADIUS := 0.2
 const ROUND_SPEED := MG_SPEED
 const KICK_RANGE := 7.0 ## A tank this close in front is kicked.
@@ -41,6 +45,7 @@ var _arm := Node3D.new()
 var _muzzle := Node3D.new()
 var _pod := Node3D.new()
 var _pod_muzzle := Node3D.new()
+var _pod_lid := Node3D.new() ## Hinged along the pod's top front edge; it swings up for the ripple.
 var _eye_material := StandardMaterial3D.new()
 var _hard := false
 
@@ -107,6 +112,12 @@ func build() -> void:
 	_add_mesh(_pod, p.mesh())
 	_pod_muzzle.position = Vector3(0, 0, -0.6)
 	_pod.add_child(_pod_muzzle)
+	_pod_lid.position = Vector3(0, 0.25, -0.43)
+	_pod.add_child(_pod_lid)
+	var lid := LowPoly.new()
+	lid.box(Transform3D(Basis(), Vector3(0, -0.25, 0)), Vector3(0.64, 0.5, 0.04), Palette.PINE)
+	lid.box(Transform3D(Basis(), Vector3(0, -0.25, -0.021)), Vector3(0.64, 0.08, 0.01), Palette.CORAL)
+	_add_mesh(_pod_lid, lid.mesh())
 	# Reverse-jointed legs ending in wheeled feet.
 	for side in [-1.0, 1.0]:
 		var hip := Node3D.new()
@@ -172,15 +183,20 @@ func behave(delta: float) -> void:
 	var to_tank := tank.global_position - global_position
 	model.rotation.y = lerp_angle(model.rotation.y, atan2(-to_tank.x, -to_tank.z), 5.0 * delta)
 	_animate(delta, planted)
+	_pod_lid.rotation.x = lerpf(_pod_lid.rotation.x, LID_OPEN if weapon == "missile" and (_telegraph > 0.0 or _burst > 0) else 0.0, 12.0 * delta)
 	if crippled or is_staggered():
 		_telegraph = 0.0
 		_kick = 0.0
 		return
 	aim_barrel(_arm, _arm_aim(tank), BARREL_SLEW, delta)
-	aim_barrel(_pod, tank.hit_center() + POD_LOFT, BARREL_SLEW, delta)
+	aim_barrel(_pod, _pod_aim(tank), BARREL_SLEW, delta)
 	if _burst > 0:
 		_burst_timer -= delta
-		if _burst_timer <= 0.0:
+		if _burst_timer <= 0.0 and weapon == "missile":
+			_burst -= 1
+			_burst_timer = RIPPLE_GAP
+			_fire_missile(tank)
+		elif _burst_timer <= 0.0:
 			_burst -= 1
 			_burst_timer = 0.08
 			var shot := fire_along("orb", _muzzle, ROUND_SPEED, 3.0, Palette.HOT, _aim - _muzzle.global_position, 3.0, GUN_SPREAD, Muzzle.LIGHT)
@@ -207,7 +223,7 @@ func behave(delta: float) -> void:
 	_attack_timer -= delta
 	var distance := global_position.distance_to(tank.global_position)
 	if _attack_timer <= 0.0 and distance < 90.0 and distance > 10.0:
-		_telegraph = 0.55
+		_telegraph = 0.55 if weapon == "gun" else MISSILE_WIND
 		_at_tail = randf() < Gunnery.TAIL_CHANCE
 		_attack_timer = (2.2 if weapon == "gun" else 3.2) * (0.75 if _hard else 1.0)
 		Sfx.play("warn", global_position, -6.0, 1.6)
@@ -220,21 +236,31 @@ func _attack(tank: Tank) -> void:
 		_burst = 8 if _hard else 6
 		_burst_timer = 0.0
 		return
-	for i in 2:
-		var from := _pod_muzzle.global_position
-		var missile := fire_along("rocket", _pod_muzzle, 34.0, 0.0, Palette.HOT, Vector3.ZERO, 3.0, 0.06)
-		missile.hit = Hit.make(Hit.Kind.SHELL, 0.0, from)
-		missile.hit.source = self
-		missile.blast_radius = 2.4
-		missile.blast_damage = 12.0
-		missile.homing_target = tank
-		missile.homing_lead = true
-		missile.turn_rate = 2.1
-		missile.interceptable = true
-		missile.intercept_hp = 0.7
-		missile.trail = Projectile.ROCKET_SMOKE
-		missile.life = 5.0
-	Sfx.play("launch", _pod_muzzle.global_position, 0.0, 1.3)
+	_burst = RIPPLE
+	_burst_timer = 0.0
+
+
+## One missile of the ripple: it pops up out of the pod, then steers onto where the tank will be.
+func _fire_missile(tank: Tank) -> void:
+	var from := _pod_muzzle.global_position
+	var missile := fire_along("rocket", _pod_muzzle, 34.0, 0.0, Palette.HOT, Vector3.ZERO, 3.0, 0.06)
+	missile.hit = Hit.make(Hit.Kind.SHELL, 0.0, from)
+	missile.hit.source = self
+	missile.blast_radius = 2.4
+	missile.blast_damage = 12.0
+	missile.homing_target = tank
+	missile.homing_lead = true
+	missile.turn_rate = 2.1
+	missile.interceptable = true
+	missile.intercept_hp = 0.7
+	missile.trail = Projectile.ROCKET_SMOKE
+	missile.life = 5.0
+	Sfx.play("launch", from, 0.0, 1.3)
+
+
+## Where the pod points: above the tank, so the missiles pop up and then steer down onto it.
+func _pod_aim(tank: Tank) -> Vector3:
+	return tank.hit_center() + POD_LOFT
 
 
 func _flat_distance(tank: Tank) -> float:

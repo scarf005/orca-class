@@ -4,6 +4,7 @@ extends Enemy
 ## around where the tank will be.
 
 const RANGE := Vector2(-15.0, 100.0) ## Fires while the tank is this far behind/ahead along the road.
+const SPORE_TRAIL := Palette.CREAM ## Pale spore cloud streamed behind a shell.
 
 var _timer := 1.5
 var _telegraph := 0.0
@@ -110,6 +111,7 @@ func _volley(tank: Tank) -> void:
 		mortar.interceptable = true
 		mortar.intercept_hp = 1.0
 		mortar.life = flight + 1.0
+		mortar.trail = SPORE_TRAIL
 		mortar.impacted.connect(func(_p: Projectile, point: Vector3, _t: Entity) -> void: Hazard.spawn(point, 2.8, 2.0, 7.0))
 		world.fx.marker(target, 3.2, flight, Palette.FUNGUS)
 	world.fx.spores(from, 12, 1.2)

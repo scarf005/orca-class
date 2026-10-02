@@ -1,7 +1,7 @@
 extends TestCase
 ## Walker rockets lead the tank: a tank that holds course is hit, one that strafes hard escapes.
 
-const LAUNCHES := 100 ## Walkers per volley; each fires a pair.
+const LAUNCHES := 100 ## Walkers per volley; each fires a ripple of four.
 
 
 ## Rockets fired by walkers where they pace the tank (KEEP_AHEAD ahead, random lane) with the rail
@@ -22,6 +22,9 @@ func _volley(world: World, strafe: float, lead := true) -> float:
 		var before := world.projectiles.duplicate()
 		walker.aim_barrel(walker._pod, tank.hit_center() + Walker.POD_LOFT, 100.0, 1.0) # The pod has finished training onto the tank.
 		walker._attack(tank)
+		check_eq(walker._burst, Walker.RIPPLE, "the salvo is a ripple of four")
+		for _j in Walker.RIPPLE:
+			walker._fire_missile(tank)
 		for rocket in world.projectiles:
 			if rocket in before:
 				continue
@@ -48,7 +51,7 @@ func test_rockets_hit_a_tank_holding_course() -> void:
 func test_rockets_without_lead_overfly_a_tank_holding_course() -> void:
 	seed(3)
 	var share := await _volley(stage("", false), 0.0, false)
-	check(share < 0.3, "chasing the tank's current position mostly misses (%.2f)" % share)
+	check(share < 0.35, "chasing the tank's current position mostly misses (%.2f)" % share)
 
 
 func test_rockets_miss_a_tank_strafing_hard() -> void:

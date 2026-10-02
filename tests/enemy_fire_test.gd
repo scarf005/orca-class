@@ -130,7 +130,7 @@ func test_quad_flak_and_mortar_fire_along_their_barrels() -> void:
 		quad._attack_timer = 0.0
 		var angle := await _first_shot(world, quad, [quad._muzzle])
 		check(angle >= 0.0, "the %s quad fires" % weapon)
-		check(angle <= (BORE_TOLERANCE if weapon == "flak" else 10.0), "the %s quad's round leaves along its barrel (%.1f deg)" % [weapon, angle])
+		check(angle <= (BORE_TOLERANCE if weapon == "flak" else QuadMech.MORTAR_CORRECTION + 0.5), "the %s quad's round leaves along its barrel (%.1f deg)" % [weapon, angle])
 		cleanup()
 
 
