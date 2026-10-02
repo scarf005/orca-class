@@ -11,6 +11,9 @@ var _popups: Array[Dictionary] = []
 var _incoming: Array[Dictionary] = [] ## {position, time}: waves arriving from outside the view.
 var _intercepts := 0
 var _banner := ""
+var _sensor_warning := "" ## A lost roof sensor, said small just above the hull schematic.
+var _sensor_warning_time := 0.0
+const SENSOR_WARNING_TIME := 1.6
 var _banner_time := 0.0
 var _shout := ""
 var _shout_time := 0.0
@@ -62,8 +65,9 @@ func _ready() -> void:
 		Sfx.ui("warn", 0.0, 1.3))
 	world.player.pickup_collected.connect(_on_pickup)
 	world.player.sensor_lost.connect(func(name: String) -> void:
-		shout(tr("WARN_FCS_LOST" if name == "fcs" else "WARN_RWS_LOST"), Palette.RED, 2.2)
-		Sfx.ui("warn"))
+		_sensor_warning = tr("WARN_FCS_LOST" if name == "fcs" else "WARN_RWS_LOST")
+		_sensor_warning_time = SENSOR_WARNING_TIME
+		Sfx.ui("warn", -10.0))
 	world.director.section_changed.connect(func(section: Course.Section) -> void: banner(tr("SECTION_%d" % section)))
 	world.director.checkpoint_reached.connect(func(_name: String) -> void: banner(tr("CHECKPOINT")))
 
@@ -199,6 +203,10 @@ func _draw_status() -> void:
 	_panel(Rect2(origin, Vector2(210, 112)), Palette.MINT)
 	_update_xray()
 	draw_texture(_tank_view.get_texture(), origin + Vector2(8, 2))
+	if _sensor_warning_time > 0.0:
+		_sensor_warning_time -= get_process_delta_time()
+		if fmod(_sensor_warning_time, 0.4) > 0.12:
+			_text(origin + Vector2(4, -6), _sensor_warning, Palette.RED, 12)
 	var armor := p.hp / p.max_hp
 	_bar(Rect2(origin + Vector2(104, 12), Vector2(96, 8)), armor, _armor_color(armor), 10)
 	_bar(Rect2(origin + Vector2(104, 28), Vector2(96, 5)), p.tail.hp / Tail.MAX_HP, _tail_color(), 10)

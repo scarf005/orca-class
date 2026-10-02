@@ -1008,6 +1008,8 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 
 			shell.fuse_distance = muzzle.distance_to(_aimed_spot(charge_lock) if _aimed_spot(charge_lock) != Vector3.INF else charge_lock.hit_center()) if is_instance_valid(charge_lock) else maxf(muzzle.distance_to(aim_point) - 2.0, 6.0)
 			shell.airburst_fragments = roundi(lerpf(Armament.AIRBURST_FRAGMENTS.x, Armament.AIRBURST_FRAGMENTS.y, table))
 			shell.proximity = lerpf(Armament.AIRBURST_PROXIMITY.x, Armament.AIRBURST_PROXIMITY.y, table)
+	shell.hit.damage *= Armament.SHELL_DAMAGE_SCALE
+	shell.blast_damage *= Armament.SHELL_DAMAGE_SCALE
 	if not full:
 		return
 	# A locked full charge always strikes its lock: aimed straight at it, through whatever is between.

@@ -14,6 +14,7 @@ const RICOCHET_DEFAULT_SPEED := 100.0 ## For a hit that carries no speed.
 const RICOCHET_LIFE := Vector2(0.25, 0.4)
 const RICOCHET_SPREAD := 0.35
 const TRAIL_MIN_SPEED := 4.0 ## Shards stop trailing once they slow down on the ground.
+static var BLAST_POPS := 2 ## Most secondary pops a big blast sets off (tuned live in the duel mode).
 static var DEBRIS_SMOKE_LIFE := 0.5 ## Seconds the smoke a flying shard or wreck leaves hangs in the air (tuned live in the duel mode).
 
 ## SOLID: flat pixel-art debris sprites that face the camera and tumble in the screen plane.
@@ -426,8 +427,9 @@ func light_flash(position: Vector3, energy: float, color := Palette.PEACH, radiu
 ## secondary pops.
 ## `push` is the attack direction: the fireball, embers, dust and debris are thrown on along it and
 ## the secondary pops march down it, so a shell's blast carries through what it hit.
-## `ring` is the shockwave's radius; by default it follows the fireball.
-func explosion(position: Vector3, damage_radius: float, palette := [Palette.BUTTER, Palette.AMBER, Palette.HOT, Palette.CORAL], push := Vector3.ZERO, ring := 0.0) -> void:
+## `ring` is the shockwave's radius; by default it follows the fireball. `pops` is how many smaller
+## secondary blasts follow it; by default BLAST_POPS for a big one, none for a small one.
+func explosion(position: Vector3, damage_radius: float, palette := [Palette.BUTTER, Palette.AMBER, Palette.HOT, Palette.CORAL], push := Vector3.ZERO, ring := 0.0, pops := -1) -> void:
 	# Visuals read bigger than the damage area: it has to register at 480x270 across the valley.
 	# Capped so a heavy shell's blast reads huge without swallowing the screen.
 	var radius := minf(damage_radius * 1.5, 8.0)
@@ -469,10 +471,11 @@ func explosion(position: Vector3, damage_radius: float, palette := [Palette.BUTT
 	for i in int(1 + n * 0.8):
 		var dir := Vector3(randf_range(-1, 1), randf_range(0.8, 1.6), randf_range(-1, 1)).normalized()
 		spawn(Kind.FLAME, position, dir * randf_range(6, 12) * (0.7 + radius * 0.15), randf_range(1.0, 1.8), 0.35, Palette.PEACH, {"gravity": 18.0, "trail": Palette.ASH, "end_size": 0.2, "fade": 0.8})
-	if damage_radius >= 3.0:
-		for i in int(damage_radius * 0.5):
-			var along := push * damage_radius * (0.8 + i * 0.7)
-			_delayed.append({"time": (randf_range(0.12, 0.3) + i * 0.1) * BLAST_PACE, "position": position + along + Vector3(randf_range(-1, 1), randf_range(0, 1), randf_range(-1, 1)) * damage_radius * 0.6, "radius": damage_radius * 0.4, "palette": palette, "push": push})
+	if pops < 0:
+		pops = mini(int(damage_radius * 0.5), BLAST_POPS) if damage_radius >= 3.0 else 0
+	for i in pops:
+		var along := push * damage_radius * (0.8 + i * 0.7)
+		_delayed.append({"time": (randf_range(0.12, 0.3) + i * 0.1) * BLAST_PACE, "position": position + along + Vector3(randf_range(-1, 1), randf_range(0, 1), randf_range(-1, 1)) * damage_radius * 0.6, "radius": damage_radius * 0.4, "palette": palette, "push": push})
 
 
 ## A see-through copy of `meshes` where they stand now, washed in `color`, that dithers away.
@@ -571,7 +574,7 @@ func _update_delayed(delta: float) -> void:
 			ready.append(d)
 	for d in ready:
 		_delayed.erase(d)
-		explosion(d.position, d.radius, d.palette, d.get("push", Vector3.ZERO))
+		explosion(d.position, d.radius, d.palette, d.get("push", Vector3.ZERO), 0.0, 0) # A pop never pops again.
 		Sfx.play("blast_small", d.position, -4.0, randf_range(1.0, 1.3))
 
 

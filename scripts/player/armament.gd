@@ -43,6 +43,7 @@ const QUICK_RADIUS := Vector2(4.0, 6.0)
 const QUICK_BLAST := Vector2(300.0, 600.0)
 const APHE_DAMAGE := Vector2(1.0, 2.0) ## Times SHELL_DAMAGE; the full charge uses y, a quick shell QUICK_DAMAGE.
 const APHE_RADIUS := Vector2(5.0, 9.0)
+static var SHELL_DAMAGE_SCALE := 2.0 ## Multiplies every main-gun shell's hit and blast damage (tuned live in the duel mode).
 static var HE_RADIUS_SCALE := 1.6 ## Widens the APHE filler's blast, so a near miss still tears what stands beside it (tuned live in the duel mode).
 const APHE_BLAST := Vector2(600.0, 600.0)
 const HEAT_STAGGER := Vector2(1.0, 2.5)
