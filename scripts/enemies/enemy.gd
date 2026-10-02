@@ -258,7 +258,7 @@ func on_death(hit: Hit) -> void:
 	# off more and throws it harder. Anything without a hull goes to pieces.
 	var remains := wreck_on_death
 	var share := (0.7 if overkilled else 0.35) if wreck_on_death else 1.0
-	if hit != null and hit.kind == Hit.Kind.SHELL:
+	if torn_apart(hit):
 		# A shell's energy sets how fast the chips fly; only the focus decides how much they follow the shot.
 		world.fx.shatter(visual_bounds(), debris, push.normalized() * dismember_focus(push), share, 1.0 + push.length() * 0.5)
 	else:
@@ -271,7 +271,7 @@ func on_death(hit: Hit) -> void:
 				mesh.material_overlay = rest_overlay
 		# Remains are no longer a threat: drop the hostile outline.
 		ActorLayer.unmark(model, ActorLayer.HOSTILE)
-		if hit != null and hit.kind == Hit.Kind.SHELL:
+		if torn_apart(hit):
 			_dismember(center, push, by_player)
 		else:
 			for part in pop_parts:
@@ -320,6 +320,11 @@ func _dismember(center: Vector3, push: Vector3, by_player: bool) -> void:
 	model.queue_free()
 
 
+## A main-gun round tears what it kills to pieces: a direct hit, or the blast of its filler next to it.
+static func torn_apart(hit: Hit) -> bool:
+	return hit != null and hit.caliber >= 100 and hit.kind in [Hit.Kind.SHELL, Hit.Kind.BLAST]
+
+
 ## How far (0..1) a shell kill's pieces bend from a full burst toward the shot: more with more
 ## momentum, scaled by DISMEMBER_FOCUS; at 0 they always burst all round.
 static func dismember_focus(push: Vector3) -> float:
@@ -344,7 +349,10 @@ static func kill_push(hit: Hit) -> Vector3:
 			return dir * maxf(energy, 0.5) if KILL_THROW_MAX >= KILL_THROW_UNCAPPED else dir * clampf(energy, 0.5, KILL_THROW_MAX)
 		Hit.Kind.RAM, Hit.Kind.THROWN, Hit.Kind.TAIL:
 			return dir
-		Hit.Kind.BLAST, Hit.Kind.FRAGMENT:
+		Hit.Kind.BLAST:
+			# Out from the blast, harder the more of it reached this one.
+			return dir * clampf(hit.damage / 150.0, 0.6, 4.0)
+		Hit.Kind.FRAGMENT:
 			return dir * 0.6
 	return dir * 0.25
 

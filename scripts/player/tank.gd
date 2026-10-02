@@ -971,7 +971,7 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 
 		Armament.Round.APHE:
 			# A small filler: it wrecks what it hits and, charged, the pack around it.
 			shell.hit.damage = Armament.SHELL_DAMAGE * Armament.APHE_DAMAGE.y if full else lerpf(Armament.QUICK_DAMAGE.x, Armament.QUICK_DAMAGE.y, power)
-			shell.blast_radius = Armament.APHE_RADIUS.y if full else lerpf(Armament.QUICK_RADIUS.x, Armament.QUICK_RADIUS.y, power)
+			shell.blast_radius = (Armament.APHE_RADIUS.y if full else lerpf(Armament.QUICK_RADIUS.x, Armament.QUICK_RADIUS.y, power)) * Armament.HE_RADIUS_SCALE
 			shell.blast_damage = Armament.APHE_BLAST.y if full else lerpf(Armament.QUICK_BLAST.x, Armament.QUICK_BLAST.y, power)
 			shell.pierce_entities = full
 		Armament.Round.HEAT:
