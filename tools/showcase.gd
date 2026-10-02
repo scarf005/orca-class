@@ -131,5 +131,5 @@ func _drive(world: World, t: float) -> void:
 	tank.aim_screen = world.camera.unproject_position(target.hit_center())
 	tank.input_enabled = true
 	if t >= _next_shot:
-		_next_shot = t + Armament.CHARGE_DELAY + Armament.CHARGE_TIME
+		_next_shot = t + Armament.FULL_TIME + Armament.CANNON_RECOVER
 		tank.fire_cannon(Vector3.INF, Vector3.ZERO, 1.0)

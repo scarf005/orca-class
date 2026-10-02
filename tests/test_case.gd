@@ -37,6 +37,15 @@ func stage(checkpoint := "", rws := true) -> World:
 	return _world
 
 
+## Flies the projectiles fired since `before` (a `world.projectiles.size()`) to their end, without frames passing.
+func land(world: World, before: int) -> void:
+	for projectile: Projectile in world.projectiles.slice(before):
+		for _i in 600:
+			if projectile.is_queued_for_deletion():
+				break
+			projectile.step(1.0 / 60.0)
+
+
 func frames(count: int) -> void:
 	for _i in count:
 		await get_tree().process_frame

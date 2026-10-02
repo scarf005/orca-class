@@ -473,7 +473,7 @@ func _draw_reticle() -> void:
 	var far := p.sight_point()
 	_draw_cursor(cursor)
 	if p.is_charging():
-		_draw_charge_ring(cursor, p.charge_ring_radius() * SCALE, p.charge, charged_lock)
+		_draw_charge_ring(cursor, p.charge_ring_radius() * SCALE, p.charge, charged_lock, 1.0 - p.auto_fire_progress())
 	if cam.is_position_behind(far):
 		return
 	var c := cam.unproject_position(far) * SCALE
@@ -539,7 +539,7 @@ func _draw_reticle() -> void:
 		# Lead diamond for the main gun, while the FCS can still compute one.
 		if not p.modules.lead_online():
 			return
-		var lead := p.lead_point(p.model.muzzle.global_position, Armament.SHELL_SPEED, target, focus)
+		var lead := p.lead_point(p.model.muzzle.global_position, p.shell_speed(), target, focus)
 		if not cam.is_position_behind(lead):
 			var lp := cam.unproject_position(lead) * SCALE
 			draw_line(center, lp, Color(Palette.HOSTILE, 0.5), 1.0)
@@ -556,13 +556,19 @@ func _draw_cursor(at: Vector2) -> void:
 
 
 ## The charge, around the cursor at the radius it locks within: segments fill clockwise from the
-## top; full, the ring closes solid and pulses.
-func _draw_charge_ring(at: Vector2, radius: float, charge: float, locked: bool) -> void:
+## top; full, the ring closes solid with a notch at the top and pulses, and a thin outer arc drains
+## to the moment the gun fires by itself (`auto_left`, 1 to 0).
+func _draw_charge_ring(at: Vector2, radius: float, charge: float, locked: bool, auto_left: float) -> void:
 	const SEGMENTS := 16
 	if charge >= 1.0:
 		var pulse := 0.5 + 0.5 * sin(_time * 18.0)
 		draw_arc(at, radius, 0.0, TAU, 48, Palette.INK, 6.0)
 		draw_arc(at, radius, 0.0, TAU, 48, Palette.WHITE.lerp(Palette.FRIENDLY, 0.4 + pulse * 0.6) if not locked else Palette.FRIENDLY, 3.0)
+		draw_line(at + Vector2(0, -radius - 8.0), at + Vector2(0, -radius + 8.0), Palette.INK, 5.0)
+		draw_line(at + Vector2(0, -radius - 8.0), at + Vector2(0, -radius + 8.0), Palette.WHITE, 2.0)
+		if auto_left > 0.0:
+			draw_arc(at, radius + 8.0, -PI * 0.5, -PI * 0.5 + TAU * auto_left, 48, Palette.INK, 3.0)
+			draw_arc(at, radius + 8.0, -PI * 0.5, -PI * 0.5 + TAU * auto_left, 48, Palette.BUTTER, 1.0)
 		return
 	for k in SEGMENTS:
 		var a0 := -PI * 0.5 + TAU * k / SEGMENTS + 0.04

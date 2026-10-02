@@ -45,7 +45,7 @@ func test_module_effects_and_field_repair() -> void:
 	var tank := world.player
 	tank.modules.damage("breech", 999.0)
 	tank.fire_cannon()
-	check_near(tank.charge_time(), Armament.CHARGE_TIME * 3.0, 0.01, "destroyed breech triples the charge time")
+	check_near(tank.charge_time(), (Armament.FULL_TIME - Armament.TAP_TIME) * 3.0, 0.01, "destroyed breech triples the charge time")
 	tank.modules.damage("engine", 999.0)
 	check(not tank.modules.overdrive_online(), "dead engine: no overdrive")
 	check_eq(tank.modules.meter_refill_factor(), 0.0, "and no meter refill")

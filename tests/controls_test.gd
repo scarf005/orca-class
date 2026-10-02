@@ -3,13 +3,15 @@ extends TestCase
 
 
 func test_keyboard_needs_only_wasd_and_the_mouse() -> void:
-	check(Game.REBINDABLE == [&"move_forward", &"move_back", &"move_left", &"move_right", &"fire_coax", &"fire_cannon", &"dash", &"pause"], "only movement, the guns, dash and pause are bound")
+	check(Game.REBINDABLE == [&"move_forward", &"move_back", &"move_left", &"move_right", &"fire", &"dash", &"pause"], "only movement, the fire button, dash and pause are bound")
 	for action in [&"anchor", &"overdrive", &"brake"]:
 		check(not InputMap.has_action(action), "%s is gone" % action)
 	var button := func(action: StringName, index: MouseButton) -> bool:
 		return InputMap.action_get_events(action).any(func(e: InputEvent) -> bool: return e is InputEventMouseButton and (e as InputEventMouseButton).button_index == index)
-	check(button.call(&"fire_coax", MOUSE_BUTTON_LEFT), "left mouse fires the coax")
-	check(button.call(&"fire_cannon", MOUSE_BUTTON_RIGHT), "right mouse fires the main gun")
+	for action in [&"fire_coax", &"fire_cannon"]:
+		check(not InputMap.has_action(action), "%s is folded into fire" % action)
+	check(button.call(&"fire", MOUSE_BUTTON_LEFT), "left mouse fires")
+	check(not button.call(&"fire", MOUSE_BUTTON_RIGHT), "right mouse does not")
 	check(InputMap.action_get_events(&"dash").any(func(e: InputEvent) -> bool: return e is InputEventKey and (e as InputEventKey).physical_keycode == KEY_SPACE), "Space dashes")
 
 
@@ -143,7 +145,7 @@ func test_one_main_gun_shell_wrecks_a_vehicle() -> void:
 	shell.caliber = 100
 	ugv.take_hit(shell)
 	check(ugv.dead, "a direct 100 mm hit is a kill")
-	check(Armament.CHARGE_DELAY + Armament.CHARGE_TIME <= 1.0, "and a full charge takes no longer than a second")
+	check(Armament.FULL_TIME <= 1.0, "and a full charge takes no longer than a second of hold")
 
 
 func test_the_gun_lays_on_a_soft_locked_drone_not_the_ground_behind_it() -> void:
@@ -166,6 +168,6 @@ func test_the_gun_lays_on_a_soft_locked_drone_not_the_ground_behind_it() -> void
 	var to_drone := (drone.hit_center() - tank.model.muzzle.global_position).normalized()
 	check(barrel.angle_to(to_drone) < deg_to_rad(6.0), "the barrel points close enough for rounds to reach it (off by %.1f°)" % rad_to_deg(barrel.angle_to(to_drone)))
 	var start := drone.hp
-	tank.fire_cannon()
+	tank.fire_cannon(Vector3.INF, Vector3.ZERO, 1.0)
 	check(drone.dead or drone.hp < start, "the main gun hits it")
 	cleanup()

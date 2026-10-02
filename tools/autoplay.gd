@@ -8,8 +8,9 @@ var screen: GameScreen
 var bot := "hold"
 var cleared := false
 var kill_sources := {"coax": 0, "cannon": 0, "ram": 0, "dash": 0, "tail": 0, "ciws": 0, "collateral": 0, "reflect": 0, "other": 0}
-var _tap_down := false
+var _last_tap := -1.0
 var _charge_started := -1.0
+var _shots_seen := 0
 var _section := 0
 
 
@@ -107,7 +108,7 @@ func run() -> int:
 	print("PROBE bot=%s cleared=%s dead=%s time=%.2f d=%.0f lives=%d damage_taken=%.2f kills=%d/%d front_mean=%.2f coax=%d cannon=%d ram=%d dash=%d tail=%d ciws=%d collateral=%d reflect=%d other=%d cannon_shots=%d charged_shots=%d healing_melee=%.2f healing_repair=%.2f" % [
 		bot, cleared and not world.player.dead, world.player.dead, stats.time, world.rail.d, stats.lives, stats.damage_taken, stats.kills, stats.spawned, front_total / maxi(frames, 1),
 		kill_sources.coax, kill_sources.cannon, kill_sources.ram, kill_sources.dash, kill_sources.tail, kill_sources.ciws, kill_sources.collateral, kill_sources.reflect, kill_sources.other, stats.shots, stats.charged_shots, stats.melee_healing, stats.repair_healing])
-	for action in ["fire_coax", "fire_cannon", "move_left", "move_right"]:
+	for action in ["fire", "move_left", "move_right"]:
 		Input.action_release(action)
 	Engine.time_scale = 1.0
 	return 0
@@ -150,26 +151,26 @@ func _drive(world: World, t: float) -> void:
 	else:
 		tank.aim_screen = Vector2(DitherView.RESOLUTION) * Vector2(0.5, 0.4)
 	if bot == "idle":
-		Input.action_release("fire_coax")
-		Input.action_release("fire_cannon")
+		Input.action_release("fire")
+	elif bot == "tap":
+		# A press for one frame every 0.3 s at the nearest target: coax bursts only.
+		Input.action_release("fire")
+		if target and t - _last_tap >= 0.3:
+			Input.action_press("fire")
+			_last_tap = t
+	elif bot == "charge":
+		if _charge_started >= 0.0 and tank.charge >= 1.0:
+			Input.action_release("fire")
+			_charge_started = -1.0
+		elif target and _charge_started < 0.0:
+			Input.action_press("fire")
+			_charge_started = t
+	elif world.stats.shots != _shots_seen:
+		# Mashing: let go for a frame after every shot, so the next hold starts a new charge.
+		_shots_seen = world.stats.shots
+		Input.action_release("fire")
 	else:
-		Input.action_press("fire_coax")
-		if bot == "tap":
-			if _tap_down:
-				Input.action_release("fire_cannon")
-				_tap_down = false
-			elif target:
-				Input.action_press("fire_cannon")
-				_tap_down = true
-		elif bot == "charge":
-			if _charge_started >= 0.0 and tank.charge >= 1.0 and (is_instance_valid(tank.charge_lock) or t - _charge_started >= 1.5):
-				Input.action_release("fire_cannon")
-				_charge_started = -1.0
-			elif target and _charge_started < 0.0:
-				Input.action_press("fire_cannon")
-				_charge_started = t
-		else:
-			Input.action_press("fire_cannon")
+		Input.action_press("fire")
 	var weave := sin(t * 0.7)
 	if weave > 0.3:
 		Input.action_press("move_right")

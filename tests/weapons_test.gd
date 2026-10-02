@@ -70,7 +70,7 @@ func test_airburst_detonates_at_fuse_distance() -> void:
 	var muzzle := tank.model.muzzle.global_position
 	tank.aim_point = muzzle + -tank.model.barrel.global_basis.z * 40.0 # The shell follows the barrel.
 	var before := world.projectiles.size()
-	tank.fire_cannon() # Hitscan: the shell flies and bursts within this call.
+	tank.fire_cannon(Vector3.INF, Vector3.ZERO, 1.0) # Hitscan: the shell flies and bursts within this call.
 	var fragments := world.projectiles.slice(before).filter(func(p: Projectile) -> bool: return not p.is_queued_for_deletion()) # Minus the spent shell.
 	check(fragments.size() > 0, "burst releases fragments")
 	var burst: Vector3 = fragments[0].global_position if fragments.size() > 0 else muzzle
@@ -92,6 +92,8 @@ func _burst_beside_uav(world: World, ahead: float, off: float, reticle: float, p
 	tank.aim_point = muzzle + forward * reticle
 	var before := world.projectiles.size()
 	tank.fire_cannon(Vector3.INF, Vector3.ZERO, power)
+	if power < 1.0:
+		land(world, before) # A quick shell flies to its burst; a full charge has landed already.
 	var fragments := world.projectiles.slice(before).filter(func(p: Projectile) -> bool: return not p.is_queued_for_deletion())
 	return [muzzle, fragments[0].global_position if not fragments.is_empty() else Vector3.INF, uav]
 
@@ -166,7 +168,9 @@ func _cannon_volley(world: World, round: Armament.Round, near: float, far: float
 	await frames(1)
 	tank.load_round(round)
 	var target := ugvs[0].hit_center()
-	tank.fire_cannon(target + Vector3.UP * 20.0, Vector3.DOWN)
+	var before := world.projectiles.size()
+	tank.fire_cannon(target + Vector3.UP * 20.0, Vector3.DOWN, 0.99)
+	land(world, before)
 	return ugvs.map(func(ugv: Ugv) -> bool: return ugv.dead)
 
 

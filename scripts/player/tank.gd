@@ -72,13 +72,17 @@ var using_gamepad := false
 var coax_tier := 0
 var current_round := Armament.Round.APHE
 var round_count := 0
-var charge := 0.0
+var charge := 0.0 ## Main-gun charge (0..1): zero until the hold passes TAP_TIME, one at FULL_TIME.
 var charge_lock: Entity
 var charge_part := ""
-var charge_candidate: Entity ## What a full charge would lock right now, shown while charging.
-var _charge_time := 0.0
-var _cannon_held := false
-var _cannon_released := false
+var charge_candidate: Entity ## What a hold would lock right now, shown while charging.
+var _hold := 0.0 ## Seconds the fire button has been held since the gun recovered.
+var _fire_held := false
+var _fire_released := false
+var _auto_fire := false ## The hold reached the auto-fire time: the gun fires this frame.
+var _spent := false ## The gun fired by itself: the button has to come up before a new hold counts.
+var _recover := 0.0 ## Seconds until a hold can charge again after a shot.
+var _burst := 0.0 ## Seconds of coax fire left from the last press.
 var _full_click := false
 var _coax_timers: Array[float] = []
 
@@ -538,7 +542,7 @@ func _update_aim(delta: float) -> void:
 		lock = charge_lock
 	var ease_in := 1.0 if lock != _sight_lock else 1.0 - exp(-SIGHT_RATE * delta) # Snaps when the lock changes hands.
 	if is_instance_valid(lock):
-		var speed: float = Armament.SHELL_SPEED if lock == charge_lock else Armament.GUNS[Armament.tier_calibers(coax_tier)[0]].speed
+		var speed: float = shell_speed() if lock == charge_lock else Armament.GUNS[Armament.tier_calibers(coax_tier)[0]].speed
 		# The aimed spot eases, so the sight sliding on and off the target's shape does not jerk the barrel.
 		var spot := _aimed_spot(lock)
 		_lay_offset = _lay_offset.lerp(Vector3.ZERO if spot == Vector3.INF else spot - lock.hit_center(), ease_in)
@@ -622,10 +626,18 @@ func lead_point(from: Vector3, speed: float, target: Entity, spot := Vector3.INF
 
 
 func _cancel_charge() -> void:
+	_reset_charge()
+	_fire_held = false
+	_fire_released = false
+	_spent = false
+	_recover = 0.0
+	_burst = 0.0
+
+
+func _reset_charge() -> void:
 	charge = 0.0
-	_charge_time = 0.0
-	_cannon_held = false
-	_cannon_released = false
+	_hold = 0.0
+	_auto_fire = false
 	_full_click = false
 	charge_lock = null
 	charge_part = ""
@@ -633,34 +645,56 @@ func _cancel_charge() -> void:
 
 
 func is_charging() -> bool:
-	return input_enabled and _cannon_held and _charge_time >= Armament.CHARGE_DELAY
+	return input_enabled and _fire_held and not _spent and _hold >= Armament.TAP_TIME
 
 
-## Seconds a full charge takes after the delay: a damaged breech loads slower.
+## Seconds from the first charge to full: a damaged breech loads slower.
 func charge_time() -> float:
-	return Armament.CHARGE_TIME * modules.breech_factor()
+	return (Armament.FULL_TIME - Armament.TAP_TIME) * modules.breech_factor()
+
+
+## Seconds of hold at which the gun fires by itself: AUTO_FIRE_TIME, as long after full as it is for a whole breech.
+func auto_fire_hold() -> float:
+	return Armament.TAP_TIME + charge_time() + Armament.AUTO_FIRE_TIME - Armament.FULL_TIME
+
+
+## How far the hold has run from full toward the auto-fire (0..1).
+func auto_fire_progress() -> float:
+	return clampf((_hold - Armament.TAP_TIME - charge_time()) / (Armament.AUTO_FIRE_TIME - Armament.FULL_TIME), 0.0, 1.0)
+
+
+## How fast a round of this charge flies, for leading the lock: a quick shell flies, a full charge lands at once.
+func shell_speed(power := charge) -> float:
+	return Armament.SHELL_SPEED if power >= 1.0 else Armament.QUICK_SPEED
 
 
 func _update_charge(delta: float) -> void:
 	if not input_enabled or dead or _respawn > 0.0:
 		_cancel_charge()
 		return
-	var held := Input.is_action_pressed("fire_cannon")
-	_cannon_released = _cannon_held and not held
-	if held:
-		var before := _charge_time
-		_charge_time += delta
-		if before < Armament.CHARGE_DELAY and _charge_time >= Armament.CHARGE_DELAY:
+	var held := Input.is_action_pressed("fire")
+	_fire_released = _fire_held and not held
+	if held and not _fire_held:
+		_burst = Armament.COAX_BURST # Every press gives a burst; holding does not keep the coax going.
+	if not held:
+		_spent = false
+	var waited := minf(_recover, delta)
+	_recover -= waited
+	if held and not _spent and _recover <= 0.0:
+		var before := _hold
+		_hold += delta - waited # Only the time after recovery counts.
+		if before < Armament.TAP_TIME and _hold >= Armament.TAP_TIME:
 			Sfx.play("charge", global_position)
-	elif not _cannon_released: # The release frame keeps the charge it let go with.
-		_charge_time = maxf(0.0, _charge_time - delta * Armament.CHARGE_DRAIN)
-	charge = clampf((_charge_time - Armament.CHARGE_DELAY) / charge_time(), 0.0, 1.0)
+		_auto_fire = _hold >= auto_fire_hold()
+	elif not _fire_released: # The release frame keeps the charge it let go with.
+		_hold = 0.0
+	charge = clampf((_hold - Armament.TAP_TIME) / charge_time(), 0.0, 1.0)
 	if charge >= 1.0 and not _full_click:
 		_full_click = true
 		Sfx.play("charge_full", global_position)
 	elif charge < 1.0:
 		_full_click = false
-	_cannon_held = held
+	_fire_held = held
 
 
 ## Canister shows the actual cone footprint at the sight's range, in 3D-view pixels.
@@ -685,7 +719,7 @@ func _charge_distance(target: Entity, part: String) -> float:
 
 
 func _update_charge_lock() -> void:
-	if (not is_charging() and not _cannon_released) or modules.lock_factor() <= 0.0:
+	if (not is_charging() and not _fire_released) or modules.lock_factor() <= 0.0:
 		charge_lock = null
 		charge_part = ""
 		charge_candidate = null
@@ -694,6 +728,8 @@ func _update_charge_lock() -> void:
 		return
 	charge_lock = null
 	charge_part = ""
+	if not is_charging():
+		return
 	var candidate: Entity
 	var part := ""
 	var best := charge_ring_radius() * modules.lock_factor()
@@ -705,7 +741,7 @@ func _update_charge_lock() -> void:
 			candidate = enemy
 			part = nearest_part
 	charge_candidate = candidate
-	if charge >= 1.0 and candidate:
+	if candidate:
 		charge_lock = candidate
 		charge_part = part
 		charge_locked.emit(candidate)
@@ -714,7 +750,8 @@ func _update_charge_lock() -> void:
 
 func _update_weapons(delta: float) -> void:
 	coax_part = _pick_part(coax_target)
-	if input_enabled and Input.is_action_pressed("fire_coax"):
+	if input_enabled and _burst > 0.0:
+		_burst -= delta
 		var calibers := Armament.tier_calibers(coax_tier)
 		for i in calibers.size():
 			_coax_timers[i] -= delta
@@ -725,16 +762,12 @@ func _update_weapons(delta: float) -> void:
 	else:
 		for i in _coax_timers.size():
 			_coax_timers[i] = maxf(_coax_timers[i] - delta, 0.0)
-	if _cannon_released:
-		if input_enabled and charge >= 1.0:
-			fire_cannon(Vector3.INF, Vector3.ZERO, 1.0)
-			_cancel_charge()
-		else:
-			# Let go early: the charge drains back instead of vanishing, and a click says so.
-			Sfx.ui("ui_move", -8.0, 0.7)
-			charge_lock = null
-			charge_part = ""
-			charge_candidate = null
+	if _fire_released or _auto_fire:
+		if input_enabled and _hold >= Armament.TAP_TIME:
+			fire_cannon(Vector3.INF, Vector3.ZERO, charge)
+			_recover = Armament.CANNON_RECOVER
+			_spent = _auto_fire
+		_reset_charge()
 
 
 ## The fire-control system's soft lock: the enemy under the reticle, else the one nearest it on
@@ -863,9 +896,9 @@ func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO, power := 0.0) -> v
 		Armament.Round.CANISTER:
 			_fire_canister(muzzle, shot_dir.call(200.0))
 		Armament.Round.DRAGON:
-			DragonBreath.fire(self, shot_dir.call(DragonBreath.MEAN_SPEED), from, power)
+			DragonBreath.fire(self, shot_dir.call(DragonBreath.MEAN_SPEED), from, float(power >= 1.0))
 		_:
-			_fire_shell(round, muzzle, shot_dir.call(Armament.SHELL_SPEED), power)
+			_fire_shell(round, muzzle, shot_dir.call(shell_speed(power)), power)
 	if round != Armament.Round.APHE:
 		round_count -= 1
 		if round_count <= 0:
@@ -896,12 +929,15 @@ func _fire_canister(muzzle: Vector3, aim_dir: Vector3) -> void:
 		world.fx.spawn(Fx.Kind.FLAME, end, Vector3.UP * 2.0, 0.12, 0.5, Palette.BUTTER)
 
 
-## A 100 mm hitscan shell (APHE, HEAT, APFSDS or airburst): it lands this very frame and a tracer
-## flash marks its line.
+## A 100 mm shell (APHE, HEAT, APFSDS or airburst). A quick shell (`power` below 1) is a projectile that
+## flies on at QUICK_SPEED; a full charge is hitscan: it lands this very frame and a tracer flash marks its
+## line. Special rounds take their uncharged table for a quick shell and their charged one for a full charge.
 func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 0.0) -> void:
 	var world := World.current
+	var full := power >= 1.0
+	var table := float(full)
 	var color: Color = Armament.ROUND_COLORS[round]
-	var shell := world.spawn_projectile(Team.PLAYER, muzzle, dir * Armament.SHELL_SPEED, "dart" if round == Armament.Round.APFSDS else "shell", color)
+	var shell := world.spawn_projectile(Team.PLAYER, muzzle, dir * shell_speed(power), "dart" if round == Armament.Round.APFSDS else "shell", color)
 	shell.hit = Hit.make(Hit.Kind.SHELL, Armament.SHELL_DAMAGE, muzzle)
 	shell.hit.caliber = 100
 	shell.hit.source = self
@@ -909,25 +945,25 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 
 	shell.hit.power = power
 	shell.hit.stagger = 0.4
 	shell.gravity = 0.0
-	shell.life = 2.0
+	shell.life = 2.0 if full else Armament.SHELL_RANGE / Armament.QUICK_SPEED
 	shell.impact_sound = "impact"
 	shell.impacted.connect(_count_hit, CONNECT_ONE_SHOT)
 	match round:
 		Armament.Round.APHE:
 			# A small filler: it wrecks what it hits and, charged, the pack around it.
-			shell.hit.damage *= lerpf(Armament.APHE_DAMAGE.x, Armament.APHE_DAMAGE.y, power)
-			shell.blast_radius = lerpf(Armament.APHE_RADIUS.x, Armament.APHE_RADIUS.y, power)
-			shell.blast_damage = lerpf(Armament.APHE_BLAST.x, Armament.APHE_BLAST.y, power)
-			shell.pierce_entities = power >= 1.0
+			shell.hit.damage = Armament.SHELL_DAMAGE * Armament.APHE_DAMAGE.y if full else lerpf(Armament.QUICK_DAMAGE.x, Armament.QUICK_DAMAGE.y, power)
+			shell.blast_radius = Armament.APHE_RADIUS.y if full else lerpf(Armament.QUICK_RADIUS.x, Armament.QUICK_RADIUS.y, power)
+			shell.blast_damage = Armament.APHE_BLAST.y if full else lerpf(Armament.QUICK_BLAST.x, Armament.QUICK_BLAST.y, power)
+			shell.pierce_entities = full
 		Armament.Round.HEAT:
 			shell.hit.damage = Armament.SHELL_DAMAGE * 1.5
 			shell.hit.pierce = true
-			shell.hit.stagger = lerpf(Armament.HEAT_STAGGER.x, Armament.HEAT_STAGGER.y, power)
-			shell.blast_radius = lerpf(Armament.HEAT_RADIUS.x, Armament.HEAT_RADIUS.y, power)
+			shell.hit.stagger = lerpf(Armament.HEAT_STAGGER.x, Armament.HEAT_STAGGER.y, table)
+			shell.blast_radius = lerpf(Armament.HEAT_RADIUS.x, Armament.HEAT_RADIUS.y, table)
 			shell.blast_damage = 500.0
 			shell.blast_colors = [Palette.WHITE, Palette.CORAL, Palette.RED, Palette.PEACH]
 		Armament.Round.APFSDS:
-			shell.hit.damage = Armament.SHELL_DAMAGE * 2.0 * lerpf(Armament.APFSDS_DAMAGE.x, Armament.APFSDS_DAMAGE.y, power)
+			shell.hit.damage = Armament.SHELL_DAMAGE * 2.0 * lerpf(Armament.APFSDS_DAMAGE.x, Armament.APFSDS_DAMAGE.y, table)
 			shell.hit.pierce = true
 			shell.pierce_entities = true
 			# The dart goes through everything in line and slams into the ground with a crater.
@@ -936,9 +972,11 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 
 		Armament.Round.AIRBURST:
 			shell.hit.damage = 70.0
 			shell.fuse_distance = muzzle.distance_to(_aimed_spot(charge_lock) if _aimed_spot(charge_lock) != Vector3.INF else charge_lock.hit_center()) if is_instance_valid(charge_lock) else maxf(muzzle.distance_to(aim_point) - 2.0, 6.0)
-			shell.airburst_fragments = roundi(lerpf(Armament.AIRBURST_FRAGMENTS.x, Armament.AIRBURST_FRAGMENTS.y, power))
-			shell.proximity = lerpf(Armament.AIRBURST_PROXIMITY.x, Armament.AIRBURST_PROXIMITY.y, power)
-	var reach := Armament.SHELL_RANGE * (lerpf(Armament.APFSDS_RANGE.x, Armament.APFSDS_RANGE.y, power) if round == Armament.Round.APFSDS else 1.0)
+			shell.airburst_fragments = roundi(lerpf(Armament.AIRBURST_FRAGMENTS.x, Armament.AIRBURST_FRAGMENTS.y, table))
+			shell.proximity = lerpf(Armament.AIRBURST_PROXIMITY.x, Armament.AIRBURST_PROXIMITY.y, table)
+	if not full:
+		return
+	var reach := Armament.SHELL_RANGE * (lerpf(Armament.APFSDS_RANGE.x, Armament.APFSDS_RANGE.y, table) if round == Armament.Round.APFSDS else 1.0)
 	var end := shell.resolve_now(reach)
 	world.fx.beam(muzzle, end, Palette.WHITE, 0.5, 0.1)
 	world.fx.beam(muzzle, end, color, 1.4, 0.18)
