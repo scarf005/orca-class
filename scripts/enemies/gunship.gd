@@ -16,12 +16,13 @@ enum Phase { HUNTER, STRIPPED, INFECTED }
 enum Attack { NONE, GUN, ROCKETS, ATGM, DRONES, DIVE, BOMBS, CANNON }
 
 const BODY_HP := 1600.0
-const CANNON_SHARE := 0.23 ## Hull taken by one main-gun shell on bare airframe: three clean hits (a full charge takes two shares).
-const ROTOR_HITS := 3 ## Cannon hits that wreck a rotor.
-const MODULE_HITS := 2 ## Cannon hits that wreck any other module.
+const CANNON_SHARE := 0.1 ## Hull taken by one full-charge main-gun hit wherever it lands: ten of them bring it down.
+const QUICK_WEIGHT := 0.5 ## A quick shell, or the blast of one that missed, counts as this much of a hit.
+const SPLASH_WINDOW := 0.3 ## Seconds after a shell's direct hit in which a blast of the main gun counts for nothing: it is that shell's own.
+const ROTOR_HITS := 3 ## Full-charge hits that wreck a rotor.
+const MODULE_HITS := 2 ## Full-charge hits that wreck any other module.
 const COAX_MODULE := 0.5 ## Share of a machine-gun round's damage a module takes.
 const PHASE_MARKS := [0.7, 0.34] ## Hull fraction at which the next phase begins.
-const PLATED_SHARE := 0.03 ## Hull taken when an ERA plate eats the shell.
 const ERA_HP := 100.0 ## A full charge or HEAT pops a plate, a plain shell cracks half of it; machine guns chew through it slowly.
 const MODULE_HP := {"rotor_l": 150.0, "rotor_r": 150.0, "chin": 90.0, "pod_l": 140.0, "pod_r": 140.0,
 	"gatling_l": 80.0, "gatling_r": 80.0, "nose_gun": 110.0, "bay": 120.0}
@@ -90,6 +91,7 @@ var _crash_from := Vector3.ZERO
 var _crash_to := Vector3.ZERO ## Where it hits the dam: in front of the face, up where the camera sees it.
 var _cannon_aim := Vector3.ZERO ## Where the nose cannon's next shell is locked to go.
 var _hard := false
+var _shell_time := -1.0 ## Age at the last direct main-gun hit.
 var _rotor_sound: AudioStreamPlayer3D
 var _jitter := Vector3.ZERO
 
@@ -405,20 +407,28 @@ func take_hit(hit: Hit) -> void:
 	if dead or invulnerable or _crash > 0.0 or hit.damage <= 0.0:
 		return
 	var world := World.current
-	var cannon := hit.kind == Hit.Kind.SHELL and hit.caliber >= 100
+	var splash := hit.kind == Hit.Kind.BLAST and hit.weapon == "cannon" and hit.caliber >= 100
+	var cannon := splash or hit.kind == Hit.Kind.SHELL and hit.caliber >= 100
+	if splash and age - _shell_time < SPLASH_WINDOW:
+		return
+	if cannon and not splash:
+		_shell_time = age
 	var charged := hit.power >= 1.0
+	var weight := 1.0 if charged and not splash else QUICK_WEIGHT
 	var amount := hit.damage * damage_multiplier(hit)
-	var hull := max_hp * CANNON_SHARE * (2.0 if charged else 1.0) if cannon else amount
+	var hull := max_hp * CANNON_SHARE * weight if cannon else amount
 	var local := model.global_transform.affine_inverse() * hit.position
-	var struck := _struck_part(hit.position)
-	var plate := _plate_facing(local)
+	# A blast bursts in the air or on the ground, not on the airframe: it only ever takes the hull share.
+	var struck: Part = null if splash else _struck_part(hit.position)
+	var plate := "" if splash else _plate_facing(local)
 	if struck and struck.module:
-		# A module takes the hit alone and shields the airframe behind it; a shell takes its fixed share.
-		struck.hp -= MODULE_HP[struck.name] / float(ROTOR_HITS if struck.name in ROTORS else MODULE_HITS) if cannon else amount * COAX_MODULE
+		# A module takes its fixed share of the hit and the airframe behind it takes the hull share too.
+		struck.hp -= MODULE_HP[struck.name] / float(ROTOR_HITS if struck.name in ROTORS else MODULE_HITS) * weight if cannon else amount * COAX_MODULE
 		world.fx.sparks(hit.position, -hit.direction, 10, Palette.BUTTER, 12.0)
 		if struck.hp <= 0.0:
 			_lose_part(struck, hit.direction)
-		hull = 0.0
+		if not cannon:
+			hull = 0.0
 	elif plate != "" and _live(plate) and hit.kind != Hit.Kind.FIRE:
 		# ERA on the struck facing detonates outward and eats the shell.
 		var era: Part = parts[plate]
@@ -430,7 +440,8 @@ func take_hit(hit: Hit) -> void:
 			# A plate that held: cracked, glowing and shedding chips.
 			world.fx.sparks(hit.position, -hit.direction, 14, Palette.AMBER, 14.0)
 			world.fx.debris(hit.position, 6, [Fx.Debris.ARMOR], 9.0, 0.3, -hit.direction)
-		hull = max_hp * PLATED_SHARE if cannon else amount * 0.1
+		if not cannon:
+			hull = amount * 0.1
 	hp -= hull
 	var falls := hp <= 0.0 or not (_live("rotor_l") or _live("rotor_r"))
 	impact_feedback(hit, amount, falls and phase == Phase.INFECTED)
@@ -534,8 +545,6 @@ func _lose_part(part: Part, direction := Vector3.ZERO) -> void:
 			if _attack == Attack.BOMBS:
 				_end_attack()
 		"pod_l", "pod_r":
-			# Cooking off the remaining rockets.
-			hp -= max_hp * 0.05
 			if not (_live("pod_l") or _live("pod_r")) and _attack == Attack.ROCKETS:
 				_end_attack()
 			# The gatling slung under the rack goes down with it.
