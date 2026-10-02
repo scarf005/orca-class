@@ -12,6 +12,7 @@ const ROUND_SPEED := MG_SPEED
 const FRONT_ARMOR := 0.25 ## Share of coax damage that gets through the front plate.
 
 var weapon := "gun"
+var _at_tail := false ## This burst goes for the tank's tail, not its roof sensors.
 var _lane := 0.0
 var _lane_timer := 0.0
 var _attack_timer := 2.0
@@ -174,6 +175,7 @@ func behave(delta: float) -> void:
 	_attack_timer -= delta
 	if _attack_timer <= 0.0 and distance < 110.0 and distance > 12.0:
 		_telegraph = 1.4 if weapon == "atgm" else 0.5
+		_at_tail = randf() < Gunnery.TAIL_CHANCE
 		if weapon == "atgm":
 			Sfx.play("lock", global_position)
 		_attack_timer = (3.8 if weapon == "atgm" else 2.4) * (0.75 if _hard else 1.0)
@@ -215,7 +217,7 @@ func _attack() -> void:
 	_eye_material.albedo_color = Palette.RED
 	var tank := player()
 	if weapon == "gun":
-		_aim = Gunnery.sensor_lead(tank, _muzzle.global_position, ROUND_SPEED)
+		_aim = Gunnery.sensor_lead(tank, _muzzle.global_position, ROUND_SPEED, _at_tail)
 		_burst = 6 if _hard else 5
 		_burst_timer = 0.0
 		return
@@ -240,7 +242,7 @@ func _attack() -> void:
 func _aim_point(tank: Tank) -> Vector3:
 	if weapon != "gun":
 		return tank.hit_center()
-	return _aim if _burst > 0 else Gunnery.sensor_lead(tank, _muzzle.global_position, ROUND_SPEED)
+	return _aim if _burst > 0 else Gunnery.sensor_lead(tank, _muzzle.global_position, ROUND_SPEED, _at_tail)
 
 
 func _cancel() -> void:

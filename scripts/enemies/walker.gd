@@ -22,6 +22,7 @@ const KICK_ARC := 60.0 ## Degrees either side of where it faces.
 const FRONT_ARMOR := 0.25 ## Share of coax damage that gets through the front plate.
 
 var weapon := "gun" ## "gun" or "missile".
+var _at_tail := false ## This burst goes for the tank's tail, not its roof sensors.
 var legs_hp := 8.0
 var crippled := false
 var _lane := 0.0
@@ -207,6 +208,7 @@ func behave(delta: float) -> void:
 	var distance := global_position.distance_to(tank.global_position)
 	if _attack_timer <= 0.0 and distance < 90.0 and distance > 10.0:
 		_telegraph = 0.55
+		_at_tail = randf() < Gunnery.TAIL_CHANCE
 		_attack_timer = (2.2 if weapon == "gun" else 3.2) * (0.75 if _hard else 1.0)
 		Sfx.play("warn", global_position, -6.0, 1.6)
 
@@ -214,7 +216,7 @@ func behave(delta: float) -> void:
 func _attack(tank: Tank) -> void:
 	_eye_material.albedo_color = Palette.HOT
 	if weapon == "gun":
-		_aim = Gunnery.sensor_lead(tank, _muzzle.global_position, ROUND_SPEED)
+		_aim = Gunnery.sensor_lead(tank, _muzzle.global_position, ROUND_SPEED, _at_tail)
 		_burst = 8 if _hard else 6
 		_burst_timer = 0.0
 		return
@@ -268,7 +270,7 @@ func _land_kick(tank: Tank) -> void:
 func _arm_aim(tank: Tank) -> Vector3:
 	if weapon != "gun":
 		return tank.hit_center()
-	return _aim if _burst > 0 else Gunnery.sensor_lead(tank, _muzzle.global_position, ROUND_SPEED)
+	return _aim if _burst > 0 else Gunnery.sensor_lead(tank, _muzzle.global_position, ROUND_SPEED, _at_tail)
 
 
 ## Settles into the planted crouch without running any AI (debug room).

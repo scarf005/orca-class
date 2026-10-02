@@ -35,6 +35,11 @@ const COAX_RANGE := 140.0
 const SOFT_LOCK_RADIUS := 40.0 ## Screen pixels (3D view) around the reticle; the FCS scales it.
 const LOCK_EDGE := Vector2(60.0, 180.0) ## 3D-view pixels from the screen edge: a locked target this close stops sideways driving, this far lets it run free.
 const LOCK_HOLD := 1.4
+const TAIL_FOLD_TIME := 0.06 ## Seconds the tail coils before it kicks off in a drift.
+const TAIL_HIT_RADIUS := 0.8 ## The claw end of the tail as a target, in metres.
+const TAIL_SMALL_ARMS := 2.0 ## Small-arms damage on the tail, which no armor guards.
+static var DRIFT_ANGLE := deg_to_rad(60.0) ## How far a sideways dash swings the nose against its slide (tuned live in the duel mode).
+const DRIFT_TURN := Vector2(14.0, 5.0) ## Per second the drift swings in, and back out.
 const AREA_ROUNDS := [Armament.Round.CANISTER, Armament.Round.AIRBURST] ## Rounds with no lock and no full charge.
 const AREA_CHARGE := 0.99 ## How far those charge: just short of full, so they never turn hitscan. ## A held soft lock lasts out to this many radii from the reticle.
 const LOCK_SWITCH := 0.6 ## Another enemy takes a held lock only when this much nearer the reticle.
@@ -106,6 +111,7 @@ var _ghost_hue := 0.0
 var anchor_cooldown := 0.0
 var _drift := 0.0
 var _drift_dir := 0.0
+var _drift_yaw := 0.0 ## The nose's swing against a sideways dash, eased in and out.
 var _respawn := 0.0
 var _barrel_recoil := 0.0
 var _last_position := Vector3.ZERO
@@ -147,7 +153,13 @@ func _ready() -> void:
 func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 	if _respawn > 0.0:
 		return -1.0
-	return super.hit_test(from, to, extra_radius)
+	var t := super.hit_test(from, to, extra_radius)
+	if not tail.destroyed:
+		# The tail sticks out behind the hull: rounds can find it there too.
+		var t_tail := segment_sphere(from, to, tail.claw_position(), TAIL_HIT_RADIUS + extra_radius)
+		if t_tail >= 0.0 and (t < 0.0 or t_tail < t):
+			t = t_tail
+	return t
 
 
 ## The roof sensors show only while mounted.
@@ -318,7 +330,9 @@ func _move_arena(delta: float, input: Vector2) -> void:
 	lateral_velocity = current.dot(right)
 	if current.length() > 1.0:
 		var target_yaw := atan2(-current.x, -current.z)
-		hull_yaw = rotate_toward(hull_yaw, target_yaw, 3.2 * delta)
+		var drifting := _drift > 0.0 and _drift_dir != 0.0
+		_drift_yaw = move_toward(_drift_yaw, _drift_dir * DRIFT_ANGLE if drifting else 0.0, (DRIFT_TURN.x if drifting else DRIFT_TURN.y) * delta)
+		hull_yaw = rotate_toward(hull_yaw, target_yaw + _drift_yaw, (3.2 + absf(_drift_yaw) * 12.0) * delta)
 	_set_pose(Course.ground_at(c.x, c.y), hull_yaw)
 	_collide_props()
 	_ram_enemies()
@@ -413,12 +427,15 @@ func _anchor(input: Vector2) -> void:
 	world.screen_flash(Palette.CYAN, 0.1)
 	var ground := global_position - global_basis.z * -3.0
 	if absf(input.x) > 0.3:
-		# Pivot drift: the claw bites the ground and the hull whips sideways around it.
+		# Tail drift: the tail coils, then kicks off the ground on the far side and the hull is
+		# flung sideways, nose swinging against the slide.
 		_drift = DASH_TIME
 		_drift_dir = signf(input.x)
 		swat(false)
-		ground = global_position + global_basis.x * -_drift_dir * 2.5 + global_basis.z * 3.0
 		Sfx.play("skid", global_position)
+		if not is_instance_valid(tail.held) and not tail.destroyed:
+			_tail_kick(global_position + global_basis.x * -_drift_dir * 4.5 + global_basis.z * 3.5)
+		return
 	elif input.y > 0.3:
 		# Forward surge: the tail kicks off behind and the hull lunges ahead of the rail.
 		_drift = DASH_TIME
@@ -451,6 +468,26 @@ func _anchor(input: Vector2) -> void:
 		if tail.state == Tail.State.ANCHOR:
 			tail.set_state(Tail.State.IDLE)
 			world.fx.scorch(ground, 1.2))
+
+
+## The drift's tail work: a quick coil over the hull, then the claw slams out onto `ground` on the far
+## side, stretched to its full reach, throwing dirt as the hull goes.
+func _tail_kick(ground: Vector3) -> void:
+	var world := World.current
+	ground.y = Course.height_at(ground)
+	tail.set_state(Tail.State.FOLD, tail.mount.global_position + Vector3.UP * 0.9 + global_basis.z * 0.4, null, 900.0)
+	get_tree().create_timer(TAIL_FOLD_TIME).timeout.connect(func() -> void:
+		if tail.state != Tail.State.FOLD:
+			return
+		tail.set_state(Tail.State.ANCHOR, ground, null, 700.0)
+		world.fx.dust(ground, 14, 2.0, Palette.OCHRE)
+		world.fx.debris(ground, 10, [Fx.Debris.DIRT], 7.0, 0.3)
+		world.fx.shockwave(ground, 4.0, Palette.MIST, 0.25)
+		world.shake(0.25)
+		get_tree().create_timer(DASH_TIME).timeout.connect(func() -> void:
+			if tail.state == Tail.State.ANCHOR:
+				tail.set_state(Tail.State.IDLE)
+				world.fx.scorch(ground, 1.2)))
 
 
 ## Sixty tons flatten anything they touch the moment they touch it, landmarks included.
@@ -511,7 +548,11 @@ func _place(d: float) -> void:
 		return
 	var p := Course.ground_at(d + course_offset, course_u)
 	var f := Course.forward(d + course_offset)
-	var yaw := atan2(-f.x, -f.z) - atan2(local_velocity.x, rail.speed + local_velocity.y + 4.0) * 0.6
+	var drifting := _drift > 0.0 and _drift_dir != 0.0
+	_drift_yaw = move_toward(_drift_yaw, _drift_dir * DRIFT_ANGLE if drifting else 0.0, (DRIFT_TURN.x if drifting else DRIFT_TURN.y) * get_process_delta_time())
+	# Normally the nose leans into a sideways move; in a drift it swings the other way instead.
+	var lean := atan2(local_velocity.x, rail.speed + local_velocity.y + 4.0) * 0.6 * (1.0 - absf(_drift_yaw) / maxf(DRIFT_ANGLE, 0.001))
+	var yaw := atan2(-f.x, -f.z) - lean + _drift_yaw
 	hull_yaw = yaw
 	_set_pose(p, yaw)
 
@@ -1450,8 +1491,16 @@ static func is_small_arms(hit: Hit) -> bool:
 func _glance_off(hit: Hit) -> void:
 	var world := World.current
 	world.fx.sparks(hit.position, -hit.direction, 5, Palette.WHITE, 12.0) # The round itself tumbles off (Projectile._glance).
+	if invuln > 0.0:
+		return
+	if not tail.destroyed and hit.position.distance_to(tail.claw_position()) <= TAIL_HIT_RADIUS + 0.3:
+		# Armor turns small arms; the muscle of the tail does not.
+		if tail.damage(hit.damage * TAIL_SMALL_ARMS):
+			world.fx.explosion(tail.claw_position(), 1.2, [Palette.WHITE, Palette.FUNGUS, Palette.BLUSH])
+		world.fx.sparks(hit.position, -hit.direction, 6, Palette.FUNGUS, 10.0)
+		return
 	var sensor := struck_sensor(hit)
-	if invuln <= 0.0 and not sensor.is_empty():
+	if not sensor.is_empty():
 		damage_module(sensor, hit.damage)
 
 
@@ -1539,12 +1588,17 @@ func die(_hit: Hit) -> void:
 	_respawn = RESPAWN_DELAY
 
 
-func _finish_respawn() -> void:
-	_cancel_charge()
+## Whole again: full armor, every module and the tail.
+func refit() -> void:
 	hp = max_hp
 	modules.restore()
 	_sync_sensors()
 	tail.regrow()
+
+
+func _finish_respawn() -> void:
+	_cancel_charge()
+	refit()
 	invuln = RESPAWN_INVULN
 	_blink = RESPAWN_INVULN
 	course_u = 0.0

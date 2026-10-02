@@ -8,7 +8,7 @@ extends Node3D
 signal arrived ## The claw reached its current goal.
 signal missed ## A reach or stab ran out of time before arriving.
 
-enum State { IDLE, REACH, RETURN, STAB, SWAT, ANCHOR }
+enum State { IDLE, REACH, RETURN, STAB, SWAT, ANCHOR, FOLD }
 
 const LENGTHS: Array[float] = [0.78, 0.68, 0.62, 0.52, 0.42] ## 3 m at rest.
 const ROOT_RADIUS := 0.34
@@ -151,6 +151,9 @@ func update(delta: float, hull: Basis, lateral_velocity: float) -> void:
 			target = base + Vector3.UP * 1.2 + (hull.z * cos(angle) + hull.x * sin(angle)) * 6.5
 			claw_open = 0.3
 		State.ANCHOR:
+			claw_open = 0.0
+		State.FOLD:
+			# Coiled tight over the hull, a spring about to let go.
 			claw_open = 0.0
 	if STRIKE_SPEED.has(state):
 		# Strikes chase the goal directly; a spring would trail a target moving at rail speed.

@@ -102,7 +102,7 @@ func _process(delta: float) -> void:
 		_duel_wait = _duel_wait - delta if world.enemies.is_empty() else DUEL_RESPAWN
 		if _duel_wait <= 0.0:
 			_duel_wait = DUEL_RESPAWN
-			world.player.hp = world.player.max_hp # Every round starts at full armor.
+			world.player.refit() # Every round starts with a whole tank.
 			for kind: String in DUEL:
 				if duel_counts[kind] > 0:
 					var event: Dictionary = DUEL[kind].duplicate()
