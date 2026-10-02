@@ -481,10 +481,14 @@ func _draw_reticle() -> void:
 	# While charging, the brackets show what the charge has (or would) lock; otherwise the coax's soft lock.
 	var target: Entity = p.charge_lock if charged_lock else (p.charge_candidate if p.is_charging() else p.coax_target)
 	var color := Palette.HOSTILE if is_instance_valid(target) else Palette.CYAN
-	# The chevron sits where the barrel points, out at the range the sight rests on: the gun fires
-	# there. The cursor is where the turret swings toward, and the charge fills around it.
+	# Star Fox's two sights, as a gunner's sight: both sit on the line the barrel points along, a
+	# ranging box close in front of the muzzle and the chevron out at the range the sight rests on.
+	# Lined up over a target, the gun is on it. The mouse only leaves a dot the turret swings toward.
 	var far := p.sight_point()
+	var near := p.model.muzzle.global_position - p.model.barrel.global_basis.z * NEAR_SIGHT
 	_draw_cursor(cursor)
+	if not cam.is_position_behind(near):
+		_draw_near_sight(cam.unproject_position(near) * SCALE, Palette.CREAM)
 	if p.is_charging():
 		if p.current_round == Armament.Round.CANISTER:
 			# The canister has no lock: the ring is where its balls land.
@@ -558,12 +562,29 @@ func _draw_reticle() -> void:
 			draw_polyline(PackedVector2Array([lp + Vector2(0, -6), lp + Vector2(6, 0), lp + Vector2(0, 6), lp + Vector2(-6, 0), lp + Vector2(0, -6)]), Palette.INK, 1.0)
 
 
-## The mouse cursor: a small open cross, so the target under it stays visible.
+## The mouse cursor: just a dot, so the two barrel sights carry the aim.
 func _draw_cursor(at: Vector2) -> void:
-	for dir: Vector2 in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
-		draw_line(at + dir * 4.0, at + dir * 10.0, Palette.INK, 4.0)
-	for dir: Vector2 in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
-		draw_line(at + dir * 4.0, at + dir * 10.0, Palette.WHITE, 2.0)
+	draw_circle(at, 3.0, Palette.INK)
+	draw_circle(at, 1.5, Palette.WHITE)
+
+
+const NEAR_SIGHT := 8.0 ## Metres in front of the muzzle the near sight sits.
+
+
+## The near sight: a gunner's ranging box, four corner brackets with a short tick at each side,
+## drawn big because it is close, and always in the gunner's own pale color so it never reads as a
+## mark on an enemy.
+func _draw_near_sight(at: Vector2, color: Color) -> void:
+	const HALF := 22.0
+	const ARM := 8.0
+	for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+		var c := at + corner * HALF
+		for seg: Array in [[c, c - Vector2(corner.x * ARM, 0)], [c, c - Vector2(0, corner.y * ARM)]]:
+			draw_line(seg[0], seg[1], Palette.INK, 4.0)
+			draw_line(seg[0], seg[1], color, 2.0)
+	for dir: Vector2 in [Vector2.LEFT, Vector2.RIGHT, Vector2.DOWN]:
+		draw_line(at + dir * (HALF + 3.0), at + dir * (HALF + 9.0), Palette.INK, 4.0)
+		draw_line(at + dir * (HALF + 3.0), at + dir * (HALF + 9.0), color, 2.0)
 
 
 ## The charge, around the cursor at the radius it locks within: segments fill clockwise from the
@@ -636,8 +657,6 @@ func _draw_hit_marker() -> void:
 	for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
 		draw_line(at + corner * 7.0, at + corner * outer, Palette.INK, 6.0)
 		draw_line(at + corner * 7.0, at + corner * outer, color, 3.0)
-	if killed:
-		draw_arc(at, 27.0, 0.0, TAU, 20, Palette.HOT, 2.0)
 
 
 func _draw_threats() -> void:
