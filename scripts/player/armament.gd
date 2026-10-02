@@ -31,7 +31,7 @@ const SHELL_DAMAGE := 1500.0
 const QUICK_SPEED := 260.0 ## A quick shell is a visible projectile along the barrel, without gravity.
 
 const COAX_BURST := 0.22 ## Seconds of coax fire a press gives, however long the button is held.
-const TAP_TIME := 0.18 ## A hold this long starts the main-gun charge and locks its target.
+const TAP_TIME := 0.3 ## A hold this long starts the main-gun charge and locks its target.
 const FULL_TIME := 1.0 ## Seconds of hold for a full charge.
 const AUTO_FIRE_TIME := 1.5 ## Seconds of hold at which the gun fires by itself; the button must be pressed again.
 const CANNON_RECOVER := 0.5 ## After a shot a new hold cannot charge for this long.
