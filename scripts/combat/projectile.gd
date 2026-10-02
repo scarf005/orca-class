@@ -6,6 +6,7 @@ extends Node3D
 signal impacted(projectile: Projectile, point: Vector3, target: Entity)
 
 var team := Entity.Team.PLAYER
+var shape := "" ## Its look (see World.PROJECTILE_SHAPES).
 var velocity := Vector3.ZERO
 var gravity := 0.0
 var life := 2.0

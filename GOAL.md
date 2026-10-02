@@ -38,7 +38,7 @@ starting values for tuning.
 | System | Spec | Role |
 | --- | --- | --- |
 | Hull | Armored tracked hull; high front armor, weak rear; shield/HP bar | Front-facing damage is reduced, so the player learns to face threats |
-| 100 mm gun | ~1.0 s reload, direct hit and blast, heavy recoil pushes the tank back | The big punch; one shot kills most small enemies and staggers large ones |
+| 100 mm gun | No reload: hold to charge for about 1 s, release at full charge for a heavy shell and blast; a charged reticle locks one target; heavy recoil pushes the tank back | The big punch; one shell kills most small enemies, staggers large ones and blasts the pack around them |
 | 8 mm coaxial gun | High rate of fire, low damage, follows the turret | Always-on fire; upgradable (below) |
 | RWS: 200 kW laser CIWS | Not fitted at the start: an RWS pickup (the first sits before the first FPV wave) mounts it. Automatic; zaps incoming missiles, rockets, shells and FPV drones in a short radius; heats with each engagement | Defensive layer. Saturation attacks can overheat it, and then the player must dodge |
 | Tracks | At speed the tank flattens every building, wreck and ground enemy in its path. Big landmarks (church, branch school, the old zelkova) are modular: each piece breaks on its own, and what rested on it topples. Only the dam stands | Aggressive driving is rewarded |
@@ -53,7 +53,7 @@ The hull has an armor bar for kinetic damage, and internal modules that break se
 | --- | --- | --- |
 | Tracks (left, right) | Slower movement | Front, that side |
 | Engine | Slower meter refill / no overdrive | Rear, roof |
-| Breech | Reload ×1.5 / ×3 | Front |
+| Breech | Charge ×1.5 / ×3 slower | Front |
 | Turret drive | Slower traverse | Any |
 | Laser RWS | — / knocked off: CIWS gone until another RWS pickup | Sides, roof, and small arms that strike it |
 | FCS (gunner's sight) | Soft-lock radius halved, no lead / knocked off: no soft lock, no lead, no range readout | Front, sides, roof, and small arms that strike it |
@@ -87,13 +87,15 @@ coiling and lashing with visible muscle and follow-through. Priorities:
 3. **Stab:** enemies in reach are stabbed, which kills small ones outright and staggers large ones, interrupting
    telegraphed attacks.
 
-The tail also powers the **dash**: double-tap a direction and the claw kicks off the ground to hurl the hull that
-way. Sideways it dodges and lashes anything beside the hull (a pickup the claw carries is delivered at once), forward it surges the
-rail, back it digs in to a near-instant stop. Each gives a brief dodge window and gouges the terrain.
+The tail also powers the **dash**: press Space and the claw kicks off the ground to hurl the hull the way it is
+steered (A or D sideways, W forward, S to dig in; with nothing held, the way it last steered sideways). Sideways it dodges and lashes anything beside the hull (a pickup the claw carries is delivered at once), forward it surges the
+rail, back it digs in to a near-instant stop. Each gives a brief dodge window and gouges the terrain, and a dash reflects every hostile shot that comes within 5 m
+back at its shooter.
 
-Controls are WASD and the mouse only: W/S steer forward and back and double as boost and brake, the left button
-fires the coax (it leads whatever the sight soft-locks), the right button fires the main gun. Rounds leave along
-the barrel, never more than a few degrees off where the turret points.
+Controls are WASD and the mouse, plus Space to dash: W/S steer forward and back and double as boost and brake, the
+left button fires the coax (it leads whatever the sight soft-locks), the right button charges the main gun while
+held and fires a heavy shot on release; rapid fire is the coax's job. Rounds leave along the barrel, never more
+than a few degrees off where the turret points.
 
 The tail is a target: rear hits hurt it, and it can be torn off (see Modules).
 

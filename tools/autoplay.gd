@@ -7,7 +7,7 @@ extends Node
 var screen: GameScreen
 var bot := "hold"
 var cleared := false
-var kill_sources := {"coax": 0, "cannon": 0, "ram": 0, "dash": 0, "tail": 0, "ciws": 0, "collateral": 0, "other": 0}
+var kill_sources := {"coax": 0, "cannon": 0, "ram": 0, "dash": 0, "tail": 0, "ciws": 0, "collateral": 0, "reflect": 0, "other": 0}
 var _tap_down := false
 var _charge_started := -1.0
 var _section := 0
@@ -104,9 +104,9 @@ func run() -> int:
 	print("AUTOPLAY d=%.0f score=%d kills=%d/%d lives=%d hp=%.0f enemies=%d projectiles=%d frames=%d slow=%d worst=%.1fms" % [
 		world.rail.d, stats.score, stats.kills, stats.spawned, stats.lives, world.player.hp, world.enemies.size(),
 		world.projectiles.size(), frames, slow_frames, worst])
-	print("PROBE bot=%s cleared=%s dead=%s time=%.2f d=%.0f lives=%d damage_taken=%.2f kills=%d/%d front_mean=%.2f coax=%d cannon=%d ram=%d dash=%d tail=%d ciws=%d collateral=%d other=%d cannon_shots=%d charged_shots=%d healing_melee=%.2f healing_repair=%.2f" % [
+	print("PROBE bot=%s cleared=%s dead=%s time=%.2f d=%.0f lives=%d damage_taken=%.2f kills=%d/%d front_mean=%.2f coax=%d cannon=%d ram=%d dash=%d tail=%d ciws=%d collateral=%d reflect=%d other=%d cannon_shots=%d charged_shots=%d healing_melee=%.2f healing_repair=%.2f" % [
 		bot, cleared and not world.player.dead, world.player.dead, stats.time, world.rail.d, stats.lives, stats.damage_taken, stats.kills, stats.spawned, front_total / maxi(frames, 1),
-		kill_sources.coax, kill_sources.cannon, kill_sources.ram, kill_sources.dash, kill_sources.tail, kill_sources.ciws, kill_sources.collateral, kill_sources.other, stats.shots, stats.charged_shots, stats.melee_healing, stats.repair_healing])
+		kill_sources.coax, kill_sources.cannon, kill_sources.ram, kill_sources.dash, kill_sources.tail, kill_sources.ciws, kill_sources.collateral, kill_sources.reflect, kill_sources.other, stats.shots, stats.charged_shots, stats.melee_healing, stats.repair_healing])
 	for action in ["fire_coax", "fire_cannon", "move_left", "move_right"]:
 		Input.action_release(action)
 	Engine.time_scale = 1.0
@@ -122,7 +122,7 @@ func _killed(_victim: Entity, hit: Hit) -> void:
 	if hit:
 		if hit.is_collateral() or hit.weapon == "collateral":
 			source = "collateral"
-		elif hit.weapon in ["cannon", "dash"]:
+		elif hit.weapon in ["cannon", "dash", "reflect"]:
 			source = hit.weapon
 		elif hit.by_player():
 			match hit.kind:
@@ -180,5 +180,23 @@ func _drive(world: World, t: float) -> void:
 	else:
 		Input.action_release("move_left")
 		Input.action_release("move_right")
-	if int(t * 10) % 53 == 0:
-		tank.dash(Vector2(1, 0) if weave < 0.0 else Vector2(-1, 0))
+	if bot != "idle":
+		_dodge(world)
+
+
+## Dashes toward open space when a hostile shot is within 12 m and closing; the dash's own cooldown
+## allows one per cooldown.
+func _dodge(world: World) -> void:
+	var tank := world.player
+	if tank.anchor_cooldown > 0.0:
+		return
+	for projectile in world.projectiles:
+		var offset := tank.hit_center() - projectile.global_position
+		if projectile.team == Entity.Team.PLAYER or projectile.is_queued_for_deletion() or offset.length() > 12.0 or projectile.velocity.dot(offset) <= 0.0:
+			continue
+		var side := signf(offset.dot(tank.global_basis.x))
+		side = side if side != 0.0 else 1.0
+		if absf(tank.course_u + side * Tank.DASH_DISTANCE) > Tank.lateral_limit(world.rail.d + tank.course_offset):
+			side = -side
+		tank.dash(Vector2(side, 0))
+		return

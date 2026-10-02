@@ -7,9 +7,9 @@ const BESTS_PATH := "user://bests.cfg"
 enum Difficulty { NORMAL, HARD }
 
 ## Default bindings. Each entry is a list of InputEvents; keyboard/mouse events are rebindable.
-## The keyboard needs only WASD and the mouse: W/S also boost and brake the rail, a double tap
-## dashes that way (gamepad: shoulder buttons), the left button fires the coax and the right the
-## main gun. The laser works on its own.
+## The keyboard needs only WASD, Space and the mouse: W/S also boost and brake the rail, Space dashes
+## toward the held direction (gamepad: shoulder buttons), the left button fires the coax and the right
+## charges the main gun. The laser works on its own.
 static func default_bindings() -> Dictionary:
 	return {
 		"move_forward": [_key(KEY_W), _axis(JOY_AXIS_LEFT_Y, -1.0)],
@@ -22,12 +22,13 @@ static func default_bindings() -> Dictionary:
 		"aim_right": [_axis(JOY_AXIS_RIGHT_X, 1.0)],
 		"fire_coax": [_mouse(MOUSE_BUTTON_LEFT), _axis(JOY_AXIS_TRIGGER_RIGHT, 1.0)],
 		"fire_cannon": [_mouse(MOUSE_BUTTON_RIGHT), _axis(JOY_AXIS_TRIGGER_LEFT, 1.0)],
+		"dash": [_key(KEY_SPACE)],
 		"roll_left": [_button(JOY_BUTTON_LEFT_SHOULDER)],
 		"roll_right": [_button(JOY_BUTTON_RIGHT_SHOULDER)],
 		"pause": [_key(KEY_ESCAPE), _button(JOY_BUTTON_START)],
 	}
 
-const REBINDABLE: Array[StringName] = [&"move_forward", &"move_back", &"move_left", &"move_right", &"fire_coax", &"fire_cannon", &"pause"]
+const REBINDABLE: Array[StringName] = [&"move_forward", &"move_back", &"move_left", &"move_right", &"fire_coax", &"fire_cannon", &"dash", &"pause"]
 
 ## Tools and tests run silent (pass `--sound` to hear them).
 var silent := false

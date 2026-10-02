@@ -269,6 +269,7 @@ static func projectile_visual(shape: String, color: Color, hostile := false) -> 
 func spawn_projectile(team: Entity.Team, position: Vector3, velocity: Vector3, shape: String, color := Color(0, 0, 0, 0)) -> Projectile:
 	var projectile := Projectile.new()
 	projectile.team = team
+	projectile.shape = shape
 	projectile.velocity = velocity
 	projectile.hit.source = player if team == Entity.Team.PLAYER else null
 	projectile.color = team_color(team, shape, color)
@@ -283,6 +284,17 @@ func spawn_projectile(team: Entity.Team, position: Vector3, velocity: Vector3, s
 	if velocity.length_squared() > 0.01:
 		projectile.look_at(position + velocity, Vector3.UP if absf(velocity.normalized().y) < 0.99 else Vector3.RIGHT)
 	return projectile
+
+
+## Dresses a shot that changed sides in the tank's colors.
+func reskin_projectile(projectile: Projectile) -> void:
+	for child in projectile.get_children():
+		if child is MeshInstance3D:
+			child.queue_free()
+	projectile.color = team_color(Entity.Team.PLAYER, projectile.shape, Color(0, 0, 0, 0))
+	for mesh in projectile_visual(projectile.shape, projectile.color):
+		projectile.add_child(mesh)
+	projectile.halo = null
 
 
 ## Every enemy shot is HOSTILE; the tank's own shots are warm (flames keep their fire colors), so
@@ -383,6 +395,9 @@ func kill_style(hit: Hit, victim: Entity) -> void:
 				points = 60.0
 	if hit.incendiary and hit.kind != Hit.Kind.FIRE:
 		trick = "BURNED"
+	if hit.weapon == "reflect":
+		trick = "REFLECT"
+		points = 70.0
 	style_event(trick, points)
 	_chain = _chain + 1 if stats.time - _last_kill < CHAIN_GAP else 1
 	_last_kill = stats.time

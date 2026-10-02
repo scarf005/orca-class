@@ -22,13 +22,13 @@ const CIWS_HEAT_RATE := 0.8
 const CIWS_COOL_RATE := 0.22
 const CIWS_LASER_DPS := 6.0
 const CIWS_ENTITY_DPS := 22.0
-const ANCHOR_COOLDOWN := 0.8
-const DOUBLE_TAP := 0.28 ## Seconds between taps that make a double tap.
+const ANCHOR_COOLDOWN := 0.6
+const REFLECT_RANGE := 5.0 ## A dash turns back every hostile shot this close to the hull.
+const REFLECT_SPEED := 1.2
+const REFLECT_DAMAGE := 120.0
 const DASH_DISTANCE := 13.0 ## Twice the hull's length.
 const DASH_TIME := 0.35
 const DASH_SPEED := 2.0 * DASH_DISTANCE / DASH_TIME ## Starts this fast and eases to a stop, covering DASH_DISTANCE.
-## In the input vector's convention: +y is forward (Vector2.UP would be backward here).
-const TAP_DIRECTIONS := {&"move_left": Vector2(-1, 0), &"move_right": Vector2(1, 0), &"move_forward": Vector2(0, 1), &"move_back": Vector2(0, -1)}
 const COAX_RANGE := 140.0
 const SOFT_LOCK_RADIUS := 40.0 ## Screen pixels (3D view) around the reticle; the FCS scales it.
 const LOCK_HOLD := 1.4 ## A held soft lock lasts out to this many radii from the reticle.
@@ -98,7 +98,7 @@ var _last_position := Vector3.ZERO
 var _grab_target: Node3D
 var coax_target: Entity ## What the coax is tracking on its own.
 var coax_part := "" ## Which module of the locked target the guns are on, if it has several.
-var _last_tap := {&"move_left": -1.0, &"move_right": -1.0, &"move_forward": -1.0, &"move_back": -1.0}
+var _last_lateral := 1.0 ## The way the tank last steered sideways: where Space dashes with nothing held.
 var _engine_sound: AudioStreamPlayer3D
 var input_enabled := true:
 	set(value):
@@ -196,6 +196,7 @@ func tick(delta: float) -> void:
 	_update_aim(delta)
 	_update_weapons(delta)
 	_update_ciws(delta)
+	_reflect_shots()
 	tail.update(delta, global_basis, lateral_velocity)
 	auto_tail() # The tail and the coax work on their own; only driving and the main gun take input.
 	_update_pickups()
@@ -226,7 +227,7 @@ func _update_movement(delta: float) -> void:
 	var world := World.current
 	var rail := world.rail
 	var input := _input_vector()
-	_read_double_taps()
+	_read_dash(input)
 	# W and S double as the throttle: pushing forward boosts the rail, pulling back brakes it.
 	var command := 0
 	if input.y > 0.5 and modules.overdrive_online():
@@ -288,30 +289,29 @@ func _move_arena(delta: float, input: Vector2) -> void:
 	model.animate_tracks(delta, current.length(), current.length())
 
 
-## Double taps: tap a direction twice to dash that way. Gamepad shoulders dash sideways.
-func _read_double_taps() -> void:
+## Space dashes the way the tank is steered: sideways if A or D is held, else forward on W alone or a
+## hard stop on S alone, and with nothing held the way it last steered sideways. Gamepad shoulders
+## dash sideways.
+func _read_dash(input: Vector2) -> void:
+	if absf(input.x) > 0.3:
+		_last_lateral = signf(input.x)
 	if not input_enabled:
 		return
 	if Input.is_action_just_pressed("roll_left"):
 		dash(Vector2(-1, 0))
 	elif Input.is_action_just_pressed("roll_right"):
 		dash(Vector2(1, 0))
-	var now := Time.get_ticks_msec() / 1000.0
-	for action: StringName in _last_tap:
-		if not Input.is_action_just_pressed(action):
-			continue
-		if now - float(_last_tap[action]) < DOUBLE_TAP:
-			_last_tap[action] = -1.0
-			dash(TAP_DIRECTIONS[action])
-		else:
-			_last_tap[action] = now
+	elif Input.is_action_just_pressed("dash"):
+		dash(Vector2(signf(input.x), 0) if absf(input.x) > 0.3 else Vector2(0, signf(input.y)) if absf(input.y) > 0.3 else Vector2(_last_lateral, 0))
 
 
-## A burst of speed the way it was tapped, kicked off by the tail slamming the ground: sideways it
+## A burst of speed the way it was asked for, kicked off by the tail slamming the ground: sideways it
 ## is a dodge that lashes whatever is beside the hull, forward it surges the rail, back it digs in.
 func dash(direction: Vector2) -> void:
 	if _respawn > 0.0:
 		return
+	if absf(direction.x) > 0.3:
+		_last_lateral = signf(direction.x)
 	_anchor(direction)
 
 
@@ -328,6 +328,43 @@ func _dash_trail(delta: float) -> void:
 
 func is_dashing() -> bool:
 	return _drift > 0.0
+
+
+## While dashing, every hostile shot within REFLECT_RANGE of the hull is turned back on its shooter.
+func _reflect_shots() -> void:
+	if not is_dashing():
+		return
+	for projectile in World.current.projectiles.duplicate():
+		if projectile.team != Team.PLAYER and not projectile.is_queued_for_deletion() and projectile.global_position.distance_to(hit_center()) < REFLECT_RANGE:
+			_reflect(projectile)
+
+
+## The shot becomes the player's and flies straight back at where its shooter is now (or the way it came
+## if the shooter is gone), faster, as a heavy hit that staggers.
+func _reflect(projectile: Projectile) -> void:
+	var world := World.current
+	var shooter: Variant = projectile.hit.source
+	var back := -projectile.velocity
+	if is_instance_valid(shooter) and shooter is Entity and not shooter.dead:
+		back = shooter.hit_center() - projectile.global_position
+	var speed := projectile.velocity.length() * REFLECT_SPEED
+	projectile.velocity = back.normalized() * speed
+	projectile.team = Team.PLAYER
+	projectile.gravity = 0.0
+	projectile.homing_target = null
+	projectile.interceptable = false
+	projectile.life = maxf(projectile.life, back.length() / speed + 1.0)
+	projectile.hit.kind = Hit.Kind.SHELL
+	projectile.hit.damage = maxf(projectile.hit.damage, REFLECT_DAMAGE)
+	projectile.hit.stagger = 1.0
+	projectile.hit.warhead = false
+	projectile.hit.source = self
+	projectile.hit.weapon = "reflect"
+	world.reskin_projectile(projectile)
+	world.style_event("REFLECT", 70.0)
+	world.fx.sparks(projectile.global_position, back.normalized(), 10, Palette.CYAN, 14.0)
+	world.fx.shockwave(projectile.global_position, 3.0, Palette.CYAN, 0.15)
+	Sfx.play("impact", projectile.global_position, -4.0, 1.5)
 
 
 func _anchor(input: Vector2) -> void:

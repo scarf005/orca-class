@@ -1,15 +1,16 @@
 extends TestCase
-## Controls: WASD plus the left mouse button, double-tap rolls, the auto coax, and handling.
+## Controls: WASD, Space to dash, the mouse buttons, the auto coax, and handling.
 
 
 func test_keyboard_needs_only_wasd_and_the_mouse() -> void:
-	check(Game.REBINDABLE == [&"move_forward", &"move_back", &"move_left", &"move_right", &"fire_coax", &"fire_cannon", &"pause"], "only movement, the guns and pause are bound")
+	check(Game.REBINDABLE == [&"move_forward", &"move_back", &"move_left", &"move_right", &"fire_coax", &"fire_cannon", &"dash", &"pause"], "only movement, the guns, dash and pause are bound")
 	for action in [&"anchor", &"overdrive", &"brake"]:
 		check(not InputMap.has_action(action), "%s is gone" % action)
 	var button := func(action: StringName, index: MouseButton) -> bool:
 		return InputMap.action_get_events(action).any(func(e: InputEvent) -> bool: return e is InputEventMouseButton and (e as InputEventMouseButton).button_index == index)
 	check(button.call(&"fire_coax", MOUSE_BUTTON_LEFT), "left mouse fires the coax")
 	check(button.call(&"fire_cannon", MOUSE_BUTTON_RIGHT), "right mouse fires the main gun")
+	check(InputMap.action_get_events(&"dash").any(func(e: InputEvent) -> bool: return e is InputEventKey and (e as InputEventKey).physical_keycode == KEY_SPACE), "Space dashes")
 
 
 func test_rounds_leave_along_the_barrel() -> void:
@@ -26,26 +27,71 @@ func _tap(action: StringName) -> void:
 	await frames(1)
 
 
-func test_double_tap_dashes_that_way() -> void:
+func _driver() -> Tank:
 	var world := stage()
-	var tank := world.player
-	tank.input_enabled = true
+	world.player.input_enabled = true
+	return world.player
+
+
+func test_double_tap_no_longer_dashes() -> void:
+	var tank := _driver()
+	await frames(2)
+	await _tap(&"move_right")
+	await _tap(&"move_right")
+	check(not tank.is_dashing(), "tapping a direction twice only steers")
+	await _tap(&"move_forward")
+	await _tap(&"move_forward")
+	check(not tank.is_dashing(), "forward neither")
+	tank.input_enabled = false
+
+
+func test_space_dashes_toward_the_held_direction() -> void:
+	var tank := _driver()
 	await frames(2)
 	var u := tank.course_u
-	await _tap(&"move_right")
-	check(not tank.is_dashing(), "a single tap only steers")
-	await _tap(&"move_right")
-	check(tank.is_dashing(), "a double tap dashes")
+	Input.action_press(&"move_left")
+	await _tap(&"dash")
+	check(tank.is_dashing() and tank._drift_dir < 0.0, "A and Space dash left")
 	check(tank.invuln > 0.0, "the dash is a dodge")
 	await frames(10)
-	check(tank.course_u > u + 4.0, "it bursts sideways")
+	check(tank.course_u < u - 4.0, "it bursts sideways")
 	check(tank.model.rotation.z == 0.0 and tank.model.position.y == 0.0, "no roll: the hull stays on its tracks")
+	Input.action_release(&"move_left")
+	await frames(40)
+	Input.action_press(&"move_right")
+	Input.action_press(&"move_forward")
+	await _tap(&"dash")
+	check(tank.is_dashing() and tank._drift_dir > 0.0, "sideways wins over W: D, W and Space dash right")
+	Input.action_release(&"move_right")
+	Input.action_release(&"move_forward")
 	await frames(40)
 	var offset := tank.course_offset
-	await _tap(&"move_forward")
-	await _tap(&"move_forward")
+	Input.action_press(&"move_forward")
+	await _tap(&"dash")
 	await frames(6)
-	check(tank.course_offset > offset + 1.5 and world.rail.speed > Rail.CRUISE + 8.0, "a forward double tap surges ahead")
+	check(tank.course_offset > offset + 1.5 and World.current.rail.speed > Rail.CRUISE + 8.0, "W alone and Space surge ahead")
+	Input.action_release(&"move_forward")
+	tank.input_enabled = false
+
+
+func test_space_with_s_alone_digs_in_and_with_nothing_held_repeats_the_last_side() -> void:
+	var tank := _driver()
+	await frames(30)
+	Input.action_press(&"move_back")
+	await _tap(&"dash")
+	check(tank.anchor_cooldown > 0.0 and tank.tail.state == Tail.State.ANCHOR, "S alone and Space dig in")
+	check(not tank.is_dashing(), "a hard stop is no sideways dash")
+	Input.action_release(&"move_back")
+	await frames(60)
+	await _tap(&"dash")
+	check(tank.is_dashing() and tank._drift_dir > 0.0, "nothing held dashes right to begin with")
+	await frames(60)
+	Input.action_press(&"move_left")
+	await frames(3)
+	Input.action_release(&"move_left")
+	await frames(60)
+	await _tap(&"dash")
+	check(tank.is_dashing() and tank._drift_dir < 0.0, "then the way it last steered")
 	tank.input_enabled = false
 
 
