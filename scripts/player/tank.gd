@@ -1086,7 +1086,8 @@ func _is_imminent(entity: Entity) -> bool:
 	return false
 
 
-## A full-circle lash that bats away drones and crawlers and flattens small props.
+## A full-circle lash that bats away drones and crawlers and flattens small props. On its own it only
+## staggers; the driver's dash lash (`start_state` false) hurts and heals.
 func swat(start_state := true) -> void:
 	var world := World.current
 	var mount := tail.mount.global_position
@@ -1101,13 +1102,19 @@ func swat(start_state := true) -> void:
 		if entity.hit_center().distance_to(global_position) < 7.5 + entity.radius:
 			if _is_imminent(entity):
 				world.style_event("DEFLECT", 80.0)
-			var hit := Hit.make(Hit.Kind.TAIL, 30.0, entity.hit_center(), (entity.hit_center() - global_position).normalized())
-			hit.stagger = 0.6
-			hit.source = self
-			hit.weapon = "dash" if not start_state else ""
-			hit.salvage = not start_state
-			entity.take_hit(hit)
-			world.fx.sparks(entity.hit_center(), hit.direction, 8, Palette.FUNGUS)
+			var direction: Vector3 = (entity.hit_center() - global_position).normalized()
+			if start_state:
+				_tail_stagger(entity, 0.6)
+				if entity is FpvDrone:
+					(entity as FpvDrone).bat(direction)
+			else:
+				var hit := Hit.make(Hit.Kind.TAIL, 30.0, entity.hit_center(), direction)
+				hit.stagger = 0.6
+				hit.source = self
+				hit.weapon = "dash"
+				hit.salvage = true
+				entity.take_hit(hit)
+			world.fx.sparks(entity.hit_center(), direction, 8, Palette.FUNGUS)
 	for prop: Prop in world.props.in_radius(global_position, 7.0):
 		if prop.crushable:
 			prop.take_hit(Hit.make(Hit.Kind.TAIL, 999.0, prop.global_position))
@@ -1135,14 +1142,11 @@ func _on_tail_arrived() -> void:
 		Tail.State.STAB:
 			if is_instance_valid(_grab_target) and _grab_target is Entity:
 				var enemy := _grab_target as Entity
-				var stab := Hit.make(Hit.Kind.TAIL, 75.0, tail.claw_position(), (enemy.hit_center() - global_position).normalized())
-				stab.stagger = 1.4
-				stab.source = self
-				stab.pierce = true
-				enemy.take_hit(stab)
+				var direction := (enemy.hit_center() - global_position).normalized()
+				_tail_stagger(enemy, 1.4)
 				if enemy is Enemy:
 					(enemy as Enemy).interrupt()
-				world.fx.sparks(tail.claw_position(), -stab.direction, 14, Palette.FUNGUS, 12.0)
+				world.fx.sparks(tail.claw_position(), -direction, 14, Palette.FUNGUS, 12.0)
 				world.fx.spores(tail.claw_position(), 6, 0.6)
 				world.hitstop(0.06)
 				world.shake(0.25)
@@ -1150,6 +1154,12 @@ func _on_tail_arrived() -> void:
 			_grab_target = null
 			tail.set_state(Tail.State.IDLE)
 			tail.start_cooldown()
+
+
+## The tail on its own never hurts: it only staggers whatever it strikes.
+func _tail_stagger(entity: Entity, seconds: float) -> void:
+	if entity is Enemy and (entity as Enemy).can_stagger:
+		(entity as Enemy).stagger = maxf((entity as Enemy).stagger, seconds)
 
 
 func _update_pickups() -> void:

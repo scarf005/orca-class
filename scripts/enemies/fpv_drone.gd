@@ -139,7 +139,7 @@ func _tumble(delta: float) -> void:
 	global_position += velocity * delta
 	model.rotate_x(delta * 9.0)
 	if global_position.y < Course.height_at(global_position):
-		die(Hit.make(Hit.Kind.RAM, 99.0, global_position))
+		die(Hit.make(Hit.Kind.BLAST, 99.0, global_position))
 
 
 func _steer(target: Vector3, max_speed: float, accel: float, delta: float) -> void:
@@ -152,6 +152,12 @@ func _steer(target: Vector3, max_speed: float, accel: float, delta: float) -> vo
 func _set_state(value: State) -> void:
 	state = value
 	_state_time = 0.0
+
+
+## Batted off its line by the tail: it tumbles away and never reaches the hull.
+func bat(direction: Vector3) -> void:
+	velocity = direction * 16.0 + Vector3.UP * 5.0
+	_set_state(State.TUMBLE)
 
 
 func interrupt() -> void:

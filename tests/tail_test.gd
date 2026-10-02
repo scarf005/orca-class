@@ -25,16 +25,30 @@ func test_tail_stabs_small_enemies_instead_of_grabbing() -> void:
 	crawler.stagger = 10.0
 	tank.auto_tail()
 	check_eq(tank.tail.state, Tail.State.STAB, "the claw stabs it")
-	var crawler_ref: WeakRef = weakref(crawler)
-	var dead := await wait_until(func() -> bool:
-		var target := crawler_ref.get_ref() as Crawler
-		return target == null or target.dead
-	, 120)
-	check(dead, "a stab kills a small enemy")
+	var hp := crawler.hp
+	await wait_until(func() -> bool: return tank.tail.state != Tail.State.STAB, 120)
+	check(not crawler.dead, "a stab does not kill a small enemy")
+	check_eq(crawler.hp, hp, "and does no damage")
+	check(crawler.stagger >= 1.4 - 0.1, "it staggers the target")
 	check(not is_instance_valid(tank.tail.held), "nothing is carried")
 
 
-func test_swat_hits_nearby_drone() -> void:
+func test_stab_interrupts_a_telegraphing_enemy() -> void:
+	var world := stage()
+	var tank := world.player
+	await frames(2)
+	var drone := FpvDrone.new()
+	drone.position = tank.tail.mount.global_position + tank.global_basis.x * 4.0 + Vector3.UP * 2.0
+	world.add_enemy(drone)
+	drone.state = FpvDrone.State.TELEGRAPH
+	tank._grab_target = drone
+	tank.tail.set_state(Tail.State.STAB)
+	tank._on_tail_arrived()
+	check_eq(drone.state, FpvDrone.State.APPROACH, "the stab breaks off the dive wind-up")
+	check(not drone.dead, "and does not kill")
+
+
+func test_swat_bats_a_diving_drone_away_without_a_kill() -> void:
 	var world := stage()
 	var tank := world.player
 	await frames(2)
@@ -42,9 +56,15 @@ func test_swat_hits_nearby_drone() -> void:
 	drone.position = tank.global_position + Vector3(4, 3, 0)
 	world.add_enemy(drone)
 	drone.state = FpvDrone.State.DIVE
+	var hp := drone.hp
+	var hull := tank.hp
 	tank.auto_tail()
 	check_eq(tank.tail.state, Tail.State.SWAT, "a diving drone next to the hull gets swatted first")
-	check(drone.dead, "swat kills the drone")
+	check(not drone.dead, "the swat does not kill the drone")
+	check_eq(drone.hp, hp, "and does no damage")
+	check_eq(drone.state, FpvDrone.State.TUMBLE, "it is batted off its dive")
+	await frames(30)
+	check_eq(tank.hp, hull, "it never detonates on the hull")
 
 
 func test_tail_idles_when_nothing_is_near() -> void:
@@ -65,6 +85,21 @@ func test_drift_lashes_nearby_enemies() -> void:
 	crawler.stagger = 10.0
 	tank._anchor(Vector2(1, 0))
 	check(crawler.dead, "the drift's tail spin kills a crawler beside the tank")
+
+
+func test_swat_is_stagger_only_but_the_drift_lash_kills_and_heals() -> void:
+	var world := stage()
+	var tank := world.player
+	await frames(2)
+	tank.hp = 40.0
+	var crawler := Crawler.new()
+	crawler.position = tank.global_position + tank.global_basis.x * 5.0
+	world.add_enemy(crawler)
+	tank.swat()
+	check(not crawler.dead and crawler.is_staggered(), "the autonomous swat only staggers")
+	tank.swat(false)
+	check(crawler.dead, "the drift lash kills it")
+	check(not world._nanites.is_empty(), "and its kill sheds nanites")
 
 
 func test_anchor_drift_dodges() -> void:

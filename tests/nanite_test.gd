@@ -63,14 +63,14 @@ func test_autonomous_stab_and_swat_heal_nothing() -> void:
 	world.player._grab_target = enemy
 	world.player.tail.set_state(Tail.State.STAB)
 	world.player._on_tail_arrived()
-	check(enemy.dead, "autonomous stab kills")
+	check(not enemy.dead, "autonomous stab does not kill")
 	_arrive(world)
 	check_near(world.player.hp, 40.0, 0.001, "autonomous stab heals nothing")
-	enemy = _enemy(world, world.player.global_position + Vector3.RIGHT * 5.0)
 	world.player.swat()
-	check(enemy.dead, "autonomous swat kills")
+	check(not enemy.dead, "autonomous swat does not kill")
 	_arrive(world)
 	check_near(world.player.hp, 40.0, 0.001, "autonomous swat heals nothing")
+	check_eq(world.stats.melee_healing, 0.0, "no melee healing credited")
 
 
 func test_gun_and_ciws_kills_heal_nothing() -> void:
