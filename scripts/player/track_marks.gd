@@ -19,7 +19,15 @@ const SQUELCH_INTERVAL := 0.45 ## Seconds between squelches.
 var crushed_prints := 0 ## How many prints were laid over fungus.
 var squelches := 0 ## How many squelches have played.
 var count_max := COUNT
+## Seconds a print stays whole, then how long it takes to wear away (tuned live in the duel mode).
+static var FADE_START := 6.0
+static var FADE_TIME := 4.0
+const FADE_STEP := 0.2 ## Seconds between passes that wear the prints down.
 var _next := 0
+var _laid: Array[Transform3D] = [] ## Each print as laid, to wear it down from.
+var _born := PackedFloat32Array()
+var _clock := 0.0
+var _fade_wait := 0.0
 var _last := Vector3.INF
 var _squelch_wait := 0.0
 
@@ -41,6 +49,23 @@ func _init(capacity := COUNT) -> void:
 	multimesh.mesh = plate.mesh()
 	multimesh.instance_count = capacity
 	multimesh.visible_instance_count = 0
+	_laid.resize(capacity)
+	_born.resize(capacity)
+
+
+## Prints wear away: after FADE_START they thin out across the track over FADE_TIME, then are gone.
+func _process(delta: float) -> void:
+	_clock += delta
+	_fade_wait -= delta
+	if _fade_wait > 0.0:
+		return
+	_fade_wait = FADE_STEP
+	for i in multimesh.visible_instance_count:
+		var age := _clock - _born[i]
+		if age < FADE_START or age > FADE_START + FADE_TIME + FADE_STEP:
+			continue
+		var left := clampf(1.0 - (age - FADE_START) / FADE_TIME, 0.0, 1.0)
+		multimesh.set_instance_transform(i, _laid[i].scaled_local(Vector3(left, 1.0, 1.0)))
 
 
 ## Lays prints under both tracks for however far the hull moved since the last call.
@@ -75,7 +100,10 @@ func lay(last: Vector3, hull: Transform3D, offsets: Array, width: float, airborn
 			p.y = Course.height_at(p) + 0.22
 			var crushed := _over_fungus(p)
 			crushed_prints += int(crushed)
-			multimesh.set_instance_transform(_next, Transform3D(yaw.scaled_local(Vector3(width * (CRUSHED_WIDTH if crushed else 1.0), 1.0, 1.0)), p))
+			var plate := Transform3D(yaw.scaled_local(Vector3(width * (CRUSHED_WIDTH if crushed else 1.0), 1.0, 1.0)), p)
+			multimesh.set_instance_transform(_next, plate)
+			_laid[_next] = plate
+			_born[_next] = _clock
 			multimesh.set_instance_color(_next, CRUSHED if crushed else MUD)
 			if loud and crushed and randf() < SPLASH_CHANCE:
 				_splash(p, -moved.normalized())

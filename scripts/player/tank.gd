@@ -17,12 +17,12 @@ const MOVE_SPEED := Vector2(34.0, 20.0) ## Lateral, forward (m/s) in the rail fr
 const ARENA_SPEED := 32.0
 const ACCEL := 220.0
 const HULL_RADIUS := 2.3
-const CIWS_RANGE := 24.0
-const CIWS_DRONE_RANGE := 15.0
-const CIWS_HEAT_RATE := 0.8
-const CIWS_COOL_RATE := 0.22
-const CIWS_LASER_DPS := 6.0
-const CIWS_ENTITY_DPS := 22.0
+const CIWS_RANGE := 16.0
+const CIWS_DRONE_RANGE := 9.0
+const CIWS_HEAT_RATE := 1.3
+const CIWS_COOL_RATE := 0.15
+const CIWS_LASER_DPS := 3.5
+const CIWS_ENTITY_DPS := 10.0
 const ANCHOR_COOLDOWN := 0.6
 const REFLECT := false ## Dash reflection is switched off for now.
 const REFLECT_RANGE := 5.0 ## A dash turns back every hostile shot this close to the hull.
@@ -116,6 +116,7 @@ var anchor_cooldown := 0.0
 var _drift := 0.0
 var _drift_dir := 0.0
 var _drift_yaw := 0.0
+var _dust_wait := 0.0
 var _stabilized_yaw := 0.0 ## Hull yaw the turret was last laid against. ## The nose's swing against a sideways dash, eased in and out.
 var _respawn := 0.0
 var _barrel_recoil := 0.0
@@ -279,6 +280,7 @@ func _update_movement(delta: float) -> void:
 		_drift -= delta
 		if _drift_dir != 0.0:
 			local_velocity.x = _drift_dir * DASH_SPEED * (_drift / DASH_TIME)
+	_drift_dust(delta)
 	course_u += local_velocity.x * delta
 	course_offset += local_velocity.y * delta
 	var limit := lateral_limit(rail.d + course_offset)
@@ -473,6 +475,20 @@ func _anchor(input: Vector2) -> void:
 		if tail.state == Tail.State.ANCHOR:
 			tail.set_state(Tail.State.IDLE)
 			world.fx.scorch(ground, 1.2))
+
+
+## Sliding sideways, both tracks plough up a spray of dust that trails off behind the slide.
+func _drift_dust(delta: float) -> void:
+	_dust_wait -= delta
+	if _drift <= 0.0 or _drift_dir == 0.0 or _dust_wait > 0.0:
+		return
+	_dust_wait = 0.03
+	var fx := World.current.fx
+	for side: float in [-1.0, 1.0]:
+		var at: Vector3 = global_position + global_basis.x * side * TrackMarks.TRACK_OFFSET + global_basis.z * randf_range(-1.5, 1.5)
+		at.y = Course.height_at(at) + 0.3
+		fx.dust(at, 6, 2.0, Palette.STRAW)
+		fx.spawn(Fx.Kind.GLOW, at, Vector3(-_drift_dir * randf_range(2, 5), randf_range(1, 3), 0).rotated(Vector3.UP, hull_yaw), randf_range(0.5, 0.9), randf_range(1.0, 1.8), [Palette.STRAW, Palette.OCHRE, Palette.MIST][randi() % 3], {"end_size": 2.6, "drag": 2.0, "fade": 0.3})
 
 
 ## The drift's tail work: a quick coil over the hull, then the claw slams out onto `ground` on the far
@@ -1392,7 +1408,7 @@ func needs(id: String) -> bool:
 func useful_pickup(id: String) -> String:
 	if needs(id):
 		return id
-	for want in ["repair", "era", "tail", "rws", "coax"]:
+	for want in ["repair", "era", "tail", "coax"]: # No RWS for now: the CIWS is kept off the tank.
 		if needs(want):
 			return want
 	var rounds: Array = Armament.OFFERED.filter(func(r: Armament.Round) -> bool: return r != current_round)
