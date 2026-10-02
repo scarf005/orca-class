@@ -1,13 +1,17 @@
 class_name Uav
 extends Enemy
 ## Fixed-wing drone making attack runs: a head-on pass, a banked turn overhead, then a pass from
-## behind. `attack`: "bomb" drops bombs on marked circles; "strafe" walks gunfire down the road.
+## behind. `attack`: "bomb" lays a carpet of bombs across the road; "strafe" walks gunfire down the road.
 
 const SPEED := 42.0 ## Diving speed when its engine is shot out.
 const HEAD_ON_SPEED := 20.0 ## First pass, toward the tank: slow enough to shoot down.
 const OVERTAKE := 8.0 ## Later passes creep past the tank this much faster than the rail.
 const LEAVE := 40.0
 const ALTITUDE := 17.0
+const BOMB_FLIGHT := 1.3 ## Seconds from release to impact; the marked circles show for all of it.
+const CARPET_BOMBS := 5 ## Bombs per run, in a line across the road with one slot left empty.
+const CARPET_SPACING := 5.0
+const CARPET_LEAD := 1.0 ## Seconds ahead the tank's sideways position is predicted for the carpet's centre.
 const BARREL_SLEW := 2.5 ## Radians per second the strafing gun turns onto the next point of its line.
 
 var attack := "bomb"
@@ -17,7 +21,7 @@ var _dir := Vector3.BACK
 var _sense := -1.0 ## -1 while flying back down the road toward the tank, +1 after turning.
 var _pass := 0
 var _turn := 0.0
-var _bombs := 0
+var _bombs := 0 ## Carpets still to drop on this pass.
 var _bomb_timer := 0.0
 var _strafe := 0
 var _strafe_timer := 0.0
@@ -88,7 +92,7 @@ func build() -> void:
 		_pass = 1
 	global_position = Course.to_world(d, slot.x, Course.height(d, slot.x) + ALTITUDE + slot.y)
 	_dir = Course.forward(d) * _sense
-	_bombs = 5 if Game.difficulty == Game.Difficulty.HARD else 4
+	_bombs = 2 if Game.difficulty == Game.Difficulty.HARD else 1
 	Sfx.loop("jet", self, -4.0)
 
 
@@ -137,7 +141,7 @@ func behave(delta: float) -> void:
 		if _turn <= 0.0:
 			_sense = 1.0
 			_pass += 1
-			_bombs = 3
+			_bombs = 1
 			_strafe = 0
 	else:
 		_dir = Course.forward(Course.to_course(global_position).x) * _sense
@@ -167,15 +171,27 @@ func _bomb_run(delta: float, tank: Tank, ahead: float) -> void:
 	if _bombs <= 0 or ahead > 55.0 or ahead < 5.0 or _bomb_timer > 0.0 or is_staggered():
 		return
 	_bombs -= 1
-	_bomb_timer = 0.22
+	_bomb_timer = 1.6
+	# A line of bombs across the road centred where the tank will be; one slot is left open.
 	var world := World.current
-	var flight := 1.3
-	var target := tank.global_position + tank.velocity * flight + Vector3(randf_range(-5, 5), 0, randf_range(-6, 6))
-	target.y = Course.height_at(target)
+	var centre := Course.to_course(tank.global_position + tank.velocity * CARPET_LEAD)
+	var along := Course.to_course(tank.global_position + tank.velocity * BOMB_FLIGHT).x
+	var gap := randi() % CARPET_BOMBS
+	for i in CARPET_BOMBS:
+		if i == gap:
+			continue
+		var target := Course.to_world(along, centre.y + (i - (CARPET_BOMBS - 1) * 0.5) * CARPET_SPACING)
+		target.y = Course.height_at(target)
+		_drop_bomb(target)
+		world.fx.marker(target, 3.6, BOMB_FLIGHT, Palette.RED)
+		Sfx.play("warn", target, -6.0, 1.4)
+
+
+func _drop_bomb(target: Vector3) -> void:
 	var from := global_position + Vector3.DOWN * 0.6
-	var velocity_out := (target - from) / flight
-	velocity_out.y += 0.5 * 20.0 * flight
-	var bomb := world.spawn_projectile(Team.ENEMY, from, velocity_out, "bomb", Palette.HOT)
+	var velocity_out := (target - from) / BOMB_FLIGHT
+	velocity_out.y += 0.5 * 20.0 * BOMB_FLIGHT
+	var bomb := World.current.spawn_projectile(Team.ENEMY, from, velocity_out, "bomb", Palette.HOT)
 	bomb.gravity = 20.0
 	bomb.hit = Hit.make(Hit.Kind.BLAST, 0.0, from)
 	bomb.hit.source = self
@@ -183,9 +199,7 @@ func _bomb_run(delta: float, tank: Tank, ahead: float) -> void:
 	bomb.blast_damage = 30.0
 	bomb.interceptable = true
 	bomb.intercept_hp = 0.8
-	bomb.life = flight + 1.0
-	world.fx.marker(target, 3.6, flight, Palette.RED)
-	Sfx.play("warn", target, -6.0, 1.4)
+	bomb.life = BOMB_FLIGHT + 1.0
 
 
 func _strafe_run(delta: float, tank: Tank, ahead: float) -> void:
