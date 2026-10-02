@@ -17,6 +17,7 @@ var pierce := false ## Ignores armor (HEAT, APFSDS).
 var incendiary := false
 var stagger := 0.0 ## Seconds of stagger inflicted on enemies that can be staggered.
 var warhead := false ## Shaped charge (FPV, ATGM): stopped by ERA, lethal where there is none.
+var power := 0.0 ## Main-gun charge (0..1) the round was fired with.
 
 
 static func make(kind_value: Kind, damage_value: float, position_value: Vector3, direction_value := Vector3.FORWARD) -> Hit:
@@ -55,4 +56,5 @@ func copy() -> Hit:
 	hit.incendiary = incendiary
 	hit.stagger = stagger
 	hit.warhead = warhead
+	hit.power = power
 	return hit

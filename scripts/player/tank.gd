@@ -850,6 +850,7 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 
 	shell.hit.caliber = 100
 	shell.hit.source = self
 	shell.hit.weapon = "cannon"
+	shell.hit.power = power
 	shell.hit.stagger = 0.4
 	shell.gravity = 0.0
 	shell.life = 2.0
