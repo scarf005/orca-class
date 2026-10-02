@@ -3,14 +3,20 @@ extends Enemy
 ## Mid-boss rooted in the schoolyard. Three glowing nodes hide under spongy caps that burn off
 ## with fire (or wear down under heavy fire). With every node destroyed the core opens.
 ## Hits retain their weapon damage; damage left after breaking a cap reaches the node below.
+## Cannon rounds count in rounds, not raw damage: a plain shell is worth ROUND_DAMAGE and only half of
+## it on a node that has not been set alight, and coax a quarter on any weak point not burning; fire and
+## full charges (twice a round) land in full, and a full charge on the open core counts double again.
 ## Attacks: half-corridor tendril sweeps, spore barrages and crawler spawns; the exposed core
 ## adds a full sweep that must be dodged with an anchor drift.
 
 enum Attack { NONE, SWEEP, BARRAGE, SPAWN }
 
-const NODE_HP := 100.0
-const CAP_HP := 100.0
-const CORE_HP := 600.0
+const NODE_HP := 150.0
+const CAP_HP := 150.0
+const CORE_HP := 900.0
+const ROUND_DAMAGE := 40.0 ## What one plain main-gun round is worth; a full charge is worth two.
+const BURN_TIME := 4.0 ## Seconds a node keeps taking full damage after fire touched it.
+const WINDOW := 1.5 ## Seconds after each attack with none new: time for a full charge and its aim.
 const DYING_TIME := 1.0 ## Seconds from the killing blow to the final blast.
 const DEATH_BLAST_RATE := 19.0 ## Random blasts a second while dying, as dense as the old 8 a second over 2.4 s.
 const DEATH_SINK := 0.6 ## How much of its height it sinks by then.
@@ -22,6 +28,7 @@ class Part:
 	var radius := 1.5
 	var hp := 0.0
 	var cap := 0.0
+	var burn := 0.0
 	var mesh: MeshInstance3D
 	var cap_mesh: MeshInstance3D
 
@@ -173,6 +180,15 @@ func take_hit(hit: Hit) -> void:
 		return
 	var amount := hit.damage
 	var health_before := _total_hp()
+	if hit.kind == Hit.Kind.FIRE or hit.incendiary:
+		best.burn = BURN_TIME
+	var cannon := hit.kind == Hit.Kind.SHELL and hit.caliber >= 100
+	if cannon:
+		amount = hit.damage / Armament.SHELL_DAMAGE * ROUND_DAMAGE
+	if best == core and cannon and hit.power >= 1.0:
+		amount *= 2.0
+	elif best.burn <= 0.0 and hit.power < 1.0:
+		amount *= 0.25 if hit.kind == Hit.Kind.BULLET else 0.5 if cannon and best != core else 1.0
 	if best.cap > 0.0:
 		# Fire still burns caps four times faster; only the damage spent on the cap is absorbed.
 		var multiplier := 4.0 if hit.kind == Hit.Kind.FIRE or hit.incendiary else 1.0
@@ -241,6 +257,7 @@ func _total_hp() -> float:
 func behave(delta: float) -> void:
 	var world := World.current
 	for part in parts + [core]:
+		part.burn = maxf(0.0, part.burn - delta)
 		if part.mesh.visible:
 			part.mesh.scale = Vector3.ONE * (1.0 + sin(age * 4.0 + part.offset.x) * 0.08)
 	_body_mesh.scale = Vector3(1.0 + sin(age * 1.3) * 0.02, 1.0 + sin(age * 1.1) * 0.03, 1.0)
@@ -305,7 +322,7 @@ func _choose_attack() -> void:
 func _end_attack() -> void:
 	_attack = Attack.NONE
 	var pace := 0.7 if _core_phase() else 1.0
-	_next_attack = randf_range(1.4, 2.4) * pace * (0.8 if _hard else 1.0)
+	_next_attack = WINDOW + randf_range(0.0, 1.0) * pace * (0.8 if _hard else 1.0)
 	for segment in _tendril:
 		segment.visible = false
 
