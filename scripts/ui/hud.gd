@@ -61,6 +61,9 @@ func _ready() -> void:
 		_incoming.append({"position": from, "time": 0.0})
 		Sfx.ui("warn", 0.0, 1.3))
 	world.player.pickup_collected.connect(_on_pickup)
+	world.player.sensor_lost.connect(func(name: String) -> void:
+		shout(tr("WARN_FCS_LOST" if name == "fcs" else "WARN_RWS_LOST"), Palette.RED, 2.2)
+		Sfx.ui("warn"))
 	world.director.section_changed.connect(func(section: Course.Section) -> void: banner(tr("SECTION_%d" % section)))
 	world.director.checkpoint_reached.connect(func(_name: String) -> void: banner(tr("CHECKPOINT")))
 
@@ -278,7 +281,9 @@ func _update_xray() -> void:
 	_paint(_xray.coax_root, Palette.AMBER)
 	_paint(_xray.rws, _module_color(m.state("laser")))
 	_paint(_xray.fcs, _module_color(m.state("fcs")))
-	var sensors := [m.laser_online(), m.state("fcs") != TankModules.State.DESTROYED]
+	# A lost FCS blinks red where it sat: without it there is no lock and no lead.
+	var fcs_lost := m.state("fcs") == TankModules.State.DESTROYED
+	var sensors := [m.laser_online(), not fcs_lost or fmod(_time, 0.5) < 0.3]
 	if _xray.rws.visible != sensors[0] or _xray.fcs.visible != sensors[1]:
 		_xray.rws.visible = sensors[0]
 		_xray.fcs.visible = sensors[1]

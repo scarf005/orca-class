@@ -64,7 +64,7 @@ func _process(delta: float) -> void:
 	if _smoke <= 0.0:
 		_smoke = 0.04
 		world.fx.spawn(Fx.Kind.FLAME, global_position, Vector3.UP, 0.25, 0.9, [Palette.AMBER, Palette.HOT, Palette.BUTTER][randi() % 3], {"drag": 2.0})
-		world.fx.spawn(Fx.Kind.GLOW, global_position, Vector3.UP * 1.5, 1.4, 0.9, [Palette.DUSK, Palette.INK, Palette.SLATE][randi() % 3], {"end_size": 2.4, "drag": 1.2, "fade": 0.2})
+		world.fx.spawn(Fx.Kind.GLOW, global_position, Vector3.UP * 1.5, Fx.DEBRIS_SMOKE_LIFE, 0.9, [Palette.DUSK, Palette.INK, Palette.SLATE][randi() % 3], {"end_size": 2.4, "drag": 1.2, "fade": 0.2})
 	var ground := Course.height_at(global_position)
 	var surface := Water.surface_at(global_position) if velocity.y < 0.0 else -INF
 	if surface > ground and global_position.y <= surface:

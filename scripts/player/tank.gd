@@ -7,6 +7,7 @@ signal pickup_collected(id: String)
 signal round_changed
 signal life_lost
 signal charge_locked(target: Entity)
+signal sensor_lost(name: String) ## A roof sensor ("laser" or "fcs") was knocked off.
 
 const MAX_ARMOR := 100.0
 const EDGE_MARGIN := 4.0 ## How close to the foot of the valley walls the tank may go.
@@ -32,6 +33,7 @@ const DASH_TIME := 0.35
 const DASH_SPEED := 2.0 * DASH_DISTANCE / DASH_TIME ## Starts this fast and eases to a stop, covering DASH_DISTANCE.
 const COAX_RANGE := 140.0
 const SOFT_LOCK_RADIUS := 40.0 ## Screen pixels (3D view) around the reticle; the FCS scales it.
+const LOCK_EDGE := Vector2(60.0, 180.0) ## 3D-view pixels from the screen edge: a locked target this close stops sideways driving, this far lets it run free.
 const LOCK_HOLD := 1.4 ## A held soft lock lasts out to this many radii from the reticle.
 const LOCK_SWITCH := 0.6 ## Another enemy takes a held lock only when this much nearer the reticle.
 const SIGHT_RATE := 10.0 ## Per second the chevron's range eases toward the range it rests on.
@@ -275,10 +277,18 @@ func _update_movement(delta: float) -> void:
 func _lock_move_factor() -> float:
 	if not is_instance_valid(charge_lock):
 		return 1.0
-	# Full speed out to 60% of the lock radius, a stop at the radius: the hold beyond it is left as
-	# slack for the camera, which keeps swinging for a moment after the hull stops.
-	var radius := Armament.LOCK_RADIUS
-	return clampf((radius - _charge_distance(charge_lock, charge_part)) / (radius * 0.4), 0.0, 1.0)
+	# The lock itself never lets go while charging, so what matters is the target staying in view:
+	# full speed while it is well inside the screen, a stop as it nears the edge (the camera keeps
+	# swinging a moment after the hull stops, hence the margin).
+	var cam := World.current.camera
+	var at := _aimed_spot(charge_lock)
+	at = charge_lock.hit_center() if at == Vector3.INF else at
+	if cam.is_position_behind(at):
+		return 0.0
+	var screen := cam.unproject_position(at)
+	var view := Vector2(DitherView.RESOLUTION)
+	var margin := minf(minf(screen.x, view.x - screen.x), minf(screen.y, view.y - screen.y))
+	return clampf((margin - LOCK_EDGE.x) / (LOCK_EDGE.y - LOCK_EDGE.x), 0.0, 1.0)
 
 
 func _move_arena(delta: float, input: Vector2) -> void:
@@ -743,7 +753,9 @@ func _update_charge_lock() -> void:
 		charge_part = ""
 		charge_candidate = null
 		return
-	if is_instance_valid(charge_lock) and _charge_distance(charge_lock, charge_part) <= Armament.LOCK_RADIUS * LOCK_HOLD:
+	# While the gun charges, the lock holds whatever the sight does; only the target dying or going
+	# out of view drops it. Driving is slowed instead (`_lock_move_factor`) to keep it on screen.
+	if is_instance_valid(charge_lock) and _charge_distance(charge_lock, charge_part) < INF:
 		return
 	charge_lock = null
 	charge_part = ""
@@ -1484,6 +1496,7 @@ func damage_module(name: String, amount: float) -> bool:
 	if out and name in TankModules.KNOCKED_OFF:
 		var piece := model.detach(model.rws if name == "laser" else model.fcs)
 		Wreck.launch(piece, piece.global_position, 0.8, false, (piece.global_position - hit_center()).normalized() * 8.0, false)
+		sensor_lost.emit(name)
 	world.fx.sparks(hit_center(), Vector3.UP, 14, Palette.BUTTER, 10.0)
 	return true
 

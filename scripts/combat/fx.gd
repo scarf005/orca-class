@@ -14,6 +14,7 @@ const RICOCHET_DEFAULT_SPEED := 100.0 ## For a hit that carries no speed.
 const RICOCHET_LIFE := Vector2(0.25, 0.4)
 const RICOCHET_SPREAD := 0.35
 const TRAIL_MIN_SPEED := 4.0 ## Shards stop trailing once they slow down on the ground.
+static var DEBRIS_SMOKE_LIFE := 0.5 ## Seconds the smoke a flying shard or wreck leaves hangs in the air (tuned live in the duel mode).
 
 ## SOLID: flat pixel-art debris sprites that face the camera and tumble in the screen plane.
 ## GLOW: unlit puffs (smoke, dust, spores), dithered. FLAME: fire, sparks and flashes, drawn
@@ -322,9 +323,9 @@ func _process(delta: float) -> void:
 	for p in trails:
 		if p.bounce:
 			# A flying shard: a thin smoke line, no fire.
-			spawn(Kind.GLOW, p.position, Vector3.UP * 0.4, 0.5, p.size * 0.6, p.trail, {"end_size": p.size * 1.6, "drag": 2.0, "fade": 0.1})
+			spawn(Kind.GLOW, p.position, Vector3.UP * 0.4, DEBRIS_SMOKE_LIFE, p.size * 0.6, p.trail, {"end_size": p.size * 1.6, "drag": 2.0, "fade": 0.1})
 			continue
-		spawn(Kind.GLOW, p.position, Vector3.UP * 0.8, 0.9, p.size * 0.9, p.trail, {"end_size": p.size * 2.5, "drag": 1.5, "fade": 0.1})
+		spawn(Kind.GLOW, p.position, Vector3.UP * 0.8, DEBRIS_SMOKE_LIFE, p.size * 0.9, p.trail, {"end_size": p.size * 2.5, "drag": 1.5, "fade": 0.1})
 		if randf() < 0.5:
 			spawn(Kind.FLAME, p.position, Vector3.ZERO, 0.12, p.size * 0.8, [Palette.BUTTER, Palette.PEACH][randi() % 2])
 	_update_delayed(delta)
