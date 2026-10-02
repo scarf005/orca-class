@@ -8,6 +8,7 @@ const KEEP_AHEAD := 48.0
 const PACE_TIME := 13.0 ## After this long it stops pacing the rail and falls behind.
 const BARREL_SLEW := 3.0 ## Radians per second the gun turns onto the tank.
 const GUN_SPREAD := 0.03 ## Radians of scatter on every round.
+const ROUND_SPEED := 95.0
 const FRONT_ARMOR := 0.25 ## Share of coax damage that gets through the front plate.
 
 var weapon := "gun"
@@ -17,6 +18,7 @@ var _attack_timer := 2.0
 var _telegraph := 0.0
 var _burst := 0
 var _burst_timer := 0.0
+var _aim := Vector3.ZERO ## Where the gun burst goes: fixed when the telegraph ends.
 var _turret: Node3D
 var _barrel: Node3D ## Gun or launcher pivot on the turret; its -Z is the bore.
 var _muzzle: Node3D
@@ -143,7 +145,7 @@ func behave(delta: float) -> void:
 	# Aim the turret at the tank (turret is child of the model).
 	var local := model.global_transform.affine_inverse() * tank.hit_center()
 	_turret.rotation.y = lerp_angle(_turret.rotation.y, atan2(-local.x, -local.z), 5.0 * delta)
-	aim_barrel(_barrel, tank.hit_center(), BARREL_SLEW, delta)
+	aim_barrel(_barrel, _aim_point(tank), BARREL_SLEW, delta)
 	if is_staggered():
 		_cancel()
 		return
@@ -153,7 +155,7 @@ func behave(delta: float) -> void:
 		if _burst_timer <= 0.0:
 			_burst -= 1
 			_burst_timer = 0.11
-			var shot := fire_along("orb", _muzzle, 95.0, 4.0, Palette.HOT, tank.hit_center() - _muzzle.global_position, 3.0, GUN_SPREAD, Muzzle.AUTO)
+			var shot := fire_along("orb", _muzzle, ROUND_SPEED, 4.0, Palette.HOT, _aim - _muzzle.global_position, 3.0, GUN_SPREAD, Muzzle.AUTO)
 			shot.hit.caliber = 30
 			world.fx.spawn(Fx.Kind.FLAME, _muzzle.global_position, Vector3.ZERO, 0.06, 0.5, Palette.CORAL)
 			Sfx.play("enemy_gun", _muzzle.global_position, -2.0)
@@ -209,6 +211,7 @@ func _attack() -> void:
 	_eye_material.albedo_color = Palette.RED
 	var tank := player()
 	if weapon == "gun":
+		_aim = Gunnery.sensor_lead(tank, _muzzle.global_position, ROUND_SPEED)
 		_burst = 6 if _hard else 5
 		_burst_timer = 0.0
 		return
@@ -226,6 +229,14 @@ func _attack() -> void:
 	missile.life = 6.0
 	missile.trail = Projectile.ROCKET_SMOKE
 	Sfx.play("launch", from)
+
+
+## What the barrel turns onto: the lead on the sensor while a gun winds up, then that point held
+## for the burst; the other weapons follow the tank.
+func _aim_point(tank: Tank) -> Vector3:
+	if weapon != "gun":
+		return tank.hit_center()
+	return _aim if _burst > 0 else Gunnery.sensor_lead(tank, _muzzle.global_position, ROUND_SPEED)
 
 
 func _cancel() -> void:

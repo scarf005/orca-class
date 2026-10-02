@@ -11,6 +11,7 @@ const BARREL_SLEW := 3.0 ## Radians per second the arm gun and the pod turn onto
 const POD_LOFT := Vector3(0, 6, 0) ## The pod aims above the tank: its missiles pop up, then steer down onto it.
 const GUN_SPREAD := 0.03 ## Radians of scatter on every arm gun round.
 const WHEEL_RADIUS := 0.2
+const ROUND_SPEED := 100.0
 const FRONT_ARMOR := 0.25 ## Share of coax damage that gets through the front plate.
 
 var weapon := "gun" ## "gun" or "missile".
@@ -22,6 +23,7 @@ var _attack_timer := 1.6
 var _telegraph := 0.0
 var _burst := 0
 var _burst_timer := 0.0
+var _aim := Vector3.ZERO ## Where the arm gun burst goes: fixed when the telegraph ends.
 var _crouch := 0.25 ## How far it sits into its knees: 0.25 rolling, 0.55 planted.
 var _body := Node3D.new()
 var _legs: Array[Dictionary] = [] ## {hip, knee, ankle, wheel}
@@ -162,14 +164,14 @@ func behave(delta: float) -> void:
 	if crippled or is_staggered():
 		_telegraph = 0.0
 		return
-	aim_barrel(_arm, tank.hit_center(), BARREL_SLEW, delta)
+	aim_barrel(_arm, _arm_aim(tank), BARREL_SLEW, delta)
 	aim_barrel(_pod, tank.hit_center() + POD_LOFT, BARREL_SLEW, delta)
 	if _burst > 0:
 		_burst_timer -= delta
 		if _burst_timer <= 0.0:
 			_burst -= 1
 			_burst_timer = 0.08
-			var shot := fire_along("orb", _muzzle, 100.0, 3.0, Palette.HOT, tank.hit_center() - _muzzle.global_position, 3.0, GUN_SPREAD, Muzzle.LIGHT)
+			var shot := fire_along("orb", _muzzle, ROUND_SPEED, 3.0, Palette.HOT, _aim - _muzzle.global_position, 3.0, GUN_SPREAD, Muzzle.LIGHT)
 			shot.hit.caliber = 15
 			Sfx.play("enemy_gun", _muzzle.global_position, -4.0, 1.2)
 			_body.position.z = 0.1
@@ -191,6 +193,7 @@ func behave(delta: float) -> void:
 func _attack(tank: Tank) -> void:
 	_eye_material.albedo_color = Palette.HOT
 	if weapon == "gun":
+		_aim = Gunnery.sensor_lead(tank, _muzzle.global_position, ROUND_SPEED)
 		_burst = 8 if _hard else 6
 		_burst_timer = 0.0
 		return
@@ -209,6 +212,14 @@ func _attack(tank: Tank) -> void:
 		missile.trail = Projectile.ROCKET_SMOKE
 		missile.life = 5.0
 	Sfx.play("launch", _pod_muzzle.global_position, 0.0, 1.3)
+
+
+## What the arm turns onto: the lead on the sensor while a gun winds up, then that point held for
+## the burst; a missile walker keeps it on the tank.
+func _arm_aim(tank: Tank) -> Vector3:
+	if weapon != "gun":
+		return tank.hit_center()
+	return _aim if _burst > 0 else Gunnery.sensor_lead(tank, _muzzle.global_position, ROUND_SPEED)
 
 
 ## Settles into the planted crouch without running any AI (debug room).
