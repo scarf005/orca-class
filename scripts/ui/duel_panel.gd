@@ -17,6 +17,7 @@ var _rows: Array = [
 	["Turret traverse (rad/s)", func() -> float: return Tank.TURRET_RATE, func(v: float) -> void: Tank.TURRET_RATE = v, 2.0, 30.0, 0.5],
 	["Gun elevation (rad/s)", func() -> float: return Tank.PITCH_RATE, func(v: float) -> void: Tank.PITCH_RATE = v, 1.0, 30.0, 0.5],
 	["Kill throw cap (x)", func() -> float: return Enemy.KILL_THROW_MAX, func(v: float) -> void: Enemy.KILL_THROW_MAX = v, 0.5, 8.0, 0.1],
+	["Dismember speed (m/s)", func() -> float: return Enemy.DISMEMBER_SPEED, func(v: float) -> void: Enemy.DISMEMBER_SPEED = v, 0.0, 60.0, 1.0],
 	["Hit weight (x)", func() -> float: return Tank.HIT_WEIGHT, func(v: float) -> void: Tank.HIT_WEIGHT = v, 0.0, 3.0, 0.05],
 ]
 var _grid := GridContainer.new()

@@ -266,11 +266,14 @@ func on_death(hit: Hit) -> void:
 				mesh.material_overlay = rest_overlay
 		# Remains are no longer a threat: drop the hostile outline.
 		ActorLayer.unmark(model, ActorLayer.HOSTILE)
-		for part in pop_parts:
-			if is_instance_valid(part):
-				# Turrets blow clean off and cartwheel away on their own.
-				Wreck.launch(part, part.global_position, death_radius * 0.4, by_player, push * 8.0 + Vector3.UP * 10.0, false)
-		Wreck.launch(model, center, death_radius, by_player, push * (28.0 if overkilled else 18.0))
+		if hit != null and hit.kind == Hit.Kind.SHELL:
+			_dismember(center, push, by_player)
+		else:
+			for part in pop_parts:
+				if is_instance_valid(part):
+					# Turrets blow clean off and cartwheel away on their own.
+					Wreck.launch(part, part.global_position, death_radius * 0.4, by_player, push * 8.0 + Vector3.UP * 10.0, false)
+			Wreck.launch(model, center, death_radius, by_player, push * (28.0 if overkilled else 18.0))
 		model = null
 	world.award(score, center, true)
 	world.kill_style(hit, self)
@@ -278,6 +281,32 @@ func on_death(hit: Hit) -> void:
 		world.hitstop(0.05)
 	if not drop.is_empty():
 		world.spawn_pickup(drop, center + Vector3.UP * 0.5)
+
+
+static var DISMEMBER_SPEED := 16.0 ## Outward speed (m/s) a shell kill tears the pieces apart at (tuned live in the duel mode).
+
+
+## A shell tears the hull apart: every piece of the model flies off on its own, outward from the
+## middle and up, with only some of the shot's push, so the kill reads as a burst instead of one lump
+## carried straight along the line of fire. The biggest piece still blows up where it lands.
+func _dismember(center: Vector3, push: Vector3, by_player: bool) -> void:
+	var pieces: Array[MeshInstance3D] = []
+	pieces.assign(model.find_children("*", "MeshInstance3D", true, false))
+	var sizes: Array[float] = []
+	var biggest := 0
+	for i in pieces.size():
+		sizes.append((pieces[i].global_basis * pieces[i].mesh.get_aabb().size).length() if pieces[i].mesh else 0.5)
+		if sizes[i] > sizes[biggest]:
+			biggest = i
+	for i in pieces.size():
+		var piece := pieces[i]
+		var at := piece.global_transform * piece.mesh.get_aabb().get_center() if piece.mesh else piece.global_position
+		var out := at - center
+		out.y = maxf(out.y, 0.0) + 0.8
+		out = (out.normalized() + Vector3(randf_range(-1, 1), randf_range(0, 1), randf_range(-1, 1)) * 0.6).normalized()
+		var size := maxf(sizes[i] * 0.5, 0.3)
+		Wreck.launch(piece, at, size, by_player, (out * DISMEMBER_SPEED * randf_range(0.7, 1.4) + push * 6.0) * sqrt(maxf(size, 1.0)), i == biggest)
+	model.queue_free()
 
 
 const KILL_SHELL_SPEED := 260.0 ## A shell this fast throws the remains at the base push; faster ones by their kinetic energy.
