@@ -1,5 +1,5 @@
 extends TestCase
-## Controls: WASD, Space to dash, the mouse buttons, the auto coax, and handling.
+## Controls: WASD, Space or right mouse to dash, one fire button, the auto coax, and handling.
 
 
 func test_keyboard_needs_only_wasd_and_the_mouse() -> void:
@@ -13,6 +13,11 @@ func test_keyboard_needs_only_wasd_and_the_mouse() -> void:
 	check(button.call(&"fire", MOUSE_BUTTON_LEFT), "left mouse fires")
 	check(not button.call(&"fire", MOUSE_BUTTON_RIGHT), "right mouse does not")
 	check(InputMap.action_get_events(&"dash").any(func(e: InputEvent) -> bool: return e is InputEventKey and (e as InputEventKey).physical_keycode == KEY_SPACE), "Space dashes")
+	check(button.call(&"dash", MOUSE_BUTTON_RIGHT), "right mouse dashes")
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_RIGHT
+	click.pressed = true
+	check(InputMap.event_is_action(click, &"dash") and not InputMap.event_is_action(click, &"fire"), "a right click is a dash, not a shot")
 
 
 func test_rounds_leave_along_the_barrel() -> void:

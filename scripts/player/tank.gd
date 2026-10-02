@@ -104,7 +104,7 @@ var _last_position := Vector3.ZERO
 var _grab_target: Node3D
 var coax_target: Entity ## What the coax is tracking on its own.
 var coax_part := "" ## Which module of the locked target the guns are on, if it has several.
-var _last_lateral := 1.0 ## The way the tank last steered sideways: where Space dashes with nothing held.
+var _last_lateral := 1.0 ## The way the tank last steered sideways: where a dash with nothing held goes.
 var _engine_sound: AudioStreamPlayer3D
 var input_enabled := true:
 	set(value):
@@ -296,7 +296,7 @@ func _move_arena(delta: float, input: Vector2) -> void:
 	model.animate_tracks(delta, current.length(), current.length())
 
 
-## Space dashes the way the tank is steered: sideways if A or D is held, else forward on W alone or a
+## Space or the right button dashes the way the tank is steered: sideways if A or D is held, else forward on W alone or a
 ## hard stop on S alone, and with nothing held the way it last steered sideways. Gamepad shoulders
 ## dash sideways.
 func _read_dash(input: Vector2) -> void:
