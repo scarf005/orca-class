@@ -267,9 +267,9 @@ func _land_stomp(tank: Tank) -> void:
 	tank.take_hit(hit)
 
 
-## Where flak is aimed: the tank, a little ahead of where it is going.
+## Where flak is aimed: the tank's roof sensor (the RWS first), led for the round's flight.
 func _flak_aim(tank: Tank) -> Vector3:
-	return tank.hit_center() + tank.velocity * 0.4
+	return Gunnery.sensor_lead(tank, _muzzle.global_position, MG_SPEED)
 
 
 ## Where slot `slot` of a line of `slots` circles across the road comes down: the line is laid across

@@ -120,3 +120,45 @@ func test_aim_point_stays_fixed_through_the_burst() -> void:
 	tank.global_position += Vector3(30, 0, 0)
 	ugv.behave(1.0 / 60.0)
 	check_eq(ugv._aim, aim, "the tank moving does not move it")
+
+
+func _place_at(world: World, enemy: Enemy, ahead: float, lane: float, height := 0.0) -> void:
+	enemy.position = Course.ground_at(world.rail.d + world.player.course_offset + ahead, lane) + Vector3.UP * height
+	world.add_enemy(enemy)
+
+
+func test_every_gunner_and_missile_shooter_aims_at_the_rws_first() -> void:
+	var world := stage()
+	var tank := world.player
+	tank.velocity = Vector3.ZERO
+	var rws := tank.model.sensor_position("laser")
+	var heli := Helicopter.new()
+	heli.set_meta("slot", Vector3(0, 13, 55))
+	_place_at(world, heli, 55.0, 0.0, 13.0)
+	var quad := QuadMech.new()
+	_place_at(world, quad, 60.0, 4.0)
+	var walker := Walker.new()
+	walker.weapon = "missile"
+	_place_at(world, walker, 45.0, -4.0)
+	var atgm := Ugv.new()
+	atgm.weapon = "atgm"
+	_place_at(world, atgm, 50.0, 4.0)
+	var rotor := Tiltrotor.new()
+	_place_at(world, rotor, 36.0, 16.0, 10.0)
+	var aims := {
+		"helicopter gun": heli._aim_point(tank),
+		"helicopter rockets": (func() -> Vector3:
+			heli._rockets = true
+			return heli._aim_point(tank)).call(),
+		"quad flak": quad._flak_aim(tank),
+		"walker pod": walker._pod_aim(tank) - Walker.POD_LOFT,
+		"ATGM UGV": atgm._aim_point(tank),
+	}
+	for name: String in aims:
+		check(aims[name].distance_to(rws) < 0.01, "the %s aims at the RWS" % name)
+	rotor._line_across(tank)
+	var line := Course.to_course((rotor._line_a + rotor._line_b) * 0.5)
+	check_near(line.y, Course.to_course(rws).y, 0.5, "the tiltrotor's sweep is centred on the RWS")
+	tank.damage_module("laser", 1000.0)
+	var fcs := tank.model.sensor_position("fcs")
+	check(heli._aim_point(tank).distance_to(fcs) < 0.01 and quad._flak_aim(tank).distance_to(fcs) < 0.01, "with the RWS gone they take the FCS")

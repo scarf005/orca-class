@@ -294,10 +294,10 @@ func _attack() -> void:
 
 
 ## What the barrel turns onto: the lead on the sensor while a gun winds up, then that point held
-## for the burst; the other weapons follow the tank.
+## for the burst; the other weapons follow the roof sensor (the RWS first).
 func _aim_point(tank: Tank) -> Vector3:
 	if weapon != "gun":
-		return tank.hit_center()
+		return Gunnery.sensor_lead(tank, _muzzle.global_position, 32.0)
 	return _aim if _burst > 0 else Gunnery.sensor_lead(tank, _muzzle.global_position, ROUND_SPEED, _at_tail)
 
 

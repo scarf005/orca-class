@@ -258,9 +258,9 @@ func _fire_missile(tank: Tank) -> void:
 	Sfx.play("launch", from, 0.0, 1.3)
 
 
-## Where the pod points: above the tank, so the missiles pop up and then steer down onto it.
+## Where the pod points: above the tank's roof sensor (the RWS first), so the missiles pop up and then steer down onto it.
 func _pod_aim(tank: Tank) -> Vector3:
-	return tank.hit_center() + POD_LOFT
+	return Gunnery.sensor_lead(tank, _pod_muzzle.global_position, 34.0) + POD_LOFT
 
 
 func _flat_distance(tank: Tank) -> float:

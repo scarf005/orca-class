@@ -196,15 +196,13 @@ func behave(delta: float) -> void:
 
 
 ## Where the next round is meant to land: a rocket pair's fixed point once the telegraph ends, else the
-## tank led for the shot's flight time (rockets fully, gun rounds a little).
+## tank's roof sensor (the RWS first) led for the shot's flight time.
 func _aim_point(tank: Tank) -> Vector3:
 	if _strafing:
 		return _strafe_point()
 	if _rockets and _burst > 0:
 		return _rocket_aim
-	var target := tank.hit_center()
-	var flight := global_position.distance_to(target) / (ROCKET_SPEED if _rockets else MG_SPEED)
-	return target + tank.velocity * flight * (1.0 if _rockets else 0.6)
+	return Gunnery.sensor_lead(tank, global_position, ROCKET_SPEED if _rockets else MG_SPEED)
 
 
 ## The attacks cycle gun burst, rocket pair, strafing run.

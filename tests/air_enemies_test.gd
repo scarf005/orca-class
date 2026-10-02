@@ -104,7 +104,7 @@ func test_rocket_aim_tracks_again_after_the_pair() -> void:
 	heli.behave(0.2)
 	heli._burst = 0
 	tank.velocity = Vector3.ZERO
-	check(heli._aim_point(tank).is_equal_approx(tank.hit_center()), "between volleys the aim follows the tank again")
+	check(heli._aim_point(tank).is_equal_approx(tank.model.sensor_position("laser")), "between volleys the aim follows the RWS again")
 
 
 func test_tiltrotor_flies_in_hovers_drops_a_squad_and_sweeps() -> void:
