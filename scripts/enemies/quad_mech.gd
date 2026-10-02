@@ -13,6 +13,7 @@ const MORTAR_CORRECTION := 8.0 ## Degrees a shell may leave off the tube: it the
 const MORTAR_GRAVITY := 20.0
 const WHEEL_RADIUS := 0.4
 const STANCE_SPLAY := 0.12 ## Radians the shins splay outward.
+const FRONT_ARMOR := 0.25 ## Share of coax damage that gets through the front plate.
 
 var weapon := "flak" ## "flak" or "mortar".
 var turret_hp := 10.0
@@ -35,8 +36,8 @@ var _hard := false
 func _init() -> void:
 	super()
 	wreck_on_death = true
-	max_hp = 24.0
-	hp = 24.0
+	max_hp = 2400.0
+	hp = 2400.0
 	radius = 2.6
 	center_height = 2.6
 	armor = 0.0
@@ -263,8 +264,13 @@ func _animate(delta: float) -> void:
 	_body.rotation.z = lerpf(_body.rotation.z, tilt.x * 0.12 - clampf(lean.x * 0.005, -0.08, 0.08), 3.0 * delta)
 
 
+func damage_multiplier(hit: Hit) -> float:
+	return super(hit) * frontal_armor(hit, FRONT_ARMOR)
+
+
 func on_damaged(hit: Hit, amount: float) -> void:
 	super(hit, amount)
+	amount /= frontal_armor(hit, FRONT_ARMOR) # The front plate guards the hull, not the legs or the turret.
 	var world := World.current
 	var local := _body.global_transform.affine_inverse() * hit.position
 	if local.y < -0.4:

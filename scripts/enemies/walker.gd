@@ -11,6 +11,7 @@ const BARREL_SLEW := 3.0 ## Radians per second the arm gun and the pod turn onto
 const POD_LOFT := Vector3(0, 6, 0) ## The pod aims above the tank: its missiles pop up, then steer down onto it.
 const GUN_SPREAD := 0.03 ## Radians of scatter on every arm gun round.
 const WHEEL_RADIUS := 0.2
+const FRONT_ARMOR := 0.25 ## Share of coax damage that gets through the front plate.
 
 var weapon := "gun" ## "gun" or "missile".
 var legs_hp := 8.0
@@ -35,8 +36,8 @@ var _hard := false
 func _init() -> void:
 	super()
 	wreck_on_death = true
-	max_hp = 16.0
-	hp = 16.0
+	max_hp = 60.0
+	hp = 60.0
 	radius = 1.6
 	center_height = 2.6
 	armor = 0.0
@@ -242,8 +243,13 @@ func _animate(delta: float, planted: bool) -> void:
 			World.current.fx.sparks(_body.global_position, Vector3.UP, 4, Palette.BUTTER)
 
 
+func damage_multiplier(hit: Hit) -> float:
+	return super(hit) * frontal_armor(hit, FRONT_ARMOR)
+
+
 func on_damaged(hit: Hit, amount: float) -> void:
 	super(hit, amount)
+	amount /= frontal_armor(hit, FRONT_ARMOR) # The front plate guards the hull, not the legs.
 	var local := model.global_transform.affine_inverse() * hit.position
 	if not crippled and local.y < 1.8:
 		legs_hp -= amount

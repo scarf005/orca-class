@@ -8,6 +8,7 @@ const KEEP_AHEAD := 48.0
 const PACE_TIME := 13.0 ## After this long it stops pacing the rail and falls behind.
 const BARREL_SLEW := 3.0 ## Radians per second the gun turns onto the tank.
 const GUN_SPREAD := 0.03 ## Radians of scatter on every round.
+const FRONT_ARMOR := 0.25 ## Share of coax damage that gets through the front plate.
 
 var weapon := "gun"
 var _lane := 0.0
@@ -32,8 +33,8 @@ var disarmed := false
 func _init() -> void:
 	super()
 	wreck_on_death = true
-	max_hp = 16.0
-	hp = 16.0
+	max_hp = 60.0
+	hp = 60.0
 	radius = 1.8
 	center_height = 1.0
 	armor = 0.0
@@ -48,9 +49,9 @@ func _init() -> void:
 func build() -> void:
 	_hard = Game.difficulty == Game.Difficulty.HARD
 	if weapon == "atgm":
-		max_hp = 16.0
+		max_hp = 60.0
 	elif weapon == "supply":
-		max_hp = 12.0
+		max_hp = 45.0
 		score = 300
 	hp = max_hp
 	var b := LowPoly.new()
@@ -176,8 +177,13 @@ func behave(delta: float) -> void:
 		_attack_timer = (3.8 if weapon == "atgm" else 2.4) * (0.75 if _hard else 1.0)
 
 
+func damage_multiplier(hit: Hit) -> float:
+	return super(hit) * frontal_armor(hit, FRONT_ARMOR)
+
+
 func on_damaged(hit: Hit, amount: float) -> void:
 	super(hit, amount)
+	amount /= frontal_armor(hit, FRONT_ARMOR) # The front plate guards the hull, not the modules behind it.
 	var world := World.current
 	var local := model.global_transform.affine_inverse() * hit.position
 	if not immobile and local.y < 0.8:

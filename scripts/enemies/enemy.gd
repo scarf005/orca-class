@@ -366,3 +366,15 @@ func fire_along(shape: String, muzzle: Node3D, speed: float, damage: float, colo
 	var dir := bore_direction(muzzle, wanted, max_degrees)
 	dir = (dir + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * spread).normalized()
 	return _launch(shape, muzzle.global_position, dir, speed, damage, color, weapon)
+
+
+## `factor` for a coax round that strikes inside the front arc (60° either side of where the model
+## faces, level), else 1: the plate that turns small arms from ahead.
+func frontal_armor(hit: Hit, factor: float) -> float:
+	var facing := -model.global_basis.z
+	var incoming := -hit.direction
+	facing.y = 0.0
+	incoming.y = 0.0
+	if hit.kind != Hit.Kind.BULLET or incoming.length_squared() < 0.0001:
+		return 1.0
+	return factor if facing.angle_to(incoming) <= deg_to_rad(60.0) else 1.0
