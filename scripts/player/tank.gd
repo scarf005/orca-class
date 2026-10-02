@@ -36,6 +36,10 @@ const LOCK_HOLD := 1.4 ## A held soft lock lasts out to this many radii from the
 const LOCK_SWITCH := 0.6 ## Another enemy takes a held lock only when this much nearer the reticle.
 const SIGHT_RATE := 10.0 ## Per second the chevron's range eases toward the range it rests on.
 const PART_LOCK_RADIUS := 90.0 ## Screen pixels: on a target made of modules, the nearest one within this is locked.
+## Tuned live in the duel mode, hence static vars.
+static var TURRET_RATE := 12.0 ## Radians per second the turret traverses.
+static var PITCH_RATE := 9.0 ## Radians per second the gun elevates.
+static var HIT_WEIGHT := 1.0 ## Scales the freeze, shake and flash a cannon hit lands with.
 const RESPAWN_DELAY := 1.8
 const RESPAWN_INVULN := 2.6
 const CRUSH_SPEED := 5.0 ## Ground speed above which the tank runs down ground enemies.
@@ -82,7 +86,6 @@ var _fire_released := false
 var _auto_fire := false ## The hold reached the auto-fire time: the gun fires this frame.
 var _spent := false ## The gun fired by itself: the button has to come up before a new hold counts.
 var _recover := 0.0 ## Seconds until a hold can charge again after a shot.
-var _burst := 0.0 ## Seconds of coax fire left from the last press.
 var _full_click := false
 var _coax_timers: Array[float] = []
 
@@ -552,10 +555,10 @@ func _update_aim(delta: float) -> void:
 	_sight_lock = lock
 	var local := model.turret.global_transform.affine_inverse() * lay
 	var yaw := atan2(-local.x, -local.z)
-	model.turret.rotation.y = rotate_toward(model.turret.rotation.y, model.turret.rotation.y + yaw, 12.0 * modules.traverse_factor() * delta)
+	model.turret.rotation.y = rotate_toward(model.turret.rotation.y, model.turret.rotation.y + yaw, TURRET_RATE * modules.traverse_factor() * delta)
 	var to_aim := local - model.gun_pivot.position
 	var pitch := clampf(atan2(to_aim.y, Vector2(to_aim.x, to_aim.z).length()), deg_to_rad(-8.0), deg_to_rad(55.0))
-	model.gun_pivot.rotation.x = move_toward(model.gun_pivot.rotation.x, pitch, 9.0 * delta)
+	model.gun_pivot.rotation.x = move_toward(model.gun_pivot.rotation.x, pitch, PITCH_RATE * delta)
 	_barrel_recoil = move_toward(_barrel_recoil, 0.0, delta * 2.5)
 	model.barrel.position.z = _barrel_recoil
 
@@ -631,7 +634,6 @@ func _cancel_charge() -> void:
 	_fire_released = false
 	_spent = false
 	_recover = 0.0
-	_burst = 0.0
 
 
 func _reset_charge() -> void:
@@ -674,8 +676,6 @@ func _update_charge(delta: float) -> void:
 		return
 	var held := Input.is_action_pressed("fire")
 	_fire_released = _fire_held and not held
-	if held and not _fire_held:
-		_burst = Armament.COAX_BURST # Every press gives a burst; holding does not keep the coax going.
 	if not held:
 		_spent = false
 	var waited := minf(_recover, delta)
@@ -750,8 +750,8 @@ func _update_charge_lock() -> void:
 
 func _update_weapons(delta: float) -> void:
 	coax_part = _pick_part(coax_target)
-	if input_enabled and _burst > 0.0:
-		_burst -= delta
+	# The coax works on its own: it fires whenever the sight soft-locks an enemy.
+	if input_enabled and is_instance_valid(coax_target):
 		var calibers := Armament.tier_calibers(coax_tier)
 		for i in calibers.size():
 			_coax_timers[i] -= delta
@@ -763,7 +763,7 @@ func _update_weapons(delta: float) -> void:
 		for i in _coax_timers.size():
 			_coax_timers[i] = maxf(_coax_timers[i] - delta, 0.0)
 	if _fire_released or _auto_fire:
-		if input_enabled and _hold >= Armament.TAP_TIME:
+		if input_enabled and _hold > 0.0:
 			fire_cannon(Vector3.INF, Vector3.ZERO, charge)
 			_recover = Armament.CANNON_RECOVER
 			_spent = _auto_fire
@@ -1034,16 +1034,16 @@ func _cannon_feedback(muzzle: Vector3, dir: Vector3, power := 0.0) -> void:
 func _count_hit(projectile: Projectile, point: Vector3, target: Entity) -> void:
 	var world := World.current
 	var power := projectile.hit.power if projectile.hit else 0.0
-	world.shake(lerpf(0.3, 0.55, power), point)
+	world.shake(lerpf(0.3, 0.55, power) * HIT_WEIGHT, point)
 	if target and target.team == Team.ENEMY:
 		world.stats.shot_hits += 1
 		# The hit lands with its own weight: a freeze, a white flash and a ring on the target.
-		world.hitstop(lerpf(0.045, 0.08, power))
-		world.fx.light_flash(point, lerpf(16.0, 26.0, power), Palette.WHITE, 22.0)
-		world.fx.impact_star(point, lerpf(2.6, 4.5, power), Palette.WHITE)
-		world.fx.shockwave(point, lerpf(5.0, 11.0, power), Palette.WHITE, 0.18)
+		world.hitstop(lerpf(0.045, 0.08, power) * HIT_WEIGHT)
+		world.fx.light_flash(point, lerpf(16.0, 26.0, power) * HIT_WEIGHT, Palette.WHITE, 22.0)
+		world.fx.impact_star(point, lerpf(2.6, 4.5, power) * HIT_WEIGHT, Palette.WHITE)
+		world.fx.shockwave(point, lerpf(5.0, 11.0, power) * HIT_WEIGHT, Palette.WHITE, 0.18)
 		world.fx.sparks(point, projectile.splash_direction(), 18 + int(power * 14), Palette.WHITE, 18.0)
-		world.camera.kick(0.04 * power)
+		world.camera.kick(0.04 * power * HIT_WEIGHT)
 
 
 ## What the laser burns next: the incoming projectile that arrives soonest, or a drone close enough

@@ -23,19 +23,20 @@ const OFFERED: Array[Round] = [Round.CANISTER, Round.DRAGON, Round.AIRBURST]
 ## Rounds loaded per special-round pickup.
 const MAGAZINE := {Round.HEAT: 6, Round.CANISTER: 6, Round.DRAGON: 6, Round.APFSDS: 6, Round.AIRBURST: 6}
 
-## A real 100 mm gun, Star Fox style, on the same button as the coax: a tap is a coax burst, a hold past
-## TAP_TIME charges the shell. Let go early for a quick shell, at full charge for a hitscan that pierces.
+## A real 100 mm gun on the fire button, Star Fox style: a click fires a quick shell, a hold past TAP_TIME
+## locks its target and charges it. Let go early for a quick shell, at full charge for a hitscan that
+## pierces. The coax fires by itself at whatever the sight soft-locks.
 const SHELL_SPEED := 1700.0 ## Full-charge rounds are hitscan; this only sets their lead (none, in effect).
 const SHELL_RANGE := 420.0
 const SHELL_DAMAGE := 1500.0
-const QUICK_SPEED := 260.0 ## A quick shell is a visible projectile along the barrel, without gravity.
+## Tuned live in the duel mode, hence static vars.
+static var QUICK_SPEED := 260.0 ## A quick shell is a visible projectile along the barrel, without gravity.
 
-const COAX_BURST := 0.22 ## Seconds of coax fire a press gives, however long the button is held.
-const TAP_TIME := 0.3 ## A hold this long starts the main-gun charge and locks its target.
-const FULL_TIME := 1.0 ## Seconds of hold for a full charge.
-const AUTO_FIRE_TIME := 1.5 ## Seconds of hold at which the gun fires by itself; the button must be pressed again.
-const CANNON_RECOVER := 0.5 ## After a shot a new hold cannot charge for this long.
-const LOCK_RADIUS := 64.0 ## 3D-view pixels around the reticle that a charge picks and locks its target within.
+static var TAP_TIME := 0.15 ## A hold this long locks the target and starts the charge; a shorter click is a quick shell.
+static var FULL_TIME := 1.0 ## Seconds of hold for a full charge.
+static var AUTO_FIRE_TIME := 1.5 ## Seconds of hold at which the gun fires by itself; the button must be pressed again.
+static var CANNON_RECOVER := 0.8 ## After a shot the gun cannot fire or charge for this long.
+static var LOCK_RADIUS := 64.0 ## 3D-view pixels around the reticle that a charge picks and locks its target within.
 const QUICK_DAMAGE := Vector2(800.0, 1500.0) ## APHE quick shell by charge.
 const QUICK_RADIUS := Vector2(4.0, 6.0)
 const QUICK_BLAST := Vector2(300.0, 600.0)

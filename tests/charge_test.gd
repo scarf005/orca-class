@@ -27,43 +27,46 @@ func _shells(world: World) -> Array:
 	return world.projectiles.filter(func(p: Projectile) -> bool: return p.shape == "shell" and not p.is_queued_for_deletion())
 
 
-func test_a_press_fires_one_coax_burst_and_holding_does_not_extend_it() -> void:
+func test_the_coax_fires_by_itself_at_a_soft_locked_enemy() -> void:
+	var world := _rig()
+	var tank := world.player
+	_step(tank, 0.3)
+	check_eq(_bullets(world), 0, "nothing locked, nothing fired")
+	var enemy := Enemy.new()
+	enemy.position = tank.hit_center() - Vector3(0, 0, 40)
+	world.add_enemy(enemy)
+	enemy.set_process(false)
+	tank.coax_target = enemy
+	_step(tank, 0.3)
+	check(_bullets(world) > 0, "a soft lock is enough: no button")
+	check_eq(world.stats.shots, 0, "and the main gun stays quiet")
+
+
+func test_a_click_fires_one_quick_shell_then_the_gun_recovers() -> void:
 	var world := _rig()
 	var tank := world.player
 	Input.action_press("fire")
-	_step(tank, 1.0 / 60.0)
-	check_eq(_bullets(world), 1, "the first round leaves on the press frame")
-	for _i in 30:
-		_step(tank, 1.0 / 60.0)
-	var burst := _bullets(world)
-	var interval: float = Armament.GUNS[Armament.tier_calibers(0)[0]].interval
-	check_eq(burst, ceili(Armament.COAX_BURST / interval), "a burst is COAX_BURST of fire at the tier's interval")
-	_step(tank, 0.3)
-	check_eq(_bullets(world), burst, "holding adds no more coax rounds")
+	_step(tank, Armament.TAP_TIME - 0.02)
+	check_eq(tank.charge, 0.0, "no charge inside the tap time")
+	check(not tank.is_charging(), "and no lock either")
 	Input.action_release("fire")
 	_step(tank, 0.0)
-	_step(tank, 1.0 / 60.0)
+	check_eq(world.stats.shots, 1, "a click fires one shell")
+	check_eq(world.stats.charged_shots, 0, "a quick one")
 	Input.action_press("fire")
 	_step(tank, 1.0 / 60.0)
-	check_eq(_bullets(world), burst + 1, "the next press gives a new burst")
 	Input.action_release("fire")
-
-
-func test_a_tap_fires_no_cannon_and_resets() -> void:
-	var world := _rig()
-	var tank := world.player
-	for _i in 10:
-		Input.action_press("fire")
-		_step(tank, Armament.TAP_TIME - 0.02)
-		check_eq(tank.charge, 0.0, "no charge inside the tap time")
-		check(not tank.is_charging(), "and not charging")
-		Input.action_release("fire")
-		_step(tank, 0.0)
-		_step(tank, 0.1)
-	check_eq(world.stats.shots, 0, "taps fire no main-gun shell")
+	_step(tank, 0.0)
+	check_eq(world.stats.shots, 1, "a click during recovery fires nothing")
+	_step(tank, Armament.CANNON_RECOVER)
 	Input.action_press("fire")
-	_step(tank, Armament.TAP_TIME + (Armament.FULL_TIME - Armament.TAP_TIME) * 0.5)
-	check_near(tank.charge, 0.5, 0.02, "charge fills from TAP_TIME to FULL_TIME")
+	_step(tank, 1.0 / 60.0)
+	Input.action_release("fire")
+	_step(tank, 0.0)
+	check_eq(world.stats.shots, 2, "once recovered, the next click fires")
+	Input.action_press("fire")
+	_step(tank, Armament.CANNON_RECOVER + Armament.TAP_TIME + (Armament.FULL_TIME - Armament.TAP_TIME) * 0.5)
+	check_near(tank.charge, 0.5, 0.05, "a hold charges from TAP_TIME to FULL_TIME")
 	check(tank.is_charging(), "past the tap time the gun charges")
 	Input.action_release("fire")
 	_step(tank, 0.0)
@@ -133,7 +136,7 @@ func test_hold_to_the_auto_fire_time_fires_once_until_pressed_again() -> void:
 	Input.action_release("fire")
 
 
-func test_recovery_blocks_a_new_charge_but_not_the_coax_burst() -> void:
+func test_recovery_blocks_a_new_charge() -> void:
 	var world := _rig()
 	var tank := world.player
 	Input.action_press("fire")
@@ -141,10 +144,8 @@ func test_recovery_blocks_a_new_charge_but_not_the_coax_burst() -> void:
 	Input.action_release("fire")
 	_step(tank, 0.0)
 	check_eq(world.stats.shots, 1, "a shot")
-	var bullets := _bullets(world)
 	Input.action_press("fire")
 	_step(tank, 0.02)
-	check(_bullets(world) > bullets, "a press right after still gives the coax burst")
 	_step(tank, Armament.CANNON_RECOVER + Armament.TAP_TIME - 0.1)
 	check(not tank.is_charging() and tank.charge == 0.0, "but the hold does not charge during recovery and the tap time")
 	_step(tank, 0.14)
