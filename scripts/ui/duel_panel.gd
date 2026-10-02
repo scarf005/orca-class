@@ -21,6 +21,7 @@ var _rows: Array = [
 	["Dismember focus by momentum", func() -> float: return Enemy.DISMEMBER_FOCUS, func(v: float) -> void: Enemy.DISMEMBER_FOCUS = v, 0.0, 3.0, 0.05],
 	["Blast throw (m/s per dmg)", func() -> float: return Wreck.BLAST_THROW, func(v: float) -> void: Wreck.BLAST_THROW = v, 0.0, 0.3, 0.005],
 	["HE blast radius (x)", func() -> float: return Armament.HE_RADIUS_SCALE, func(v: float) -> void: Armament.HE_RADIUS_SCALE = v, 0.5, 4.0, 0.1],
+	["Shockwave reach (x blast)", func() -> float: return World.SHOCKWAVE_SCALE, func(v: float) -> void: World.SHOCKWAVE_SCALE = v, 0.5, 5.0, 0.1],
 	["Hit weight (x)", func() -> float: return Tank.HIT_WEIGHT, func(v: float) -> void: Tank.HIT_WEIGHT = v, 0.0, 3.0, 0.05],
 ]
 var _grid := GridContainer.new()

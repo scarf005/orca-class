@@ -326,8 +326,13 @@ static func team_color(team: Entity.Team, shape: String, requested: Color) -> Co
 
 ## Area damage with linear falloff to 30% at the edge. Hits entities of the opposing team and props.
 ## `push` is the direction the blast was delivered in (a shell's flight); zero for a plain burst.
+## How far past a blast's damage radius its shockwave throws wrecks; the ring it draws is that wide
+## (tuned live in the duel mode).
+static var SHOCKWAVE_SCALE := 1.5
+
+
 func blast(point: Vector3, radius: float, damage: float, team: Entity.Team, template: Hit = null, exclude: Entity = null, colors: Array = [], push := Vector3.ZERO) -> void:
-	fx.explosion(point, radius * 0.8, colors if not colors.is_empty() else [Palette.BUTTER, Palette.AMBER, Palette.HOT, Palette.CORAL], push)
+	fx.explosion(point, radius * 0.8, colors if not colors.is_empty() else [Palette.BUTTER, Palette.AMBER, Palette.HOT, Palette.CORAL], push, radius * SHOCKWAVE_SCALE)
 	shake(clampf(radius * 0.08, 0.05, 0.6), point)
 	Sfx.play("blast_small" if radius < 3.5 else "blast", point, 0.0, randf_range(0.9, 1.15))
 	var hit := template.copy() if template else Hit.new()

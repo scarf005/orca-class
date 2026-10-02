@@ -46,9 +46,10 @@ static func blast_push(point: Vector3, radius: float, damage: float, push := Vec
 	for wreck in _live:
 		var away := wreck.global_position - point
 		var distance := away.length()
-		if distance > radius * 1.5:
+		var reach := radius * World.SHOCKWAVE_SCALE
+		if distance > reach:
 			continue
-		var falloff := 1.0 - clampf(distance / (radius * 1.5), 0.0, 1.0)
+		var falloff := 1.0 - clampf(distance / reach, 0.0, 1.0)
 		var dir := (away.normalized() + Vector3.UP * 0.4 + push * 0.5).normalized()
 		wreck.velocity += dir * damage * BLAST_THROW * falloff / sqrt(maxf(wreck._size, 1.0))
 

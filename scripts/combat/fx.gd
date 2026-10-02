@@ -425,7 +425,8 @@ func light_flash(position: Vector3, energy: float, color := Palette.PEACH, radiu
 ## secondary pops.
 ## `push` is the attack direction: the fireball, embers, dust and debris are thrown on along it and
 ## the secondary pops march down it, so a shell's blast carries through what it hit.
-func explosion(position: Vector3, damage_radius: float, palette := [Palette.BUTTER, Palette.AMBER, Palette.HOT, Palette.CORAL], push := Vector3.ZERO) -> void:
+## `ring` is the shockwave's radius; by default it follows the fireball.
+func explosion(position: Vector3, damage_radius: float, palette := [Palette.BUTTER, Palette.AMBER, Palette.HOT, Palette.CORAL], push := Vector3.ZERO, ring := 0.0) -> void:
 	# Visuals read bigger than the damage area: it has to register at 480x270 across the valley.
 	# Capped so a heavy shell's blast reads huge without swallowing the screen.
 	var radius := minf(damage_radius * 1.5, 8.0)
@@ -439,7 +440,7 @@ func explosion(position: Vector3, damage_radius: float, palette := [Palette.BUTT
 	for i in 3 + int(n * 0.6):
 		var out := (Vector3(randf_range(-1, 1), randf_range(-0.2, 1.0), randf_range(-1, 1)).normalized() + push * 0.8).normalized()
 		fireball(position + out * radius * randf_range(0.35, 0.7) + Vector3.UP * radius * 0.2, radius * 0.12, radius * randf_range(0.3, 0.5), life * randf_range(0.7, 1.1))
-	shockwave(position, radius * 2.2, Palette.WHITE, 0.3 * BLAST_PACE)
+	shockwave(position, ring if ring > 0.0 else radius * 2.2, Palette.WHITE, 0.3 * BLAST_PACE)
 	light_flash(position, 8.0 + radius * 1.5, pick.call(2), radius * 5.0)
 	for i in int(4 + n * 3):
 		var dir := (Vector3(randf_range(-1, 1), randf_range(0.2, 1.4), randf_range(-1, 1)).normalized() + push * 1.3).normalized()
