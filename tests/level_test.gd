@@ -82,7 +82,7 @@ func test_helicopter_waves_and_gunship_boss_on_both_difficulties() -> void:
 		check_eq(bosses[0].kind, "gunship", "stage ends with the new gunship")
 
 
-func test_ordinary_helicopter_dies_to_five_basic_coax_hits() -> void:
+func test_ordinary_helicopter_dies_to_twelve_basic_coax_hits() -> void:
 	var world := stage()
 	var spawned := world.director.spawn_wave({"d": 0.0, "kind": "helicopter", "height": 14.0, "ahead": 100.0})
 	var heli := spawned[0] as Helicopter
@@ -93,13 +93,26 @@ func test_ordinary_helicopter_dies_to_five_basic_coax_hits() -> void:
 	var hit := Hit.make(Hit.Kind.BULLET, Armament.GUNS[8].damage, heli.hit_center())
 	hit.caliber = 8
 	hit.source = world.player
-	for i in 4:
+	var needed := ceili(heli.max_hp / Armament.GUNS[8].damage)
+	for i in needed - 1:
 		heli.take_hit(hit)
-	check(not heli.dead, "helicopter survives four basic bullets")
+	check(not heli.dead, "helicopter survives %d basic bullets" % (needed - 1))
 	heli.take_hit(hit)
-	check(heli.dead, "fifth basic bullet destroys it")
+	check(heli.dead, "bullet %d destroys it" % needed)
+	check_eq(needed, 12, "a tier-1 coax needs twelve bullets")
 	check_eq(world.stats.kills, 1, "ordinary helicopter counts as a normal kill")
 	check_eq(world.rail.mode, Rail.Mode.RAIL, "ordinary kill keeps the stage scrolling")
+
+
+func test_plain_shell_kills_helicopter_and_uav_outright() -> void:
+	var world := stage()
+	for enemy: Enemy in [Helicopter.new(), Uav.new()]:
+		enemy.position = Course.ground_at(world.rail.d + 55.0, 0.0) + Vector3.UP * 13.0
+		world.add_enemy(enemy)
+		var hit := Hit.make(Hit.Kind.SHELL, 1500.0, enemy.hit_center(), Vector3.FORWARD)
+		hit.source = world.player
+		enemy.take_hit(hit)
+		check(enemy.dead, "a plain shell kills a %s" % enemy.get_class())
 
 
 func test_helicopter_telegraphs_bursts_and_cleans_up() -> void:

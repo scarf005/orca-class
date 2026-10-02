@@ -33,8 +33,8 @@ var _falling := false
 func _init() -> void:
 	super()
 	wreck_on_death = true
-	max_hp = 12.0
-	hp = 12.0
+	max_hp = 20.0
+	hp = 20.0
 	radius = 2.4
 	flying = true
 	trails = true

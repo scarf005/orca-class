@@ -26,7 +26,7 @@ var _hard := false
 
 func _init() -> void:
 	super()
-	max_hp = 16.0
+	max_hp = 40.0
 	hp = max_hp
 	radius = 2.5
 	flying = true
