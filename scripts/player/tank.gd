@@ -250,8 +250,10 @@ func _update_movement(delta: float) -> void:
 		rail.advance(delta, 0, modules.meter_refill_factor())
 		return
 	rail.advance(delta, command, modules.meter_refill_factor())
-	var target := Vector2(input.x * MOVE_SPEED.x, input.y * MOVE_SPEED.y) * modules.move_factor()
+	var hold := _lock_move_factor()
+	var target := Vector2(input.x * MOVE_SPEED.x * hold, input.y * MOVE_SPEED.y) * modules.move_factor()
 	local_velocity = local_velocity.move_toward(target, ACCEL * delta)
+	local_velocity.x = clampf(local_velocity.x, -MOVE_SPEED.x * hold, MOVE_SPEED.x * hold)
 	if _drift > 0.0:
 		_drift -= delta
 		if _drift_dir != 0.0:
@@ -268,13 +270,24 @@ func _update_movement(delta: float) -> void:
 	model.animate_tracks(delta, rail.speed + local_velocity.y, rail.speed + local_velocity.y)
 
 
+## While a charge lock is held, sideways driving slows as the locked target nears the edge of the
+## lock's hold on screen, down to a stop, so weaving left and right never shakes the lock off.
+func _lock_move_factor() -> float:
+	if not is_instance_valid(charge_lock):
+		return 1.0
+	# Full speed out to 60% of the lock radius, a stop at the radius: the hold beyond it is left as
+	# slack for the camera, which keeps swinging for a moment after the hull stops.
+	var radius := Armament.LOCK_RADIUS
+	return clampf((radius - _charge_distance(charge_lock, charge_part)) / (radius * 0.4), 0.0, 1.0)
+
+
 func _move_arena(delta: float, input: Vector2) -> void:
 	var cam := World.current.camera
 	var forward := -cam.global_basis.z
 	forward.y = 0.0
 	forward = forward.normalized()
 	var right := forward.cross(Vector3.UP)
-	var wish := (right * input.x + forward * input.y) * ARENA_SPEED * modules.move_factor()
+	var wish := (right * input.x + forward * input.y) * ARENA_SPEED * modules.move_factor() * _lock_move_factor()
 	var current := Vector3(local_velocity.x, 0, local_velocity.y)
 	current = current.move_toward(wish, ACCEL * delta)
 	if _drift > 0.0:
