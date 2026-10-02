@@ -192,6 +192,23 @@ func test_soft_lock_reaches_only_half_as_far_when_the_fcs_is_damaged() -> void:
 	check(tank._pick_coax_target() == ugv, "but a closer one still locks")
 
 
+func test_soft_lock_reaches_forty_pixels_and_no_further() -> void:
+	var world := stage()
+	var tank := world.player
+	var ugv := Ugv.new()
+	ugv.position = Course.ground_at(world.rail.d + 60.0, 0.0)
+	world.add_enemy(ugv)
+	ugv.invulnerable = true
+	await frames(2)
+	var screen := world.camera.unproject_position(ugv.hit_center())
+	tank.aim_target = null
+	tank.aim_screen = screen + Vector2(39.0, 0)
+	check(tank._pick_coax_target() == ugv, "39 px off the target still locks")
+	tank.coax_target = null # A held lock would linger past the radius.
+	tank.aim_screen = screen + Vector2(41.0, 0)
+	check(tank._pick_coax_target() == null, "41 px off does not")
+
+
 func test_destroyed_fcs_disables_lock_and_lead() -> void:
 	var world := stage()
 	var tank := world.player

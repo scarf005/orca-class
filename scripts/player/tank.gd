@@ -30,7 +30,7 @@ const DASH_SPEED := 2.0 * DASH_DISTANCE / DASH_TIME ## Starts this fast and ease
 ## In the input vector's convention: +y is forward (Vector2.UP would be backward here).
 const TAP_DIRECTIONS := {&"move_left": Vector2(-1, 0), &"move_right": Vector2(1, 0), &"move_forward": Vector2(0, 1), &"move_back": Vector2(0, -1)}
 const COAX_RANGE := 140.0
-const SOFT_LOCK_RADIUS := 56.0 ## Screen pixels (3D view) around the reticle; the FCS scales it.
+const SOFT_LOCK_RADIUS := 40.0 ## Screen pixels (3D view) around the reticle; the FCS scales it.
 const LOCK_HOLD := 1.4 ## A held soft lock lasts out to this many radii from the reticle.
 const LOCK_SWITCH := 0.6 ## Another enemy takes a held lock only when this much nearer the reticle.
 const SIGHT_RATE := 10.0 ## Per second the chevron's range eases toward the range it rests on.
