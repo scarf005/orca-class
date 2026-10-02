@@ -4,6 +4,8 @@ extends Node
 
 const SOUNDS := {
 	"cannon": ["res://assets/audio/synth/cannon.wav", 0.0],
+	"charge": ["res://assets/audio/synth/charge.wav", -12.0],
+	"charge_full": ["res://assets/audio/synth/charge_full.wav", -6.0],
 	"blast": ["res://assets/audio/blast.ogg", 0.0],
 	"blast_small": ["res://assets/audio/blast.ogg", -5.0, 1.45],
 	"impact": ["res://assets/audio/rubble.ogg", -2.0, 0.7],

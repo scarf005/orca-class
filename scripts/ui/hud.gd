@@ -472,7 +472,8 @@ func _draw_reticle() -> void:
 		_ready_flash = 0.35
 	_was_ready = ready
 	_ready_flash = maxf(0.0, _ready_flash - get_process_delta_time())
-	var target := p.coax_target
+	var target := p.charge_lock if is_instance_valid(p.charge_lock) else p.coax_target
+	var charged_lock := is_instance_valid(p.charge_lock)
 	var color := Palette.HOSTILE if is_instance_valid(target) else (Palette.CYAN if ready else Palette.MIST)
 	# Like Star Fox's two sights, both marks sit on the line the barrel points along: the ring close
 	# in front of the muzzle, the chevron out at the range the sight rests on. Lined up, they show
@@ -483,6 +484,8 @@ func _draw_reticle() -> void:
 	var near := muzzle + barrel_dir * 14.0
 	draw_circle(cursor, 2.0, Palette.WHITE)
 	draw_arc(cursor, 4.0, 0, TAU, 10, Palette.INK, 1.0)
+	if p.is_charging():
+		draw_arc(cursor, p.charge_ring_radius() * SCALE, 0.0, TAU, 48, Palette.FRIENDLY, 2.0)
 	if cam.is_position_behind(far) or cam.is_position_behind(near):
 		return
 	var c := cam.unproject_position(far) * SCALE
@@ -508,7 +511,7 @@ func _draw_reticle() -> void:
 	if _ready_flash > 0.0 and fmod(_ready_flash, 0.1) < 0.06:
 		_text(n + Vector2(0, -40), "READY", Palette.WHITE, 12, HORIZONTAL_ALIGNMENT_CENTER, 0)
 	# Lock: brackets snap in from wide when a new target (or a new module of it) is acquired.
-	var part := p.coax_part
+	var part := p.charge_part if charged_lock else p.coax_part
 	if target != _lock or part != _lock_part:
 		_lock = target
 		_lock_part = part
@@ -531,8 +534,10 @@ func _draw_reticle() -> void:
 	var s := lerpf(46.0, 18.0 + size * 3.0, ease(k, 0.4))
 	for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
 		var at := center + corner * s
-		draw_line(at, at - Vector2(corner.x * 9, 0), Palette.HOSTILE, 2.0)
-		draw_line(at, at - Vector2(0, corner.y * 9), Palette.HOSTILE, 2.0)
+		draw_line(at, at - Vector2(corner.x * 9, 0), Palette.FRIENDLY if charged_lock else Palette.HOSTILE, 2.0)
+		draw_line(at, at - Vector2(0, corner.y * 9), Palette.FRIENDLY if charged_lock else Palette.HOSTILE, 2.0)
+	if charged_lock:
+		_text(center + Vector2(0, -s - 12), tr("CHARGE_LOCK"), Palette.FRIENDLY, 12, HORIZONTAL_ALIGNMENT_CENTER, 0)
 	if k >= 1.0:
 		var distance := int(focus.distance_to(p.global_position))
 		_text(center + Vector2(0, s + 14), "%s  %dm" % [name, distance], Palette.HOSTILE, 12, HORIZONTAL_ALIGNMENT_CENTER, 0)

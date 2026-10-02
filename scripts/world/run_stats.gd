@@ -24,6 +24,7 @@ var combo_timer := 0.0
 var kills := 0
 var spawned := 0
 var shots := 0
+var charged_shots := 0
 var shot_hits := 0
 var damage_taken := 0.0
 var time := 0.0

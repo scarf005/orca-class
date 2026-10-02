@@ -112,6 +112,12 @@ def write_wav(name, x, peak=0.9):
 
 def sfx():
     os.makedirs(SFX_DIR, exist_ok=True)
+    # Main-gun charge: a quiet rising tone and a dry full-charge click.
+    charge = sweep(180, 780, 0.95) * env(int(0.95 * RATE), 0.04, 0.12)
+    write_wav("charge", charge, peak=0.3)
+    click = sweep(1800, 650, 0.065) * env(int(0.065 * RATE), 0.001, 0.05)
+    write_wav("charge_full", click, peak=0.45)
+
     # Tail whip: an airy swoosh that brightens, then a crack.
     n = noise(0.28)
     swoosh = highpass(n, 800) * env(len(n), 0.08, 0.1) * np.linspace(0.3, 1.0, len(n))

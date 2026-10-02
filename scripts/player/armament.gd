@@ -30,6 +30,23 @@ const SHELL_SPEED := 1700.0 ## Main-gun rounds are hitscan; this only sets their
 const SHELL_RANGE := 420.0
 const SHELL_DAMAGE := 1500.0
 
+const CHARGE_DELAY := 0.15
+const CHARGE_TIME := 0.8
+const CHARGE_RING := Vector2(160.0, 68.0) ## 3D-view pixels; the full-charge ring exceeds the soft lock.
+const APHE_DAMAGE := Vector2(1.0, 2.0)
+const APHE_RADIUS := Vector2(5.0, 8.0)
+const APHE_BLAST := Vector2(600.0, 900.0)
+const HEAT_STAGGER := Vector2(1.0, 2.5)
+const HEAT_RADIUS := Vector2(9.0, 12.0)
+const APFSDS_RANGE := Vector2(1.0, 1.4)
+const APFSDS_DAMAGE := Vector2(1.0, 1.5)
+const CANISTER_SPREAD := Vector2(0.13, 0.04)
+const CANISTER_RANGE := Vector2(70.0, 110.0)
+const AIRBURST_FRAGMENTS := Vector2(70.0, 110.0)
+const RECOIL := Vector2(8.0, 14.0)
+const MUZZLE_SIZE := Vector2(4.2, 6.0)
+const HITSTOP := Vector2(0.03, 0.1)
+
 const ROUND_COLORS := {
 	Round.APHE: Palette.AMBER, Round.HEAT: Palette.HOT, Round.CANISTER: Palette.CYAN, Round.DRAGON: Palette.FUNGUS,
 	Round.APFSDS: Palette.CYAN, Round.AIRBURST: Palette.PERIWINKLE,

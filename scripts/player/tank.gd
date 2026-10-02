@@ -6,6 +6,7 @@ extends Entity
 signal pickup_collected(id: String)
 signal round_changed
 signal life_lost
+signal charge_locked(target: Entity)
 
 const MAX_ARMOR := 100.0
 const EDGE_MARGIN := 4.0 ## How close to the foot of the valley walls the tank may go.
@@ -71,6 +72,13 @@ var coax_tier := 0
 var current_round := Armament.Round.APHE
 var round_count := 0
 var reload := 0.0
+var charge := 0.0
+var charge_lock: Entity
+var charge_part := ""
+var _charge_time := 0.0
+var _cannon_held := false
+var _cannon_released := false
+var _full_click := false
 var _coax_timers: Array[float] = []
 
 var ciws_heat := 0.0
@@ -93,7 +101,11 @@ var coax_target: Entity ## What the coax is tracking on its own.
 var coax_part := "" ## Which module of the locked target the guns are on, if it has several.
 var _last_tap := {&"move_left": -1.0, &"move_right": -1.0, &"move_forward": -1.0, &"move_back": -1.0}
 var _engine_sound: AudioStreamPlayer3D
-var input_enabled := true
+var input_enabled := true:
+	set(value):
+		input_enabled = value
+		if not value:
+			_cancel_charge()
 
 
 func _init() -> void:
@@ -173,7 +185,9 @@ func tick(delta: float) -> void:
 	invuln = maxf(0.0, invuln - delta)
 	show_damage(delta, HULL_RADIUS)
 	anchor_cooldown = maxf(0.0, anchor_cooldown - delta)
+	var loaded_delta := delta if reload <= 0.0 else maxf(delta - reload, 0.0)
 	reload = maxf(0.0, reload - delta)
+	_update_charge(loaded_delta)
 	modules.update(delta)
 	_sync_sensors()
 	_blink = maxf(0.0, _blink - delta)
@@ -227,7 +241,7 @@ func _update_movement(delta: float) -> void:
 		rail.advance(delta, 0, modules.meter_refill_factor())
 		return
 	rail.advance(delta, command, modules.meter_refill_factor())
-	var target := Vector2(input.x * MOVE_SPEED.x, input.y * MOVE_SPEED.y) * modules.move_factor()
+	var target := Vector2(input.x * MOVE_SPEED.x * (0.5 if is_charging() else 1.0), input.y * MOVE_SPEED.y) * modules.move_factor()
 	local_velocity = local_velocity.move_toward(target, ACCEL * delta)
 	if _drift > 0.0:
 		_drift -= delta
@@ -251,7 +265,7 @@ func _move_arena(delta: float, input: Vector2) -> void:
 	forward.y = 0.0
 	forward = forward.normalized()
 	var right := forward.cross(Vector3.UP)
-	var wish := (right * input.x + forward * input.y) * ARENA_SPEED * modules.move_factor()
+	var wish := (right * input.x + forward * input.y) * ARENA_SPEED * modules.move_factor() * (0.5 if is_charging() else 1.0)
 	var current := Vector3(local_velocity.x, 0, local_velocity.y)
 	current = current.move_toward(wish, ACCEL * delta)
 	if _drift > 0.0:
@@ -481,9 +495,12 @@ func _update_aim(delta: float) -> void:
 	# apart, and rounds may only leave a few degrees off the barrel.
 	var lay := aim_point
 	var lock := _pick_coax_target()
+	_update_charge_lock()
+	if is_instance_valid(charge_lock):
+		lock = charge_lock
 	var ease_in := 1.0 if lock != _sight_lock else 1.0 - exp(-SIGHT_RATE * delta) # Snaps when the lock changes hands.
 	if is_instance_valid(lock):
-		var speed: float = Armament.GUNS[Armament.tier_calibers(coax_tier)[0]].speed
+		var speed: float = Armament.SHELL_SPEED if lock == charge_lock else Armament.GUNS[Armament.tier_calibers(coax_tier)[0]].speed
 		# The aimed spot eases, so the sight sliding on and off the target's shape does not jerk the barrel.
 		var spot := _aimed_spot(lock)
 		_lay_offset = _lay_offset.lerp(Vector3.ZERO if spot == Vector3.INF else spot - lock.hit_center(), ease_in)
@@ -549,7 +566,7 @@ func _ray_ground(origin: Vector3, dir: Vector3, max_distance: float) -> float:
 ## than a few degrees off where the barrel points.
 func _fire_direction(from: Vector3, speed: float) -> Vector3:
 	var target := aim_point
-	var lock := coax_target
+	var lock := charge_lock if is_instance_valid(charge_lock) else coax_target
 	if is_instance_valid(lock) and lock is Enemy:
 		target = lead_point(from, speed, lock, _aimed_spot(lock))
 	return along_barrel(-model.barrel.global_basis.z, (target - from).normalized())
@@ -566,6 +583,83 @@ func lead_point(from: Vector3, speed: float, target: Entity, spot := Vector3.INF
 	return aim
 
 
+func _cancel_charge() -> void:
+	charge = 0.0
+	_charge_time = 0.0
+	_cannon_held = false
+	_cannon_released = false
+	_full_click = false
+	charge_lock = null
+	charge_part = ""
+
+
+func is_charging() -> bool:
+	return input_enabled and _cannon_held and reload <= 0.0 and _charge_time >= Armament.CHARGE_DELAY
+
+
+func _update_charge(delta: float) -> void:
+	if not input_enabled or dead or _respawn > 0.0:
+		_cancel_charge()
+		return
+	var held := Input.is_action_pressed("fire_cannon")
+	_cannon_released = _cannon_held and not held
+	if held and reload <= 0.0:
+		if _charge_time <= 0.0:
+			Sfx.play("charge", global_position)
+		_charge_time += delta
+		charge = 1.0 if _charge_time >= Armament.CHARGE_DELAY + Armament.CHARGE_TIME else clampf((_charge_time - Armament.CHARGE_DELAY) / Armament.CHARGE_TIME, 0.0, 1.0)
+		if charge >= 1.0 and not _full_click:
+			_full_click = true
+			Sfx.play("charge_full", global_position)
+	_cannon_held = held
+
+
+## Canister shows the actual cone footprint at the sight's range, in 3D-view pixels.
+func charge_ring_radius() -> float:
+	if current_round != Armament.Round.CANISTER:
+		return lerpf(Armament.CHARGE_RING.x, Armament.CHARGE_RING.y, charge)
+	var cam := World.current.camera
+	var distance := model.muzzle.global_position.distance_to(aim_point)
+	var radius := distance * lerpf(Armament.CANISTER_SPREAD.x, Armament.CANISTER_SPREAD.y, charge)
+	var center := cam.unproject_position(aim_point)
+	var pixels := maxf(center.distance_to(cam.unproject_position(aim_point + cam.global_basis.x * radius)), center.distance_to(cam.unproject_position(aim_point + cam.global_basis.y * radius)))
+	return clampf(pixels, 8.0, 220.0)
+
+
+func _charge_distance(target: Entity, part: String) -> float:
+	if _lock_distance(target) == INF:
+		return INF
+	var parts := target.aim_parts()
+	var at: Vector3 = parts[part][0] if parts.has(part) else target.hit_center()
+	var cam := World.current.camera
+	return INF if cam.is_position_behind(at) else cam.unproject_position(at).distance_to(aim_screen)
+
+
+func _update_charge_lock() -> void:
+	if (not is_charging() and not _cannon_released) or modules.lock_factor() <= 0.0:
+		charge_lock = null
+		charge_part = ""
+		return
+	if is_instance_valid(charge_lock) and _charge_distance(charge_lock, charge_part) <= Armament.CHARGE_RING.y * LOCK_HOLD:
+		return
+	charge_lock = null
+	charge_part = ""
+	var candidate: Entity
+	var part := ""
+	var best := charge_ring_radius() * modules.lock_factor()
+	for enemy in World.current.enemies:
+		var nearest_part := _pick_part(enemy)
+		var distance := _charge_distance(enemy, nearest_part)
+		if distance < best:
+			best = distance
+			candidate = enemy
+			part = nearest_part
+	if charge >= 1.0 and candidate:
+		charge_lock = candidate
+		charge_part = part
+		charge_locked.emit(candidate)
+
+
 func _update_weapons(delta: float) -> void:
 	coax_part = _pick_part(coax_target)
 	if input_enabled and Input.is_action_pressed("fire_coax"):
@@ -579,8 +673,10 @@ func _update_weapons(delta: float) -> void:
 	else:
 		for i in _coax_timers.size():
 			_coax_timers[i] = maxf(_coax_timers[i] - delta, 0.0)
-	if input_enabled and Input.is_action_pressed("fire_cannon") and reload <= 0.0:
-		fire_cannon()
+	if _cannon_released:
+		if input_enabled and reload <= 0.0:
+			fire_cannon(Vector3.INF, Vector3.ZERO, charge)
+		_cancel_charge()
 
 
 ## The fire-control system's soft lock: the enemy under the reticle, else the one nearest it on
@@ -588,6 +684,10 @@ func _update_weapons(delta: float) -> void:
 ## The point to lead on a locked target: the locked module's middle, else exactly where the sight
 ## rests when it is on the target, otherwise its middle (a soft lock pulls toward the center).
 func _aimed_spot(target: Entity) -> Vector3:
+	if target == charge_lock and not charge_part.is_empty():
+		var parts := target.aim_parts()
+		if parts.has(charge_part):
+			return parts[charge_part][0]
 	if target == coax_target and not coax_part.is_empty():
 		var parts := target.aim_parts()
 		if parts.has(coax_part):
@@ -692,42 +792,48 @@ func _fire_coax(muzzle: Node3D, caliber: int, spec: Dictionary, target: Entity) 
 
 ## Fires the loaded round from the barrel, or from `from` along `toward` when given (the debug
 ## room shoots from its camera).
-func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO) -> void:
+func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO, power := 0.0) -> void:
 	var muzzle := model.muzzle.global_position if from == Vector3.INF else from
 	var barrel_dir := -model.barrel.global_basis.z if toward == Vector3.ZERO else toward.normalized()
 	var shot_dir := func(speed: float) -> Vector3: return barrel_dir if toward != Vector3.ZERO else _fire_direction(muzzle, speed)
 	var round := current_round
+	power = clampf(power, 0.0, 1.0)
 	World.current.stats.shots += 1
+	if power >= 1.0:
+		World.current.stats.charged_shots += 1
 	match round:
 		Armament.Round.CANISTER:
-			_fire_canister(muzzle, shot_dir.call(200.0))
+			_fire_canister(muzzle, shot_dir.call(200.0), power)
 		Armament.Round.DRAGON:
-			DragonBreath.fire(self, shot_dir.call(DragonBreath.MEAN_SPEED), from)
+			DragonBreath.fire(self, shot_dir.call(DragonBreath.MEAN_SPEED), from, power)
 		_:
-			_fire_shell(round, muzzle, shot_dir.call(Armament.SHELL_SPEED))
+			_fire_shell(round, muzzle, shot_dir.call(Armament.SHELL_SPEED), power)
 	if round != Armament.Round.APHE:
 		round_count -= 1
 		if round_count <= 0:
 			current_round = Armament.Round.APHE
 		round_changed.emit()
 	reload = Armament.RELOAD * modules.reload_factor()
-	_cannon_feedback(muzzle, barrel_dir)
+	_cannon_feedback(muzzle, barrel_dir, power)
 
 
 ## A wall of tungsten balls, and a muzzle blast that flattens everything just ahead.
-func _fire_canister(muzzle: Vector3, aim_dir: Vector3) -> void:
+func _fire_canister(muzzle: Vector3, aim_dir: Vector3, power := 0.0) -> void:
 	var world := World.current
 	world.blast(muzzle + aim_dir * 7.0, 6.0, 260.0, Team.PLAYER, _cannon_hit(), null, [Palette.WHITE, Palette.BUTTER, Palette.AMBER], aim_dir)
 	# Fifty hitscan balls land at once, each drawn as a yellow streak.
+	var side := aim_dir.cross(Vector3.UP if absf(aim_dir.y) < 0.99 else Vector3.RIGHT).normalized()
+	var up := side.cross(aim_dir)
 	for i in 50:
-		var dir := (aim_dir + Vector3(randf_range(-1, 1), randf_range(-0.6, 1), randf_range(-1, 1)) * 0.13).normalized()
+		var spread := Vector2.from_angle(randf() * TAU) * sqrt(randf()) * lerpf(Armament.CANISTER_SPREAD.x, Armament.CANISTER_SPREAD.y, power)
+		var dir := (aim_dir + side * spread.x + up * spread.y).normalized()
 		var pellet := world.spawn_projectile(Team.PLAYER, muzzle, dir * 200.0, "pellet", Palette.BUTTER)
 		pellet.hit = Hit.make(Hit.Kind.BULLET, 90.0, muzzle)
 		pellet.hit.caliber = 20
 		pellet.hit.source = self
 		pellet.hit.weapon = "cannon"
 		pellet.impacted.connect(_count_hit, CONNECT_ONE_SHOT)
-		var end := pellet.resolve_now(CANISTER_RANGE)
+		var end := pellet.resolve_now(lerpf(Armament.CANISTER_RANGE.x, Armament.CANISTER_RANGE.y, power))
 		world.fx.beam(muzzle, end, Palette.WHITE, 0.06, 0.08)
 		world.fx.beam(muzzle, end, Palette.BUTTER, 0.18, 0.14)
 		world.fx.spawn(Fx.Kind.FLAME, end, Vector3.UP * 2.0, 0.12, 0.5, Palette.BUTTER)
@@ -735,7 +841,7 @@ func _fire_canister(muzzle: Vector3, aim_dir: Vector3) -> void:
 
 ## A 100 mm hitscan shell (APHE, HEAT, APFSDS or airburst): it lands this very frame and a tracer
 ## flash marks its line.
-func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3) -> void:
+func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 0.0) -> void:
 	var world := World.current
 	var color: Color = Armament.ROUND_COLORS[round]
 	var shell := world.spawn_projectile(Team.PLAYER, muzzle, dir * Armament.SHELL_SPEED, "dart" if round == Armament.Round.APFSDS else "shell", color)
@@ -751,17 +857,19 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3) -> void:
 	match round:
 		Armament.Round.APHE:
 			# A small filler: it wrecks what it hits and what is right beside it, not the wave.
-			shell.blast_radius = 5.0
-			shell.blast_damage = 600.0
+			shell.hit.damage *= lerpf(Armament.APHE_DAMAGE.x, Armament.APHE_DAMAGE.y, power)
+			shell.blast_radius = lerpf(Armament.APHE_RADIUS.x, Armament.APHE_RADIUS.y, power)
+			shell.blast_damage = lerpf(Armament.APHE_BLAST.x, Armament.APHE_BLAST.y, power)
+			shell.pierce_entities = power >= 1.0
 		Armament.Round.HEAT:
 			shell.hit.damage = Armament.SHELL_DAMAGE * 1.5
 			shell.hit.pierce = true
-			shell.hit.stagger = 1.0
-			shell.blast_radius = 9.0
+			shell.hit.stagger = lerpf(Armament.HEAT_STAGGER.x, Armament.HEAT_STAGGER.y, power)
+			shell.blast_radius = lerpf(Armament.HEAT_RADIUS.x, Armament.HEAT_RADIUS.y, power)
 			shell.blast_damage = 500.0
 			shell.blast_colors = [Palette.WHITE, Palette.CORAL, Palette.RED, Palette.PEACH]
 		Armament.Round.APFSDS:
-			shell.hit.damage = Armament.SHELL_DAMAGE * 2.0
+			shell.hit.damage = Armament.SHELL_DAMAGE * 2.0 * lerpf(Armament.APFSDS_DAMAGE.x, Armament.APFSDS_DAMAGE.y, power)
 			shell.hit.pierce = true
 			shell.pierce_entities = true
 			# The dart goes through everything in line and slams into the ground with a crater.
@@ -769,9 +877,10 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3) -> void:
 			shell.blast_damage = 450.0
 		Armament.Round.AIRBURST:
 			shell.hit.damage = 70.0
-			shell.fuse_distance = maxf(muzzle.distance_to(aim_point) - 2.0, 6.0)
-			shell.airburst_fragments = 70
-	var end := shell.resolve_now(Armament.SHELL_RANGE)
+			shell.fuse_distance = muzzle.distance_to(_aimed_spot(charge_lock) if _aimed_spot(charge_lock) != Vector3.INF else charge_lock.hit_center()) if is_instance_valid(charge_lock) else maxf(muzzle.distance_to(aim_point) - 2.0, 6.0)
+			shell.airburst_fragments = roundi(lerpf(Armament.AIRBURST_FRAGMENTS.x, Armament.AIRBURST_FRAGMENTS.y, power))
+	var reach := Armament.SHELL_RANGE * (lerpf(Armament.APFSDS_RANGE.x, Armament.APFSDS_RANGE.y, power) if round == Armament.Round.APFSDS else 1.0)
+	var end := shell.resolve_now(reach)
 	world.fx.beam(muzzle, end, Palette.WHITE, 0.5, 0.1)
 	world.fx.beam(muzzle, end, color, 1.4, 0.18)
 	world.fx.beam(muzzle, end, color, 2.6, 0.08)
@@ -791,19 +900,21 @@ func _cannon_hit() -> Hit:
 	return hit
 
 
-func _cannon_feedback(muzzle: Vector3, dir: Vector3) -> void:
+func _cannon_feedback(muzzle: Vector3, dir: Vector3, power := 0.0) -> void:
 	var world := World.current
 	_barrel_recoil = 0.7
 	if world.rail.mode != Rail.Mode.ARENA:
-		local_velocity.y -= 8.0 * dir.dot(world.rail.forward())
-	world.camera.kick(0.05)
-	world.shake(0.4)
-	world.screen_flash(Palette.BUTTER, 0.18)
+		local_velocity.y -= lerpf(Armament.RECOIL.x, Armament.RECOIL.y, power) * dir.dot(world.rail.forward())
+	world.camera.kick(lerpf(0.05, 0.08, power))
+	world.shake(lerpf(0.4, 0.6, power))
+	world.screen_flash(Palette.BUTTER, lerpf(0.18, 0.3, power))
+	world.hitstop(lerpf(Armament.HITSTOP.x, Armament.HITSTOP.y, power))
 	world.fx.light_flash(muzzle, 24.0, Palette.BUTTER, 40.0)
-	world.fx.muzzle_flash(muzzle, dir, 4.2)
+	world.fx.muzzle_flash(muzzle, dir, lerpf(Armament.MUZZLE_SIZE.x, Armament.MUZZLE_SIZE.y, power))
 	world.fx.muzzle_flash(muzzle + dir * 1.5, dir, 2.6, Palette.WHITE)
 	world.fx.fireball(muzzle + dir * 2.0, 0.6, 2.4, 0.22)
-	world.fx.shockwave(muzzle, 9.0, Palette.WHITE, 0.2)
+	if power >= 0.5:
+		world.fx.shockwave(muzzle, 9.0, Palette.WHITE, 0.2)
 	# Muzzle-brake jets blast out sideways.
 	var side_dir := dir.cross(Vector3.UP).normalized()
 	for side in [-1.0, 1.0]:
@@ -1247,6 +1358,7 @@ func damage_module(name: String, amount: float) -> bool:
 
 ## Losing all armor costs a life instead of removing the tank.
 func die(_hit: Hit) -> void:
+	_cancel_charge()
 	var world := World.current
 	world.fx.explosion(global_position + Vector3.UP, 5.0)
 	world.fx.debris(global_position + Vector3.UP, 20, [Fx.Debris.ARMOR, Fx.Debris.METAL], 12.0, 0.5)
@@ -1272,6 +1384,7 @@ func die(_hit: Hit) -> void:
 
 
 func _finish_respawn() -> void:
+	_cancel_charge()
 	hp = max_hp
 	modules.restore()
 	_sync_sensors()

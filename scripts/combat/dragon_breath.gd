@@ -8,6 +8,8 @@ const DURATION := 0.35 ## Emission time.
 const RANGE := 60.0
 const FLAMES := 44
 const HALF_ANGLE := deg_to_rad(11.0)
+const CHARGE_LENGTH := Vector2(1.0, 1.5)
+const CHARGE_CONE := Vector2(1.0, 0.5)
 const SPEED := Vector2(70.0, 95.0)
 const MEAN_SPEED := (SPEED.x + SPEED.y) * 0.5
 const FLAME_DAMAGE := 60.0
@@ -18,6 +20,7 @@ const BLAST_DAMAGE := 220.0
 const HEAT: Array[Color] = [Palette.WHITE, Palette.PEACH, Palette.BUTTER, Palette.AMBER]
 
 var tank: Tank
+var power := 0.0
 var direction := Vector3.FORWARD
 var origin := Vector3.INF ## Fixed muzzle position, or INF to follow the tank's muzzle as it moves.
 var _time := 0.0
@@ -26,9 +29,10 @@ var _blasts := 0
 var _scorched: Array[Entity] = []
 
 
-static func fire(shooter: Tank, dir: Vector3, from := Vector3.INF) -> DragonBreath:
+static func fire(shooter: Tank, dir: Vector3, from := Vector3.INF, charge := 0.0) -> DragonBreath:
 	var breath := DragonBreath.new()
 	breath.tank = shooter
+	breath.power = clampf(charge, 0.0, 1.0)
 	breath.direction = dir.normalized()
 	breath.origin = from
 	World.current.add_child(breath)
@@ -71,7 +75,7 @@ func _process(delta: float) -> void:
 func _emit(from: Vector3, index: int) -> void:
 	var side := direction.cross(Vector3.UP if absf(direction.y) < 0.99 else Vector3.RIGHT).normalized()
 	var up := side.cross(direction)
-	var offset := Vector2.from_angle(randf() * TAU) * sqrt(randf()) * tan(HALF_ANGLE)
+	var offset := Vector2.from_angle(randf() * TAU) * sqrt(randf()) * tan(HALF_ANGLE * lerpf(CHARGE_CONE.x, CHARGE_CONE.y, power))
 	var dir := (direction + side * offset.x + up * offset.y).normalized()
 	var speed := randf_range(SPEED.x, SPEED.y)
 	var flame := World.current.spawn_projectile(Entity.Team.PLAYER, from, dir * speed, "fire", HEAT[index % HEAT.size()])
@@ -80,7 +84,7 @@ func _emit(from: Vector3, index: int) -> void:
 	flame.hit.weapon = "cannon"
 	flame.hit.incendiary = true
 	flame.gravity = 6.0
-	flame.life = RANGE / speed
+	flame.life = RANGE * lerpf(CHARGE_LENGTH.x, CHARGE_LENGTH.y, power) / speed
 	flame.radius = 0.9
 	flame.flame_trail = true
 	flame.impacted.connect(FireZone.on_flame_impact)
@@ -93,7 +97,7 @@ func _scorch(from: Vector3) -> void:
 			continue
 		var to := enemy.hit_center() - from
 		var distance := to.length()
-		if distance - enemy.radius > RANGE or direction.angle_to(to) > HALF_ANGLE + asin(minf(enemy.radius / maxf(distance, 0.01), 1.0)):
+		if distance - enemy.radius > RANGE * lerpf(CHARGE_LENGTH.x, CHARGE_LENGTH.y, power) or direction.angle_to(to) > HALF_ANGLE * lerpf(CHARGE_CONE.x, CHARGE_CONE.y, power) + asin(minf(enemy.radius / maxf(distance, 0.01), 1.0)):
 			continue
 		_scorched.append(enemy)
 		var burn := Hit.make(Hit.Kind.FIRE, SCORCH_DAMAGE, enemy.hit_center(), direction)

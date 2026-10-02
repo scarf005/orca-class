@@ -9,6 +9,7 @@ var bot := "hold"
 var cleared := false
 var kill_sources := {"coax": 0, "cannon": 0, "ram": 0, "dash": 0, "tail": 0, "ciws": 0, "collateral": 0, "other": 0}
 var _tap_down := false
+var _charge_started := -1.0
 var _section := 0
 
 
@@ -17,7 +18,7 @@ func run() -> int:
 	if args.has("seed"):
 		seed(int(args.seed))
 	bot = args.get("bot", "hold")
-	if bot not in ["hold", "idle", "tap"]:
+	if bot not in ["hold", "idle", "tap", "charge"]:
 		push_error("Unknown bot mode: %s" % bot)
 		return 1
 	var out: String = args.get("out", "builds/auto")
@@ -100,9 +101,9 @@ func run() -> int:
 	print("AUTOPLAY d=%.0f score=%d kills=%d/%d lives=%d hp=%.0f enemies=%d projectiles=%d frames=%d slow=%d worst=%.1fms" % [
 		world.rail.d, stats.score, stats.kills, stats.spawned, stats.lives, world.player.hp, world.enemies.size(),
 		world.projectiles.size(), frames, slow_frames, worst])
-	print("PROBE bot=%s cleared=%s dead=%s time=%.2f d=%.0f lives=%d damage_taken=%.2f kills=%d/%d front_mean=%.2f coax=%d cannon=%d ram=%d dash=%d tail=%d ciws=%d collateral=%d other=%d cannon_shots=%d" % [
+	print("PROBE bot=%s cleared=%s dead=%s time=%.2f d=%.0f lives=%d damage_taken=%.2f kills=%d/%d front_mean=%.2f coax=%d cannon=%d ram=%d dash=%d tail=%d ciws=%d collateral=%d other=%d cannon_shots=%d charged_shots=%d" % [
 		bot, cleared and not world.player.dead, world.player.dead, stats.time, world.rail.d, stats.lives, stats.damage_taken, stats.kills, stats.spawned, front_total / maxi(frames, 1),
-		kill_sources.coax, kill_sources.cannon, kill_sources.ram, kill_sources.dash, kill_sources.tail, kill_sources.ciws, kill_sources.collateral, kill_sources.other, stats.shots])
+		kill_sources.coax, kill_sources.cannon, kill_sources.ram, kill_sources.dash, kill_sources.tail, kill_sources.ciws, kill_sources.collateral, kill_sources.other, stats.shots, stats.charged_shots])
 	for action in ["fire_coax", "fire_cannon", "move_left", "move_right"]:
 		Input.action_release(action)
 	Engine.time_scale = 1.0
@@ -157,6 +158,13 @@ func _drive(world: World, t: float) -> void:
 			elif target and tank.reload <= 0.0:
 				Input.action_press("fire_cannon")
 				_tap_down = true
+		elif bot == "charge":
+			if _charge_started >= 0.0 and tank.charge >= 1.0 and (is_instance_valid(tank.charge_lock) or t - _charge_started >= 1.5):
+				Input.action_release("fire_cannon")
+				_charge_started = -1.0
+			elif target and _charge_started < 0.0:
+				Input.action_press("fire_cannon")
+				_charge_started = t
 		elif target:
 			Input.action_press("fire_cannon")
 		else:

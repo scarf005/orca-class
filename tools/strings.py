@@ -93,6 +93,7 @@ S = {
     "CALLOUT_INTERCEPT": ("요격!", "INTERCEPT!"),
     "CALLOUT_INCOMING": ("접근!", "INCOMING!"),
     "HUD_FPS": ("FPS %d", "FPS %d"),
+    "CHARGE_LOCK": ("포착", "LOCK"),
     "SPEAKER_AI": ("범고래급 전투 보조", "ORCA COMBAT ASSIST"),
     "BOSS_COLOSSUS": ("균사 거인", "HYPHAL COLOSSUS"),
     "BOSS_GUNSHIP": ("감염된 대형 건십", "INFECTED HEAVY GUNSHIP"),
