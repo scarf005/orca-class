@@ -7,6 +7,7 @@ const PACE_TIME := 12.0
 const BARREL_SLEW := 2.5 ## Radians per second the chin gun and the rocket pods turn onto the tank.
 const GUN_SPREAD := 0.01 ## Radians of scatter on every gun round.
 const ROCKET_SPREAD := 0.015
+const ROCKET_SPEED := 55.0
 
 var _rotor := Node3D.new()
 var _tail_rotor := Node3D.new()
@@ -21,6 +22,7 @@ var _telegraph := 0.0
 var _burst := 0
 var _shot_timer := 0.0
 var _rockets := false
+var _rocket_aim := Vector3.ZERO ## Where the pair is fixed on at the end of the telegraph, led for the rockets' flight.
 var _hard := false
 
 
@@ -160,6 +162,7 @@ func behave(delta: float) -> void:
 		_telegraph -= delta
 		world.fx.beam(_chin.global_position, tank.hit_center(), Palette.CORAL, 0.035, 0.05)
 		if _telegraph <= 0.0:
+			_rocket_aim = _aim_point(tank)
 			_burst = 2 if _rockets else 6
 			_shot_timer = 0.0
 	elif _burst > 0:
@@ -178,17 +181,21 @@ func behave(delta: float) -> void:
 			Sfx.play("warn", global_position, -4.0)
 
 
-## Where the next round is meant to land: the tank, led a little for the shot's flight time.
+## Where the next round is meant to land: a rocket pair's fixed point once the telegraph ends, else the
+## tank led for the shot's flight time (rockets fully, gun rounds a little).
 func _aim_point(tank: Tank) -> Vector3:
-	var speed := 55.0 if _rockets else 100.0
-	return tank.hit_center() + tank.velocity * (global_position.distance_to(tank.hit_center()) / speed) * 0.6
+	if _rockets and _burst > 0:
+		return _rocket_aim
+	var target := tank.hit_center()
+	var flight := global_position.distance_to(target) / (ROCKET_SPEED if _rockets else 100.0)
+	return target + tank.velocity * flight * (1.0 if _rockets else 0.6)
 
 
 func _fire(tank: Tank) -> void:
 	var muzzle := _pod_muzzles[_burst % 2] if _rockets else _chin_muzzle
 	var from := muzzle.global_position
 	var wanted := _aim_point(tank) - from
-	var shot := fire_along("rocket", muzzle, 55.0, 0.0, Palette.HOT, wanted, 3.0, ROCKET_SPREAD) if _rockets else fire_along("orb", muzzle, 100.0, 4.0, Palette.HOT, wanted, 3.0, GUN_SPREAD, Muzzle.AUTO)
+	var shot := fire_along("rocket", muzzle, ROCKET_SPEED, 0.0, Palette.HOT, wanted, 3.0, ROCKET_SPREAD) if _rockets else fire_along("orb", muzzle, 100.0, 4.0, Palette.HOT, wanted, 3.0, GUN_SPREAD, Muzzle.AUTO)
 	shot.hit.caliber = 30
 	if _rockets:
 		shot.hit.kind = Hit.Kind.SHELL

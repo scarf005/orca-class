@@ -62,3 +62,46 @@ func test_carpet_circles_are_marked_before_impact_and_follow_the_tank() -> void:
 		mean += Course.to_course(bomb.global_position + _landing_offset(bomb)).y
 	mean /= bombs.size()
 	check(absf(mean - predicted) <= Uav.CARPET_SPACING * 1.0, "the carpet is centred on the tank's lateral position one second ahead (%.1f vs %.1f)" % [mean, predicted])
+
+
+func _heli_ready_to_fire(world: World, tank: Tank) -> Helicopter:
+	var heli := Helicopter.new()
+	heli.set_meta("slot", Vector3(0, 13, 55))
+	heli.position = Course.ground_at(world.rail.d + 55.0, 0.0) + Vector3.UP * 13.0
+	world.add_enemy(heli)
+	heli._rockets = true
+	heli._telegraph = 0.1
+	tank.velocity = Course.right(world.rail.d) * 10.0
+	return heli
+
+
+func test_rocket_pair_aims_where_the_tank_will_be_and_holds_it() -> void:
+	var world := stage()
+	var tank := world.player
+	var heli := _heli_ready_to_fire(world, tank)
+	var target := tank.hit_center()
+	var flight := heli.global_position.distance_to(target) / Helicopter.ROCKET_SPEED
+	heli.behave(0.2)
+	check_eq(heli._burst, 2, "the telegraph ends in a pair of rockets")
+	var expected := target + tank.velocity * flight
+	check(heli._rocket_aim.distance_to(expected) < 2.0, "the aim point leads the tank by the rockets' flight (%.1f m off)" % heli._rocket_aim.distance_to(expected))
+	check(heli._rocket_aim.distance_to(target) > 5.0, "the lead is a real offset from the tank")
+	var fixed := heli._rocket_aim
+	tank.velocity = -tank.velocity
+	tank.global_position += Vector3.UP * 3.0
+	check(heli._aim_point(tank).is_equal_approx(fixed), "the aim does not re-track during the pair")
+	heli._fire(tank)
+	heli._burst -= 1
+	tank.velocity = Vector3.ZERO
+	heli._fire(tank)
+	check(heli._aim_point(tank).is_equal_approx(fixed), "both rockets share the fixed aim")
+
+
+func test_rocket_aim_tracks_again_after_the_pair() -> void:
+	var world := stage()
+	var tank := world.player
+	var heli := _heli_ready_to_fire(world, tank)
+	heli.behave(0.2)
+	heli._burst = 0
+	tank.velocity = Vector3.ZERO
+	check(heli._aim_point(tank).is_equal_approx(tank.hit_center()), "between volleys the aim follows the tank again")
