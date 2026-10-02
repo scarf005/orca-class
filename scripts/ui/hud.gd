@@ -322,7 +322,7 @@ func _draw_weapons() -> void:
 	var origin := Vector2(724, 432)
 	var round_color: Color = Armament.ROUND_COLORS[p.current_round]
 	_panel(Rect2(origin, Vector2(220, 96)), round_color)
-	# Main gun: the loaded round's model, its magazine count, and the reload bar.
+	# Main gun: the loaded round's model, its magazine count, and the charge bar.
 	if p.current_round != _shown_round:
 		_shown_round = p.current_round
 		var round_mesh := _round_view.show_mesh(Pickup.mesh_of(Armament.ROUND_IDS[p.current_round]), round_color)
@@ -330,8 +330,7 @@ func _draw_weapons() -> void:
 	draw_texture(_round_view.get_texture(), origin + Vector2(4, 6))
 	_text(origin + Vector2(52, 20), ROUND_CODES[p.current_round], round_color, 14)
 	_text(origin + Vector2(52, 32), "∞" if p.current_round == Armament.Round.APHE else "×%d" % p.round_count, Palette.CREAM, 12)
-	var reload := 1.0 - p.reload / (Armament.RELOAD * p.modules.reload_factor())
-	_bar(Rect2(origin + Vector2(120, 14), Vector2(90, 6)), reload, Palette.CREAM if reload >= 1.0 else Palette.STONE, 8)
+	_bar(Rect2(origin + Vector2(120, 14), Vector2(90, 6)), p.charge, Palette.CREAM if p.charge >= 1.0 else Palette.STONE, 8)
 	# Coax: the mounted guns themselves, then tier pips.
 	draw_texture(_coax_view.get_texture(), origin + Vector2(4, 34))
 	for i in Armament.COAX_TIERS.size():
@@ -454,12 +453,10 @@ const CALLSIGNS := {"FpvDrone": "FPV", "Ugv": "UGV", "Uav": "UAV", "Walker": "WA
 var _lock: Entity
 var _lock_part := ""
 var _lock_time := 0.0
-var _was_ready := true
-var _ready_flash := 0.0
 
 
 ## The fire-control sight: a gunner's chevron with stadia ticks and a live range readout, a
-## segmented reload ring that flashes READY, the loaded round's code, where the barrel actually
+## segmented charge ring, the loaded round's code, where the barrel actually
 ## points, and an animated lock on the soft-locked target with its callsign, range and lead point.
 func _draw_reticle() -> void:
 	var p := world.player
@@ -467,14 +464,9 @@ func _draw_reticle() -> void:
 		return
 	var cam := world.camera
 	var cursor := p.aim_screen * SCALE
-	var ready := p.reload <= 0.0
-	if ready and not _was_ready:
-		_ready_flash = 0.35
-	_was_ready = ready
-	_ready_flash = maxf(0.0, _ready_flash - get_process_delta_time())
 	var target := p.charge_lock if is_instance_valid(p.charge_lock) else p.coax_target
 	var charged_lock := is_instance_valid(p.charge_lock)
-	var color := Palette.HOSTILE if is_instance_valid(target) else (Palette.CYAN if ready else Palette.MIST)
+	var color := Palette.HOSTILE if is_instance_valid(target) else Palette.CYAN
 	# Like Star Fox's two sights, both marks sit on the line the barrel points along: the ring close
 	# in front of the muzzle, the chevron out at the range the sight rests on. Lined up, they show
 	# where the gun fires; the mouse only leaves a small cursor the turret swings toward.
@@ -502,14 +494,11 @@ func _draw_reticle() -> void:
 	if p.modules.lock_factor() > 0.0:
 		_text(c + Vector2(50, -4), "%04d" % int(p.sight_range), color, 12)
 	_text(c + Vector2(50, 10), ROUND_CODES[p.current_round], Armament.ROUND_COLORS[p.current_round], 12)
-	# Reload ring: twelve segments fill; a READY flash when the gun is loaded.
-	var reload := clampf(1.0 - p.reload / (Armament.RELOAD * p.modules.reload_factor()), 0.0, 1.0)
+	# Charge ring: twelve segments fill as the shot charges.
 	for k in 12:
 		var a0 := -PI * 0.5 + TAU * k / 12.0 + 0.06
-		var filled := float(k) / 12.0 < reload
+		var filled := float(k) / 12.0 < p.charge
 		draw_arc(n, 30, a0, a0 + TAU / 12.0 - 0.12, 4, Armament.ROUND_COLORS[p.current_round] if filled else Color(Palette.STONE, 0.5), 3.0 if filled else 1.0)
-	if _ready_flash > 0.0 and fmod(_ready_flash, 0.1) < 0.06:
-		_text(n + Vector2(0, -40), "READY", Palette.WHITE, 12, HORIZONTAL_ALIGNMENT_CENTER, 0)
 	# Lock: brackets snap in from wide when a new target (or a new module of it) is acquired.
 	var part := p.charge_part if charged_lock else p.coax_part
 	if target != _lock or part != _lock_part:

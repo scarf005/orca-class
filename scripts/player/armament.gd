@@ -23,9 +23,8 @@ const OFFERED: Array[Round] = [Round.CANISTER, Round.DRAGON, Round.AIRBURST]
 ## Rounds loaded per special-round pickup.
 const MAGAZINE := {Round.HEAT: 6, Round.CANISTER: 6, Round.DRAGON: 6, Round.APFSDS: 6, Round.AIRBURST: 6}
 
-## A real 100 mm gun: a shell that wrecks any ordinary vehicle outright. The autoloader cycles fast
-## enough that the gun, not the coax, is the main way to thin a wave.
-const RELOAD := 1.2
+## A real 100 mm gun, Star Fox style: no reload, only the charge. Holding the button charges a shell that
+## wrecks any ordinary vehicle outright and blasts the pack around it, so the charge time is the gun's cadence.
 const SHELL_SPEED := 1700.0 ## Main-gun rounds are hitscan; this only sets their lead (none, in effect).
 const SHELL_RANGE := 420.0
 const SHELL_DAMAGE := 1500.0
@@ -34,8 +33,8 @@ const CHARGE_DELAY := 0.15
 const CHARGE_TIME := 0.8
 const CHARGE_RING := Vector2(160.0, 68.0) ## 3D-view pixels; the full-charge ring exceeds the soft lock.
 const APHE_DAMAGE := Vector2(1.0, 2.0)
-const APHE_RADIUS := Vector2(5.0, 8.0)
-const APHE_BLAST := Vector2(600.0, 900.0)
+const APHE_RADIUS := Vector2(5.0, 9.0)
+const APHE_BLAST := Vector2(600.0, 600.0)
 const HEAT_STAGGER := Vector2(1.0, 2.5)
 const HEAT_RADIUS := Vector2(9.0, 12.0)
 const APFSDS_RANGE := Vector2(1.0, 1.4)

@@ -38,10 +38,8 @@ func test_special_round_magazine_runs_out_to_aphe() -> void:
 	check_eq(tank.current_round, Armament.Round.HEAT, "HEAT loaded")
 	check_eq(tank.round_count, Armament.MAGAZINE[Armament.Round.HEAT], "full HEAT magazine")
 	for i in Armament.MAGAZINE[Armament.Round.HEAT]:
-		tank.reload = 0.0
 		tank.fire_cannon()
 	check_eq(tank.current_round, Armament.Round.APHE, "empty magazine falls back to APHE")
-	tank.reload = 0.0
 	tank.fire_cannon()
 	check_eq(tank.current_round, Armament.Round.APHE, "APHE is unlimited")
 
@@ -50,7 +48,6 @@ func test_new_round_replaces_current() -> void:
 	var world := stage()
 	var tank := world.player
 	tank.collect(world.spawn_pickup("canister", tank.global_position + Vector3(0, 30, 0)))
-	tank.reload = 0.0
 	tank.fire_cannon()
 	tank.collect(world.spawn_pickup("apfsds", tank.global_position + Vector3(0, 30, 0)))
 	check_eq(tank.current_round, Armament.Round.APFSDS, "pickup swaps the round type")
@@ -62,10 +59,8 @@ func test_canister_fires_a_pellet_cone() -> void:
 	var tank := world.player
 	tank.load_round(Armament.Round.CANISTER)
 	var before := world.projectiles.size()
-	tank.reload = 0.0
 	tank.fire_cannon()
 	check(world.projectiles.size() - before >= 20, "canister spawns many pellets")
-	check(tank.reload > 0.0, "firing starts the reload")
 
 
 func test_airburst_detonates_at_fuse_distance() -> void:
@@ -74,7 +69,6 @@ func test_airburst_detonates_at_fuse_distance() -> void:
 	tank.load_round(Armament.Round.AIRBURST)
 	var muzzle := tank.model.muzzle.global_position
 	tank.aim_point = muzzle + -tank.model.barrel.global_basis.z * 40.0 # The shell follows the barrel.
-	tank.reload = 0.0
 	var before := world.projectiles.size()
 	tank.fire_cannon() # Hitscan: the shell flies and bursts within this call.
 	var fragments := world.projectiles.slice(before).filter(func(p: Projectile) -> bool: return not p.is_queued_for_deletion()) # Minus the spent shell.
@@ -97,7 +91,6 @@ func _cannon_volley(world: World, round: Armament.Round, near: float, far: float
 		ugvs.append(ugv)
 	await frames(1)
 	tank.load_round(round)
-	tank.reload = 0.0
 	var target := ugvs[0].hit_center()
 	tank.fire_cannon(target + Vector3.UP * 20.0, Vector3.DOWN)
 	return ugvs.map(func(ugv: Ugv) -> bool: return ugv.dead)
@@ -107,14 +100,12 @@ func test_aphe_wrecks_its_target_and_its_neighbor_not_the_wave() -> void:
 	var world := stage()
 	var dead: Array = await _cannon_volley(world, Armament.Round.APHE, 3.0, 9.0)
 	check_eq(dead, [true, true, false], "APHE kills what it hits and what is right beside it")
-	check_near(world.player.reload, Armament.RELOAD, 0.01, "then cycles for the next round")
 
 
-func test_heat_hits_harder_and_wider_on_the_same_reload() -> void:
+func test_heat_hits_harder_and_wider_than_aphe() -> void:
 	var world := stage()
 	var dead: Array = await _cannon_volley(world, Armament.Round.HEAT, 7.0, 14.0)
 	check_eq(dead, [true, true, false], "HEAT's blast reaches past APHE's")
-	check_near(world.player.reload, Armament.RELOAD, 0.01, "HEAT loads as fast as APHE")
 
 
 func test_the_stage_hands_out_no_heat_or_apfsds() -> void:

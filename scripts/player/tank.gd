@@ -71,7 +71,6 @@ var using_gamepad := false
 var coax_tier := 0
 var current_round := Armament.Round.APHE
 var round_count := 0
-var reload := 0.0
 var charge := 0.0
 var charge_lock: Entity
 var charge_part := ""
@@ -185,9 +184,7 @@ func tick(delta: float) -> void:
 	invuln = maxf(0.0, invuln - delta)
 	show_damage(delta, HULL_RADIUS)
 	anchor_cooldown = maxf(0.0, anchor_cooldown - delta)
-	var loaded_delta := delta if reload <= 0.0 else maxf(delta - reload, 0.0)
-	reload = maxf(0.0, reload - delta)
-	_update_charge(loaded_delta)
+	_update_charge(delta)
 	modules.update(delta)
 	_sync_sensors()
 	_blink = maxf(0.0, _blink - delta)
@@ -241,7 +238,7 @@ func _update_movement(delta: float) -> void:
 		rail.advance(delta, 0, modules.meter_refill_factor())
 		return
 	rail.advance(delta, command, modules.meter_refill_factor())
-	var target := Vector2(input.x * MOVE_SPEED.x * (0.5 if is_charging() else 1.0), input.y * MOVE_SPEED.y) * modules.move_factor()
+	var target := Vector2(input.x * MOVE_SPEED.x, input.y * MOVE_SPEED.y) * modules.move_factor()
 	local_velocity = local_velocity.move_toward(target, ACCEL * delta)
 	if _drift > 0.0:
 		_drift -= delta
@@ -265,7 +262,7 @@ func _move_arena(delta: float, input: Vector2) -> void:
 	forward.y = 0.0
 	forward = forward.normalized()
 	var right := forward.cross(Vector3.UP)
-	var wish := (right * input.x + forward * input.y) * ARENA_SPEED * modules.move_factor() * (0.5 if is_charging() else 1.0)
+	var wish := (right * input.x + forward * input.y) * ARENA_SPEED * modules.move_factor()
 	var current := Vector3(local_velocity.x, 0, local_velocity.y)
 	current = current.move_toward(wish, ACCEL * delta)
 	if _drift > 0.0:
@@ -595,7 +592,12 @@ func _cancel_charge() -> void:
 
 
 func is_charging() -> bool:
-	return input_enabled and _cannon_held and reload <= 0.0 and _charge_time >= Armament.CHARGE_DELAY
+	return input_enabled and _cannon_held and _charge_time >= Armament.CHARGE_DELAY
+
+
+## Seconds a full charge takes after the delay: a damaged breech loads slower.
+func charge_time() -> float:
+	return Armament.CHARGE_TIME * modules.breech_factor()
 
 
 func _update_charge(delta: float) -> void:
@@ -604,11 +606,12 @@ func _update_charge(delta: float) -> void:
 		return
 	var held := Input.is_action_pressed("fire_cannon")
 	_cannon_released = _cannon_held and not held
-	if held and reload <= 0.0:
-		if _charge_time <= 0.0:
-			Sfx.play("charge", global_position)
+	if held:
+		var before := _charge_time
 		_charge_time += delta
-		charge = 1.0 if _charge_time >= Armament.CHARGE_DELAY + Armament.CHARGE_TIME else clampf((_charge_time - Armament.CHARGE_DELAY) / Armament.CHARGE_TIME, 0.0, 1.0)
+		if before < Armament.CHARGE_DELAY and _charge_time >= Armament.CHARGE_DELAY:
+			Sfx.play("charge", global_position)
+		charge = clampf((_charge_time - Armament.CHARGE_DELAY) / charge_time(), 0.0, 1.0)
 		if charge >= 1.0 and not _full_click:
 			_full_click = true
 			Sfx.play("charge_full", global_position)
@@ -675,8 +678,8 @@ func _update_weapons(delta: float) -> void:
 		for i in _coax_timers.size():
 			_coax_timers[i] = maxf(_coax_timers[i] - delta, 0.0)
 	if _cannon_released:
-		if input_enabled and reload <= 0.0:
-			fire_cannon(Vector3.INF, Vector3.ZERO, charge)
+		if input_enabled and charge >= 1.0:
+			fire_cannon(Vector3.INF, Vector3.ZERO, 1.0)
 		_cancel_charge()
 
 
@@ -814,7 +817,6 @@ func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO, power := 0.0) -> v
 		if round_count <= 0:
 			current_round = Armament.Round.APHE
 		round_changed.emit()
-	reload = Armament.RELOAD * modules.reload_factor()
 	_cannon_feedback(muzzle, barrel_dir, power)
 
 
@@ -858,7 +860,7 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 
 	shell.impacted.connect(_count_hit, CONNECT_ONE_SHOT)
 	match round:
 		Armament.Round.APHE:
-			# A small filler: it wrecks what it hits and what is right beside it, not the wave.
+			# A small filler: it wrecks what it hits and, charged, the pack around it.
 			shell.hit.damage *= lerpf(Armament.APHE_DAMAGE.x, Armament.APHE_DAMAGE.y, power)
 			shell.blast_radius = lerpf(Armament.APHE_RADIUS.x, Armament.APHE_RADIUS.y, power)
 			shell.blast_damage = lerpf(Armament.APHE_BLAST.x, Armament.APHE_BLAST.y, power)

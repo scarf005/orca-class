@@ -49,7 +49,6 @@ func test_player_cannon_plays_on_the_flat_gun_channel() -> void:
 	var world := stage()
 	Game.silent = false # Silent runs load no streams; the master bus stays muted.
 	Sfx._guns.clear()
-	world.player.reload = 0.0
 	world.player.fire_cannon()
 	Game.silent = true
 	check(Sfx._guns.has("cannon"), "the tank's own cannon shot goes through the non-positional gun player")

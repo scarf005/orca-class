@@ -113,7 +113,7 @@ func move_factor() -> float:
 	return _factor("track_l", 0.75, 0.5) * _factor("track_r", 0.75, 0.5)
 
 
-func reload_factor() -> float:
+func breech_factor() -> float:
 	return _factor("breech", 1.5, 3.0)
 
 

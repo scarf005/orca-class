@@ -16,82 +16,123 @@ func _rig() -> World:
 
 
 func _step(tank: Tank, delta: float) -> void:
-	var loaded := delta if tank.reload <= 0.0 else maxf(delta - tank.reload, 0.0)
-	tank.reload = maxf(tank.reload - delta, 0.0)
-	tank._update_charge(loaded)
+	tank._update_charge(delta)
 	tank._update_weapons(delta)
 
 
-func test_hold_release_and_tap() -> void:
+func test_clicks_and_early_releases_fire_nothing_and_reset() -> void:
+	var world := _rig()
+	var tank := world.player
+	for _i in 30:
+		Input.action_press("fire_cannon")
+		_step(tank, 1.0 / 60.0)
+		Input.action_release("fire_cannon")
+		_step(tank, 1.0 / 60.0)
+	check_eq(world.stats.shots, 0, "clicking fires nothing")
+	Input.action_press("fire_cannon")
+	_step(tank, Armament.CHARGE_DELAY - 0.01)
+	check_eq(tank.charge, 0.0, "no charge before the delay")
+	_step(tank, 0.01 + Armament.CHARGE_TIME * 0.5)
+	check_near(tank.charge, 0.5, 0.001, "then it charges over CHARGE_TIME")
+	_step(tank, Armament.CHARGE_TIME * 0.49)
+	check(tank.charge < 1.0, "just short of full")
+	Input.action_release("fire_cannon")
+	_step(tank, 0.0)
+	check_eq(world.stats.shots, 0, "releasing before full fires nothing")
+	check_eq(tank.charge, 0.0, "and resets the charge")
+	Input.action_press("fire_cannon")
+	_step(tank, Armament.CHARGE_DELAY + 0.01)
+	check_near(tank.charge, 0.01 / Armament.CHARGE_TIME, 0.001, "the next press starts over")
+	Input.action_release("fire_cannon")
+
+
+func test_full_charge_holds_and_release_fires_exactly_one_shell() -> void:
 	var world := _rig()
 	var tank := world.player
 	Input.action_press("fire_cannon")
 	_step(tank, Armament.CHARGE_DELAY + Armament.CHARGE_TIME)
-	check_eq(world.stats.shots, 0, "holding never fires")
-	check_eq(tank.charge, 1.0, "loaded gun reaches full at delay plus charge time")
+	check_eq(tank.charge, 1.0, "full at delay plus charge time")
 	_step(tank, 5.0)
-	check_eq(tank.charge, 1.0, "full charge holds indefinitely")
-	check_eq(world.stats.shots, 0, "long hold still never fires")
+	check_eq(tank.charge, 1.0, "a full charge holds indefinitely")
+	check_eq(world.stats.shots, 0, "holding fires nothing")
 	Input.action_release("fire_cannon")
 	_step(tank, 0.0)
-	check_eq(world.stats.shots, 1, "release fires once")
-	check_eq(world.stats.charged_shots, 1, "full shot is counted")
-	check_eq(tank.charge, 0.0, "release clears charge")
-	Input.action_press("fire_cannon")
-	_step(tank, 0.01)
-	Input.action_release("fire_cannon")
-	_step(tank, 0.01)
-	check_eq(world.stats.shots, 1, "tap during reload does nothing")
-	tank.reload = 0.0
-	Input.action_press("fire_cannon")
-	_step(tank, Armament.CHARGE_DELAY - 0.01)
-	check_eq(tank.charge, 0.0, "tap before delay has zero power")
-	Input.action_release("fire_cannon")
+	check_eq(world.stats.shots, 1, "release fires one shell")
+	check_eq(world.stats.charged_shots, 1, "a charged one")
+	check_eq(tank.charge, 0.0, "release clears the charge")
 	_step(tank, 0.0)
-	check_eq(world.stats.shots, 2, "loaded tap fires")
-	check_eq(world.stats.charged_shots, 1, "tap is uncharged")
+	check_eq(world.stats.shots, 1, "and only the one")
 
 
-func test_held_during_reload_starts_only_when_loaded() -> void:
+func test_continuous_charge_and_release_cycles_are_a_full_charge_apart() -> void:
 	var world := _rig()
 	var tank := world.player
-	tank.reload = 0.5
-	Input.action_press("fire_cannon")
-	_step(tank, 0.4)
-	check_eq(tank.charge, 0.0, "reload time contributes no charge")
-	_step(tank, 0.2)
-	check_near(tank._charge_time, 0.1, 0.0001, "only the loaded portion of the frame counts")
-	_step(tank, Armament.CHARGE_DELAY + Armament.CHARGE_TIME - 0.1 + 0.00001)
-	check_eq(tank.charge, 1.0, "holding begins charging once loaded")
+	var delta := 1.0 / 60.0
+	var shot_times: Array[float] = []
+	var t := 0.0
+	for _i in 600:
+		# The bot: hold, and let go the frame the charge is full.
+		if tank.charge >= 1.0:
+			Input.action_release("fire_cannon")
+		else:
+			Input.action_press("fire_cannon")
+		var before := world.stats.shots
+		_step(tank, delta)
+		t += delta
+		if world.stats.shots > before:
+			shot_times.append(t)
 	Input.action_release("fire_cannon")
+	check(shot_times.size() >= 8, "it keeps firing (%d shots in 10 s)" % shot_times.size())
+	for k in range(1, shot_times.size()):
+		check(shot_times[k] - shot_times[k - 1] >= Armament.CHARGE_DELAY + Armament.CHARGE_TIME - 0.0001, "shots %d and %d are at least a full charge apart (%.3f s)" % [k - 1, k, shot_times[k] - shot_times[k - 1]])
 
 
-func test_lateral_speed_and_dash() -> void:
+func test_charging_does_not_slow_the_tank() -> void:
 	var world := _rig()
 	var tank := world.player
 	Input.action_press("move_right")
 	Input.action_press("fire_cannon")
 	_step(tank, Armament.CHARGE_DELAY + 0.01)
+	check(tank.is_charging(), "charging")
 	tank._update_movement(0.2)
-	check_near(tank.local_velocity.x, Tank.MOVE_SPEED.x * 0.5, 0.01, "rail lateral speed halves")
+	check_near(tank.local_velocity.x, Tank.MOVE_SPEED.x, 0.01, "rail lateral speed is untouched")
 	tank.dash(Vector2.RIGHT)
 	check(tank._drift > 0.0, "dash works while charging")
 	tank._drift = 0.0
-	Input.action_release("fire_cannon")
-	_step(tank, 0.0)
-	tank._update_movement(0.2)
-	check_near(tank.local_velocity.x, Tank.MOVE_SPEED.x, 0.01, "release restores lateral speed")
-	tank.reload = 0.0
 	world.rail.mode = Rail.Mode.ARENA
-	Input.action_press("fire_cannon")
-	_step(tank, Armament.CHARGE_DELAY + 0.01)
 	tank._move_arena(0.2, Vector2.RIGHT)
-	check_near(tank.local_velocity.length(), Tank.ARENA_SPEED * 0.5, 0.01, "arena speed halves")
+	check_near(tank.local_velocity.length(), Tank.ARENA_SPEED, 0.01, "arena speed is untouched")
+	Input.action_release("fire_cannon")
+	Input.action_release("move_right")
+
+
+func test_breech_damage_slows_the_charge() -> void:
+	var world := _rig()
+	var tank := world.player
+	check_near(tank.charge_time(), Armament.CHARGE_TIME, 0.0001, "whole breech")
+	tank.modules.hp.breech = TankModules.MAX.breech * 0.4
+	check_near(tank.charge_time(), Armament.CHARGE_TIME * 1.5, 0.0001, "damaged breech charges x1.5 slower")
+	tank.modules.damage("breech", 999.0)
+	check_near(tank.charge_time(), Armament.CHARGE_TIME * 3.0, 0.0001, "destroyed breech: x3")
+	Input.action_press("fire_cannon")
+	_step(tank, Armament.CHARGE_DELAY + Armament.CHARGE_TIME * 2.0)
+	check(tank.charge < 1.0, "twice the usual charge time is not enough")
+	_step(tank, Armament.CHARGE_TIME + 0.001)
+	check_eq(tank.charge, 1.0, "three times it is")
+	Input.action_release("fire_cannon")
+
+
+func test_special_rounds_spend_one_round_per_charged_shot() -> void:
+	var world := _rig()
+	var tank := world.player
+	tank.load_round(Armament.Round.CANISTER)
+	check_eq(tank.round_count, Armament.MAGAZINE[Armament.Round.CANISTER], "full magazine")
+	Input.action_press("fire_cannon")
+	_step(tank, Armament.CHARGE_DELAY + Armament.CHARGE_TIME)
+	check_eq(tank.round_count, Armament.MAGAZINE[Armament.Round.CANISTER], "charging spends none")
 	Input.action_release("fire_cannon")
 	_step(tank, 0.0)
-	tank._move_arena(0.2, Vector2.RIGHT)
-	check_near(tank.local_velocity.length(), Tank.ARENA_SPEED, 0.01, "arena speed restores")
-	Input.action_release("move_right")
+	check_eq(tank.round_count, Armament.MAGAZINE[Armament.Round.CANISTER] - 1, "the charged shot spends one")
 
 
 func _target(world: World, at: Vector3) -> Enemy:
@@ -234,3 +275,58 @@ func test_aphe_base_kill_and_full_overpenetration() -> void:
 	replacement.set_process(false)
 	world.player.fire_cannon(muzzle, (replacement.hit_center() - muzzle).normalized(), 1.0)
 	check(replacement.dead and victims[1].dead, "full APHE kills both UGVs in line")
+
+
+## Three UGVs in a row across the road, `near` and `far` meters from the one under the shell.
+func _pack(world: World, near: float, far: float) -> Array[Ugv]:
+	var d := world.rail.d + 60.0
+	var ugvs: Array[Ugv] = []
+	for u in [0.0, near, far]:
+		var ugv := Ugv.new()
+		ugv.position = Course.ground_at(d, u)
+		ugv.immobile = true
+		world.add_enemy(ugv)
+		ugv.set_process(false)
+		ugvs.append(ugv)
+	return ugvs
+
+
+func test_charged_blast_takes_a_pack_within_6_m_of_the_hit() -> void:
+	var world := _rig()
+	var tank := world.player
+	var pack := _pack(world, 3.0, 6.0)
+	var wide := _pack(world, 3.0, 14.0)[2]
+	await frames(1)
+	tank.fire_cannon(pack[0].hit_center() + Vector3.UP * 20.0, Vector3.DOWN, 1.0)
+	check_eq(pack.map(func(ugv: Ugv) -> bool: return ugv.dead), [true, true, true], "a charged shell takes the whole pack")
+	check(not wide.dead, "but not one 14 m away")
+
+
+func test_charged_shot_hits_a_target_crossing_at_15_m_per_s() -> void:
+	var world := _rig()
+	var tank := world.player
+	var enemy := _target(world, tank.hit_center() - Vector3(7.0, 0, 60.0))
+	enemy.radius = 0.5
+	enemy.max_hp = 100000.0
+	enemy.hp = enemy.max_hp
+	var delta := 1.0 / 60.0
+	var steer := func() -> void:
+		enemy.global_position.x += 15.0 * delta
+		enemy.track_velocity = Vector3(15.0, 0, 0)
+		tank.aim_screen = world.camera.unproject_position(enemy.hit_center())
+		tank._update_aim(delta)
+		_step(tank, delta)
+	Input.action_press("fire_cannon")
+	while tank.charge < 1.0:
+		steer.call()
+	steer.call()
+	check(tank.charge_lock == enemy, "full charge locks the crosser")
+	for _i in 12:
+		steer.call()
+	var before := enemy.hp
+	Input.action_release("fire_cannon")
+	enemy.global_position.x += 15.0 * delta
+	tank._update_aim(delta)
+	_step(tank, delta)
+	check(before - enemy.hp >= Armament.SHELL_DAMAGE, "the charged shell hits it (%.0f damage)" % (before - enemy.hp))
+	check(world.projectiles.all(func(p: Projectile) -> bool: return p.homing_target == null), "nothing homes")

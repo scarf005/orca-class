@@ -43,7 +43,6 @@ func test_a_target_at_50_meters_burns_and_one_at_75_is_untouched() -> void:
 		for e in [near, far]:
 			if is_instance_valid(e):
 				e.queue_free()
-		tank.reload = 0.0
 		await frames(2)
 
 

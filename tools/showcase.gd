@@ -4,6 +4,7 @@ extends Node
 ##        --scene=vfx|fungus|boss --d=620 --shots=0.5,1,2 --out=builds/showcase
 
 var screen: GameScreen
+var _next_shot := 0.0
 
 
 func run() -> int:
@@ -129,5 +130,6 @@ func _drive(world: World, t: float) -> void:
 	var target: Entity = world.enemies[int(t * 2.0) % world.enemies.size()]
 	tank.aim_screen = world.camera.unproject_position(target.hit_center())
 	tank.input_enabled = true
-	if tank.reload <= 0.0:
-		tank.fire_cannon()
+	if t >= _next_shot:
+		_next_shot = t + Armament.CHARGE_DELAY + Armament.CHARGE_TIME
+		tank.fire_cannon(Vector3.INF, Vector3.ZERO, 1.0)

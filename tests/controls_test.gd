@@ -97,7 +97,7 @@ func test_one_main_gun_shell_wrecks_a_vehicle() -> void:
 	shell.caliber = 100
 	ugv.take_hit(shell)
 	check(ugv.dead, "a direct 100 mm hit is a kill")
-	check(Armament.RELOAD <= 1.5, "and cycles fast enough to thin a wave")
+	check(Armament.CHARGE_DELAY + Armament.CHARGE_TIME <= 1.0, "and a full charge takes no longer than a second")
 
 
 func test_the_gun_lays_on_a_soft_locked_drone_not_the_ground_behind_it() -> void:
@@ -120,7 +120,6 @@ func test_the_gun_lays_on_a_soft_locked_drone_not_the_ground_behind_it() -> void
 	var to_drone := (drone.hit_center() - tank.model.muzzle.global_position).normalized()
 	check(barrel.angle_to(to_drone) < deg_to_rad(6.0), "the barrel points close enough for rounds to reach it (off by %.1f°)" % rad_to_deg(barrel.angle_to(to_drone)))
 	var start := drone.hp
-	tank.reload = 0.0
 	tank.fire_cannon()
 	check(drone.dead or drone.hp < start, "the main gun hits it")
 	cleanup()

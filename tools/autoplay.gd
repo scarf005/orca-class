@@ -158,7 +158,7 @@ func _drive(world: World, t: float) -> void:
 			if _tap_down:
 				Input.action_release("fire_cannon")
 				_tap_down = false
-			elif target and tank.reload <= 0.0:
+			elif target:
 				Input.action_press("fire_cannon")
 				_tap_down = true
 		elif bot == "charge":
@@ -168,10 +168,8 @@ func _drive(world: World, t: float) -> void:
 			elif target and _charge_started < 0.0:
 				Input.action_press("fire_cannon")
 				_charge_started = t
-		elif target:
-			Input.action_press("fire_cannon")
 		else:
-			Input.action_release("fire_cannon")
+			Input.action_press("fire_cannon")
 	var weave := sin(t * 0.7)
 	if weave > 0.3:
 		Input.action_press("move_right")

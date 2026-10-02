@@ -86,7 +86,7 @@ func _fire() -> void:
 			break
 	_gunner.aim_point = target
 	_gunner.load_round(_round)
-	_gunner.fire_cannon(from, forward)
+	_gunner.fire_cannon(from, forward, 1.0)
 
 
 func _exit_tree() -> void:
