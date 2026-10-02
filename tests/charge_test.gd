@@ -220,13 +220,14 @@ func test_fcs_and_cancellation() -> void:
 func test_full_canister_balls_land_inside_ring_at_40_m() -> void:
 	var world := _rig()
 	var tank := world.player
+	tank.global_position += Vector3.UP * 40.0 # Clear of the ground, so the whole cone reaches 40 m.
 	var muzzle := tank.global_position + Vector3(0, 30, 0)
 	var forward := Vector3.FORWARD
 	var center := muzzle + forward * 40.0
 	world.camera.global_position = muzzle + Vector3.BACK * 20.0
 	world.camera.look_at(center)
 	var catcher := _target(world, center)
-	catcher.radius = 3.0
+	catcher.radius = 6.0
 	catcher.max_hp = 1000000.0
 	catcher.hp = catcher.max_hp
 	catcher.invulnerable = false
@@ -246,7 +247,7 @@ func test_full_canister_balls_land_inside_ring_at_40_m() -> void:
 	var hits: Array[Vector3] = []
 	catcher.damaged.connect(func(_enemy: Entity, hit: Hit) -> void: hits.append(hit.position))
 	seed(1)
-	tank._fire_canister(muzzle, forward, 1.0)
+	tank._fire_canister(muzzle, forward)
 	var inside := 0
 	for hit in hits:
 		if world.camera.unproject_position(hit).distance_to(tank.aim_screen) <= ring:

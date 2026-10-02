@@ -78,6 +78,80 @@ func test_airburst_detonates_at_fuse_distance() -> void:
 	check(burst.y > Course.height_at(burst) + 1.0, "the burst is in the air")
 
 
+## Fires an airburst from the muzzle along the barrel with the reticle `reticle` m out and returns where the
+## fragments were released (INF when nothing burst) with a UAV `ahead` m out and `off` m beside the line.
+func _burst_beside_uav(world: World, ahead: float, off: float, reticle: float, power: float) -> Array:
+	var tank := world.player
+	tank.load_round(Armament.Round.AIRBURST)
+	var muzzle := tank.model.muzzle.global_position
+	var forward := -tank.model.barrel.global_basis.z
+	var uav := Uav.new()
+	world.add_enemy(uav)
+	uav.set_process(false)
+	uav.global_position = muzzle + forward * ahead + tank.model.barrel.global_basis.x * off - Vector3.UP * uav.center_height
+	tank.aim_point = muzzle + forward * reticle
+	var before := world.projectiles.size()
+	tank.fire_cannon(Vector3.INF, Vector3.ZERO, power)
+	var fragments := world.projectiles.slice(before).filter(func(p: Projectile) -> bool: return not p.is_queued_for_deletion())
+	return [muzzle, fragments[0].global_position if not fragments.is_empty() else Vector3.INF, uav]
+
+
+func test_airburst_does_not_burst_inside_30_m() -> void:
+	var world := stage()
+	var burst := await _burst_beside_uav(world, 20.0, 3.0, 100.0, 1.0)
+	check(burst[1] != Vector3.INF, "the shell still bursts, at the reticle")
+	check(burst[0].distance_to(burst[1]) > 90.0, "not beside the UAV 20 m out (burst %.0f m out)" % burst[0].distance_to(burst[1]))
+
+
+func test_airburst_bursts_on_passing_a_uav_off_its_line() -> void:
+	var world := stage()
+	var burst := await _burst_beside_uav(world, 60.0, 4.0, 120.0, 0.0)
+	var uav: Uav = burst[2]
+	check(burst[1] != Vector3.INF, "it bursts")
+	check_near(burst[0].distance_to(burst[1]), 60.0, 6.0, "abeam of the UAV, not at the reticle")
+	check(burst[1].distance_to(uav.hit_center()) <= Armament.AIRBURST_PROXIMITY.x, "within 5 m of it")
+
+
+func test_airburst_proximity_is_5_m_and_8_m_charged() -> void:
+	var world := stage()
+	var plain := await _burst_beside_uav(world, 60.0, 7.0, 120.0, 0.0)
+	check(plain[0].distance_to(plain[1]) > 100.0, "a UAV 7 m off the line is out of the 5 m fuse (burst %.0f m out)" % plain[0].distance_to(plain[1]))
+	var charged := await _burst_beside_uav(world, 60.0, 7.0, 120.0, 1.0)
+	check_near(charged[0].distance_to(charged[1]), 60.0, 6.0, "but inside the charged 8 m fuse")
+
+
+func test_airburst_fragments_favor_flyers_over_ground_armor() -> void:
+	var world := stage()
+	var fragment := Hit.make(Hit.Kind.FRAGMENT, 70.0, Vector3.ZERO)
+	for flyer: Enemy in [Uav.new(), FpvDrone.new(), Helicopter.new()]:
+		check_near(flyer.damage_multiplier(fragment), 2.0, 0.001, "%s takes double" % flyer.get_script().get_global_name())
+		flyer.free()
+	for armored: Enemy in [Ugv.new(), Walker.new(), QuadMech.new()]:
+		check_near(armored.damage_multiplier(fragment), 0.3, 0.001, "%s takes 0.3x" % armored.get_script().get_global_name())
+		armored.free()
+
+
+func test_canister_clears_a_crawler_pack_at_20_m() -> void:
+	var world := stage()
+	var tank := world.player
+	tank.load_round(Armament.Round.CANISTER)
+	var muzzle := tank.model.muzzle.global_position
+	var forward := -tank.model.barrel.global_basis.z
+	var side := tank.model.barrel.global_basis.x
+	var crawlers: Array[Crawler] = []
+	for k in 6:
+		var crawler := Crawler.new()
+		var spot := muzzle + forward * (20.0 + (k % 2) * 1.5) + side * (k - 2.5) * 0.6
+		spot.y = Course.height_at(spot)
+		crawler.position = spot
+		world.add_enemy(crawler)
+		crawler.set_process(false)
+		crawlers.append(crawler)
+	seed(1)
+	tank.fire_cannon(Vector3.INF, Vector3.ZERO, 1.0)
+	check_eq(crawlers.filter(func(c: Crawler) -> bool: return c.dead).size(), 6, "one canister shot kills the whole pack")
+
+
 ## Two UGVs beside the one the shot lands on: one at `near`, one at `far` meters across the road.
 func _cannon_volley(world: World, round: Armament.Round, near: float, far: float) -> Array:
 	var tank := world.player

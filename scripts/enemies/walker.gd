@@ -55,7 +55,7 @@ func _init() -> void:
 	stabbable = true
 	score = 450
 	debris = [Fx.Debris.ARMOR, Fx.Debris.METAL, Fx.Debris.PAINT]
-	weakness = {Hit.Kind.THROWN: 1.5, Hit.Kind.TAIL: 1.3}
+	weakness = {Hit.Kind.THROWN: 1.5, Hit.Kind.TAIL: 1.3, Hit.Kind.FRAGMENT: 0.3}
 	mark_offsets = [-0.83, 0.83] # Thin lines under the wheels on its feet.
 	mark_width = 0.25
 

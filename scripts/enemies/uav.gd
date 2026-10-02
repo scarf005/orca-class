@@ -45,7 +45,7 @@ func _init() -> void:
 	score = 500
 	despawn_behind = 0.0
 	debris = [Fx.Debris.PAINT, Fx.Debris.METAL]
-	weakness = {Hit.Kind.BLAST: 1.4}
+	weakness = {Hit.Kind.BLAST: 1.4, Hit.Kind.FRAGMENT: 2.0}
 
 
 func build() -> void:

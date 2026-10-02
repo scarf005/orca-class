@@ -624,7 +624,7 @@ func charge_ring_radius() -> float:
 		return lerpf(Armament.CHARGE_RING.x, Armament.CHARGE_RING.y, charge)
 	var cam := World.current.camera
 	var distance := model.muzzle.global_position.distance_to(aim_point)
-	var radius := distance * lerpf(Armament.CANISTER_SPREAD.x, Armament.CANISTER_SPREAD.y, charge)
+	var radius := distance * Armament.CANISTER_SPREAD
 	var center := cam.unproject_position(aim_point)
 	var pixels := maxf(center.distance_to(cam.unproject_position(aim_point + cam.global_basis.x * radius)), center.distance_to(cam.unproject_position(aim_point + cam.global_basis.y * radius)))
 	return clampf(pixels, 8.0, 220.0)
@@ -807,7 +807,7 @@ func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO, power := 0.0) -> v
 		World.current.stats.charged_shots += 1
 	match round:
 		Armament.Round.CANISTER:
-			_fire_canister(muzzle, shot_dir.call(200.0), power)
+			_fire_canister(muzzle, shot_dir.call(200.0))
 		Armament.Round.DRAGON:
 			DragonBreath.fire(self, shot_dir.call(DragonBreath.MEAN_SPEED), from, power)
 		_:
@@ -821,14 +821,14 @@ func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO, power := 0.0) -> v
 
 
 ## A wall of tungsten balls, and a muzzle blast that flattens everything just ahead.
-func _fire_canister(muzzle: Vector3, aim_dir: Vector3, power := 0.0) -> void:
+func _fire_canister(muzzle: Vector3, aim_dir: Vector3) -> void:
 	var world := World.current
 	world.blast(muzzle + aim_dir * 7.0, 6.0, 260.0, Team.PLAYER, _cannon_hit(), null, [Palette.WHITE, Palette.BUTTER, Palette.AMBER], aim_dir)
 	# Fifty hitscan balls land at once, each drawn as a yellow streak.
 	var side := aim_dir.cross(Vector3.UP if absf(aim_dir.y) < 0.99 else Vector3.RIGHT).normalized()
 	var up := side.cross(aim_dir)
 	for i in 50:
-		var spread := Vector2.from_angle(randf() * TAU) * sqrt(randf()) * lerpf(Armament.CANISTER_SPREAD.x, Armament.CANISTER_SPREAD.y, power)
+		var spread := Vector2.from_angle(randf() * TAU) * sqrt(randf()) * Armament.CANISTER_SPREAD
 		var dir := (aim_dir + side * spread.x + up * spread.y).normalized()
 		var pellet := world.spawn_projectile(Team.PLAYER, muzzle, dir * 200.0, "pellet", Palette.BUTTER)
 		pellet.hit = Hit.make(Hit.Kind.BULLET, 90.0, muzzle)
@@ -836,7 +836,7 @@ func _fire_canister(muzzle: Vector3, aim_dir: Vector3, power := 0.0) -> void:
 		pellet.hit.source = self
 		pellet.hit.weapon = "cannon"
 		pellet.impacted.connect(_count_hit, CONNECT_ONE_SHOT)
-		var end := pellet.resolve_now(lerpf(Armament.CANISTER_RANGE.x, Armament.CANISTER_RANGE.y, power))
+		var end := pellet.resolve_now(Armament.CANISTER_RANGE)
 		world.fx.beam(muzzle, end, Palette.WHITE, 0.06, 0.08)
 		world.fx.beam(muzzle, end, Palette.BUTTER, 0.18, 0.14)
 		world.fx.spawn(Fx.Kind.FLAME, end, Vector3.UP * 2.0, 0.12, 0.5, Palette.BUTTER)
@@ -883,6 +883,7 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 
 			shell.hit.damage = 70.0
 			shell.fuse_distance = muzzle.distance_to(_aimed_spot(charge_lock) if _aimed_spot(charge_lock) != Vector3.INF else charge_lock.hit_center()) if is_instance_valid(charge_lock) else maxf(muzzle.distance_to(aim_point) - 2.0, 6.0)
 			shell.airburst_fragments = roundi(lerpf(Armament.AIRBURST_FRAGMENTS.x, Armament.AIRBURST_FRAGMENTS.y, power))
+			shell.proximity = lerpf(Armament.AIRBURST_PROXIMITY.x, Armament.AIRBURST_PROXIMITY.y, power)
 	var reach := Armament.SHELL_RANGE * (lerpf(Armament.APFSDS_RANGE.x, Armament.APFSDS_RANGE.y, power) if round == Armament.Round.APFSDS else 1.0)
 	var end := shell.resolve_now(reach)
 	world.fx.beam(muzzle, end, Palette.WHITE, 0.5, 0.1)

@@ -16,6 +16,7 @@ var blast_colors: Array = [Palette.BUTTER, Palette.AMBER, Palette.HOT, Palette.C
 var pierce_entities := false ## Keeps flying after hitting entities (APFSDS).
 var fuse_distance := 0.0 ## Detonates in the air after this distance (airburst); 0 disables.
 var airburst_fragments := 0
+var proximity := 0.0 ## Airburst: once armed, detonates when it passes this close to a flying hostile; 0 disables.
 var homing_target: Node3D
 var turn_rate := 0.0 ## Radians per second toward the homing target.
 var homing_lead := false ## Steers to where the target will be on arrival, from the target's `velocity`.
@@ -78,11 +79,11 @@ func step(delta: float) -> void:
 	var step_length := from.distance_to(to)
 	if fuse_distance > 0.0 and _traveled + step_length >= fuse_distance:
 		to = from + velocity.normalized() * (fuse_distance - _traveled)
-		if not _sweep(from, to):
+		if not _sweep(from, to) and not _burst_near_flyer(from, to, _traveled):
 			detonate(to, null)
 		return
 	_traveled += step_length
-	if _sweep(from, to):
+	if _sweep(from, to) or _burst_near_flyer(from, to, _traveled - step_length):
 		return
 	global_position = to
 	if velocity.length_squared() > 0.01:
@@ -198,6 +199,29 @@ func _sweep(from: Vector3, to: Vector3) -> bool:
 		detonate(point, best_entity)
 		return true
 	return false
+
+
+## The proximity fuse: once armed (`traveled` is the distance flown up to `from`), detonates where
+## the path comes closest to a flying hostile it passes within `proximity` of. Returns true when it did.
+func _burst_near_flyer(from: Vector3, to: Vector3, traveled: float) -> bool:
+	var length := from.distance_to(to)
+	var skip := clampf(Armament.AIRBURST_ARM - traveled, 0.0, length)
+	if proximity <= 0.0 or skip >= length:
+		return false
+	var start := from.lerp(to, skip / length)
+	var burst := Vector3.INF
+	var best := INF
+	for entity in World.current.targets_for(team):
+		if not entity.flying:
+			continue
+		var point := Geometry3D.get_closest_point_to_segment(entity.hit_center(), start, to)
+		if point.distance_to(entity.hit_center()) <= proximity and start.distance_to(point) < best:
+			best = start.distance_to(point)
+			burst = point
+	if burst == Vector3.INF:
+		return false
+	detonate(burst, null)
+	return true
 
 
 func _ground_hit(from: Vector3, to: Vector3) -> float:

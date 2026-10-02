@@ -35,7 +35,7 @@ func _init() -> void:
 	trails = true
 	score = 650
 	wreck_on_death = true
-	weakness = {Hit.Kind.FRAGMENT: 1.5, Hit.Kind.BLAST: 1.4}
+	weakness = {Hit.Kind.FRAGMENT: 2.0, Hit.Kind.BLAST: 1.4}
 	debris = [Fx.Debris.ARMOR, Fx.Debris.METAL, Fx.Debris.GLASS]
 
 

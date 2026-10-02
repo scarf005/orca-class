@@ -32,7 +32,7 @@ func _init() -> void:
 	stabbable = true
 	score = 150
 	debris = [Fx.Debris.METAL, Fx.Debris.PAINT]
-	weakness = {Hit.Kind.BLAST: 1.5, Hit.Kind.FIRE: 2.0}
+	weakness = {Hit.Kind.BLAST: 1.5, Hit.Kind.FIRE: 2.0, Hit.Kind.FRAGMENT: 2.0}
 
 
 func build() -> void:

@@ -43,7 +43,7 @@ func _init() -> void:
 	stabbable = true
 	score = 400
 	debris = [Fx.Debris.ARMOR, Fx.Debris.METAL]
-	weakness = {Hit.Kind.THROWN: 1.5, Hit.Kind.TAIL: 1.5}
+	weakness = {Hit.Kind.THROWN: 1.5, Hit.Kind.TAIL: 1.5, Hit.Kind.FRAGMENT: 0.3}
 	mark_offsets = [-0.95, 0.95] # Under its two tracks: a narrower gauge than the tank's.
 	mark_width = 0.6
 

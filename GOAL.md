@@ -121,10 +121,10 @@ HUD. When it runs out, the gun falls back to APHE. Picking up a new type replace
 | --- | --- | --- |
 | APHE (default) | Single target plus a small blast | General use |
 | HEAT | High single-target damage; ignores armor; can knock parts off the boss | UGVs, boss armor |
-| Canister | Short-range shotgun cone of tungsten balls | FPV drone swarms, close fungi |
+| Canister | Wide shotgun cone of tungsten balls for the close swarm, ground and air | FPV drone swarms, crawler packs, close fungi |
 | Dragon's breath | A 60 m jet of flame poured out over a third of a second; incendiary blasts along it, burning ground where it lands, anything in the cone (flyers too) catches fire; sets fungi and grass alight and the fire spreads | Fungi (they burn), spore clouds, enemies at range |
 | APFSDS | Pierces through every enemy in a line; very fast | Lines of UGVs, the boss's rotor mast |
-| Airburst (AHEAD) | Detonates at the reticle's range; fragment cloud | UAVs, the helicopter |
+| Airburst (AHEAD) | Proximity fuse: arms after 30 m, bursts when it passes near a flyer (or at the reticle's range); fragments hit flyers twice as hard and armored ground units barely | Far UAVs, the helicopter |
 
 Rounds and enemy types form deliberate counters. No round is strictly best, and pickups sit where their counter
 matters next.
