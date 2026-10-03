@@ -114,5 +114,8 @@ func test_air_and_fungal_patterns_are_hard_only() -> void:
 		uav._dir = (world.player.global_position - uav.global_position).normalized()
 		uav._dir.y = 0.0
 		uav.behave(0.01)
-		check_eq(uav._strafe > 0, hard, "hard bomber also warns a strafing pass")
+		check_eq(uav._loiter_wind > 0.0, hard, "hard bomber warns a loitering-drone drop")
+		count = world.enemies.size()
+		uav.behave(0.9)
+		check_eq(world.enemies.size() > count, hard, "hard bomber releases a drone without needing a strafe gun")
 	Game.difficulty = Game.Difficulty.NORMAL

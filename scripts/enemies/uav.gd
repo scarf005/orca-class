@@ -26,6 +26,7 @@ var _bomb_timer := 0.0
 var _strafe := 0
 var _strafe_timer := 0.0
 var _strafe_wind := 0.0
+var _loiter_wind := -1.0
 var _strafe_point := Vector3.ZERO
 var _strafe_step := Vector3.ZERO
 var _prop: Node3D
@@ -99,7 +100,7 @@ func build() -> void:
 
 
 func telegraphing() -> bool:
-	return _strafe > 0
+	return _strafe > 0 or _loiter_wind > 0.0
 
 
 func on_damaged(hit: Hit, amount: float) -> void:
@@ -166,10 +167,29 @@ func behave(delta: float) -> void:
 		speed = world.rail.speed + (LEAVE if _leaving else OVERTAKE)
 	global_position += _dir * speed * delta
 	model.look_at(global_position + _dir, Vector3.UP)
-	if attack == "bomb" or Game.difficulty == Game.Difficulty.HARD:
+	if Game.difficulty == Game.Difficulty.HARD:
+		_loiter_drop(delta, ahead)
+	if attack == "bomb":
 		_bomb_run(delta, tank, ahead)
-	if attack != "bomb" or Game.difficulty == Game.Difficulty.HARD:
+	else:
 		_strafe_run(delta, tank, ahead)
+
+
+func _loiter_drop(delta: float, ahead: float) -> void:
+	if _loiter_wind == -1.0 and ahead < 80.0 and ahead > 45.0:
+		_loiter_wind = 0.8
+		World.current.fx.marker(global_position + Vector3.DOWN, 3.0, _loiter_wind, Palette.HOT)
+		Sfx.play("warn", global_position, -4.0)
+		return
+	if _loiter_wind <= 0.0 or is_staggered():
+		return
+	_loiter_wind -= delta
+	if _loiter_wind <= 0.0:
+		_loiter_wind = -2.0
+		var drone := FpvDrone.new()
+		drone.position = global_position + Vector3.DOWN
+		drone.approach_time = 0.4
+		World.current.add_enemy(drone)
 
 
 func _bomb_run(delta: float, tank: Tank, ahead: float) -> void:
