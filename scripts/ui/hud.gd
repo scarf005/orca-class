@@ -611,20 +611,32 @@ func _draw_lock_boxes(center: Vector2, size: float, charge: float) -> void:
 	for i in _lock_boxes:
 		var k := clampf((_time - _lock_box_times[i]) / LOCK_BOX_IN, 0.0, 1.0)
 		var settle := ease(k, 0.35)
-		var half := lerpf(size * 3.0, size * (1.0 + i * 0.32), settle)
 		# Spins in a half turn as it lands, then keeps turning slowly, alternate boxes the other way.
 		var angle := (1.0 - settle) * PI * 0.5 + _time * (0.8 + i * 0.5) * (1.0 if i % 2 == 0 else -1.0)
 		var color := Palette.WHITE if k < 1.0 or (full and fmod(_time, 0.2) < 0.08) else Palette.AMBER
-		var corners: Array[Vector2] = []
-		for c in 4:
-			corners.append(center + Vector2(half, 0).rotated(angle + PI * 0.25 + c * PI * 0.5) * sqrt(2.0))
-		for c in 4:
-			var a := corners[c]
-			var b := corners[(c + 1) % 4]
-			var arm := (b - a) * 0.28
-			for seg: Array in [[a, a + arm], [b, b - arm]]:
-				draw_line(seg[0], seg[1], Palette.INK, 5.0)
-				draw_line(seg[0], seg[1], color, 2.0)
+		_draw_lock_box(center, lerpf(size * 3.0, size * (1.0 + i * 0.32), settle), angle, color)
+	# The next box is already on its way: it swings in from wide as the charge climbs to its step,
+	# so even a round that fires on its first box shows that box locking in.
+	if count < LOCK_BOXES:
+		var steps := [0.0, Armament.STAGE_1, Armament.STAGE_2, 1.0]
+		var progress := clampf(inverse_lerp(steps[count], steps[count + 1], charge), 0.0, 1.0)
+		var settle := ease(progress, 0.6)
+		var color := Color(Palette.WHITE, 0.35 + 0.65 * progress)
+		_draw_lock_box(center, lerpf(size * 3.4, size * (1.0 + count * 0.32), settle), (1.0 - settle) * PI + _time * 0.8, color)
+
+
+## One lock box: four corner brackets of a square `half` wide, turned by `angle`.
+func _draw_lock_box(center: Vector2, half: float, angle: float, color: Color) -> void:
+	var corners: Array[Vector2] = []
+	for c in 4:
+		corners.append(center + Vector2(half, 0).rotated(angle + PI * 0.25 + c * PI * 0.5) * sqrt(2.0))
+	for c in 4:
+		var a := corners[c]
+		var b := corners[(c + 1) % 4]
+		var arm := (b - a) * 0.28
+		for seg: Array in [[a, a + arm], [b, b - arm]]:
+			draw_line(seg[0], seg[1], Color(Palette.INK, color.a), 5.0)
+			draw_line(seg[0], seg[1], color, 2.0)
 
 
 func _draw_hit_marker() -> void:
