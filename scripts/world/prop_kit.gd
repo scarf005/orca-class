@@ -6,6 +6,59 @@ const WALL_COLORS: Array[Color] = [Palette.CREAM, Palette.MIST, Palette.CONCRETE
 const CAR_COLORS: Array[Color] = [Palette.SKY, Palette.BLUSH, Palette.BUTTER, Palette.MIST, Palette.MINT]
 
 static var _cache := {}
+static var _pieces := {}
+const COLLAPSE_PIECES := 12
+
+
+## Partition the actual vertex-colored scenery into at most twelve chunks. Materials (including
+## fungal glow) survive; the upper third is separate so the roof can cave before the walls.
+static func collapse_pieces(source: Mesh) -> Array[Mesh]:
+	var key := source.get_instance_id()
+	if _pieces.has(key):
+		return _pieces[key]
+	var bounds := source.get_aabb()
+	var chunks: Array[ArrayMesh] = []
+	for i in COLLAPSE_PIECES:
+		chunks.append(ArrayMesh.new())
+	for surface in source.get_surface_count():
+		var arrays := source.surface_get_arrays(surface)
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+		var colors: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
+		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX] if arrays[Mesh.ARRAY_INDEX] != null else PackedInt32Array()
+		var bins: Array[Array] = []
+		for i in COLLAPSE_PIECES:
+			bins.append([PackedVector3Array(), PackedVector3Array(), PackedColorArray()])
+		var count := indices.size() if not indices.is_empty() else vertices.size()
+		for triangle in range(0, count, 3):
+			var ids: Array[int] = []
+			var center := Vector3.ZERO
+			for corner in 3:
+				var id := indices[triangle + corner] if not indices.is_empty() else triangle + corner
+				ids.append(id)
+				center += vertices[id] / 3.0
+			var relative := (center - bounds.position) / bounds.size.max(Vector3.ONE * 0.001)
+			var bin := mini(int(relative.y * 3.0), 2) * 4 + int(relative.x >= 0.5) * 2 + int(relative.z >= 0.5)
+			for id in ids:
+				bins[bin][0].append(vertices[id])
+				bins[bin][1].append(normals[id])
+				bins[bin][2].append(colors[id])
+		for i in COLLAPSE_PIECES:
+			if bins[i][0].is_empty():
+				continue
+			var piece := []
+			piece.resize(Mesh.ARRAY_MAX)
+			piece[Mesh.ARRAY_VERTEX] = bins[i][0]
+			piece[Mesh.ARRAY_NORMAL] = bins[i][1]
+			piece[Mesh.ARRAY_COLOR] = bins[i][2]
+			chunks[i].add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, piece)
+			chunks[i].surface_set_material(chunks[i].get_surface_count() - 1, source.surface_get_material(surface))
+	var result: Array[Mesh] = []
+	for chunk in chunks:
+		if chunk.get_surface_count() > 0:
+			result.append(chunk)
+	_pieces[key] = result
+	return result
 
 
 static func mesh(kind: String, variant := 0) -> Mesh:

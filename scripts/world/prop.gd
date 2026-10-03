@@ -24,11 +24,162 @@ var vehicle := false ## Run over, it is squashed, knocked flying or burst apart,
 var _topple := -1.0
 var _topple_axis := Vector3.RIGHT
 var _topple_by_player := false
+var _topple_start := Transform3D.IDENTITY
 var rubble_mesh: Mesh
 var score := 0
 
 
 const DRAW_DISTANCE := 150.0 ## Fog hides small props well before this.
+
+enum CollapseStyle { NONE, TORN, SINK, RAM, TOPPLE, BURN }
+const BUILDINGS := ["house", "infested_house", "hall", "greenhouse", "church", "church_nave", "church_tower", "church_spire", "school", "school_wing", "school_center", "gas_station", "bus_stop", "pavilion", "overpass_pier", "overpass_deck", "pier", "gate"]
+const TALL := ["church_tower", "church_spire", "overpass_pier", "fungal_spire", "spore_tower", "flagpole"]
+
+
+## The killing blow chooses the motion, not a random roll. Fire wins over its shell delivery;
+## tall structures stay rigid except when a main-gun round tears them apart.
+func collapse_style(hit: Hit) -> CollapseStyle:
+	if vehicle or flattens or not (kind in BUILDINGS or kind in TALL or falls):
+		return CollapseStyle.NONE
+	if hit != null:
+		if hit.kind == Hit.Kind.FIRE or hit.incendiary:
+			return CollapseStyle.BURN
+		if hit.caliber >= 100 and hit.kind in [Hit.Kind.SHELL, Hit.Kind.BLAST]:
+			return CollapseStyle.TORN
+	if falls or kind in TALL:
+		return CollapseStyle.TOPPLE
+	if hit != null and hit.kind == Hit.Kind.RAM and (hit.speed >= 5.0 or hit.damage >= max_hp):
+		return CollapseStyle.RAM
+	return CollapseStyle.SINK
+
+
+## Detached visuals outlive the dead prop: scoring, loot and collateral still happen once,
+## immediately, while the collapse carries on in real time even through hitstop.
+class Collapse extends Node3D:
+	var style: CollapseStyle
+	var age := 0.0
+	var puff := 0.0
+	var height := 1.0
+	var width := 1.0
+	var push := Vector3.FORWARD
+	var axis := Vector3.RIGHT
+	var start := Transform3D.IDENTITY
+	var pieces: Array[MeshInstance3D] = []
+	var rubble: Mesh
+	var materials: Array
+	var bounds: AABB
+
+	func _process(delta: float) -> void:
+		var world := World.current
+		delta = world.unfrozen(delta)
+		age += delta
+		var burning := style == CollapseStyle.BURN and age < 2.8
+		var time := maxf(age - (2.8 if style == CollapseStyle.BURN else 0.0), 0.0)
+		var duration := 0.65 if style == CollapseStyle.RAM else 1.2
+		var k := clampf(time / duration, 0.0, 1.0)
+		global_transform = start
+		match style:
+			CollapseStyle.TOPPLE:
+				# Accelerating rotation about the foot, not the mesh's center.
+				global_basis = Basis(axis, k * k * PI * 0.5) * start.basis
+				global_position.y = lerpf(start.origin.y, Course.height_at(start.origin), k)
+			CollapseStyle.RAM:
+				global_basis = Basis(axis, k * PI * 0.42) * start.basis.scaled_local(Vector3(1.0, lerpf(1.0, 0.12, k), 1.0))
+				global_position += push * width * k
+			_:
+				var sink := smoothstep(0.15, 1.0, k)
+				global_position += Vector3(sin(time * 65.0) * 0.12 * (1.0 - k), -height * sink, cos(time * 53.0) * 0.09 * (1.0 - k))
+				for piece in pieces:
+					var roof := piece.mesh.get_aabb().get_center().y > height * 0.6
+					piece.position.y = -height * 0.25 * smoothstep(0.0, 0.35, k) if roof else 0.0
+		puff -= delta
+		if puff <= 0.0:
+			puff = 0.1
+			for i in 4:
+				# At the outside faces, not inside the solid walls where flames would be hidden.
+				var local := bounds.get_center()
+				local.y = 0.3
+				local.x += bounds.size.x * (0.52 if i == 0 else -0.52 if i == 1 else 0.0)
+				local.z += bounds.size.z * (0.52 if i == 2 else -0.52 if i == 3 else 0.0)
+				var at := start * local
+				world.fx.smoke_puff(at + Vector3.UP * (height * 0.35 if i % 2 else 0.0), clampf(width * 0.5, 0.8, 2.5))
+				if burning:
+					world.fx.tongue(at, height * 0.7, float(i) / 4.0)
+			if burning:
+				world.fx.light_flash(start.origin + Vector3.UP * height * 0.5, 5.0, Palette.AMBER, width * 3.0)
+		if k < 1.0:
+			return
+		var ground := Vector3(global_position.x, Course.height_at(global_position), global_position.z)
+		world.fx.shockwave(ground, width * 2.5, Palette.MIST, 0.45)
+		world.fx.dust(ground, 12, width, Palette.MIST)
+		var impact := global_transform * bounds if style in [CollapseStyle.RAM, CollapseStyle.TOPPLE] else AABB(ground - Vector3(width, 0, width) * 0.5, Vector3(width, 1.0, width))
+		world.fx.shatter(impact, materials, push if style in [CollapseStyle.RAM, CollapseStyle.TOPPLE] else Vector3.ZERO, 0.35)
+		world.fx.smoke_column(ground, width)
+		world.shake(0.25, ground)
+		Sfx.play("rubble", ground)
+		if rubble != null:
+			var heap := MeshInstance3D.new()
+			heap.mesh = rubble
+			heap.transform = Transform3D(start.basis, ground)
+			world.props.add_child(heap)
+		elif style != CollapseStyle.TOPPLE:
+			# Even structures without a bespoke rubble mesh leave their own flattened outline.
+			for piece in pieces:
+				piece.reparent(world.props, true)
+				piece.transform = Transform3D(start.basis.scaled_local(Vector3(1.0, 0.08, 1.0)), ground)
+		queue_free()
+
+
+func _collapse(world: World, hit: Hit, style: CollapseStyle) -> void:
+	var model := get_node("Mesh") as MeshInstance3D
+	var chunks := PropKit.collapse_pieces(model.mesh)
+	var pieces: Array[MeshInstance3D] = []
+	for chunk in chunks:
+		var piece := MeshInstance3D.new()
+		piece.mesh = chunk
+		piece.transform = model.global_transform
+		world.add_child(piece)
+		pieces.append(piece)
+	model.hide()
+	var push := Enemy.kill_push(hit)
+	var direction := Vector3(push.x, 0, push.z).normalized()
+	if direction == Vector3.ZERO:
+		direction = Vector3.FORWARD
+	if style == CollapseStyle.TORN:
+		var biggest := 0
+		for i in pieces.size():
+			if pieces[i].mesh.get_aabb().get_volume() > pieces[biggest].mesh.get_aabb().get_volume():
+				biggest = i
+		var energy := clampf(pow(hit.speed / Enemy.KILL_SHELL_SPEED, 2.0), 0.5, Enemy.KILL_THROW_MAX) if hit.speed > 0.0 else maxf(push.length(), 0.5)
+		for i in pieces.size():
+			var piece := pieces[i]
+			var at := piece.global_transform * piece.mesh.get_aabb().get_center()
+			var out := at - hit_center()
+			out.y = maxf(out.y, 0.0) + 2.0
+			out = (out.normalized() + direction * 0.35 + Vector3.UP * 0.4).normalized()
+			var size := maxf(piece.mesh.get_aabb().size.length() * 0.25, 0.3)
+			Wreck.launch(piece, at, size, hit.by_player(), out * (10.0 + energy * 7.0) * sqrt(maxf(size, 1.0)), i == biggest)
+		world.fx.shatter(visual_bounds(), debris, push, 0.25)
+		return
+	var motion := Collapse.new()
+	motion.style = style
+	motion.height = height
+	motion.width = footprint
+	motion.push = direction
+	motion.axis = Vector3.UP.cross(direction)
+	motion.rubble = rubble_mesh
+	motion.materials = debris
+	motion.bounds = model.mesh.get_aabb()
+	world.props.add_child(motion)
+	motion.global_transform = global_transform
+	motion.start = motion.global_transform
+	motion.pieces = pieces
+	for piece in pieces:
+		piece.reparent(motion, true)
+	if style == CollapseStyle.RAM:
+		world.fx.debris(hit_center(), 12, debris, 12.0 + minf(hit.speed, 30.0), 0.5, direction * 2.0)
+	if style == CollapseStyle.TOPPLE:
+		felled.emit(self)
 
 
 func _init() -> void:
@@ -84,10 +235,11 @@ func topple(by_player: bool, from: Vector3) -> void:
 		return
 	_topple = 0.0
 	_topple_by_player = by_player
+	_topple_start = global_transform
 	var away := global_position - from
 	away.y = 0.0
 	if away.length() < 0.1:
-		away = Vector3(randf_range(-1, 1), 0, randf_range(-1, 1))
+		away = Vector3.FORWARD
 	_topple_axis = Vector3.UP.cross(away.normalized())
 	always_tick = true
 	set_process(true)
@@ -103,35 +255,19 @@ static func _rammed(hit: Hit) -> bool:
 	return hit != null and hit.kind == Hit.Kind.RAM and hit.source is Tank
 
 
-func die(hit: Hit) -> void:
-	if falls and not is_falling() and not dead and not overkilled:
-		# Snaps at the base in a burst of splinters and goes over, away from the blow.
-		hp = 1.0
-		var push := Enemy.kill_push(hit)
-		if push == Vector3.ZERO:
-			push = Vector3(randf_range(-1, 1), 0, randf_range(-1, 1))
-		var world := World.current
-		world.fx.debris(global_position + Vector3.UP * 0.6, 10, debris, 8.0, 0.25, push)
-		world.fx.dust(global_position, 4, 1.0, Palette.MIST)
-		Sfx.play("wood", global_position, 0.0, randf_range(0.8, 1.1))
-		if hit != null and hit.by_player():
-			world.style_event("DEMOLITION", 4.0)
-		topple(hit != null and hit.by_player(), global_position - push)
-		return
-	super(hit)
-
-
 func tick(delta: float) -> void:
 	if _topple < 0.0:
 		return
+	delta = World.current.unfrozen(delta)
 	_topple += delta
 	var k := minf(_topple / (0.7 if falls else 1.1), 1.0)
-	rotate(_topple_axis, delta * (0.5 + k * 2.4))
-	global_position.y -= delta * k * 6.0
+	global_basis = Basis(_topple_axis, k * k * PI * 0.5) * _topple_start.basis
+	global_position.y = lerpf(_topple_start.origin.y, Course.height_at(_topple_start.origin), k)
 	if k >= 1.0:
 		var crash := Hit.make(Hit.Kind.RAM, 99999.0, global_position)
 		if _topple_by_player:
 			crash.source = World.current.player
+		World.current.fx.shockwave(global_position, footprint * 2.5, Palette.MIST, 0.45)
 		World.current.shake(0.5, global_position)
 		take_hit(crash)
 
@@ -231,12 +367,17 @@ func on_death(hit: Hit) -> void:
 	if flattens:
 		_flatten(world)
 		return
-	var remains := rubble_mesh != null and not overkilled
-	world.fx.shatter(visual_bounds(), debris, push * (2.0 if rammed else 1.0), 0.35 if remains else 1.0)
+	var style := CollapseStyle.NONE if is_falling() else collapse_style(hit)
+	var remains := rubble_mesh != null and not overkilled and style == CollapseStyle.NONE
+	if style != CollapseStyle.NONE:
+		_collapse(world, hit, style)
+	else:
+		world.fx.shatter(visual_bounds(), debris, push * (2.0 if rammed else 1.0), 0.35 if remains else 1.0)
 	world.fx.dust(global_position, int(clampf(footprint * 3.0, 3, 14)), footprint, Palette.MIST)
 	# Whatever breaks catches fire and smokes, a big building for longer and thicker.
-	world.fx.smoke_column(center, footprint * 0.8, [Palette.ASH, Palette.STONE, Palette.DUSK])
-	world.fx.burn(global_position, 2.0 + footprint * 1.5, clampf(footprint * 0.45, 0.4, 2.0))
+	if style in [CollapseStyle.NONE, CollapseStyle.TORN]:
+		world.fx.smoke_column(center, footprint * 0.8, [Palette.ASH, Palette.STONE, Palette.DUSK])
+		world.fx.burn(global_position, 2.0 + footprint * 1.5, clampf(footprint * 0.45, 0.4, 2.0))
 	Sfx.play("rubble" if footprint > 1.5 else "wood", global_position)
 	if footprint > 2.5:
 		world.shake(0.25, global_position)
