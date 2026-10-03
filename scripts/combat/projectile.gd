@@ -36,6 +36,7 @@ var glow_size := 0.9 ## Width of that trail's glow.
 const ROCKET_SMOKE := Color("8c4a34") ## Reddish-brown motor smoke, readable against the pastel sky.
 
 var trail := Color(0, 0, 0, 0) ## Smoke trail color; transparent disables. A trail also means a lit motor.
+var trail_size := 1.0 ## Scales that motor's flame and smoke.
 var color := Palette.FRIENDLY ## Body color, set from the team when spawned.
 var terrain_only_after := 0.0 ## Ignores entities until this distance (avoids hitting the shooter).
 var ricochet := false ## Small-caliber rounds glance off the ground with sparks.
@@ -193,8 +194,8 @@ func _burn_motor(delta: float, at: Vector3) -> void:
 	_trail_timer = 0.025
 	var fx := World.current.fx
 	var back := -velocity.normalized()
-	fx.spawn(Fx.Kind.FLAME, at + back * 0.4, back * 6.0, 0.1, randf_range(0.5, 0.8), [Palette.WHITE, Palette.BUTTER, Palette.AMBER][randi() % 3], {"drag": 6.0})
-	fx.spawn(Fx.Kind.GLOW, at + back * 0.8, Vector3(randf_range(-0.4, 0.4), 0.7, randf_range(-0.4, 0.4)), randf_range(1.4, 2.0), 0.7, trail.lerp(Palette.INK, randf() * 0.3), {"end_size": 2.6, "drag": 1.6, "fade": 0.3})
+	fx.spawn(Fx.Kind.FLAME, at + back * 0.4, back * 6.0, 0.1, randf_range(0.5, 0.8) * trail_size, [Palette.WHITE, Palette.BUTTER, Palette.AMBER][randi() % 3], {"drag": 6.0})
+	fx.spawn(Fx.Kind.GLOW, at + back * 0.8, Vector3(randf_range(-0.4, 0.4), 0.7, randf_range(-0.4, 0.4)), randf_range(1.4, 2.0), 0.7 * trail_size, trail.lerp(Palette.INK, randf() * 0.3), {"end_size": 2.6 * trail_size, "drag": 1.6, "fade": 0.3})
 
 
 ## Hitscan: flies the whole path this frame in short sweeps, so the round lands the instant it is

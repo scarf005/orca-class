@@ -17,6 +17,7 @@ var _rows: Array = [
 	["ATGM top speed (m/s)", func() -> float: return Armament.ATGM_SPEED, func(v: float) -> void: Armament.ATGM_SPEED = v, 60.0, 400.0, 5.0],
 	["ATGM turn rate (rad/s)", func() -> float: return Armament.ATGM_TURN, func(v: float) -> void: Armament.ATGM_TURN = v, 1.0, 40.0, 0.5],
 	["Micro-missile lock interval (s)", func() -> float: return Armament.MICRO_LOCK_INTERVAL, func(v: float) -> void: Armament.MICRO_LOCK_INTERVAL = v, 0.02, 0.5, 0.01],
+	["Micro-missile stack interval (s)", func() -> float: return Armament.MICRO_STACK_INTERVAL, func(v: float) -> void: Armament.MICRO_STACK_INTERVAL = v, 0.05, 1.5, 0.05],
 	["Micro-missile damage (x full shell)", func() -> float: return Armament.MICRO_DAMAGE, func(v: float) -> void: Armament.MICRO_DAMAGE = v, 0.05, 1.0, 0.05],
 	["Scroll speed (km/h)", func() -> float: return Rail.CRUISE * 3.6, func(v: float) -> void: Rail.set_cruise(v), 40.0, 200.0, 5.0],
 	["Charge delay (s)", func() -> float: return Armament.TAP_TIME, func(v: float) -> void: Armament.TAP_TIME = v, 0.0, 0.6, 0.01],

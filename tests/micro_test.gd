@@ -64,7 +64,7 @@ func test_sweeping_three_enemies_locks_each_then_holding_adds_the_fourth_to_one_
 		_hold_on(world, enemy, Armament.MICRO_LOCK_INTERVAL + DT)
 	check_eq(tank.micro_locks.map(func(l: Array) -> Entity: return l[0]), row, "one lock on each, in the order swept")
 	check(_missiles(world).is_empty(), "nothing fires while the button is held short of four")
-	_hold_on(world, row[1], Armament.MICRO_LOCK_INTERVAL)
+	_hold_on(world, row[1], Armament.MICRO_STACK_INTERVAL + DT)
 	for _i in 12:
 		tank._update_weapons(DT)
 	var targets := _missiles(world).map(func(m: Projectile) -> Node3D: return m.homing_target)
@@ -78,9 +78,11 @@ func test_the_fourth_lock_fires_the_salvo_at_once() -> void:
 	var world := _rig()
 	var tank := world.player
 	var enemy := _row(world, 1)[0]
-	_hold_on(world, enemy, 0.25)
-	check(_missiles(world).is_empty() and tank.micro_locks.size() == 3, "three locks after 0.25 s: nothing has left")
-	_hold_on(world, enemy, Armament.MICRO_LOCK_INTERVAL + 0.02)
+	_hold_on(world, enemy, Armament.MICRO_STACK_INTERVAL - 0.05)
+	check_eq(tank.micro_locks.size(), 1, "one lock: staying on a locked enemy stacks slowly, leaving time to sweep on")
+	_hold_on(world, enemy, Armament.MICRO_STACK_INTERVAL * 2.0)
+	check(_missiles(world).is_empty() and tank.micro_locks.size() == 3, "three locks: nothing has left")
+	_hold_on(world, enemy, Armament.MICRO_STACK_INTERVAL + 0.02)
 	_hold_on(world, enemy, Armament.MICRO_RIPPLE * 4.0)
 	check_eq(_missiles(world).size(), Armament.MICRO_LOCKS, "four missiles left without letting go")
 	check(_missiles(world).all(func(m: Projectile) -> bool: return m.homing_target == enemy), "all of them on the one enemy")
@@ -141,7 +143,7 @@ func test_four_micro_missiles_carry_one_full_charge_between_them() -> void:
 	var world := _rig()
 	var tank := world.player
 	var enemy := _row(world, 1)[0]
-	_hold_on(world, enemy, 0.5)
+	_hold_on(world, enemy, Armament.MICRO_STACK_INTERVAL * 3.0 + 0.05)
 	_hold_on(world, enemy, Armament.MICRO_RIPPLE * 4.0)
 	var shots := _missiles(world)
 	check_eq(shots.size(), 4, "four missiles")

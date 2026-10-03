@@ -120,7 +120,7 @@ func test_atgm_hits_like_the_full_charge_aphe_shell() -> void:
 	check_eq(missile.hit.caliber, 100, "caliber")
 	check_eq(missile.hit.kind, Hit.Kind.SHELL, "a shell, so it tears and dismembers")
 	check_near(missile.hit.power, 1.0, 0.001, "a full-charge hit")
-	check(missile.pierce_entities, "it pierces")
+	check(not missile.pierce_entities, "it bursts on what it strikes instead of flying through")
 	check_eq(missile.hit.weapon, "cannon", "not an area round")
 
 

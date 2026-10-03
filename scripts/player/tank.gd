@@ -99,7 +99,7 @@ var charge_candidate: Entity ## What a hold would lock right now, shown while ch
 var micro_locks: Array[Array] = [] ## Micro-missile locks as [Entity, part], one per missile the release will fire.
 var _hold := 0.0 ## Seconds the fire button has been held since the gun recovered.
 var _fire_held := false
-var _micro_timer := 0.0 ## Seconds until the held button paints the next micro-missile lock.
+var _micro_since := INF ## Seconds since the held button painted its last micro-missile lock.
 var _salvo: Array[Array] = [] ## Micro-missiles still to leave, as [lock target, part, delay in s, index in the salvo].
 var _fire_released := false
 var _auto_fire := false ## The hold reached the auto-fire time: the gun fires this frame.
@@ -869,16 +869,19 @@ func _update_micro_locks(delta: float, holding: bool) -> void:
 	micro_locks = micro_locks.filter(func(lock: Array) -> bool: return is_instance_valid(lock[0]) and _charge_distance(lock[0], lock[1]) < INF)
 	charge = 0.0
 	if not holding:
-		_micro_timer = 0.0
+		_micro_since = INF
 		return
-	_micro_timer -= delta
-	if _micro_timer > 0.0 or micro_locks.size() >= Armament.MICRO_LOCKS:
+	_micro_since += delta
+	if micro_locks.size() >= Armament.MICRO_LOCKS:
 		return
 	var nearest := _nearest_lockable()
 	if nearest[0] == null:
 		return
+	var stacked := micro_locks.any(func(lock: Array) -> bool: return lock[0] == nearest[0])
+	if _micro_since < (Armament.MICRO_STACK_INTERVAL if stacked else Armament.MICRO_LOCK_INTERVAL):
+		return
 	micro_locks.append([nearest[0], nearest[1]])
-	_micro_timer = Armament.MICRO_LOCK_INTERVAL
+	_micro_since = 0.0
 	Sfx.ui("charge_%d" % mini(micro_locks.size(), 3))
 	_auto_fire = micro_locks.size() >= Armament.MICRO_LOCKS
 
@@ -1095,7 +1098,8 @@ func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO, power := 0.0) -> v
 		if round_count <= 0:
 			current_round = Armament.Round.APHE
 		round_changed.emit()
-	_cannon_feedback(muzzle, barrel_dir, power)
+	if round not in [Armament.Round.ATGM, Armament.Round.MICRO]:
+		_cannon_feedback(muzzle, barrel_dir, power) # Missiles pop out on their own (_missile_launch).
 
 
 ## A wall of tungsten balls, and a muzzle blast that flattens everything just ahead.
@@ -1208,6 +1212,7 @@ func _spawn_missile(round: Armament.Round, muzzle: Vector3, dir: Vector3, target
 	missile.impact_sound = "blast"
 	missile.impacted.connect(_count_hit, CONNECT_ONE_SHOT)
 	missile.glow_trail = color
+	missile.trail = Projectile.ROCKET_SMOKE # A rocket motor's flame and a thick smoke line, like the enemies' missiles.
 	missile.life = Armament.ATGM_LIFE
 	missile.thrust = Armament.ATGM_THRUST
 	missile.max_speed = Armament.ATGM_SPEED
@@ -1216,6 +1221,7 @@ func _spawn_missile(round: Armament.Round, muzzle: Vector3, dir: Vector3, target
 	missile.retarget_range = Armament.ATGM_RETARGET_RANGE
 	missile.homing_target = target
 	missile.homing_part = part
+	missile.sure_target = target # Like a locked full charge, nothing in between stops it short of its lock.
 	return missile
 
 
@@ -1235,8 +1241,19 @@ func _fire_atgm(muzzle: Vector3, dir: Vector3) -> void:
 	missile.hit.power = 1.0
 	missile.blast_radius = Armament.APHE_RADIUS.y * Armament.HE_RADIUS_SCALE
 	missile.blast_damage = Armament.APHE_BLAST.y * Armament.SHELL_DAMAGE_SCALE
-	missile.pierce_entities = true
+	missile.glow_size = 1.6
+	missile.trail_size = 3.0
 	missile.scale = Vector3.ONE * QUICK_SHELL_SCALE
+	_missile_launch(Armament.Round.ATGM, muzzle, dir)
+
+
+## A soft pop of smoke and the hiss of a motor, not a gun's flash and boom: the missile itself is
+## what to watch.
+func _missile_launch(round: Armament.Round, muzzle: Vector3, dir: Vector3) -> void:
+	var micro := round == Armament.Round.MICRO
+	World.current.fx.smoke_puff(muzzle + dir * 0.5, 0.5 if micro else 0.8, dir * 2.0)
+	World.current.fx.muzzle_flash(muzzle, dir, 0.35 if micro else 0.5, Armament.ROUND_COLORS[round])
+	Sfx.play("launch", muzzle, -2.0 if micro else 2.0, randf_range(1.3, 1.5) if micro else 1.0)
 
 
 ## Lets the micro-missiles of a salvo go, one MICRO_RIPPLE after another, off the barrel's current
@@ -1259,9 +1276,9 @@ func _update_salvo(delta: float) -> void:
 		missile.hit.stagger = 0.2
 		missile.blast_radius = Armament.MICRO_BLAST_RADIUS * Armament.HE_RADIUS_SCALE
 		missile.blast_damage = Armament.APHE_BLAST.y * Armament.SHELL_DAMAGE_SCALE * Armament.MICRO_DAMAGE
-		missile.glow_size = 0.45
-		World.current.fx.muzzle_flash(muzzle, dir, 1.4, Armament.ROUND_COLORS[Armament.Round.MICRO])
-		Sfx.gun("coax20", randf_range(1.3, 1.5))
+		missile.glow_size = 0.7
+		missile.trail_size = 2.0
+		_missile_launch(Armament.Round.MICRO, muzzle, dir)
 
 
 ## A player cannon hit template for blasts fired straight from the muzzle.
