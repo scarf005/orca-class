@@ -3,7 +3,7 @@ extends TestCase
 
 
 func test_missile_turn_options_have_independent_setters() -> void:
-	var panel := DuelPanel.new()
+	var panel := GameTuning.new()
 	var options := {
 		"ATGM turn rate increment rate (rad/s)": 3.5,
 		"Micro-Missile turn rate (rad/s)": 8.0,
@@ -23,8 +23,6 @@ func test_missile_turn_options_have_independent_setters() -> void:
 	for row: Array in panel._rows:
 		if originals.has(row[0]):
 			row[2].call(originals[row[0]])
-	panel._grid.free() # Not added to the tree, so _ready has not parented the grid.
-	panel.free()
 
 
 func _tab() -> void:
@@ -35,7 +33,7 @@ func _tab() -> void:
 
 
 func test_micro_initial_split_row_controls_the_launch_angle() -> void:
-	var panel := DuelPanel.new()
+	var panel := GameTuning.new()
 	var rows := panel._rows.filter(func(row: Array) -> bool: return row[0] == "Micro-missile intial split (rad)")
 	check_eq(rows.size(), 1, "initial split option exists once")
 	if not rows.is_empty():
@@ -47,8 +45,6 @@ func test_micro_initial_split_row_controls_the_launch_angle() -> void:
 		check_near(Armament.MICRO_INITIAL_SPLIT, 0.4, 0.0001, "setter controls launch split")
 		check_near(row[1].call(), 0.4, 0.0001, "getter reads launch split")
 		Armament.MICRO_INITIAL_SPLIT = saved
-	panel._grid.free() # _ready has not parented the grid.
-	panel.free()
 
 
 func test_tab_opens_and_closes_the_tuning_panel() -> void:
@@ -59,7 +55,9 @@ func test_tab_opens_and_closes_the_tuning_panel() -> void:
 	_tab()
 	await frames(2)
 	check(panel.visible and get_tree().paused, "Tab opens it and pauses")
-	panel.find_children("*", "HSlider", true, false)[0].grab_focus() # As after dragging one.
+	var slider: HSlider = panel.find_children("*", "HSlider", true, false)[0]
+	slider.focus_mode = Control.FOCUS_ALL
+	slider.grab_focus()
 	_tab()
 	await frames(2)
 	check(not panel.visible and not get_tree().paused, "Tab again closes it, even with sliders on screen")

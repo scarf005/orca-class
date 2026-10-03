@@ -36,6 +36,7 @@ func _open_debug_room() -> void:
 
 
 func start_game(checkpoint: String) -> void:
+	GameTuning.new().load_values()
 	Game.checkpoint = checkpoint
 	var screen := GameScreen.new()
 	screen.checkpoint = checkpoint
