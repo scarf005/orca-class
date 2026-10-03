@@ -118,6 +118,8 @@ func _leap(tank: Tank) -> void:
 func _start_swell() -> void:
 	state = State.SWELL
 	_state_time = 0.0
+	if Game.difficulty == Game.Difficulty.HARD:
+		World.current.fx.marker(hit_center(), 7.0, SWELL_TIME, Palette.FUNGUS)
 	Sfx.play("squelch", global_position, 0.0, 0.8)
 
 
@@ -128,6 +130,11 @@ func _burst() -> void:
 	world.fx.shockwave(center, 5.0, Palette.FUNGUS)
 	Sfx.play("spore", center)
 	var tank := player()
+	if Game.difficulty == Game.Difficulty.HARD and tank:
+		for side in [-1.0, 0.0, 1.0]:
+			var shot := fire_at("orb", center, tank.hit_center() + tank.global_basis.x * side * 5.0, 24.0, 8.0, Palette.FUNGUS)
+			shot.hit.kind = Hit.Kind.SPORE
+			shot.interceptable = true
 	if tank and tank.hit_center().distance_to(center) < 4.5:
 		var hit := Hit.make(Hit.Kind.SPORE, 12.0, center, (tank.global_position - center).normalized())
 		hit.source = self

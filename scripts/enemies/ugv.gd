@@ -188,7 +188,7 @@ func behave(delta: float) -> void:
 		return
 	_attack_timer -= delta
 	if _attack_timer <= 0.0 and distance < 110.0 and distance > 12.0 and _ram_wind <= 0.0 and _ram <= 0.0:
-		_telegraph = (1.4 if weapon == "atgm" else 0.5) * Game.telegraph_scale()
+		_telegraph = (1.4 if weapon == "atgm" or _hard else 0.5) * Game.telegraph_scale()
 		_at_tail = randf() < Gunnery.TAIL_CHANCE
 		if weapon == "atgm":
 			Sfx.play("lock", global_position)
@@ -228,6 +228,8 @@ func _land_ram(tank: Tank) -> void:
 	var world := World.current
 	_ram = 0.0
 	_ram_cooldown = RAM_COOLDOWN
+	if _hard and not disarmed and weapon != "supply":
+		_attack_timer = 0.0
 	var hit := Hit.make(Hit.Kind.RAM, RAM_DAMAGE, tank.hit_center(), (tank.global_position - global_position).normalized())
 	hit.source = self
 	tank.take_hit(hit)
@@ -272,11 +274,12 @@ func _attack() -> void:
 	set_meta("locking", false)
 	_eye_material.albedo_color = Palette.RED
 	var tank := player()
-	if weapon == "gun":
+	if weapon == "gun" or _hard:
 		_aim = Gunnery.sensor_lead(tank, _muzzle.global_position, ROUND_SPEED, _at_tail)
 		_burst = 6 if _hard else 5
 		_burst_timer = 0.0
-		return
+		if not _hard:
+			return
 	var from := _muzzle.global_position
 	var missile := fire_along("atgm", _muzzle, 32.0, 0.0, Palette.HOT, Vector3.ZERO, 3.0, 0.02)
 	missile.hit = Hit.make(Hit.Kind.SHELL, 0.0, from)

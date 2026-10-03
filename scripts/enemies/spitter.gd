@@ -96,7 +96,9 @@ func _volley(tank: Tank) -> void:
 	for i in shots:
 		var flight := (1.6 + i * 0.15) * Game.telegraph_scale()
 		var target := tank.global_position + tank.velocity * flight
-		if i > 0:
+		if _hard:
+			target += tank.global_basis.x * (i - (shots - 1) * 0.5) * 6.0
+		elif i > 0:
 			target += Vector3(randf_range(-6, 6), 0, randf_range(-6, 6))
 		target.y = Course.height_at(target)
 		var velocity_out := (target - from) / flight

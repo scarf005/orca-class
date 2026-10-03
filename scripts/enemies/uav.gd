@@ -42,6 +42,7 @@ func _init() -> void:
 	hp = 20.0
 	radius = 2.4
 	flying = true
+	evasive = true
 	trails = true
 	score = 500
 	despawn_behind = 0.0
@@ -165,9 +166,9 @@ func behave(delta: float) -> void:
 		speed = world.rail.speed + (LEAVE if _leaving else OVERTAKE)
 	global_position += _dir * speed * delta
 	model.look_at(global_position + _dir, Vector3.UP)
-	if attack == "bomb":
+	if attack == "bomb" or Game.difficulty == Game.Difficulty.HARD:
 		_bomb_run(delta, tank, ahead)
-	else:
+	if attack != "bomb" or Game.difficulty == Game.Difficulty.HARD:
 		_strafe_run(delta, tank, ahead)
 
 
@@ -213,7 +214,7 @@ func _strafe_run(delta: float, tank: Tank, ahead: float) -> void:
 	if _strafe == 0 and ahead < 80.0 and ahead > 45.0 and _turn <= 0.0 and not is_staggered():
 		# Start the walking line well ahead of the tank so the dust shows where it will go.
 		_strafe = 22
-		_strafe_wind = 0.6 * (Game.telegraph_scale() - 1.0)
+		_strafe_wind = 0.6 if Game.difficulty == Game.Difficulty.HARD else 0.6 * (Game.telegraph_scale() - 1.0)
 		var along := Vector3(_dir.x, 0, _dir.z).normalized()
 		_strafe_point = tank.global_position - along * 26.0 + tank.global_basis.x * randf_range(-3, 3)
 		_strafe_step = along * 2.4

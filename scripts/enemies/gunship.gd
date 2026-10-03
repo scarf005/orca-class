@@ -109,6 +109,7 @@ func _init() -> void:
 	armor = 40.0
 	center_height = 0.0
 	flying = true
+	evasive = true
 	trails = true
 	can_stagger = true
 	score = 50000

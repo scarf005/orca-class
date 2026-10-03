@@ -180,10 +180,10 @@ func behave(delta: float) -> void:
 		return
 	var local := model.global_transform.affine_inverse() * tank.hit_center()
 	_turret.rotation.y = lerp_angle(_turret.rotation.y, atan2(-local.x, -local.z), 2.5 * delta)
-	if weapon == "flak":
+	if (weapon == "flak" and not _hard) or _burst > 0:
 		aim_barrel(_gun, _flak_aim(tank), BARREL_SLEW, delta)
 	else:
-		slew_barrel(_gun, _lob(_muzzle.global_position, _mortar_target(tank, (MORTAR_SLOTS - 1) * 0.5), 1.7), BARREL_SLEW, delta)
+		slew_barrel(_gun, _lob(_muzzle.global_position, _mortar_target(tank, (MORTAR_SLOTS - 1) * 0.5), 1.7 * Game.telegraph_scale()), BARREL_SLEW, delta)
 	if _burst > 0:
 		_burst_timer -= delta
 		_barrels.rotation.z += delta * 30.0
@@ -211,10 +211,11 @@ func behave(delta: float) -> void:
 
 
 func _attack(tank: Tank) -> void:
-	if weapon == "flak":
+	if weapon == "flak" or _hard:
 		_burst = 16 if _hard else 12
 		_burst_timer = 0.0
-		return
+		if not _hard:
+			return
 	var world := World.current
 	var from := _muzzle.global_position
 	muzzle_blast(from, -_muzzle.global_basis.z, Muzzle.HEAVY, "mortar")

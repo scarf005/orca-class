@@ -41,6 +41,11 @@ var _burn_tick := 0.0
 var _burn_hit: Hit
 var killing_hit: Hit ## The lethal hit retained through a delayed crash or death throes.
 var _flame_tick := 0.0
+var evasive := false
+var _jink_left := 0.0
+var _jink_cooldown := 0.0
+var _jink_velocity := Vector3.ZERO
+var _jink_side := 1.0
 
 
 func _init() -> void:
@@ -86,6 +91,8 @@ func tick(delta: float) -> void:
 	var jitter := Vector3(randf_range(-1, 1), randf_range(-0.5, 1), randf_range(-1, 1)) * _shudder * 1.6
 	model.position = model.position.lerp(Vector3.ZERO, 1.0 - exp(-22.0 * delta)) + jitter
 	behave(delta)
+	if not dead and evasive:
+		_evade(delta)
 	show_damage(delta, death_radius)
 	var moved := global_position - _last_position
 	velocity = moved / maxf(delta, 0.0001)
@@ -98,6 +105,35 @@ func tick(delta: float) -> void:
 		var world := World.current
 		if world.rail.mode != Rail.Mode.ARENA and Course.to_course(global_position).x < world.rail.d - despawn_behind:
 			despawn()
+
+
+func _evade(delta: float) -> void:
+	if Game.difficulty != Game.Difficulty.HARD or invulnerable:
+		return
+	_jink_cooldown = maxf(0.0, _jink_cooldown - delta)
+	var tank := player()
+	if tank == null or is_staggered():
+		return
+	if _jink_cooldown <= 0.0:
+		var threatened := tank.charge_lock == self
+		for shot in World.current.projectiles:
+			if shot.team != Team.PLAYER or shot.hit == null or shot.hit.kind != Hit.Kind.SHELL or shot.is_queued_for_deletion():
+				continue
+			var closest := Geometry3D.get_closest_point_to_segment(hit_center(), shot.global_position, shot.global_position + shot.velocity * 0.15)
+			threatened = threatened or closest.distance_to(hit_center()) < radius + 6.0
+		if threatened:
+			if tank.charge_lock == self and tank.is_charging():
+				tank.charge_lock = null
+				tank.charge_part = ""
+				tank.charge_candidate = null
+			_jink_side = -_jink_side
+			_jink_left = 0.35
+			_jink_cooldown = 2.8
+			_jink_velocity = tank.global_basis.x * _jink_side * 28.0 + Vector3.UP * 12.0
+			World.current.fx.dust(hit_center(), 4, 0.8, Palette.MIST)
+	if _jink_left > 0.0:
+		global_position += _jink_velocity * minf(delta, _jink_left)
+		_jink_left = maxf(0.0, _jink_left - delta)
 
 
 ## Prints for what it drove over since the last frame; none while it is in the reservoir.

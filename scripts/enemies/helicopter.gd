@@ -32,6 +32,7 @@ var _strafe_d := 0.0 ## Where along the road the walking sight is.
 var _strafe_u := 0.0 ## The lane it walks, fixed when the telegraph starts.
 var _rocket_aim := Vector3.ZERO ## Where the pair is fixed on at the end of the telegraph, led for the rockets' flight.
 var _hard := false
+var _salvo := false
 
 
 func _init() -> void:
@@ -41,6 +42,7 @@ func _init() -> void:
 	hp = max_hp
 	radius = 2.5
 	flying = true
+	evasive = true
 	trails = true
 	score = 650
 	wreck_on_death = true
@@ -174,7 +176,7 @@ func behave(delta: float) -> void:
 		world.fx.beam(_chin.global_position, _aim_point(tank) if _strafing else tank.hit_center(), Palette.CORAL, 0.035, 0.05)
 		if _telegraph <= 0.0:
 			_rocket_aim = _aim_point(tank)
-			_burst = STRAFE_ROUNDS if _strafing else (2 if _rockets else 6)
+			_burst = STRAFE_ROUNDS if _strafing else ((6 if _salvo else 2) if _rockets else 6)
 			_shot_timer = 0.0
 	elif _burst > 0:
 		_shot_timer -= delta
@@ -210,6 +212,12 @@ func _aim_point(tank: Tank) -> Vector3:
 func _next_attack() -> void:
 	if _strafing:
 		_strafing = false
+		if _hard:
+			_rockets = true
+			_salvo = true
+	elif _rockets and _salvo:
+		_rockets = false
+		_salvo = false
 	elif _rockets:
 		_rockets = false
 		_strafing = true

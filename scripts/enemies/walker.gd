@@ -183,7 +183,7 @@ func behave(delta: float) -> void:
 	var to_tank := tank.global_position - global_position
 	model.rotation.y = lerp_angle(model.rotation.y, atan2(-to_tank.x, -to_tank.z), 5.0 * delta)
 	_animate(delta, planted)
-	_pod_lid.rotation.x = lerpf(_pod_lid.rotation.x, LID_OPEN if weapon == "missile" and (_telegraph > 0.0 or _burst > 0) else 0.0, 12.0 * delta)
+	_pod_lid.rotation.x = lerpf(_pod_lid.rotation.x, LID_OPEN if (weapon == "missile" or _hard) and (_telegraph > 0.0 or _burst > 0) else 0.0, 12.0 * delta)
 	if crippled or is_staggered():
 		_telegraph = 0.0
 		_kick = 0.0
@@ -196,9 +196,14 @@ func behave(delta: float) -> void:
 			_burst -= 1
 			_burst_timer = RIPPLE_GAP
 			_fire_missile(tank)
+			if _hard:
+				var shot := fire_along("orb", _muzzle, ROUND_SPEED, 3.0, Palette.HOT, _aim - _muzzle.global_position, 3.0, GUN_SPREAD, Muzzle.LIGHT)
+				shot.hit.caliber = 15
 		elif _burst_timer <= 0.0:
 			_burst -= 1
 			_burst_timer = 0.08
+			if _hard and _burst % 2 == 0:
+				_fire_missile(tank)
 			var shot := fire_along("orb", _muzzle, ROUND_SPEED, 3.0, Palette.HOT, _aim - _muzzle.global_position, 3.0, GUN_SPREAD, Muzzle.LIGHT)
 			shot.hit.caliber = 15
 			Sfx.play("enemy_gun", _muzzle.global_position, -4.0, 1.2)
@@ -223,7 +228,7 @@ func behave(delta: float) -> void:
 	_attack_timer -= delta
 	var distance := global_position.distance_to(tank.global_position)
 	if _attack_timer <= 0.0 and distance < 90.0 and distance > 10.0:
-		_telegraph = (0.55 if weapon == "gun" else MISSILE_WIND) * Game.telegraph_scale()
+		_telegraph = (0.55 if weapon == "gun" and not _hard else MISSILE_WIND) * Game.telegraph_scale()
 		_at_tail = randf() < Gunnery.TAIL_CHANCE
 		_attack_timer = (2.2 if weapon == "gun" else 3.2) * (0.75 if _hard else 1.0)
 		Sfx.play("warn", global_position, -6.0, 1.6)
@@ -231,8 +236,8 @@ func behave(delta: float) -> void:
 
 func _attack(tank: Tank) -> void:
 	_eye_material.albedo_color = Palette.HOT
+	_aim = Gunnery.sensor_lead(tank, _muzzle.global_position, ROUND_SPEED, _at_tail)
 	if weapon == "gun":
-		_aim = Gunnery.sensor_lead(tank, _muzzle.global_position, ROUND_SPEED, _at_tail)
 		_burst = 8 if _hard else 6
 		_burst_timer = 0.0
 		return

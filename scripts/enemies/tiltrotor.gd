@@ -60,6 +60,7 @@ func _init() -> void:
 	radius = 3.2
 	center_height = 0.4
 	flying = true
+	evasive = true
 	trails = true
 	can_stagger = false
 	stabbable = false
@@ -290,6 +291,8 @@ func _hover_tasks(delta: float, tank: Tank) -> void:
 		_wind -= delta
 		world.fx.beam(_muzzle.global_position, _line_a, Palette.CORAL, 0.04, 0.05)
 		if _wind <= 0.0:
+			if _hard:
+				_drop_squad()
 			_sweep = SWEEP_TIME
 			_shot_timer = 0.0
 	elif _sweep > 0.0:

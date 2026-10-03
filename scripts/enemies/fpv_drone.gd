@@ -201,6 +201,13 @@ static func pursuit_offset(kind: Pattern, s: float, flank: float, phase: float) 
 func _start_dive(tank: Tank) -> void:
 	(_light.material_override as StandardMaterial3D).albedo_color = Palette.RED
 	_light.visible = true
+	if Game.difficulty == Game.Difficulty.HARD and state == State.TELEGRAPH:
+		var rocket := fire_at("rocket", hit_center(), tank.hit_center() + tank.velocity * 0.4, 32.0, 0.0)
+		rocket.hit.kind = Hit.Kind.SHELL
+		rocket.blast_radius = 2.0
+		rocket.blast_damage = 8.0
+		rocket.interceptable = true
+		rocket.trail = Projectile.ROCKET_SMOKE
 	_dive_dir = (intercept(global_position, tank.hit_center(), tank.velocity, DIVE_SPEED) - global_position).normalized()
 	_set_state(State.DIVE)
 
