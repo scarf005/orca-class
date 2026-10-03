@@ -84,6 +84,7 @@ const ATGM_RETARGET_RANGE := 150.0 ## A missile whose target is gone locks the n
 const ATGM_LIFE := 4.0
 static var ATGM_SPEED := 180.0 ## Top speed (tuned live in the duel mode).
 static var ATGM_TURN := 14.0 ## Radians per second the seeker steers the missile (tuned live in the duel mode).
+static var ATGM_TURN_INCREMENT := 0.0 ## Turn rate gained per second of flight (tuned live in the duel mode).
 ## Micro-missiles: holding the button paints a lock on each new enemy the reticle sweeps over (one
 ## every MICRO_LOCK_INTERVAL at most), and another on an enemy already locked only every
 ## MICRO_STACK_INTERVAL it stays under the reticle, so there is time to sweep on; up to MICRO_LOCKS in
@@ -92,6 +93,9 @@ const MICRO_LOCKS := 4
 const MICRO_RIPPLE := 0.04 ## Seconds between the missiles of a salvo.
 const MICRO_CALIBER := 60 ## Under 100 mm: a micro-missile never tears its target apart, and armor rules apply.
 const MICRO_BLAST_RADIUS := QUICK_RADIUS.x ## Of an APHE quick shell.
+static var MICRO_TURN := 14.0 ## Initial turn rate, independent of the ATGM (tuned live in the duel mode).
+static var MICRO_TURN_INCREMENT := 0.0 ## Turn rate gained per second of flight (tuned live in the duel mode).
+static var MICRO_INITIAL_SPLIT := 0.15 ## Launch angle from the barrel in radians (tuned live in the duel mode).
 static var MICRO_LOCK_INTERVAL := 0.1 ## Tuned live in the duel mode.
 static var MICRO_STACK_INTERVAL := 0.4 ## Tuned live in the duel mode.
 static var MICRO_DAMAGE := 0.25 ## Share of a full-charge APHE shell's hit and blast each missile carries (tuned live in the duel mode).

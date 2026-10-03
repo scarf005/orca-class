@@ -170,6 +170,43 @@ func test_a_lock_drops_when_its_enemy_dies() -> void:
 	Input.action_release("fire")
 
 
+func test_initial_split_is_an_even_cone_for_each_salvo_size_and_barrel_angle() -> void:
+	var saved_split := Armament.MICRO_INITIAL_SPLIT
+	var world := _rig()
+	var tank := world.player
+	for pitch in [0.0, PI / 2.0]:
+		for split in [0.0, 0.4, PI / 2.0]:
+			for count in range(1, Armament.MICRO_LOCKS + 1):
+				tank._cancel_charge()
+				tank.load_round(Armament.Round.MICRO)
+				tank.model.barrel.rotation.x = pitch
+				var basis := tank.model.barrel.global_basis.orthonormalized()
+				var muzzle := tank.model.muzzle.global_position
+				Armament.MICRO_INITIAL_SPLIT = split
+				for _i in count:
+					tank.micro_locks.append([null, ""])
+				tank.fire_cannon()
+				# Launch separately so the cone still uses the original size as the queue shrinks.
+				tank._update_salvo(0.0)
+				for _i in count - 1:
+					tank._update_salvo(Armament.MICRO_RIPPLE + 0.001)
+				var shots := _missiles(world)
+				check_eq(shots.size(), count, "one missile per lock")
+				for i in shots.size():
+					var shot: Projectile = shots[i]
+					var dir := shot.velocity.normalized()
+					var phase := TAU * float(i) / float(count)
+					check_near(shot.global_position.distance_to(muzzle), 0.0, 0.0001, "starts at the muzzle, not an offset position")
+					check_near(shot.velocity.length(), Armament.ATGM_LAUNCH_SPEED, 0.001, "split preserves launch speed")
+					check_near(dir.dot(-basis.z), cos(split), 0.0001, "configured angle from the barrel")
+					check_near(dir.dot(basis.x), sin(split) * cos(phase), 0.0001, "even sideways spacing")
+					check_near(dir.dot(basis.y), sin(split) * sin(phase), 0.0001, "even vertical spacing")
+				for shot: Projectile in shots:
+					shot.queue_free()
+				await frames(2)
+	Armament.MICRO_INITIAL_SPLIT = saved_split
+
+
 func test_four_micro_missiles_carry_one_full_charge_between_them() -> void:
 	var world := _rig()
 	var tank := world.player

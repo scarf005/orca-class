@@ -125,6 +125,47 @@ func test_atgm_hits_like_the_full_charge_aphe_shell() -> void:
 	check_eq(missile.hit.weapon, "cannon", "not an area round")
 
 
+func test_missiles_use_independent_turn_rates_and_gain_turn_rate_during_flight() -> void:
+	var world := _rig()
+	var original := [Armament.ATGM_TURN, Armament.ATGM_TURN_INCREMENT, Armament.MICRO_TURN, Armament.MICRO_TURN_INCREMENT]
+	Armament.ATGM_TURN = 4.0
+	Armament.ATGM_TURN_INCREMENT = 2.0
+	Armament.MICRO_TURN = 8.0
+	Armament.MICRO_TURN_INCREMENT = 6.0
+	var origin := world.player.hit_center() + Vector3(0, 50, -40)
+	var atgm := world.player._spawn_missile(Armament.Round.ATGM, origin, Vector3.FORWARD, null, "")
+	var micro := world.player._spawn_missile(Armament.Round.MICRO, origin, Vector3.FORWARD, null, "")
+	Armament.ATGM_TURN = original[0]
+	Armament.ATGM_TURN_INCREMENT = original[1]
+	Armament.MICRO_TURN = original[2]
+	Armament.MICRO_TURN_INCREMENT = original[3]
+	check_near(atgm.turn_rate, 4.0, 0.001, "ATGM initial turn rate")
+	check_near(micro.turn_rate, 8.0, 0.001, "micro initial turn rate")
+	atgm.step(0.25)
+	micro.step(0.1)
+	micro.step(0.15)
+	check_near(atgm.turn_rate, 4.5, 0.001, "ATGM gains turn rate without a lock")
+	check_near(micro.turn_rate, 9.5, 0.001, "micro increment is time-based, independent of frame size")
+	var target := _enemy(world, origin + Vector3(60, 0, -100))
+	atgm.homing_target = target
+	micro.homing_target = target
+	var heading := atgm.velocity.normalized()
+	atgm.step(DT)
+	micro.step(DT)
+	check_near(atgm.turn_rate, 4.5 + 2.0 * DT, 0.001, "ATGM keeps gaining with a lock")
+	check_near(micro.turn_rate, 9.5 + 6.0 * DT, 0.001, "micro keeps gaining with a lock")
+	check(atgm.velocity.normalized().distance_to(heading) > 0.001, "the tuned missile steers toward its target")
+
+
+func test_zero_increment_preserves_a_missiles_turn_rate() -> void:
+	var world := _rig()
+	var missile := world.player._spawn_missile(Armament.Round.ATGM, world.player.hit_center() + Vector3(0, 50, -40), Vector3.FORWARD, null, "")
+	missile.turn_rate = 7.0
+	missile.turn_rate_increment = 0.0
+	missile.step(0.25)
+	check_near(missile.turn_rate, 7.0, 0.001, "zero increment keeps the original guidance behavior")
+
+
 func test_an_empty_magazine_falls_back_to_aphe() -> void:
 	var world := _rig()
 	var tank := world.player

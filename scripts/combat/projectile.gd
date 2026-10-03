@@ -20,6 +20,7 @@ var airburst_fragments := 0
 var proximity := 0.0 ## Airburst: once armed, detonates when it passes this close to a flying hostile; 0 disables.
 var homing_target: Node3D
 var turn_rate := 0.0 ## Radians per second toward the homing target.
+var turn_rate_increment := 0.0 ## Turn rate gained per second of flight, even while no target is locked.
 var retarget_range := 0.0 ## A seeker: steers at the target's hit point (or locked module), and when that is gone or struck locks the nearest hostile ahead within this; 0 disables.
 var homing_part := "" ## The module of `homing_target` a seeker steers at.
 var thrust := 0.0 ## Metres per second gained each second, up to `max_speed`.
@@ -92,6 +93,7 @@ func step(delta: float) -> void:
 		_retarget()
 	if thrust > 0.0:
 		velocity = velocity.normalized() * minf(velocity.length() + thrust * delta, max_speed)
+	turn_rate += turn_rate_increment * delta
 	if is_instance_valid(homing_target) and turn_rate > 0.0:
 		var desired := (_homing_point(delta) - global_position).normalized() * velocity.length()
 		velocity = velocity.slerp(desired, clampf(turn_rate * delta, 0.0, 1.0))

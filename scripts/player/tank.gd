@@ -102,7 +102,7 @@ var micro_marked: Array[Array] = [] ## Locks already fired, as [Entity, part]: t
 var _hold := 0.0 ## Seconds the fire button has been held since the gun recovered.
 var _fire_held := false
 var _micro_since := INF ## Seconds since the held button painted its last micro-missile lock.
-var _salvo: Array[Array] = [] ## Micro-missiles still to leave, as [lock target, part, delay in s, index in the salvo].
+var _salvo: Array[Array] = [] ## Micro-missiles still to leave, as [lock target, part, delay in s, index in the salvo, salvo size].
 var _fire_released := false
 var _auto_fire := false ## The hold reached the auto-fire time: the gun fires this frame.
 var _spent := false ## The gun fired by itself: the button has to come up before a new hold counts.
@@ -1099,7 +1099,7 @@ func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO, power := 0.0) -> v
 			_fire_atgm(muzzle, shot_dir.call(Armament.ATGM_LAUNCH_SPEED))
 		Armament.Round.MICRO:
 			for i in micro_locks.size():
-				_salvo.append([micro_locks[i][0], micro_locks[i][1], i * Armament.MICRO_RIPPLE, i])
+				_salvo.append([micro_locks[i][0], micro_locks[i][1], i * Armament.MICRO_RIPPLE, i, micro_locks.size()])
 			micro_marked.append_array(micro_locks)
 		_:
 			_fire_shell(round, muzzle, shot_dir.call(shell_speed(power)), power)
@@ -1226,7 +1226,8 @@ func _spawn_missile(round: Armament.Round, muzzle: Vector3, dir: Vector3, target
 	missile.life = Armament.ATGM_LIFE
 	missile.thrust = Armament.ATGM_THRUST
 	missile.max_speed = Armament.ATGM_SPEED
-	missile.turn_rate = Armament.ATGM_TURN
+	missile.turn_rate = Armament.MICRO_TURN if round == Armament.Round.MICRO else Armament.ATGM_TURN
+	missile.turn_rate_increment = Armament.MICRO_TURN_INCREMENT if round == Armament.Round.MICRO else Armament.ATGM_TURN_INCREMENT
 	missile.homing_lead = true
 	missile.retarget_range = Armament.ATGM_RETARGET_RANGE
 	missile.homing_target = target
@@ -1267,7 +1268,7 @@ func _missile_launch(round: Armament.Round, muzzle: Vector3, dir: Vector3) -> vo
 
 
 ## Lets the micro-missiles of a salvo go, one MICRO_RIPPLE after another, off the barrel's current
-## line with a fan that grows upward and sideways by their place in the salvo.
+## line, evenly spaced around a cone of MICRO_INITIAL_SPLIT radians.
 func _update_salvo(delta: float) -> void:
 	for shot in _salvo:
 		shot[2] -= delta
@@ -1275,10 +1276,11 @@ func _update_salvo(delta: float) -> void:
 	_salvo = _salvo.filter(func(shot: Array) -> bool: return shot[2] > 0.0)
 	for shot in due:
 		var muzzle := model.muzzle.global_position
-		var forward := -model.barrel.global_basis.z
-		var side := forward.cross(Vector3.UP).normalized()
-		var index: int = shot[3]
-		var dir := (forward + side * (index - (Armament.MICRO_LOCKS - 1) * 0.5) * 0.08 + Vector3.UP * (0.1 + 0.04 * (index % 2))).normalized()
+		var basis := model.barrel.global_basis.orthonormalized()
+		var forward := -basis.z
+		var phase := TAU * float(shot[3]) / float(shot[4])
+		var radial := basis.x * cos(phase) + basis.y * sin(phase)
+		var dir := forward * cos(Armament.MICRO_INITIAL_SPLIT) + radial * sin(Armament.MICRO_INITIAL_SPLIT)
 		var missile := _spawn_missile(Armament.Round.MICRO, muzzle, dir, shot[0] if is_instance_valid(shot[0]) else null, shot[1])
 		var full := Armament.SHELL_DAMAGE * Armament.APHE_DAMAGE.y * Armament.SHELL_DAMAGE_SCALE
 		missile.hit.damage = full * Armament.MICRO_DAMAGE
