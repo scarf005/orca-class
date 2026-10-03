@@ -3,7 +3,8 @@ extends Node
 ## sounds and music.
 
 const SOUNDS := {
-	"cannon": ["res://assets/audio/synth/cannon.wav", 0.0],
+	"cannon": ["res://assets/audio/synth/cannon.wav", 3.0],
+	"cannon_boom": ["res://assets/audio/blast.ogg", 0.0, 0.55], ## A deep boom under every main-gun shot.
 	"charge": ["res://assets/audio/synth/charge.wav", -12.0],
 	"charge_1": ["res://assets/audio/synth/charge_1.wav", -8.0],
 	"charge_2": ["res://assets/audio/synth/charge_2.wav", -8.0],
@@ -13,9 +14,9 @@ const SOUNDS := {
 	"impact": ["res://assets/audio/rubble.ogg", -2.0, 0.7],
 	"hit_confirm": ["res://assets/audio/synth/hit_metal.wav", -5.0, 1.0],
 	"kill_confirm": ["res://assets/audio/synth/kill_crunch.wav", 0.0, 1.0],
-	"coax8": ["res://assets/audio/synth/coax8.wav", -9.0],
-	"coax15": ["res://assets/audio/synth/coax15.wav", -8.0],
-	"coax20": ["res://assets/audio/synth/coax20.wav", -7.0],
+	"coax8": ["res://assets/audio/synth/coax8.wav", -16.0],
+	"coax15": ["res://assets/audio/synth/coax15.wav", -15.0],
+	"coax20": ["res://assets/audio/synth/coax20.wav", -14.0],
 	"enemy_gun": ["res://assets/audio/ciws.ogg", -6.0, 0.9],
 	"zap": ["res://assets/audio/laser.ogg", -4.0, 1.3],
 	"rubble": ["res://assets/audio/rubble.ogg", 0.0],
@@ -143,17 +144,26 @@ func gun(name: String, pitch := 1.0) -> void:
 
 
 ## Feedback stays audible at long range and never cuts off menu sounds.
-func confirm_hit(killed: bool) -> void:
+## The player's hit landing. Heavy hits (shells, rams, the tail) thud and crunch; light ones (the
+## coax) only tick, high and quiet, and seldom, so a hail of bullets never outweighs one shell.
+func confirm_hit(killed: bool, heavy := true) -> void:
 	if Game.silent:
 		return
 	var now := Time.get_ticks_msec()
-	if not killed and now - _last_hit_sound < 35:
+	if not heavy:
+		if now - _last_hit_sound < 90:
+			return
+		_last_hit_sound = now
+		_combat.stream = stream("hit_confirm")
+		_combat.volume_db = SOUNDS["hit_confirm"][1] - (6.0 if killed else 11.0)
+		_combat.pitch_scale = randf_range(1.6, 1.9)
+		_combat.play()
 		return
 	_last_hit_sound = now
 	var name := "kill_confirm" if killed else "hit_confirm"
 	_combat.stream = stream(name)
-	_combat.volume_db = SOUNDS[name][1]
-	_combat.pitch_scale = SOUNDS[name][2] * randf_range(0.9, 1.15)
+	_combat.volume_db = SOUNDS[name][1] + 3.0
+	_combat.pitch_scale = SOUNDS[name][2] * randf_range(0.85, 1.0)
 	_combat.play()
 
 

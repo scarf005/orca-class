@@ -170,7 +170,7 @@ func impact_feedback(hit: Hit, amount: float, killed := false) -> void:
 	world.fx.debris(hit.position, 8 if heavy else 3, debris, 12.0 if heavy else 8.0, 0.3 if heavy else 0.2, out)
 	if hit.by_player():
 		world.hit_confirmed.emit(killed)
-		Sfx.confirm_hit(killed)
+		Sfx.confirm_hit(killed, heavy)
 		world.shake(0.16 if heavy else 0.05, hit.position)
 		if killed:
 			world.hitstop(0.09 if heavy else 0.05)

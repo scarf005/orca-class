@@ -1069,7 +1069,7 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 
 	shell.hit.stagger = 0.4
 	shell.gravity = 0.0
 	shell.life = 2.0 if full else Armament.SHELL_RANGE / Armament.quick_speed(power)
-	shell.impact_sound = "impact"
+	shell.impact_sound = "blast"
 	shell.impacted.connect(_count_hit, CONNECT_ONE_SHOT)
 	match round:
 		Armament.Round.APHE:
@@ -1166,6 +1166,7 @@ func _cannon_feedback(muzzle: Vector3, dir: Vector3, power := 0.0) -> void:
 	if muzzle.y - ground.y < 4.0:
 		world.fx.dust(ground, 8, 2.5, Palette.STRAW)
 	Sfx.gun("cannon", randf_range(0.95, 1.05))
+	Sfx.gun("cannon_boom", randf_range(0.9, 1.0))
 
 
 ## Main-gun impacts. A shell landing on an enemy freezes the frame for a beat and bucks the camera.
