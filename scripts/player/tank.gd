@@ -97,6 +97,7 @@ var charge_lock: Entity
 var charge_part := ""
 var charge_candidate: Entity ## What a hold would lock right now, shown while charging.
 var micro_locks: Array[Array] = [] ## Micro-missile locks as [Entity, part], one per missile the release will fire.
+var lock_charge := 0.0 ## The charge last fired at `charge_lock`: its boxes stay on it after the shot.
 var micro_marked: Array[Array] = [] ## Locks already fired, as [Entity, part]: they stay until their target dies or leaves the view.
 var _hold := 0.0 ## Seconds the fire button has been held since the gun recovered.
 var _fire_held := false
@@ -775,6 +776,7 @@ func _cancel_charge() -> void:
 	micro_marked.clear()
 	charge_lock = null
 	charge_part = ""
+	lock_charge = 0.0
 
 
 func _reset_charge() -> void:
@@ -909,6 +911,7 @@ func _update_charge_lock() -> void:
 		charge_lock = null
 		charge_part = ""
 		charge_candidate = null
+		lock_charge = 0.0
 		return
 	# Through charges and shots alike, the lock holds whatever the sight does; only the target dying
 	# or going out of view drops it. Driving is slowed instead (`_lock_move_factor`) to keep it on screen.
@@ -916,6 +919,7 @@ func _update_charge_lock() -> void:
 		return
 	charge_lock = null
 	charge_part = ""
+	lock_charge = 0.0
 	if not is_charging():
 		return
 	var nearest := _nearest_lockable()
@@ -954,6 +958,7 @@ func _update_weapons(delta: float) -> void:
 			_coax_timers[i] = maxf(_coax_timers[i] - delta, 0.0)
 	if _fire_released or _auto_fire:
 		if input_enabled and (Armament.stage(charge) >= 1 or not micro_locks.is_empty()):
+			lock_charge = charge
 			fire_cannon(Vector3.INF, Vector3.ZERO, charge)
 			_recover = Armament.CANNON_RECOVER
 			_spent = _auto_fire

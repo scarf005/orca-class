@@ -541,7 +541,8 @@ func _draw_reticle() -> void:
 		bracket_color = Color(Palette.FRIENDLY, 0.6)
 	var width := 1.0 if candidate else 2.0
 	if charged_lock:
-		_draw_lock_boxes(center, s, p.charge, Armament.ROUND_COLORS[p.current_round])
+		# Between charges the boxes of the last shot stay on the lock until it dies.
+		_draw_lock_boxes(center, s, p.charge if p.is_charging() else maxf(p.charge, p.lock_charge), Armament.ROUND_COLORS[p.current_round])
 	else:
 		if not p.is_charging():
 			_lock_boxes = 0

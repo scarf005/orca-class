@@ -46,6 +46,7 @@ func test_the_lock_survives_the_shot_and_the_release_until_its_target_dies() -> 
 			break
 	check(world.stats.shots > shots, "the full charge fired")
 	check_eq(tank.charge_lock, enemy, "still locked right after the shot")
+	check_eq(tank.lock_charge, 1.0, "its boxes stay at the charge it fired with")
 	Input.action_release("fire")
 	tank.aim_screen = world.camera.unproject_position(other.hit_center())
 	for _i in 10:
@@ -54,3 +55,4 @@ func test_the_lock_survives_the_shot_and_the_release_until_its_target_dies() -> 
 	enemy.dead = true
 	_frame(tank)
 	check(tank.charge_lock != enemy, "its death drops it")
+	check_eq(tank.lock_charge, 0.0, "and its boxes")
