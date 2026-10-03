@@ -26,8 +26,8 @@ python3 tools/serve_web.py
 Open [the local game](http://127.0.0.1:8000) in a desktop browser with WebGL 2 and WebAssembly.
 
 Play or download the game on [itch.io](https://scarf005.itch.io/orca-class). Pushing to `main` exports the web,
-Linux, Windows, and macOS builds and updates the `html` and `desktop` channels. The GitHub repository needs a
-`BUTLER_API_KEY` Actions secret from `butler login`.
+Linux, Windows, and macOS builds and updates the `html`, `linux`, `windows`, and `osx` channels. Each OS has
+its own downloadable ZIP. The GitHub repository needs a `BUTLER_API_KEY` Actions secret from `butler login`.
 
 ## Develop
 
@@ -41,7 +41,7 @@ just test          # run all tests; just test tail runs only matching files
 just serve         # export and serve the web build; just serve 8080 changes the port
 just export        # export web, Linux, Windows, and macOS builds
 just login         # authenticate butler once
-just upload        # rebuild, validate, and push the html and desktop itch.io channels
+just upload        # rebuild, validate, and push the html, linux, windows, and osx itch.io channels
 ```
 
 Exports need the matching Godot export templates. Uploads need [butler](https://itch.io/docs/butler/),

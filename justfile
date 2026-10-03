@@ -41,14 +41,13 @@ export-web: import
     test -s builds/web/index.pck
     test -s builds/web/index.wasm
 
-# Export Linux, Windows, and macOS into the itch.io desktop bundle.
+# Export separate Linux, Windows, and macOS builds for itch.io.
 export-desktop: import
     mkdir -p builds/desktop/linux builds/desktop/windows builds/desktop/mac
     touch builds/.gdignore
     {{ quote(godot) }} --headless --path . --export-release Linux builds/desktop/linux/OrcaClass.x86_64
     {{ quote(godot) }} --headless --path . --export-release "Windows Desktop" builds/desktop/windows/OrcaClass.exe
     {{ quote(godot) }} --headless --path . --export-release macOS builds/desktop/mac/OrcaClass.app
-    cp tools/desktop.itch.toml builds/desktop/.itch.toml
     chmod +x builds/desktop/linux/OrcaClass.x86_64
     test -s builds/desktop/linux/OrcaClass.x86_64
     test -s builds/desktop/windows/OrcaClass.exe
@@ -68,14 +67,16 @@ login:
 # Validate existing builds without uploading them.
 validate:
     {{ quote(butler) }} validate builds/web
-    {{ quote(butler) }} validate builds/desktop
-    {{ quote(butler) }} validate --platform windows builds/desktop
-    {{ quote(butler) }} validate --platform osx builds/desktop
+    {{ quote(butler) }} validate --platform linux builds/desktop/linux
+    {{ quote(butler) }} validate --platform windows builds/desktop/windows
+    {{ quote(butler) }} validate --platform osx builds/desktop/mac
 
-# Rebuild, validate, and upload both itch.io channels; optionally label the version.
+# Rebuild, validate, and upload each itch.io channel; optionally label the version.
 upload version="": export validate
     {{ quote(butler) }} push --if-changed {{ if version != "" { "--userversion=" + quote(version) } else { "" } }} builds/web {{ quote(itch_project + ":html") }}
-    {{ quote(butler) }} push --if-changed {{ if version != "" { "--userversion=" + quote(version) } else { "" } }} builds/desktop {{ quote(itch_project + ":desktop") }}
+    {{ quote(butler) }} push --if-changed {{ if version != "" { "--userversion=" + quote(version) } else { "" } }} builds/desktop/linux {{ quote(itch_project + ":linux") }}
+    {{ quote(butler) }} push --if-changed {{ if version != "" { "--userversion=" + quote(version) } else { "" } }} builds/desktop/windows {{ quote(itch_project + ":windows") }}
+    {{ quote(butler) }} push --if-changed {{ if version != "" { "--userversion=" + quote(version) } else { "" } }} builds/desktop/mac {{ quote(itch_project + ":osx") }}
 
 # Regenerate the Korean and English string table.
 strings:
