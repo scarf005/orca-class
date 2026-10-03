@@ -10,18 +10,18 @@ const GUNS := {
 	20: {"interval": 0.115, "damage": 12.0, "speed": 140.0, "spread": 0.009, "color": Palette.AMBER, "sound": "coax20", "blast": 1.3},
 }
 
-enum Round { APHE, HEAT, CANISTER, DRAGON, APFSDS, AIRBURST, ATGM }
+enum Round { APHE, HEAT, CANISTER, DRAGON, APFSDS, AIRBURST, ATGM, MICRO }
 
 const ROUND_IDS := {
 	Round.APHE: "aphe", Round.HEAT: "heat", Round.CANISTER: "canister", Round.DRAGON: "dragon",
-	Round.APFSDS: "apfsds", Round.AIRBURST: "airburst", Round.ATGM: "atgm",
+	Round.APFSDS: "apfsds", Round.AIRBURST: "airburst", Round.ATGM: "atgm", Round.MICRO: "micro",
 }
 
 ## Special rounds the stage hands out. HEAT and APFSDS are held back for now.
-const OFFERED: Array[Round] = [Round.CANISTER, Round.DRAGON, Round.AIRBURST, Round.ATGM]
+const OFFERED: Array[Round] = [Round.CANISTER, Round.DRAGON, Round.AIRBURST, Round.ATGM, Round.MICRO]
 
 ## Rounds loaded per special-round pickup.
-const MAGAZINE := {Round.HEAT: 6, Round.CANISTER: 6, Round.DRAGON: 6, Round.APFSDS: 6, Round.AIRBURST: 6, Round.ATGM: 6}
+const MAGAZINE := {Round.HEAT: 6, Round.CANISTER: 6, Round.DRAGON: 6, Round.APFSDS: 6, Round.AIRBURST: 6, Round.ATGM: 6, Round.MICRO: 6}
 
 ## A real 100 mm gun on the same button as the coax, Star Fox style: a click is a coax burst, a hold past
 ## TAP_TIME locks the target and charges the shell. Let go early for a quick shell, at full charge for a
@@ -84,13 +84,22 @@ const ATGM_RETARGET_RANGE := 150.0 ## A missile whose target is gone locks the n
 const ATGM_LIFE := 4.0
 static var ATGM_SPEED := 180.0 ## Top speed (tuned live in the duel mode).
 static var ATGM_TURN := 14.0 ## Radians per second the seeker steers the missile (tuned live in the duel mode).
+## Micro-missiles: holding the button paints a lock every MICRO_LOCK_INTERVAL on the enemy under the
+## reticle, up to MICRO_LOCKS in all (the same enemy again is another missile); letting go ripples one
+## missile per lock out, each flying like an ATGM.
+const MICRO_LOCKS := 4
+const MICRO_RIPPLE := 0.04 ## Seconds between the missiles of a salvo.
+const MICRO_CALIBER := 60 ## Under 100 mm: a micro-missile never tears its target apart, and armor rules apply.
+const MICRO_BLAST_RADIUS := QUICK_RADIUS.x ## Of an APHE quick shell.
+static var MICRO_LOCK_INTERVAL := 0.1 ## Tuned live in the duel mode.
+static var MICRO_DAMAGE := 0.25 ## Share of a full-charge APHE shell's hit and blast each missile carries (tuned live in the duel mode).
 const RECOIL := Vector2(8.0, 14.0)
 const MUZZLE_SIZE := Vector2(4.2, 6.0)
 const HITSTOP := Vector2(0.03, 0.1)
 
 const ROUND_COLORS := {
 	Round.APHE: Palette.AMBER, Round.HEAT: Palette.HOT, Round.CANISTER: Palette.CYAN, Round.DRAGON: Palette.FUNGUS,
-	Round.APFSDS: Palette.CYAN, Round.AIRBURST: Palette.PERIWINKLE, Round.ATGM: Palette.MINT,
+	Round.APFSDS: Palette.CYAN, Round.AIRBURST: Palette.PERIWINKLE, Round.ATGM: Palette.MINT, Round.MICRO: Palette.LILAC,
 }
 
 

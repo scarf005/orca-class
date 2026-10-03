@@ -234,6 +234,7 @@ const PROJECTILE_SHAPES := {
 	"fire": ["orb", 0.55, 0.0, 2.0],
 	"rocket": ["missile", 0.2, 1.1, 2.0],
 	"atgm": ["missile", 0.24, 1.3, 2.2],
+	"micro": ["missile", 0.2, 1.1, 1.8],
 	"bomb": ["missile", 0.3, 0.9, 1.8],
 }
 const HOSTILE_CORE := 1.8 ## Enemy shot core size relative to a player round's.
@@ -378,7 +379,7 @@ func reskin_projectile(projectile: Projectile) -> void:
 static func team_color(team: Entity.Team, shape: String, requested: Color) -> Color:
 	if team != Entity.Team.PLAYER:
 		return Palette.HOSTILE
-	if shape in ["fire", "atgm"] and requested.a > 0.0:
+	if shape in ["fire", "atgm", "micro"] and requested.a > 0.0:
 		return requested
 	return Palette.BUTTER if shape in ["shell", "dart", "pellet"] else Palette.FRIENDLY
 

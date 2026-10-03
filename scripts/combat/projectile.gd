@@ -32,6 +32,7 @@ var intercept_hp := 1.0 ## Laser dwell damage needed to destroy it.
 var radius := 0.0 ## Sweep radius; small for bullets, larger for thrown wrecks.
 var sure_target: Entity ## A locked full charge: nothing else stops it until it has struck this.
 var glow_trail := Color(0, 0, 0, 0) ## A glowing tracer streamed behind it; transparent disables.
+var glow_size := 0.9 ## Width of that trail's glow.
 const ROCKET_SMOKE := Color("8c4a34") ## Reddish-brown motor smoke, readable against the pastel sky.
 
 var trail := Color(0, 0, 0, 0) ## Smoke trail color; transparent disables. A trail also means a lit motor.
@@ -115,7 +116,7 @@ func step(delta: float) -> void:
 		look_at(to + velocity, Vector3.UP if absf(velocity.normalized().y) < 0.99 else Vector3.RIGHT)
 	if glow_trail.a > 0.0:
 		var fx := World.current.fx
-		fx.spawn(Fx.Kind.GLOW, to, Vector3.ZERO, 0.16, 0.9, glow_trail, {"end_size": 0.1, "fade": 0.0})
+		fx.spawn(Fx.Kind.GLOW, to, Vector3.ZERO, 0.16, glow_size, glow_trail, {"end_size": 0.1, "fade": 0.0})
 		fx.spawn(Fx.Kind.GLOW, from.lerp(to, 0.5), Vector3.ZERO, 0.12, 0.5, Palette.WHITE, {"end_size": 0.05, "fade": 0.0})
 	if trail.a > 0.0:
 		_burn_motor(delta, to)

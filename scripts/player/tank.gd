@@ -96,8 +96,11 @@ var charge := 0.0 ## Main-gun charge (0..1): zero until the hold passes TAP_TIME
 var charge_lock: Entity
 var charge_part := ""
 var charge_candidate: Entity ## What a hold would lock right now, shown while charging.
+var micro_locks: Array[Array] = [] ## Micro-missile locks as [Entity, part], one per missile the release will fire.
 var _hold := 0.0 ## Seconds the fire button has been held since the gun recovered.
 var _fire_held := false
+var _micro_timer := 0.0 ## Seconds until the held button paints the next micro-missile lock.
+var _salvo: Array[Array] = [] ## Micro-missiles still to leave, as [lock target, part, delay in s, index in the salvo].
 var _fire_released := false
 var _auto_fire := false ## The hold reached the auto-fire time: the gun fires this frame.
 var _spent := false ## The gun fired by itself: the button has to come up before a new hold counts.
@@ -767,9 +770,11 @@ func _cancel_charge() -> void:
 	_spent = false
 	_recover = 0.0
 	_burst = 0.0
+	_salvo.clear()
 
 
 func _reset_charge() -> void:
+	micro_locks.clear()
 	charge = 0.0
 	_hold = 0.0
 	_auto_fire = false
@@ -813,6 +818,10 @@ func _update_charge(delta: float) -> void:
 	# the sight finds an enemy to lock: no need to let go and press again.
 	if not held or (_spent and _recover <= 0.0 and _nearest_lockable()[0] != null):
 		_spent = false
+	if current_round == Armament.Round.MICRO:
+		_update_micro_locks(delta - waited, held and not _spent and _recover <= 0.0)
+		_fire_held = held
+		return
 	if held and not _spent and _recover <= 0.0:
 		var before := _hold
 		_hold += delta - waited # Only the time after recovery counts.
@@ -853,6 +862,27 @@ func _charge_distance(target: Entity, part: String) -> float:
 	return INF if cam.is_position_behind(at) else cam.unproject_position(at).distance_to(aim_screen)
 
 
+## Micro-missiles lock instantly: while the button is held, every MICRO_LOCK_INTERVAL the enemy
+## nearest the sight within the lock ring gains one more lock, up to MICRO_LOCKS, and the salvo
+## goes the moment the last one lands. Locks on an enemy that died or left the view drop.
+func _update_micro_locks(delta: float, holding: bool) -> void:
+	micro_locks = micro_locks.filter(func(lock: Array) -> bool: return is_instance_valid(lock[0]) and _charge_distance(lock[0], lock[1]) < INF)
+	charge = 0.0
+	if not holding:
+		_micro_timer = 0.0
+		return
+	_micro_timer -= delta
+	if _micro_timer > 0.0 or micro_locks.size() >= Armament.MICRO_LOCKS:
+		return
+	var nearest := _nearest_lockable()
+	if nearest[0] == null:
+		return
+	micro_locks.append([nearest[0], nearest[1]])
+	_micro_timer = Armament.MICRO_LOCK_INTERVAL
+	Sfx.ui("charge_%d" % mini(micro_locks.size(), 3))
+	_auto_fire = micro_locks.size() >= Armament.MICRO_LOCKS
+
+
 ## The enemy (and its part) nearest the sight within the lock ring, or [null, ""].
 func _nearest_lockable() -> Array:
 	var candidate: Entity = null
@@ -869,7 +899,7 @@ func _nearest_lockable() -> Array:
 
 
 func _update_charge_lock() -> void:
-	if (not is_charging() and not _fire_released) or modules.lock_factor() <= 0.0 or current_round in AREA_ROUNDS:
+	if (not is_charging() and not _fire_released) or modules.lock_factor() <= 0.0 or current_round in AREA_ROUNDS or current_round == Armament.Round.MICRO:
 		charge_lock = null
 		charge_part = ""
 		charge_candidate = null
@@ -895,6 +925,7 @@ func _update_charge_lock() -> void:
 
 func _update_weapons(delta: float) -> void:
 	coax_part = _pick_part(coax_target)
+	_update_salvo(delta)
 	# The coax fires bursts on its own at whatever the sight soft-locks, a short pause between them;
 	# the coax button fires them at will, target or not. With the sight gone it still opens up on an
 	# enemy under the reticle, only unguided.
@@ -916,7 +947,7 @@ func _update_weapons(delta: float) -> void:
 		for i in _coax_timers.size():
 			_coax_timers[i] = maxf(_coax_timers[i] - delta, 0.0)
 	if _fire_released or _auto_fire:
-		if input_enabled and Armament.stage(charge) >= 1:
+		if input_enabled and (Armament.stage(charge) >= 1 or not micro_locks.is_empty()):
 			fire_cannon(Vector3.INF, Vector3.ZERO, charge)
 			_recover = Armament.CANNON_RECOVER
 			_spent = _auto_fire
@@ -1041,6 +1072,8 @@ func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO, power := 0.0) -> v
 	var barrel_dir := -model.barrel.global_basis.z if toward == Vector3.ZERO else toward.normalized()
 	var shot_dir := func(speed: float) -> Vector3: return barrel_dir if toward != Vector3.ZERO else _fire_direction(muzzle, speed)
 	var round := current_round
+	if round == Armament.Round.MICRO and micro_locks.is_empty():
+		return
 	power = clampf(power, 0.0, 1.0)
 	World.current.stats.shots += 1
 	if power >= 1.0:
@@ -1052,6 +1085,9 @@ func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO, power := 0.0) -> v
 			DragonBreath.fire(self, shot_dir.call(DragonBreath.MEAN_SPEED), from, float(power >= 1.0))
 		Armament.Round.ATGM:
 			_fire_atgm(muzzle, shot_dir.call(Armament.ATGM_LAUNCH_SPEED))
+		Armament.Round.MICRO:
+			for i in micro_locks.size():
+				_salvo.append([micro_locks[i][0], micro_locks[i][1], i * Armament.MICRO_RIPPLE, i])
 		_:
 			_fire_shell(round, muzzle, shot_dir.call(shell_speed(power)), power)
 	if round != Armament.Round.APHE:
@@ -1160,23 +1196,17 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 
 		world.fx.spawn(Fx.Kind.GLOW, at, Vector3(randf_range(-0.4, 0.4), 0.8, randf_range(-0.4, 0.4)), randf_range(0.5, 0.9), 0.5, Palette.MIST, {"end_size": 1.4, "drag": 2.0, "fade": 0.2})
 
 
-## A guided missile that hits like the full-charge APHE shell. It homes on the charge lock (and its
-## module), else the coax's soft lock; with neither it locks the nearest enemy ahead as it flies.
-func _fire_atgm(muzzle: Vector3, dir: Vector3) -> void:
-	var color: Color = Armament.ROUND_COLORS[Armament.Round.ATGM]
-	var missile := World.current.spawn_projectile(Team.PLAYER, muzzle, dir * Armament.ATGM_LAUNCH_SPEED, "atgm", color)
-	missile.hit = Hit.make(Hit.Kind.SHELL, Armament.SHELL_DAMAGE * Armament.APHE_DAMAGE.y * Armament.SHELL_DAMAGE_SCALE, muzzle)
-	missile.hit.caliber = 100
+## A guided missile of the loaded round, homing on `target` (its `part`) and re-locking the nearest
+## enemy ahead if that is gone. The caller sets its damage.
+func _spawn_missile(round: Armament.Round, muzzle: Vector3, dir: Vector3, target: Entity, part: String) -> Projectile:
+	var color: Color = Armament.ROUND_COLORS[round]
+	var missile := World.current.spawn_projectile(Team.PLAYER, muzzle, dir * Armament.ATGM_LAUNCH_SPEED, Armament.ROUND_IDS[round], color)
+	missile.hit = Hit.make(Hit.Kind.SHELL, 0.0, muzzle)
 	missile.hit.source = self
 	missile.hit.weapon = "cannon"
-	missile.hit.power = 1.0
 	missile.hit.stagger = 0.4
-	missile.blast_radius = Armament.APHE_RADIUS.y * Armament.HE_RADIUS_SCALE
-	missile.blast_damage = Armament.APHE_BLAST.y * Armament.SHELL_DAMAGE_SCALE
-	missile.pierce_entities = true
 	missile.impact_sound = "blast"
 	missile.impacted.connect(_count_hit, CONNECT_ONE_SHOT)
-	missile.scale = Vector3.ONE * QUICK_SHELL_SCALE
 	missile.glow_trail = color
 	missile.life = Armament.ATGM_LIFE
 	missile.thrust = Armament.ATGM_THRUST
@@ -1184,12 +1214,49 @@ func _fire_atgm(muzzle: Vector3, dir: Vector3) -> void:
 	missile.turn_rate = Armament.ATGM_TURN
 	missile.homing_lead = true
 	missile.retarget_range = Armament.ATGM_RETARGET_RANGE
-	if is_instance_valid(charge_lock):
-		missile.homing_target = charge_lock
-		missile.homing_part = charge_part
-	elif is_instance_valid(coax_target):
-		missile.homing_target = coax_target
-		missile.homing_part = coax_part
+	missile.homing_target = target
+	missile.homing_part = part
+	return missile
+
+
+## The ATGM hits like the full-charge APHE shell. It homes on the charge lock (and its module), else
+## the coax's soft lock; with neither it locks the nearest enemy ahead as it flies.
+func _fire_atgm(muzzle: Vector3, dir: Vector3) -> void:
+	var locked := is_instance_valid(charge_lock)
+	var target: Entity = charge_lock if locked else (coax_target if is_instance_valid(coax_target) else null)
+	var missile := _spawn_missile(Armament.Round.ATGM, muzzle, dir, target, charge_part if locked else coax_part)
+	missile.hit.damage = Armament.SHELL_DAMAGE * Armament.APHE_DAMAGE.y * Armament.SHELL_DAMAGE_SCALE
+	missile.hit.caliber = 100
+	missile.hit.power = 1.0
+	missile.blast_radius = Armament.APHE_RADIUS.y * Armament.HE_RADIUS_SCALE
+	missile.blast_damage = Armament.APHE_BLAST.y * Armament.SHELL_DAMAGE_SCALE
+	missile.pierce_entities = true
+	missile.scale = Vector3.ONE * QUICK_SHELL_SCALE
+
+
+## Lets the micro-missiles of a salvo go, one MICRO_RIPPLE after another, off the barrel's current
+## line with a fan that grows upward and sideways by their place in the salvo.
+func _update_salvo(delta: float) -> void:
+	for shot in _salvo:
+		shot[2] -= delta
+	var due := _salvo.filter(func(shot: Array) -> bool: return shot[2] <= 0.0)
+	_salvo = _salvo.filter(func(shot: Array) -> bool: return shot[2] > 0.0)
+	for shot in due:
+		var muzzle := model.muzzle.global_position
+		var forward := -model.barrel.global_basis.z
+		var side := forward.cross(Vector3.UP).normalized()
+		var index: int = shot[3]
+		var dir := (forward + side * (index - (Armament.MICRO_LOCKS - 1) * 0.5) * 0.08 + Vector3.UP * (0.1 + 0.04 * (index % 2))).normalized()
+		var missile := _spawn_missile(Armament.Round.MICRO, muzzle, dir, shot[0] if is_instance_valid(shot[0]) else null, shot[1])
+		var full := Armament.SHELL_DAMAGE * Armament.APHE_DAMAGE.y * Armament.SHELL_DAMAGE_SCALE
+		missile.hit.damage = full * Armament.MICRO_DAMAGE
+		missile.hit.caliber = Armament.MICRO_CALIBER
+		missile.hit.stagger = 0.2
+		missile.blast_radius = Armament.MICRO_BLAST_RADIUS * Armament.HE_RADIUS_SCALE
+		missile.blast_damage = Armament.APHE_BLAST.y * Armament.SHELL_DAMAGE_SCALE * Armament.MICRO_DAMAGE
+		missile.glow_size = 0.45
+		World.current.fx.muzzle_flash(muzzle, dir, 1.4, Armament.ROUND_COLORS[Armament.Round.MICRO])
+		Sfx.gun("coax20", randf_range(1.3, 1.5))
 
 
 ## A player cannon hit template for blasts fired straight from the muzzle.

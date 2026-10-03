@@ -326,7 +326,7 @@ func _coax_label() -> String:
 ## Short codes for the loaded round, as on an ammunition rack.
 const ROUND_CODES := {
 	Armament.Round.APHE: "APHE", Armament.Round.HEAT: "HEAT", Armament.Round.CANISTER: "CAN",
-	Armament.Round.DRAGON: "DRAGON", Armament.Round.APFSDS: "APFSDS", Armament.Round.AIRBURST: "AHEAD", Armament.Round.ATGM: "ATGM",
+	Armament.Round.DRAGON: "DRAGON", Armament.Round.APFSDS: "APFSDS", Armament.Round.AIRBURST: "AHEAD", Armament.Round.ATGM: "ATGM", Armament.Round.MICRO: "MICRO",
 }
 
 
@@ -487,6 +487,7 @@ func _draw_reticle() -> void:
 	var far := p.sight_point()
 	var near := p.model.muzzle.global_position.lerp(far, NEAR_SIGHT)
 	_draw_cursor(cursor)
+	_draw_micro_locks(p)
 	if not cam.is_position_behind(near):
 		_draw_near_sight(cam.unproject_position(near) * SCALE, Palette.CREAM)
 	if cam.is_position_behind(far):
@@ -599,6 +600,7 @@ const LOCK_BOXES := 3
 const LOCK_BOX_IN := 0.16 ## Seconds a new box takes to spin in and settle.
 var _lock_boxes := 0
 var _lock_box_times: Array[float] = [0.0, 0.0, 0.0]
+var _micro_times: Array[float] = [] ## When each micro-missile lock landed, in step with `Tank.micro_locks`.
 
 
 ## `tint` is the loaded round's color, so the sight says what is about to fire.
@@ -624,6 +626,32 @@ func _draw_lock_boxes(center: Vector2, size: float, charge: float, tint: Color) 
 		var settle := ease(progress, 0.6)
 		var color := Color(Palette.WHITE, 0.35 + 0.65 * progress)
 		_draw_lock_box(center, lerpf(size * 3.4, size * (1.0 + count * 0.32), settle), (1.0 - settle) * PI + _time * 0.8, color)
+
+
+## Micro-missile locks: on each locked enemy (or module) one spinning box per lock it holds, so a
+## target locked three times wears three, each spinning in as its lock lands.
+func _draw_micro_locks(p: Tank) -> void:
+	while _micro_times.size() < p.micro_locks.size():
+		_micro_times.append(_time)
+	_micro_times.resize(p.micro_locks.size())
+	var cam := world.camera
+	var tint: Color = Armament.ROUND_COLORS[Armament.Round.MICRO]
+	var boxes := {}
+	for i in p.micro_locks.size():
+		var target: Entity = p.micro_locks[i][0]
+		var parts := target.aim_parts()
+		var part: String = p.micro_locks[i][1]
+		var focus: Vector3 = parts[part][0] if parts.has(part) else target.hit_center()
+		var size: float = parts[part][1] * 0.5 if parts.has(part) else target.radius
+		if cam.is_position_behind(focus):
+			continue
+		var n: int = boxes.get(target, 0)
+		boxes[target] = n + 1
+		var k := clampf((_time - _micro_times[i]) / LOCK_BOX_IN, 0.0, 1.0)
+		var settle := ease(k, 0.35)
+		var half := 18.0 + size * 3.0
+		var angle := (1.0 - settle) * PI * 0.5 + _time * (0.8 + n * 0.5) * (1.0 if n % 2 == 0 else -1.0)
+		_draw_lock_box(cam.unproject_position(focus) * SCALE, lerpf(half * 3.0, half * (1.0 + n * 0.32), settle), angle, Palette.WHITE if k < 1.0 else tint)
 
 
 ## One lock box: four corner brackets of a square `half` wide, turned by `angle`.

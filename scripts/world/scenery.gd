@@ -290,6 +290,7 @@ func _reservoir() -> void:
 		add_decor(PropKit.mesh("pier", int(pd)), pd, -60.0 - _rng.randf_range(0, 20), _rng.randf() * TAU, Course.WATER_LEVEL)
 	_scatter("house", 1780.0, 2640.0, 6, 22.0, 40.0, false)
 	_scatter("car", 1800.0, 2640.0, 18, 0.0, 12.0)
+	add_pickup("micro", 1850.0, 0.0)
 	add_pickup("airburst", 2000.0, 6.0)
 	add_pickup("era", 2150.0, -4.0)
 	add_pickup("tail", 2450.0, 3.0)
