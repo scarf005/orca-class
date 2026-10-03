@@ -234,9 +234,9 @@ def sfx():
     crunch = lowpass(noise(0.5), 1800) * np.exp(-t * 14)
     crack = highpass(noise(0.5), 3500) * np.exp(-t * 60)
     write_wav("kill_crunch", np.tanh((thump * 1.4 + crunch * 1.0 + crack * 0.9) * 1.6))
-    # Charge steps, Ex-Zodiac style: each lock box rings the next note up, G A B, a bright square
+    # Charge steps, Ex-Zodiac style: each lock box rings the next note up, G6 A6 B6, a bright square
     # chirp with a quick fall. Pure tones, so the shared noise generator is left as it was.
-    for i, freq in enumerate((783.99, 880.0, 987.77)):
+    for i, freq in enumerate((1567.98, 1760.0, 1975.53)):
         t = t_axis(0.16)
         note = tone(freq, 0.16, "square", 9) * np.exp(-t * 18) + tone(freq * 2, 0.16) * np.exp(-t * 40) * 0.3
         write_wav("charge_%d" % (i + 1), note, 0.7)

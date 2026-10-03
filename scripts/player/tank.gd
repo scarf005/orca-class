@@ -45,15 +45,10 @@ const TAIL_SMALL_ARMS := 2.0 ## Small-arms damage on the tail, which no armor gu
 static var DRIFT_ANGLE := deg_to_rad(60.0) ## How far a sideways dash swings the nose against its slide (tuned live in the duel mode).
 const DRIFT_TURN := Vector2(14.0, 5.0) ## Per second the drift swings in, and back out.
 const AREA_ROUNDS := [Armament.Round.CANISTER, Armament.Round.AIRBURST, Armament.Round.DRAGON] ## Rounds with no lock.
-## The charge at which a round fires on its own: airburst and dragon's breath at the first lock box,
-## the canister at the second; the shells charge on to full.
+## The charge at which a round fires on its own: every special round at the first lock box; the
+## plain APHE shell charges on to full.
 static func round_step(round: Armament.Round) -> float:
-	match round:
-		Armament.Round.AIRBURST, Armament.Round.DRAGON:
-			return Armament.STAGE_1
-		Armament.Round.CANISTER:
-			return Armament.STAGE_2
-	return 1.0
+	return 1.0 if round == Armament.Round.APHE else Armament.STAGE_1
 const LOCK_SWITCH := 0.6 ## Another enemy takes a held lock only when this much nearer the reticle.
 const SIGHT_RATE := 10.0 ## Per second the chevron's range eases toward the range it rests on.
 const PART_LOCK_RADIUS := 90.0 ## Screen pixels: on a target made of modules, the nearest one within this is locked.
@@ -753,17 +748,15 @@ func is_charging() -> bool:
 
 ## Seconds from the first charge to full: a damaged breech loads slower.
 func charge_time() -> float:
-	return (Armament.FULL_TIME - Armament.TAP_TIME) * modules.breech_factor()
+	# Special rounds are snap shots: their first (and only) step charges twice as fast.
+	var quick := 1.0 if current_round == Armament.Round.APHE else 0.5
+	return (Armament.FULL_TIME - Armament.TAP_TIME) * modules.breech_factor() * quick
 
 
 ## Seconds of hold at which the gun fires by itself: AUTO_FIRE_TIME, as long after full as it is for a whole breech.
 func auto_fire_hold() -> float:
 	return Armament.TAP_TIME + charge_time() + Armament.AUTO_FIRE_TIME - Armament.FULL_TIME
 
-
-## How far the hold has run from full toward the auto-fire (0..1).
-func auto_fire_progress() -> float:
-	return clampf((_hold - Armament.TAP_TIME - charge_time()) / (Armament.AUTO_FIRE_TIME - Armament.FULL_TIME), 0.0, 1.0)
 
 
 ## How fast a round of this charge flies, for leading the lock: a quick shell flies, a full charge lands at once.
@@ -806,7 +799,7 @@ func charge_ring_radius() -> float:
 		return Armament.LOCK_RADIUS
 	var cam := World.current.camera
 	var distance := model.muzzle.global_position.distance_to(aim_point)
-	var radius := distance * canister_spread(charge)
+	var radius := distance * Armament.CANISTER_SPREAD
 	var center := cam.unproject_position(aim_point)
 	var pixels := maxf(center.distance_to(cam.unproject_position(aim_point + cam.global_basis.x * radius)), center.distance_to(cam.unproject_position(aim_point + cam.global_basis.y * radius)))
 	return clampf(pixels, 8.0, 220.0)
@@ -1006,7 +999,7 @@ func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO, power := 0.0) -> v
 		World.current.stats.charged_shots += 1
 	match round:
 		Armament.Round.CANISTER:
-			_fire_canister(muzzle, shot_dir.call(200.0), power)
+			_fire_canister(muzzle, shot_dir.call(200.0))
 		Armament.Round.DRAGON:
 			DragonBreath.fire(self, shot_dir.call(DragonBreath.MEAN_SPEED), from, float(power >= 1.0))
 		_:
@@ -1020,19 +1013,14 @@ func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO, power := 0.0) -> v
 
 
 ## A wall of tungsten balls, and a muzzle blast that flattens everything just ahead.
-## The canister's cone tightens with the charge step: wide at the first box, choked at the second.
-static func canister_spread(power: float) -> float:
-	return lerpf(Armament.CANISTER_SPREAD.x, Armament.CANISTER_SPREAD.y, clampf(inverse_lerp(Armament.STAGE_1, Armament.STAGE_2, power), 0.0, 1.0))
-
-
-func _fire_canister(muzzle: Vector3, aim_dir: Vector3, power := 0.0) -> void:
+func _fire_canister(muzzle: Vector3, aim_dir: Vector3) -> void:
 	var world := World.current
 	world.blast(muzzle + aim_dir * 7.0, 6.0, 260.0, Team.PLAYER, _cannon_hit(), null, [Palette.WHITE, Palette.BUTTER, Palette.AMBER], aim_dir)
 	# Fifty hitscan balls land at once, each drawn as a yellow streak.
 	var side := aim_dir.cross(Vector3.UP if absf(aim_dir.y) < 0.99 else Vector3.RIGHT).normalized()
 	var up := side.cross(aim_dir)
 	for i in 50:
-		var spread := Vector2.from_angle(randf() * TAU) * sqrt(randf()) * canister_spread(power)
+		var spread := Vector2.from_angle(randf() * TAU) * sqrt(randf()) * Armament.CANISTER_SPREAD
 		var dir := (aim_dir + side * spread.x + up * spread.y).normalized()
 		var pellet := world.spawn_projectile(Team.PLAYER, muzzle, dir * 200.0, "pellet", Palette.BUTTER)
 		pellet.hit = Hit.make(Hit.Kind.BULLET, 90.0, muzzle)
@@ -1088,8 +1076,12 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 
 			shell.blast_radius = 7.0
 			shell.blast_damage = 450.0
 		Armament.Round.AIRBURST:
+			# A slow, visible round with a proximity fuse: it bursts into a ring of shot as it passes
+			# near any enemy, or at the end of its range.
 			shell.hit.damage = 70.0
-			shell.fuse_distance = muzzle.distance_to(_aimed_spot(charge_lock) if _aimed_spot(charge_lock) != Vector3.INF else charge_lock.hit_center()) if is_instance_valid(charge_lock) else maxf(muzzle.distance_to(aim_point) - 2.0, 6.0)
+			shell.velocity = dir * Armament.AIRBURST_SPEED
+			shell.life = Armament.SHELL_RANGE / Armament.AIRBURST_SPEED
+			shell.fuse_distance = Armament.SHELL_RANGE
 			shell.airburst_fragments = roundi(lerpf(Armament.AIRBURST_FRAGMENTS.x, Armament.AIRBURST_FRAGMENTS.y, table))
 			shell.proximity = lerpf(Armament.AIRBURST_PROXIMITY.x, Armament.AIRBURST_PROXIMITY.y, table)
 	shell.hit.damage *= Armament.SHELL_DAMAGE_SCALE

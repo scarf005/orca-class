@@ -489,13 +489,14 @@ func _draw_reticle() -> void:
 	_draw_cursor(cursor)
 	if not cam.is_position_behind(near):
 		_draw_near_sight(cam.unproject_position(near) * SCALE, Palette.CREAM)
-	if p.is_charging():
-		if p.current_round == Armament.Round.CANISTER:
-			# The canister has no lock: the ring is where its balls land.
-			_draw_charge_ring(cursor, p.charge_ring_radius() * SCALE, p.charge, false, 1.0 - p.auto_fire_progress())
 	if cam.is_position_behind(far):
 		return
 	var c := cam.unproject_position(far) * SCALE
+	if p.is_charging() and p.current_round in Tank.AREA_ROUNDS:
+		# Rounds without a lock stack the same boxes on the far sight, where they will burst; the
+		# canister's boxes are its cone's footprint, choking down step by step.
+		var box := p.charge_ring_radius() * SCALE * 0.7 if p.current_round == Armament.Round.CANISTER else 16.0
+		_draw_lock_boxes(c, box, p.charge)
 	# Chevron and stadia.
 	draw_polyline(PackedVector2Array([c + Vector2(-9, 9), c, c + Vector2(9, 9)]), color, 2.0)
 	for side in [-1.0, 1.0]:
@@ -541,7 +542,8 @@ func _draw_reticle() -> void:
 	if charged_lock:
 		_draw_lock_boxes(center, s, p.charge)
 	else:
-		_lock_boxes = 0
+		if not p.is_charging():
+			_lock_boxes = 0
 		for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
 			var at := center + corner * s
 			draw_line(at, at - Vector2(corner.x * 9.0, 0), bracket_color, width)
@@ -623,29 +625,6 @@ func _draw_lock_boxes(center: Vector2, size: float, charge: float) -> void:
 			for seg: Array in [[a, a + arm], [b, b - arm]]:
 				draw_line(seg[0], seg[1], Palette.INK, 5.0)
 				draw_line(seg[0], seg[1], color, 2.0)
-
-
-func _draw_charge_ring(at: Vector2, radius: float, charge: float, locked: bool, auto_left: float) -> void:
-	const SEGMENTS := 16
-	if charge >= 1.0:
-		var pulse := 0.5 + 0.5 * sin(_time * 18.0)
-		draw_arc(at, radius, 0.0, TAU, 48, Palette.INK, 6.0)
-		draw_arc(at, radius, 0.0, TAU, 48, Palette.WHITE.lerp(Palette.FRIENDLY, 0.4 + pulse * 0.6) if not locked else Palette.FRIENDLY, 3.0)
-		draw_line(at + Vector2(0, -radius - 8.0), at + Vector2(0, -radius + 8.0), Palette.INK, 5.0)
-		draw_line(at + Vector2(0, -radius - 8.0), at + Vector2(0, -radius + 8.0), Palette.WHITE, 2.0)
-		if auto_left > 0.0:
-			draw_arc(at, radius + 8.0, -PI * 0.5, -PI * 0.5 + TAU * auto_left, 48, Palette.INK, 3.0)
-			draw_arc(at, radius + 8.0, -PI * 0.5, -PI * 0.5 + TAU * auto_left, 48, Palette.BUTTER, 1.0)
-		return
-	for k in SEGMENTS:
-		var a0 := -PI * 0.5 + TAU * k / SEGMENTS + 0.04
-		var a1 := a0 + TAU / SEGMENTS - 0.08
-		if float(k) / SEGMENTS < charge:
-			draw_arc(at, radius, a0, a1, 4, Palette.INK, 6.0)
-			draw_arc(at, radius, a0, a1, 4, Palette.FRIENDLY, 3.0)
-		else:
-			draw_arc(at, radius, a0, a1, 4, Color(Palette.INK, 0.6), 3.0)
-			draw_arc(at, radius, a0, a1, 4, Palette.MIST, 1.0)
 
 
 func _draw_hit_marker() -> void:

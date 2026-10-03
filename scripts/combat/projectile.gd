@@ -96,11 +96,11 @@ func step(delta: float) -> void:
 	var step_length := from.distance_to(to)
 	if fuse_distance > 0.0 and _traveled + step_length >= fuse_distance:
 		to = from + velocity.normalized() * (fuse_distance - _traveled)
-		if not _sweep(from, to) and not _burst_near_flyer(from, to, _traveled):
+		if not _sweep(from, to) and not _burst_near_enemy(from, to, _traveled):
 			detonate(to, null)
 		return
 	_traveled += step_length
-	if _sweep(from, to) or _burst_near_flyer(from, to, _traveled - step_length):
+	if _sweep(from, to) or _burst_near_enemy(from, to, _traveled - step_length):
 		return
 	global_position = to
 	if velocity.length_squared() > 0.01:
@@ -239,8 +239,8 @@ func _sweep(from: Vector3, to: Vector3) -> bool:
 
 
 ## The proximity fuse: once armed (`traveled` is the distance flown up to `from`), detonates where
-## the path comes closest to a flying hostile it passes within `proximity` of. Returns true when it did.
-func _burst_near_flyer(from: Vector3, to: Vector3, traveled: float) -> bool:
+## the path comes closest to any hostile it passes within `proximity` of. Returns true when it did.
+func _burst_near_enemy(from: Vector3, to: Vector3, traveled: float) -> bool:
 	var length := from.distance_to(to)
 	var skip := clampf(Armament.AIRBURST_ARM - traveled, 0.0, length)
 	if proximity <= 0.0 or skip >= length:
@@ -249,8 +249,6 @@ func _burst_near_flyer(from: Vector3, to: Vector3, traveled: float) -> bool:
 	var burst := Vector3.INF
 	var best := INF
 	for entity in World.current.targets_for(team):
-		if not entity.flying:
-			continue
 		var point := Geometry3D.get_closest_point_to_segment(entity.hit_center(), start, to)
 		if point.distance_to(entity.hit_center()) <= proximity and start.distance_to(point) < best:
 			best = start.distance_to(point)
@@ -354,9 +352,9 @@ func _airburst(point: Vector3) -> void:
 	for i in 6:
 		world.fx.smoke_puff(point + Vector3(randf_range(-1, 1), randf_range(-0.6, 0.6), randf_range(-1, 1)) * 1.4, 3.2, Vector3(0, -2.5, 0))
 	world.fx.shockwave(point, 7.0, Palette.INK, 0.25)
-	var forward := velocity.normalized()
+	# A wide ring of shot: the fragments fly out all round from the burst, not on along the shell.
 	for i in airburst_fragments:
-		var dir := (forward + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 0.55).normalized()
+		var dir := Vector3(randf_range(-1, 1), randf_range(-0.35, 0.35), randf_range(-1, 1)).normalized()
 		var fragment := World.current.spawn_projectile(team, point, dir * 90.0, "fragment")
 		fragment.hit = Hit.make(Hit.Kind.FRAGMENT, hit.damage, point)
 		fragment.hit.source = hit.source if is_instance_valid(hit.source) else null

@@ -116,7 +116,6 @@ func test_hold_to_the_auto_fire_time_fires_once_until_pressed_again() -> void:
 	Input.action_press("fire")
 	_step(tank, Armament.AUTO_FIRE_TIME - 0.05)
 	check_eq(world.stats.shots, 0, "not yet")
-	check(tank.auto_fire_progress() > 0.0 and tank.auto_fire_progress() < 1.0, "the auto-fire arc is draining")
 	_step(tank, 0.1)
 	check_eq(world.stats.shots, 1, "the gun fires by itself")
 	check_eq(world.stats.charged_shots, 1, "at full charge")
