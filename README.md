@@ -12,7 +12,11 @@ Needs Godot 4.7.2+ (stable)
 ```sh
 godot --path .
 godot --path . -- --play # skip title screen
+godot --path . -- --tutorial # practice movement, aiming and firing
 ```
+
+Choose **FIRST TIME? LEARN THE CONTROLS** on the title screen for a self-paced practice range with no
+attacks. You can practice again or start the main game on Easy when you're ready.
 
 ### Web
 
