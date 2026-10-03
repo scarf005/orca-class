@@ -9,6 +9,8 @@ const PATH := "user://duel_tuning.cfg"
 var _rows: Array = [
 	["Coax burst (rounds)", func() -> float: return Armament.COAX_BURST_ROUNDS, func(v: float) -> void: Armament.COAX_BURST_ROUNDS = int(v), 1.0, 20.0, 1.0],
 	["Coax burst gap (s)", func() -> float: return Armament.COAX_BURST_GAP, func(v: float) -> void: Armament.COAX_BURST_GAP = v, 0.0, 2.0, 0.05],
+	["Charge for box 1 (0-1)", func() -> float: return Armament.STAGE_1, func(v: float) -> void: Armament.STAGE_1 = v, 0.0, 0.95, 0.01],
+	["Charge for box 2 (0-1)", func() -> float: return Armament.STAGE_2, func(v: float) -> void: Armament.STAGE_2 = v, 0.05, 0.99, 0.01],
 	["Charge delay (s)", func() -> float: return Armament.TAP_TIME, func(v: float) -> void: Armament.TAP_TIME = v, 0.0, 0.6, 0.01],
 	["Full charge (s)", func() -> float: return Armament.FULL_TIME, func(v: float) -> void: Armament.FULL_TIME = v, 0.3, 3.0, 0.05],
 	["Auto fire (s)", func() -> float: return Armament.AUTO_FIRE_TIME, func(v: float) -> void: Armament.AUTO_FIRE_TIME = v, 0.5, 5.0, 0.05],
@@ -34,6 +36,8 @@ var _rows: Array = [
 	["Track marks last (s)", func() -> float: return TrackMarks.FADE_START, func(v: float) -> void: TrackMarks.FADE_START = v, 0.5, 30.0, 0.5],
 	["Track marks wear away (s)", func() -> float: return TrackMarks.FADE_TIME, func(v: float) -> void: TrackMarks.FADE_TIME = v, 0.2, 20.0, 0.2],
 	["Explosion pace (x time)", func() -> float: return Fx.BLAST_PACE, func(v: float) -> void: Fx.BLAST_PACE = v, 0.2, 1.5, 0.05],
+	["Drift tail lash damage", func() -> float: return Tank.LASH_DAMAGE, func(v: float) -> void: Tank.LASH_DAMAGE = v, 0.0, 400.0, 5.0],
+	["Tail stab damage", func() -> float: return Tank.STAB_DAMAGE, func(v: float) -> void: Tank.STAB_DAMAGE = v, 0.0, 200.0, 5.0],
 	["Hit weight (x)", func() -> float: return Tank.HIT_WEIGHT, func(v: float) -> void: Tank.HIT_WEIGHT = v, 0.0, 3.0, 0.05],
 ]
 var _grid := GridContainer.new()

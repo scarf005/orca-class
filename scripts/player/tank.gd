@@ -36,15 +36,24 @@ const SOFT_LOCK_RADIUS := 40.0 ## Screen pixels (3D view) around the reticle; th
 const LOCK_EDGE := Vector2(60.0, 180.0) ## 3D-view pixels from the screen edge: a locked target this close stops sideways driving, this far lets it run free.
 const LOCK_HOLD := 1.4
 const QUICK_SHELL_SCALE := 2.2 ## A quick shell's drawn size, so it reads in flight.
+## Tuned live in the duel mode, hence static vars.
+static var LASH_DAMAGE := 90.0 ## The drift's tail lash: enough to kill a UGV or a walker.
+static var STAB_DAMAGE := 20.0 ## The tail's own stab: kills drones and crawlers, staggers the rest.
 const TAIL_FOLD_TIME := 0.06 ## Seconds the tail coils before it kicks off in a drift.
 const TAIL_HIT_RADIUS := 0.8 ## The claw end of the tail as a target, in metres.
 const TAIL_SMALL_ARMS := 2.0 ## Small-arms damage on the tail, which no armor guards.
 static var DRIFT_ANGLE := deg_to_rad(60.0) ## How far a sideways dash swings the nose against its slide (tuned live in the duel mode).
 const DRIFT_TURN := Vector2(14.0, 5.0) ## Per second the drift swings in, and back out.
 const AREA_ROUNDS := [Armament.Round.CANISTER, Armament.Round.AIRBURST, Armament.Round.DRAGON] ## Rounds with no lock.
-## The charge step at which a special round fires on its own (0 the first box, 0.5 the second); the
-## shells not listed charge on to full.
-const ROUND_STEP := {Armament.Round.AIRBURST: 0.0, Armament.Round.DRAGON: 0.0, Armament.Round.CANISTER: 0.5}
+## The charge at which a round fires on its own: airburst and dragon's breath at the first lock box,
+## the canister at the second; the shells charge on to full.
+static func round_step(round: Armament.Round) -> float:
+	match round:
+		Armament.Round.AIRBURST, Armament.Round.DRAGON:
+			return Armament.STAGE_1
+		Armament.Round.CANISTER:
+			return Armament.STAGE_2
+	return 1.0
 const LOCK_SWITCH := 0.6 ## Another enemy takes a held lock only when this much nearer the reticle.
 const SIGHT_RATE := 10.0 ## Per second the chevron's range eases toward the range it rests on.
 const PART_LOCK_RADIUS := 90.0 ## Screen pixels: on a target made of modules, the nearest one within this is locked.
@@ -778,11 +787,12 @@ func _update_charge(delta: float) -> void:
 		_hold += delta - waited # Only the time after recovery counts.
 		if before < Armament.TAP_TIME and _hold >= Armament.TAP_TIME:
 			Sfx.play("charge", global_position)
-		_auto_fire = _hold >= auto_fire_hold() or (ROUND_STEP.has(current_round) and _hold >= Armament.TAP_TIME + ROUND_STEP[current_round] * charge_time())
+		var step := round_step(current_round)
+		_auto_fire = _hold >= auto_fire_hold() or (step < 1.0 and _hold >= Armament.TAP_TIME + step * charge_time())
 	elif not _fire_released: # The release frame keeps the charge it let go with.
 		_hold = 0.0
 	# Special rounds stop at their step and go: they never reach a full, aimed charge.
-	charge = clampf((_hold - Armament.TAP_TIME) / charge_time(), 0.0, ROUND_STEP.get(current_round, 1.0))
+	charge = clampf((_hold - Armament.TAP_TIME) / charge_time(), 0.0, round_step(current_round))
 	if charge >= 1.0 and not _full_click:
 		_full_click = true
 		Sfx.play("charge_full", global_position)
@@ -866,7 +876,7 @@ func _update_weapons(delta: float) -> void:
 		for i in _coax_timers.size():
 			_coax_timers[i] = maxf(_coax_timers[i] - delta, 0.0)
 	if _fire_released or _auto_fire:
-		if input_enabled and _hold >= Armament.TAP_TIME:
+		if input_enabled and Armament.stage(charge) >= 1:
 			fire_cannon(Vector3.INF, Vector3.ZERO, charge)
 			_recover = Armament.CANNON_RECOVER
 			_spent = _auto_fire
@@ -1013,7 +1023,7 @@ func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO, power := 0.0) -> v
 ## A wall of tungsten balls, and a muzzle blast that flattens everything just ahead.
 ## The canister's cone tightens with the charge step: wide at the first box, choked at the second.
 static func canister_spread(power: float) -> float:
-	return lerpf(Armament.CANISTER_SPREAD.x, Armament.CANISTER_SPREAD.y, clampf(power / 0.5, 0.0, 1.0))
+	return lerpf(Armament.CANISTER_SPREAD.x, Armament.CANISTER_SPREAD.y, clampf(inverse_lerp(Armament.STAGE_1, Armament.STAGE_2, power), 0.0, 1.0))
 
 
 func _fire_canister(muzzle: Vector3, aim_dir: Vector3, power := 0.0) -> void:
@@ -1328,7 +1338,7 @@ func swat(start_state := true) -> void:
 				if entity is FpvDrone:
 					(entity as FpvDrone).bat(direction)
 			else:
-				var hit := Hit.make(Hit.Kind.TAIL, 30.0, entity.hit_center(), direction)
+				var hit := Hit.make(Hit.Kind.TAIL, LASH_DAMAGE, entity.hit_center(), direction)
 				hit.stagger = 0.6
 				hit.source = self
 				hit.weapon = "dash"
@@ -1366,6 +1376,11 @@ func _on_tail_arrived() -> void:
 				_tail_stagger(enemy, 1.4)
 				if enemy is Enemy:
 					(enemy as Enemy).interrupt()
+				# The claw kills what is small; anything bigger it only rocks back.
+				var stab := Hit.make(Hit.Kind.TAIL, STAB_DAMAGE, tail.claw_position(), direction)
+				stab.source = self
+				stab.weapon = "tail"
+				enemy.take_hit(stab)
 				world.fx.sparks(tail.claw_position(), -direction, 14, Palette.FUNGUS, 12.0)
 				world.fx.spores(tail.claw_position(), 6, 0.6)
 				world.hitstop(0.06)

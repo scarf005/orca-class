@@ -600,7 +600,7 @@ var _lock_box_times: Array[float] = [0.0, 0.0, 0.0]
 
 
 func _draw_lock_boxes(center: Vector2, size: float, charge: float) -> void:
-	var count := 1 + floori(charge * (LOCK_BOXES - 1) + 0.0001)
+	var count := Armament.stage(charge)
 	while _lock_boxes < count:
 		_lock_box_times[_lock_boxes] = _time
 		_lock_boxes += 1

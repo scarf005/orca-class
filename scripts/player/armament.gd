@@ -37,7 +37,18 @@ static var QUICK_SPEED_2 := 400.0
 
 
 static func quick_speed(power: float) -> float:
-	return QUICK_SPEED_1 if power < 0.5 else QUICK_SPEED_2
+	return QUICK_SPEED_1 if stage(power) <= 1 else QUICK_SPEED_2
+
+
+## The charge at which the first and second lock boxes land; the third is full (tuned live in the
+## duel mode). The gun only fires from the first box on, so it cannot be clicked into a rapid fire.
+static var STAGE_1 := 0.3
+static var STAGE_2 := 0.65
+
+
+## How many lock boxes a charge has earned: 0 (nothing fires yet) to 3 (full).
+static func stage(power: float) -> int:
+	return 3 if power >= 1.0 else (2 if power >= STAGE_2 else (1 if power >= STAGE_1 else 0))
 
 static var COAX_BURST_GAP := 0.35 ## Seconds between the coax's bursts while it keeps firing (tuned live in the duel mode).
 static var COAX_BURST_ROUNDS := 6 ## Rounds a press fires from the coax (from each gun of the tier), however long the button is held.
