@@ -109,7 +109,6 @@ var _spent := false ## The gun fired by itself: the button has to come up before
 var _recover := 0.0 ## Seconds until a hold can charge again after a shot.
 var _burst := 0.0 ## Seconds of coax fire left in the current burst.
 var _burst_gap := 0.0 ## Seconds until the coax may start its next burst.
-var _full_click := false
 var _coax_timers: Array[float] = []
 
 var ciws_heat := 0.0
@@ -126,6 +125,7 @@ var _drift := 0.0
 var _drift_dir := 0.0
 var _drift_yaw := 0.0
 var _dust_wait := 0.0
+var _stage_rung := 0 ## The last lock box whose note has rung.
 var _stabilized_yaw := 0.0 ## Hull yaw the turret was last laid against. ## The nose's swing against a sideways dash, eased in and out.
 var _respawn := 0.0
 var _barrel_recoil := 0.0
@@ -374,8 +374,8 @@ func _read_dash(input: Vector2) -> void:
 ## A burst of speed the way it was asked for, kicked off by the tail slamming the ground: sideways it
 ## is a dodge that lashes whatever is beside the hull, forward it surges the rail, back it digs in.
 func dash(direction: Vector2) -> void:
-	if _respawn > 0.0:
-		return
+	if _respawn > 0.0 or tail.destroyed:
+		return # The tail kicks the hull off the ground: no tail, no dash.
 	if absf(direction.x) > 0.3:
 		_last_lateral = signf(direction.x)
 	_anchor(direction)
@@ -742,7 +742,6 @@ func _reset_charge() -> void:
 	charge = 0.0
 	_hold = 0.0
 	_auto_fire = false
-	_full_click = false
 	charge_lock = null
 	charge_part = ""
 	charge_candidate = null
@@ -793,11 +792,11 @@ func _update_charge(delta: float) -> void:
 		_hold = 0.0
 	# Special rounds stop at their step and go: they never reach a full, aimed charge.
 	charge = clampf((_hold - Armament.TAP_TIME) / charge_time(), 0.0, round_step(current_round))
-	if charge >= 1.0 and not _full_click:
-		_full_click = true
-		Sfx.play("charge_full", global_position)
-	elif charge < 1.0:
-		_full_click = false
+	# Each lock box rings the next note up (G, A, B), so the charge reads by ear as well as by eye.
+	var stage := Armament.stage(charge)
+	if stage > _stage_rung:
+		Sfx.ui("charge_%d" % stage)
+	_stage_rung = stage
 	_fire_held = held
 
 

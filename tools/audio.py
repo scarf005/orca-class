@@ -112,11 +112,9 @@ def write_wav(name, x, peak=0.9):
 
 def sfx():
     os.makedirs(SFX_DIR, exist_ok=True)
-    # Main-gun charge: a quiet rising tone and a dry full-charge click.
+    # Main-gun charge: a quiet rising tone (its steps ring their own notes, below).
     charge = sweep(180, 780, 0.95) * env(int(0.95 * RATE), 0.04, 0.12)
     write_wav("charge", charge, peak=0.3)
-    click = sweep(1800, 650, 0.065) * env(int(0.065 * RATE), 0.001, 0.05)
-    write_wav("charge_full", click, peak=0.45)
 
     # Tail whip: an airy swoosh that brightens, then a crack.
     n = noise(0.28)
@@ -236,6 +234,12 @@ def sfx():
     crunch = lowpass(noise(0.5), 1800) * np.exp(-t * 14)
     crack = highpass(noise(0.5), 3500) * np.exp(-t * 60)
     write_wav("kill_crunch", np.tanh((thump * 1.4 + crunch * 1.0 + crack * 0.9) * 1.6))
+    # Charge steps, Ex-Zodiac style: each lock box rings the next note up, G A B, a bright square
+    # chirp with a quick fall. Pure tones, so the shared noise generator is left as it was.
+    for i, freq in enumerate((783.99, 880.0, 987.77)):
+        t = t_axis(0.16)
+        note = tone(freq, 0.16, "square", 9) * np.exp(-t * 18) + tone(freq * 2, 0.16) * np.exp(-t * 40) * 0.3
+        write_wav("charge_%d" % (i + 1), note, 0.7)
 
 
 def guns():
