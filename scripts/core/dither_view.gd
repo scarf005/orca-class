@@ -22,6 +22,9 @@ var _material := ShaderMaterial.new()
 var _flash := Color(0, 0, 0, 0)
 var _mask_active := [true, true, true]
 var _strength := -1.0
+## How hard the scenery (the ground most of all) is dithered, on top of the player's setting (tuned
+## live in the duel mode): lower keeps the ground calm so actors and shadows stand out.
+static var SCENERY_DITHER := 0.45
 var _sent_flash := Color(0, 0, 0, 0)
 
 
@@ -110,8 +113,8 @@ func _process(delta: float) -> void:
 			changed = true
 	if changed:
 		_material.set_shader_parameter("mask_active", Vector3(float(active[0]), float(active[1]), float(active[2])))
-	if _strength != Game.settings.dither:
-		_strength = Game.settings.dither
+	if _strength != Game.settings.dither * SCENERY_DITHER:
+		_strength = Game.settings.dither * SCENERY_DITHER
 		_material.set_shader_parameter("strength", _strength)
 	_flash.a = move_toward(_flash.a, 0.0, delta * 3.0)
 	if _flash != _sent_flash:

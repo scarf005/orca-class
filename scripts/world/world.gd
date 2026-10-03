@@ -95,6 +95,65 @@ func _process(delta: float) -> void:
 	terrain.stream(rail.d)
 	stats.tick(step)
 	_update_nanites(step)
+	_update_drop_shadows()
+
+
+## Drop shadows: a dithered disc on the ground under the tank, every enemy and every shot, sized by
+## the body and fading as it rises, so heights and paths read at a glance (tuned live in the duel mode).
+static var DROP_SHADOW := 0.85 ## Density right under a body on the ground (0 turns them off).
+const DROP_SHADOW_FADE := 30.0 ## Metres of height at which a shadow is gone.
+const DROP_SHADOW_MAX := 400
+var _drop_shadows := _make_drop_shadows()
+
+
+func _make_drop_shadows() -> MultiMeshInstance3D:
+	var instance := MultiMeshInstance3D.new()
+	var quad := QuadMesh.new()
+	quad.size = Vector2(2, 2)
+	quad.orientation = PlaneMesh.FACE_Y
+	var material := ShaderMaterial.new()
+	material.shader = preload("res://shaders/drop_shadow.gdshader")
+	quad.material = material
+	var multimesh := MultiMesh.new()
+	multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	multimesh.use_custom_data = true
+	multimesh.mesh = quad
+	multimesh.instance_count = DROP_SHADOW_MAX
+	multimesh.visible_instance_count = 0
+	instance.multimesh = multimesh
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	instance.top_level = true
+	return instance
+
+
+func _update_drop_shadows() -> void:
+	if not _drop_shadows.is_inside_tree():
+		add_child(_drop_shadows)
+	var multimesh := _drop_shadows.multimesh
+	var count := 0
+	if DROP_SHADOW > 0.0:
+		var bodies: Array = []
+		bodies.append_array(enemies)
+		bodies.append_array(projectiles)
+		if player and not player.dead:
+			bodies.append(player)
+		for body: Node3D in bodies:
+			if count >= DROP_SHADOW_MAX:
+				break
+			if not is_instance_valid(body) or body.is_queued_for_deletion():
+				continue
+			var at := body.global_position
+			var ground := Course.height_at(at)
+			var height := at.y - ground
+			var fade := 1.0 - clampf(height / DROP_SHADOW_FADE, 0.0, 1.0)
+			if fade <= 0.0:
+				continue
+			var size := (body as Entity).radius if body is Entity else 0.5
+			size = maxf(size, 0.4) * (1.0 + clampf(height / DROP_SHADOW_FADE, 0.0, 1.0) * 0.6)
+			multimesh.set_instance_transform(count, Transform3D(Basis.from_scale(Vector3(size, 1.0, size)), Vector3(at.x, ground + 0.12, at.z)))
+			multimesh.set_instance_custom_data(count, Color(DROP_SHADOW * fade, 0, 0, 0))
+			count += 1
+	multimesh.visible_instance_count = count
 
 
 ## Melee salvage follows the moving claw mount; a missing tail receives it at the hull's rear.

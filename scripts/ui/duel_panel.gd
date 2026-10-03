@@ -46,6 +46,8 @@ var _rows: Array = [
 	["Pursuit: fill time (s)", func() -> float: return Director.PURSUIT_FILL, func(v: float) -> void: Director.PURSUIT_FILL = v, 0.2, 6.0, 0.1],
 	["Pursuit: first group size", func() -> float: return Director.PURSUIT_GROUP, func(v: float) -> void: Director.PURSUIT_GROUP = int(v), 2.0, 4.0, 1.0],
 	["Pursuit: group interval (s)", func() -> float: return Director.PURSUIT_INTERVAL, func(v: float) -> void: Director.PURSUIT_INTERVAL = v, 0.5, 8.0, 0.1],
+	["Scenery dither (x)", func() -> float: return DitherView.SCENERY_DITHER, func(v: float) -> void: DitherView.SCENERY_DITHER = v, 0.0, 1.5, 0.05],
+	["Drop shadow density", func() -> float: return World.DROP_SHADOW, func(v: float) -> void: World.DROP_SHADOW = v, 0.0, 1.0, 0.05],
 	["Hit weight (x)", func() -> float: return Tank.HIT_WEIGHT, func(v: float) -> void: Tank.HIT_WEIGHT = v, 0.0, 3.0, 0.05],
 ]
 var _grid := GridContainer.new()
