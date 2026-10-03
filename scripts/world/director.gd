@@ -45,7 +45,15 @@ const DUEL := {
 	"fpv": {"formation": "v", "height": 8.0, "spacing": 5.0},
 }
 
+## Pursuit: a tank that runs slow on the rail draws FPV pursuers from behind. Tuned live in the duel mode.
+static var PURSUIT_SLOW := 0.7 ## Share of cruise below which the tank counts as slow.
+static var PURSUIT_FILL := 1.5 ## Seconds of slowness before the first group launches.
+static var PURSUIT_GROUP := 2 ## Drones in the first group; each later group of the same spell has one more, up to 4.
+static var PURSUIT_INTERVAL := 2.5 ## Seconds between groups while the tank stays slow.
+const PURSUIT_MAX := 10 ## Pursuers alive at once, so a long crawl cannot bury the tank.
+
 var events: Array[Dictionary] = []
+var slow_meter := 0.0 ## 0..1: fills while the tank is slow on the rail, drains while it is fast.
 var scenery := Scenery.new()
 var section := Course.Section.FARM
 var _next_event := 0
@@ -54,6 +62,8 @@ var _hold_group: Array[Enemy] = [] ## A hold keeps the rail stopped until these 
 var _hold_left := 0.0 ## Seconds before a hold gives up and lets the rail run anyway.
 var _duel := false
 var _duel_wait := 0.0
+var _pursuit_wait := 0.0
+var _pursuit_groups := 0 ## Groups sent in the current spell of slowness.
 
 
 func begin(checkpoint: String) -> void:
@@ -110,6 +120,7 @@ func _process(delta: float) -> void:
 					var event: Dictionary = DUEL[kind].duplicate()
 					event.merge({"d": d, "kind": kind, "count": duel_counts[kind]})
 					spawn_wave(event)
+	_update_pursuit(delta)
 	if _hold_left > 0.0:
 		_hold_left -= delta
 		var alive := false
@@ -122,6 +133,53 @@ func _process(delta: float) -> void:
 	while _next_event < events.size() and events[_next_event].d <= d:
 		_fire(events[_next_event])
 		_next_event += 1
+
+
+## Only the rail running (never a hold, the duel or the arena) counts the tank's speed.
+func _update_pursuit(delta: float) -> void:
+	var world := World.current
+	if world.rail.mode != Rail.Mode.RAIL or world.player.dead:
+		slow_meter = 0.0
+		_pursuit_groups = 0
+		return
+	var forward := world.rail.speed + world.player.local_velocity.y
+	var slow := forward < PURSUIT_SLOW * Rail.CRUISE
+	slow_meter = clampf(slow_meter + (1.0 if slow else -1.0) * delta / PURSUIT_FILL, 0.0, 1.0)
+	if slow_meter <= 0.0:
+		_pursuit_groups = 0
+	if slow_meter < 1.0 or not slow:
+		return
+	_pursuit_wait -= delta
+	if _pursuit_wait <= 0.0:
+		_pursuit_wait = PURSUIT_INTERVAL
+		send_pursuers(clampi(PURSUIT_GROUP + _pursuit_groups, 2, 4), randi() % FpvDrone.Pattern.size())
+		_pursuit_groups += 1
+
+
+## Launches a group of FPV pursuers from behind, all flying `pattern`. None while PURSUIT_MAX are
+## already after the tank.
+func send_pursuers(count: int, pattern: FpvDrone.Pattern) -> Array[Enemy]:
+	var world := World.current
+	var sent: Array[Enemy] = []
+	var alive := world.enemies.filter(func(e: Entity) -> bool: return e is FpvDrone and (e as FpvDrone).state == FpvDrone.State.PURSUE).size()
+	if alive + count > PURSUIT_MAX:
+		return sent
+	var center := Vector3.ZERO
+	for i in count:
+		var drone := FpvDrone.new()
+		drone.state = FpvDrone.State.PURSUE
+		drone.pattern = pattern
+		drone.side = -1.0 if i % 2 == 0 else 1.0
+		drone.lag = FpvDrone.PURSUIT_START + i * 2.5
+		drone.phase = TAU * i / count
+		drone.despawn_behind = 0.0
+		drone.position = drone.pursuit_spot(world.player)
+		center += drone.position
+		world.add_enemy(drone)
+		sent.append(drone)
+	incoming.emit(center / count)
+	Sfx.play("dive", center / count, 0.0, 0.7)
+	return sent
 
 
 func _finish_section() -> void:

@@ -1,9 +1,19 @@
 class_name FpvDrone
 extends Enemy
 ## Kamikaze quadcopter. Weaves in, hangs ahead of the tank, flashes red and whines, then dives.
-## The dive commits to a predicted point, so a drift or brake makes it miss.
+## The dive commits to a predicted point, so a drift or brake makes it miss. A pursuer (sent by the
+## Director after a slow tank) instead flies one pattern up behind the tank, a little faster than
+## cruise, and dives once it is close: a tank at speed outruns it and it peels off.
 
-enum State { APPROACH, TELEGRAPH, DIVE, TUMBLE }
+enum State { APPROACH, TELEGRAPH, DIVE, TUMBLE, PURSUE }
+enum Pattern { SPIRAL, ARC, WEAVE, PINCER, ORBIT }
+
+## Tuned live in the duel mode, hence a static var.
+static var PURSUIT_SPEED := Rail.CRUISE * 1.25 ## Pursuers close on the tank this fast (m/s).
+const PURSUIT_START := 42.0 ## Meters behind the tank a pursuer launches from.
+const DIVE_LAG := 14.0 ## It stops flying its pattern and dives this close behind the tank.
+const PEEL_LAG := 90.0 ## Fallen this far behind it gives up and peels off.
+const HIT_HEIGHT := 1.3 ## Height over the ground every pattern ends at: the hull.
 
 const TELEGRAPH_TIME := 0.6
 const DIVE_SPEED := 34.0
@@ -14,12 +24,15 @@ var state := State.APPROACH
 var slot := Vector3(0, 8, 22) ## (u, height, distance ahead of the tank) it hovers at before diving.
 var approach_time := 2.5
 var from_behind := false
+var pattern := Pattern.SPIRAL ## Pursuers: the path flown up behind the tank.
+var side := 1.0 ## Pursuers: which flank a pincer takes.
+var lag := PURSUIT_START ## Pursuers: meters behind the tank along the road.
 var _state_time := 0.0
 var _dive_dir := Vector3.ZERO
 var _light: MeshInstance3D
 var _rotors: Array[Node3D] = []
 var _buzz: AudioStreamPlayer3D
-var _phase := randf() * TAU
+var phase := randf() * TAU
 
 
 func _init() -> void:
@@ -93,11 +106,11 @@ func behave(delta: float) -> void:
 				var away := global_position - tank.global_position
 				away.y = 0.0
 				target = tank.global_position + away.normalized().rotated(Vector3.UP, 0.4 * delta) * absf(slot.z)
-				target.y = Course.height_at(target) + 7.0 + sin(age * 3.1 + _phase) * 0.8
+				target.y = Course.height_at(target) + 7.0 + sin(age * 3.1 + phase) * 0.8
 			else:
 				var d := world.rail.d + tank.course_offset + slot.z
-				target = Course.to_world(d, slot.x + sin(age * 2.3 + _phase) * 2.5, 0.0)
-				target.y = Course.height(d, slot.x) + slot.y + sin(age * 3.1 + _phase) * 0.8
+				target = Course.to_world(d, slot.x + sin(age * 2.3 + phase) * 2.5, 0.0)
+				target.y = Course.height(d, slot.x) + slot.y + sin(age * 3.1 + phase) * 0.8
 			_steer(target, CRUISE_SPEED, 45.0, delta)
 			model.look_at(global_position + (tank.global_position - global_position) * Vector3(1, 0, 1) + Vector3(0.001, 0, 0), Vector3.UP)
 			if _state_time > approach_time and global_position.distance_to(tank.global_position) < 60.0:
@@ -113,8 +126,7 @@ func behave(delta: float) -> void:
 			_light.visible = fmod(_state_time, 0.12) < 0.07
 			if _state_time >= TELEGRAPH_TIME:
 				_light.visible = true
-				_dive_dir = (intercept(global_position, tank.hit_center(), tank.velocity, DIVE_SPEED) - global_position).normalized()
-				_set_state(State.DIVE)
+				_start_dive(tank)
 		State.DIVE:
 			# Commits to its line with only a little steering, so dodges work.
 			var to_tank := (intercept(global_position, tank.hit_center(), tank.velocity, DIVE_SPEED) - global_position).normalized()
@@ -130,8 +142,67 @@ func behave(delta: float) -> void:
 				_explode()
 			elif _state_time > DIVE_TIME:
 				despawn() # Outrun or dodged: it gives up quietly, no blast.
+		State.PURSUE:
+			_pursue(tank, delta)
 		State.TUMBLE:
 			_tumble(delta)
+
+
+## Flies the pattern while the tank's own speed decides the gap: it closes at PURSUIT_SPEED less
+## what the tank runs ahead at, so a faster tank leaves it behind.
+func _pursue(tank: Tank, delta: float) -> void:
+	var rail := World.current.rail
+	if rail.mode == Rail.Mode.ARENA:
+		_start_dive(tank)
+		return
+	lag += (rail.speed + tank.local_velocity.y - PURSUIT_SPEED) * delta
+	if lag <= DIVE_LAG:
+		_start_dive(tank)
+		return
+	if lag > PEEL_LAG:
+		despawn() # Outrun: it peels off without a blast.
+		return
+	global_position = pursuit_spot(tank)
+	if _buzz:
+		_buzz.pitch_scale = 0.9 + (1.0 - lag / PURSUIT_START) * 0.9 # The whine climbs as it closes.
+	var ahead := velocity.normalized() if velocity.length() > 1.0 else (tank.hit_center() - global_position).normalized()
+	model.look_at(global_position + ahead, Vector3.UP if absf(ahead.y) < 0.95 else Vector3.BACK)
+
+
+## Where the pattern puts this pursuer now, in the road's frame around the tank.
+func pursuit_spot(tank: Tank) -> Vector3:
+	var offset := pursuit_offset(pattern, lag / PURSUIT_START, side, phase)
+	var d := World.current.rail.d + tank.course_offset - lag - offset.z
+	var u := tank.course_u + offset.x
+	return Course.to_world(d, u, Course.height(d, u) + offset.y)
+
+
+## The pattern at `s`, the share of the launch gap still left (1 at launch, 0 on the tank), as
+## (across the road, height over the ground, extra distance behind the tank). Every pattern is
+## on the hull at s = 0.
+static func pursuit_offset(kind: Pattern, s: float, flank: float, phase: float) -> Vector3:
+	match kind:
+		Pattern.SPIRAL: # A corkscrew around the road's axis that tightens onto the tank.
+			var radius := 6.5 * s
+			var angle := phase + s * TAU * 3.0
+			return Vector3(cos(angle) * radius, HIT_HEIGHT + 2.0 * s + radius * (1.0 + sin(angle)) * 0.5, 0.0)
+		Pattern.ARC: # High above the tank, stooping onto it.
+			return Vector3(flank * 3.0 * s * sin(s * TAU * 1.5), HIT_HEIGHT + 26.0 * s * s, 0.0)
+		Pattern.WEAVE: # Low S-curves skimming the ground.
+			return Vector3(9.0 * sqrt(s) * sin(s * TAU * 2.5 + phase), HIT_HEIGHT + 0.6 * s, 0.0)
+		Pattern.PINCER: # Splits wide to either flank, then converges.
+			return Vector3(flank * 20.0 * sin(PI * s), HIT_HEIGHT + 2.0 * sin(PI * s), 0.0)
+		_: # Orbit: a loop around the tank before it dives.
+			var radius := 12.0 * sin(PI * s)
+			var angle := (1.0 - s) * TAU * 1.5 + phase
+			return Vector3(radius * sin(angle), HIT_HEIGHT + 3.0 * s + radius * 0.15 * (1.0 + sin(angle)), radius * (cos(angle) - 1.0))
+
+
+func _start_dive(tank: Tank) -> void:
+	(_light.material_override as StandardMaterial3D).albedo_color = Palette.RED
+	_light.visible = true
+	_dive_dir = (intercept(global_position, tank.hit_center(), tank.velocity, DIVE_SPEED) - global_position).normalized()
+	_set_state(State.DIVE)
 
 
 func _tumble(delta: float) -> void:
