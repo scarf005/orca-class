@@ -515,6 +515,13 @@ func _tail_kick(ground: Vector3) -> void:
 				world.fx.scorch(ground, 1.2)))
 
 
+## Which way the hull is actually going (in a drift the nose points elsewhere): rams throw what
+## they hit this way.
+func travel_direction() -> Vector3:
+	var flat := Vector3(velocity.x, 0.0, velocity.z)
+	return flat.normalized() if flat.length() > 2.0 else -global_basis.z
+
+
 ## Sixty tons flatten anything they touch the moment they touch it, landmarks included.
 func _collide_props() -> void:
 	for prop: Prop in World.current.props.in_radius(global_position, HULL_RADIUS):
@@ -522,7 +529,7 @@ func _collide_props() -> void:
 			continue
 		if prop.global_position.y > global_position.y + 2.5:
 			continue # Resting up high (a tree crown, a spire): the hull passes under it.
-		var ram := Hit.make(Hit.Kind.RAM, 99999.0, prop.global_position, -global_basis.z)
+		var ram := Hit.make(Hit.Kind.RAM, 99999.0, prop.global_position, travel_direction())
 		ram.source = self
 		prop.take_hit(ram)
 		_ram_jolt(prop.footprint)
@@ -556,14 +563,14 @@ func _ram_enemies() -> void:
 		var offset := entity.global_position - global_position
 		offset.y = 0.0
 		if offset.length() < HULL_RADIUS + entity.radius:
-			var ram := Hit.make(Hit.Kind.RAM, RAM_DAMAGE, entity.hit_center(), (-global_basis.z))
+			var ram := Hit.make(Hit.Kind.RAM, RAM_DAMAGE, entity.hit_center(), travel_direction())
 			ram.source = self
 			ram.salvage = true
 			ram.stagger = 1.5
 			entity.take_hit(ram)
 			world.shake(0.3)
 			world.hitstop(0.04)
-			world.fx.sparks(entity.hit_center(), -global_basis.z, 14, Palette.BUTTER, 12.0)
+			world.fx.sparks(entity.hit_center(), travel_direction(), 14, Palette.BUTTER, 12.0)
 			Sfx.play("impact", entity.global_position)
 
 
