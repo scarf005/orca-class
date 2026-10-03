@@ -3,9 +3,9 @@ extends Enemy
 ## Mid-boss rooted in the schoolyard. Three glowing nodes hide under spongy caps that burn off
 ## with fire (or wear down under heavy fire). With every node destroyed the core opens.
 ## Hits retain their weapon damage; damage left after breaking a cap reaches the node below.
-## Cannon rounds count in rounds, not raw damage: a plain shell is worth ROUND_DAMAGE and only half of
-## it on a node that has not been set alight, and coax a quarter on any weak point not burning; fire and
-## full charges (twice a round) land in full, and a full charge on the open core counts double again.
+## Cannon rounds count in rounds, not raw damage: a plain shell is worth ROUND_DAMAGE, coax a quarter
+## on any weak point not burning; fire and full charges land in full, and a full charge on the open
+## core counts double again. A round on the bare mass still reaches the nearest weak point, at half.
 ## Every attack shows where it will land before it hurts, and drifting sideways, moving or shooting a
 ## weak point gets out of it. Each lost node unlocks more of them (UNLOCK); with only the core left it
 ## layers a ground attack over a tendril one and rests for less.
@@ -248,21 +248,22 @@ func take_hit(hit: Hit) -> void:
 		for move in _moves.filter(func(m: Move) -> bool: return m.kind == Attack.SWEEP and m.time < 1.2):
 			_cancel(move)
 	_flesh_hit(hit)
-	if best == null or best_distance > (2.5 if hit.kind != Hit.Kind.BLAST else 5.0):
-		if hit.incendiary:
-			world.fx.spawn(Fx.Kind.FLAME, hit.position, Vector3.UP * 2.0, 0.4, 0.6, Palette.PEACH)
+	if best == null:
 		return
-	var amount := hit.damage
+	var near := best_distance <= (2.5 if hit.kind != Hit.Kind.BLAST else 5.0)
+	var amount := hit.damage * (1.0 if near else 0.5)
+	if not near and hit.incendiary:
+		world.fx.spawn(Fx.Kind.FLAME, hit.position, Vector3.UP * 2.0, 0.4, 0.6, Palette.PEACH)
 	var health_before := _total_hp()
-	if hit.kind == Hit.Kind.FIRE or hit.incendiary:
+	if near and (hit.kind == Hit.Kind.FIRE or hit.incendiary):
 		best.burn = BURN_TIME
 	var cannon := hit.kind == Hit.Kind.SHELL and hit.caliber >= 100
 	if cannon:
-		amount = hit.damage / Armament.SHELL_DAMAGE * ROUND_DAMAGE
+		amount *= ROUND_DAMAGE / Armament.SHELL_DAMAGE
 	if best == core and cannon and hit.power >= 1.0:
 		amount *= 2.0
 	elif best.burn <= 0.0 and hit.power < 1.0:
-		amount *= 0.25 if hit.kind == Hit.Kind.BULLET else 0.5 if cannon and best != core else 1.0
+		amount *= 0.25 if hit.kind == Hit.Kind.BULLET else 1.0
 	if best.cap > 0.0:
 		# Fire still burns caps four times faster; only the damage spent on the cap is absorbed.
 		var multiplier := 4.0 if hit.kind == Hit.Kind.FIRE or hit.incendiary else 1.0
