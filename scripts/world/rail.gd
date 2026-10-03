@@ -4,9 +4,16 @@ extends RefCounted
 
 enum Mode { RAIL, HOLD, ARENA }
 
-const CRUISE := 80.0 / 3.6 ## 80 km/h.
-const OVERDRIVE := 42.0
-const BRAKE := 8.0
+## Tuned live in the duel mode, hence static vars; overdrive and brake keep their ratio to cruise.
+static var CRUISE := 105.0 / 3.6 ## 105 km/h.
+static var OVERDRIVE := CRUISE * 1.9
+static var BRAKE := CRUISE * 0.36
+
+
+static func set_cruise(kmh: float) -> void:
+	CRUISE = kmh / 3.6
+	OVERDRIVE = CRUISE * 1.9
+	BRAKE = CRUISE * 0.36
 const METER_DRAIN := 0.45 ## Per second while boosting or braking.
 const METER_REFILL := 0.3
 

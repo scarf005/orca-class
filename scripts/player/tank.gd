@@ -789,9 +789,10 @@ func charge_time() -> float:
 	return (Armament.FULL_TIME - Armament.TAP_TIME) * modules.breech_factor() * quick
 
 
-## Seconds of hold at which the gun fires by itself: AUTO_FIRE_TIME, as long after full as it is for a whole breech.
+## Seconds of hold at which the gun fires by itself: the moment the third lock box lands, so holding
+## on never costs time.
 func auto_fire_hold() -> float:
-	return Armament.TAP_TIME + charge_time() + Armament.AUTO_FIRE_TIME - Armament.FULL_TIME
+	return Armament.TAP_TIME + charge_time()
 
 
 

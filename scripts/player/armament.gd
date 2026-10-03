@@ -54,7 +54,6 @@ static var COAX_BURST_GAP := 0.35 ## Seconds between the coax's bursts while it 
 static var COAX_BURST_ROUNDS := 6 ## Rounds a press fires from the coax (from each gun of the tier), however long the button is held.
 static var TAP_TIME := 0.0 ## Seconds a press waits before it locks and starts charging (0: at once).
 static var FULL_TIME := 1.0 ## Seconds of hold for a full charge.
-static var AUTO_FIRE_TIME := 1.5 ## Seconds of hold at which the gun fires by itself; the button must be pressed again.
 static var CANNON_RECOVER := 0.8 ## After a shot the gun cannot fire or charge for this long.
 static var LOCK_RADIUS := 64.0 ## 3D-view pixels around the reticle that a charge picks and locks its target within.
 const QUICK_DAMAGE := Vector2(800.0, 1500.0) ## APHE quick shell by charge.
