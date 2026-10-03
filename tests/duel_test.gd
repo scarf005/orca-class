@@ -9,6 +9,95 @@ class TestTuning extends GameTuning:
 		saved = true
 
 
+func test_duel_difficulty_is_scoped_to_the_world() -> void:
+	var saved := GameTuning.duel_difficulty
+	var normal_difficulty := Game.difficulty
+	Game.difficulty = Game.Difficulty.HARD
+	for mode in GameTuning.DUEL_DIFFICULTIES:
+		GameTuning.duel_difficulty = mode
+		var world := stage("duel")
+		world.process_mode = Node.PROCESS_MODE_DISABLED
+		check_eq(Game.difficulty, mode, "duel uses its selected difficulty")
+		check_eq(world.director._hard, mode == Game.Difficulty.HARD, "director initializes at duel difficulty")
+		check_near(Game.telegraph_scale(), 2.0 if mode == Game.Difficulty.EASY else 1.0, 0.001, "duel uses difficulty rules")
+		world.queue_free()
+		await frames(1)
+		check_eq(Game.difficulty, Game.Difficulty.HARD, "leaving duel preserves normal difficulty")
+		world = stage()
+		world.process_mode = Node.PROCESS_MODE_DISABLED
+		check_eq(Game.difficulty, Game.Difficulty.HARD, "normal stage ignores duel difficulty")
+		world.queue_free()
+		await frames(1)
+	Game.difficulty = normal_difficulty
+	GameTuning.duel_difficulty = saved
+
+
+func test_duel_difficulty_restarts_only_when_tuning_closes() -> void:
+	var saved := GameTuning.duel_difficulty
+	GameTuning.duel_difficulty = Game.Difficulty.NORMAL
+	var normal_difficulty := Game.difficulty
+	var screen := GameScreen.new()
+	screen.checkpoint = "duel"
+	add_child(screen)
+	screen.world.process_mode = Node.PROCESS_MODE_DISABLED
+	var panel: DuelPanel = screen.find_children("*", "DuelPanel", true, false)[0]
+	var tuning := TestTuning.new()
+	panel._tuning = tuning
+	var restarts: Array[String] = []
+	screen.restart.connect(func(checkpoint: String) -> void:
+		check(tuning.saved, "settings saved before restart")
+		restarts.append(checkpoint))
+	var row := tuning._rows.find(tuning._rows.filter(func(r: Array) -> bool: return r[0] == "Duel difficulty")[0])
+	var slider: HSlider = panel._grid.get_child(row * 3 + 1)
+	check_eq(slider.min_value, 0.0, "slider starts at Easy")
+	check_eq(slider.max_value, 2.0, "slider ends at Hard")
+	check_eq(slider.step, 1.0, "slider selects discrete difficulties")
+	_tab()
+	await frames(1)
+	slider.value = 0
+	slider.value = 1
+	_tab()
+	await frames(1)
+	check_eq(restarts.size(), 0, "returning to the original difficulty does not restart")
+	_tab()
+	await frames(1)
+	for index in [0, 1, 2]:
+		tuning.saved = false
+		slider.value = index
+		check_eq(GameTuning.duel_difficulty, GameTuning.DUEL_DIFFICULTIES[index], "slider stores selected difficulty")
+		var label: Label = panel._grid.get_child(row * 3 + 2)
+		check_eq(label.text, ["Easy", "Normal", "Hard"][index], "slider shows difficulty name")
+		await frames(1)
+	check_eq(restarts.size(), 0, "slider changes never interrupt tuning")
+	check(panel.visible and get_tree().paused, "tuning stays open while adjusting difficulty")
+	_tab()
+	await frames(1)
+	check_eq(restarts, ["duel"], "closing tuning restarts once with the final difficulty")
+	check(not panel.visible and not get_tree().paused, "Tab closes tuning before restarting")
+	_tab()
+	_tab()
+	await frames(1)
+	check_eq(restarts.size(), 1, "closing without a difficulty change does not restart")
+	screen.queue_free()
+	await frames(1)
+	check_eq(Game.difficulty, normal_difficulty, "slider leaves normal difficulty unchanged")
+	GameTuning.duel_difficulty = saved
+
+
+func test_duel_restart_preserves_speed_when_the_previous_world_exits() -> void:
+	var saved := GameTuning.duel_speed
+	GameTuning.duel_speed = 0.5
+	var previous := stage("duel")
+	previous.process_mode = Node.PROCESS_MODE_DISABLED
+	previous.queue_free()
+	var current := stage("duel")
+	current.process_mode = Node.PROCESS_MODE_DISABLED
+	await frames(1)
+	check_eq(World.current, current, "new duel remains the current world")
+	check_near(Engine.time_scale, 0.5, 0.0001, "old duel teardown does not reset the restarted duel speed")
+	GameTuning.duel_speed = saved
+
+
 func test_duel_speed_survives_hitstop_and_leaves_normal_stages_alone() -> void:
 	var saved := GameTuning.duel_speed
 	GameTuning.duel_speed = 0.5

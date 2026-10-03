@@ -43,7 +43,11 @@ var settings := {
 	"bindings": {},
 }
 
-var difficulty := Difficulty.NORMAL
+var difficulty := Difficulty.NORMAL:
+	get:
+		if World.current != null and World.current.difficulty_override >= 0:
+			return World.current.difficulty_override as Difficulty
+		return difficulty
 ## Name of the checkpoint the next stage load starts from; empty means the stage start.
 var checkpoint := ""
 var bests := {}

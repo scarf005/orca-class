@@ -2,8 +2,11 @@ class_name DuelPanel
 extends PanelContainer
 ## Tab opens live gameplay tuning and pauses the duel.
 
+signal restart_requested
+
 var _tuning := GameTuning.new()
 var _grid := GridContainer.new()
+var _difficulty := GameTuning.duel_difficulty
 
 
 func _ready() -> void:
@@ -62,6 +65,9 @@ func _input(event: InputEvent) -> void:
 		get_tree().paused = visible
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if visible else Input.MOUSE_MODE_CONFINED_HIDDEN
 		get_viewport().set_input_as_handled()
+		if not visible and _difficulty != GameTuning.duel_difficulty:
+			_difficulty = GameTuning.duel_difficulty
+			restart_requested.emit()
 
 
 static func _format(v: float, step: float, top: float) -> String:

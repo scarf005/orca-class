@@ -5,8 +5,12 @@ extends RefCounted
 const DEFAULT_PATH := "res://constants.cfg"
 const PATH := "user://constants.cfg"
 static var duel_speed := 1.0
+const DUEL_DIFFICULTIES := [Game.Difficulty.EASY, Game.Difficulty.NORMAL, Game.Difficulty.HARD]
+static var duel_difficulty := Game.Difficulty.NORMAL
 ## [label, getter, setter, min, max, step, optional value text]
 var _rows: Array = [
+	["Duel difficulty", func() -> float: return DUEL_DIFFICULTIES.find(duel_difficulty), func(v: float) -> void: duel_difficulty = DUEL_DIFFICULTIES[clampi(int(v), 0, 2)], 0.0, 2.0, 1.0,
+		func(v: float) -> String: return ["Easy", "Normal", "Hard"][int(v)]],
 	["Duel speed (x)", func() -> float: return duel_speed, func(v: float) -> void: duel_speed = clampf(v, 0.1, 2.0), 0.1, 2.0, 0.1],
 	["Round", func() -> float: return Director.duel_round, func(v: float) -> void: Director.duel_round = int(v) as Armament.Round, 0.0, Armament.Round.size() - 1.0, 1.0,
 		func(v: float) -> String: return Armament.ROUND_IDS[int(v)].to_upper()],

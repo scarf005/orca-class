@@ -37,6 +37,8 @@ var projectiles: Array[Projectile] = []
 var pickups: Array[Pickup] = []
 var boss: Entity
 
+var difficulty_override := -1 ## Duel-only; the normal run's selected difficulty stays untouched.
+
 var _nanites: Array[Dictionary] = []
 var _hitstop := 0.0
 var game_speed := 1.0:
@@ -57,7 +59,7 @@ func _enter_tree() -> void:
 func _exit_tree() -> void:
 	if current == self:
 		current = null
-	Engine.time_scale = 1.0
+		Engine.time_scale = 1.0
 
 
 func _ready() -> void:
@@ -79,6 +81,7 @@ func _ready() -> void:
 
 ## Starts a playable stage with the player, the director and scenery.
 func start_stage(checkpoint := "") -> void:
+	difficulty_override = GameTuning.duel_difficulty if checkpoint == "duel" else -1
 	game_speed = GameTuning.duel_speed if checkpoint == "duel" else 1.0
 	director = Director.new()
 	director.name = "Director"

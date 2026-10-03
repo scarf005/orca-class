@@ -33,7 +33,11 @@ func _ready() -> void:
 	hud.world = world
 	add_child(hud)
 	if checkpoint == "duel":
-		add_child(DuelPanel.new())
+		var panel := DuelPanel.new()
+		panel.restart_requested.connect(func() -> void:
+			world.process_mode = Node.PROCESS_MODE_DISABLED
+			restart.emit.call_deferred("duel"))
+		add_child(panel)
 	world.director.storm.connect(_on_storm)
 	world.director.checkpoint_reached.connect(func(name: String) -> void:
 		_reached_checkpoint = name
