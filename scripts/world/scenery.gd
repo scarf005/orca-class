@@ -323,10 +323,8 @@ func _overpass() -> void:
 	for td in [3040.0, 3140.0, 3220.0, 3300.0]:
 		add("truck" if _rng.randf() < 0.5 else "car", td, _rng.randf_range(-9.0, 9.0), _rng.randf_range(-0.4, 0.4))
 	_scatter("car", 2680.0, 2890.0, 10, 0.0, 12.0)
-	add_pickup("canister", 2700.0, 0.0)
 	add_pickup("era", 2950.0, -3.0)
 	add_pickup("tail", 3050.0, 4.0)
-	add_pickup("airburst", 3140.0, 4.0) # After the quad hold (armor turns its fragments), before the helicopters.
 	_fungus(2660.0, 2900.0, 1.8)
 
 

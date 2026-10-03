@@ -71,7 +71,8 @@ static func events(hard: bool) -> Array[Dictionary]:
 	wave.call(2980.0, "quad", {"count": 1, "u": 0.0, "ahead": 100.0, "props": {"weapon": "flak"}})
 	wave.call(3065.0, "quad", {"count": 2, "formation": "sides", "spacing": 7.0, "ahead": 100.0})
 	wave.call(3090.0, "walker", {"count": 3, "formation": "line", "spacing": 6.0, "ahead": 80.0, "props": {"weapon": "missile"}})
-	e.append({"d": 3105.0, "type": "hold", "at": 3120.0, "timeout": 40.0})
+	# The airburst for the flyers after it is the prize for clearing the quads, never shown while one lives.
+	e.append({"d": 3105.0, "type": "hold", "at": 3120.0, "timeout": 40.0, "reward": "airburst"})
 	wave.call(3150.0, "tiltrotor", {"count": 1, "height": 10.0, "ahead": 150.0, "u": -16.0, "hard_scale": 1.0})
 	wave.call(3185.0, "uav", {"count": 1, "formation": "line", "spacing": 10.0, "props": {"attack": "bomb", "from_behind": true}})
 	wave.call(3215.0, "fpv", {"count": 3, "formation": "ring", "height": 9.0, "spacing": 9.0, "stagger": 0.15})

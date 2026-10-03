@@ -60,6 +60,7 @@ var _next_event := 0
 var _hard := false
 var _hold_group: Array[Enemy] = [] ## A hold keeps the rail stopped until these are gone.
 var _hold_left := 0.0 ## Seconds before a hold gives up and lets the rail run anyway.
+var _hold_reward := "" ## Pickup dropped ahead of the tank when the hold group is cleared, never on a timeout.
 var _duel := false
 var _duel_wait := 0.0
 var _pursuit_wait := 0.0
@@ -126,8 +127,11 @@ func _process(delta: float) -> void:
 		var alive := false
 		for enemy in _hold_group:
 			alive = alive or (is_instance_valid(enemy) and not enemy.dead)
+		if not alive and not _hold_reward.is_empty():
+			world.spawn_pickup(_hold_reward, Course.ground_at(d + 30.0, 0.0) + Vector3.UP * 1.6)
 		if not alive or _hold_left <= 0.0:
 			_hold_left = 0.0
+			_hold_reward = ""
 			_hold_group.clear()
 			world.rail.mode = Rail.Mode.RAIL
 	while _next_event < events.size() and events[_next_event].d <= d:
@@ -218,6 +222,7 @@ func _fire(event: Dictionary) -> void:
 				world.rail.mode = Rail.Mode.HOLD
 				world.rail.hold_at = event.at
 				_hold_left = event.get("timeout", 30.0)
+				_hold_reward = event.get("reward", "")
 		"release":
 			world.rail.mode = Rail.Mode.RAIL
 		"boss":
