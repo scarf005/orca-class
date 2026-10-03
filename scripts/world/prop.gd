@@ -36,6 +36,7 @@ const BUILDINGS := ["house", "infested_house", "hall", "greenhouse", "church", "
 ## Tuned live in the duel mode, hence static vars: at 105 km/h a slow fall lands behind the tank.
 static var TOPPLE_TIME := 0.45 ## Seconds a tall thing takes to fall flat.
 static var COLLAPSE_TIME := 0.45 ## Seconds a building takes to sink or fold.
+static var KNOCK_SPEED := 22.0 ## m/s a tall thing is knocked flying at by a plain blow; harder ones throw it faster.
 const TALL := ["church_tower", "church_spire", "overpass_pier", "fungal_spire", "spore_tower", "flagpole"]
 
 
@@ -82,10 +83,6 @@ class Collapse extends Node3D:
 		var k := clampf(time / duration, 0.0, 1.0)
 		global_transform = start
 		match style:
-			CollapseStyle.TOPPLE:
-				# Accelerating rotation about the foot, not the mesh's center.
-				global_basis = Basis(axis, k * k * PI * 0.5) * start.basis
-				global_position.y = lerpf(start.origin.y, Course.height_at(start.origin), k)
 			CollapseStyle.RAM:
 				global_basis = Basis(axis, k * PI * 0.42) * start.basis.scaled_local(Vector3(1.0, lerpf(1.0, 0.12, k), 1.0))
 				global_position += push * width * k
@@ -115,8 +112,8 @@ class Collapse extends Node3D:
 		var ground := Vector3(global_position.x, Course.height_at(global_position), global_position.z)
 		world.fx.shockwave(ground, width * 2.5, Palette.MIST, 0.45)
 		world.fx.dust(ground, 12, width, Palette.MIST)
-		var impact := global_transform * bounds if style in [CollapseStyle.RAM, CollapseStyle.TOPPLE] else AABB(ground - Vector3(width, 0, width) * 0.5, Vector3(width, 1.0, width))
-		world.fx.shatter(impact, materials, push if style in [CollapseStyle.RAM, CollapseStyle.TOPPLE] else Vector3.ZERO, 0.35)
+		var impact := global_transform * bounds if style == CollapseStyle.RAM else AABB(ground - Vector3(width, 0, width) * 0.5, Vector3(width, 1.0, width))
+		world.fx.shatter(impact, materials, push if style == CollapseStyle.RAM else Vector3.ZERO, 0.35)
 		world.fx.smoke_column(ground, width)
 		world.shake(0.25, ground)
 		Sfx.play("rubble", ground)
@@ -125,7 +122,7 @@ class Collapse extends Node3D:
 			heap.mesh = rubble
 			heap.transform = Transform3D(start.basis, ground)
 			world.props.add_child(heap)
-		elif style != CollapseStyle.TOPPLE:
+		else:
 			# Even structures without a bespoke rubble mesh leave their own flattened outline.
 			for piece in pieces:
 				piece.reparent(world.props, true)
@@ -135,6 +132,18 @@ class Collapse extends Node3D:
 
 func _collapse(world: World, hit: Hit, style: CollapseStyle) -> void:
 	var model := get_node("Mesh") as MeshInstance3D
+	var push := Enemy.kill_push(hit)
+	var direction := Vector3(push.x, 0, push.z).normalized()
+	if direction == Vector3.ZERO:
+		direction = Vector3.FORWARD
+	if style == CollapseStyle.TOPPLE:
+		# Snapped at the foot and knocked flying whole, end over end along the blow.
+		var speed := maxf(KNOCK_SPEED * maxf(push.length(), 1.0), hit.speed * 1.3 if _rammed(hit) else 0.0)
+		var wreck := Wreck.launch(model, hit_center(), 1.0, hit != null and hit.by_player(), direction * speed + Vector3.UP * speed * 0.4, false)
+		wreck.spin = Vector3.UP.cross(direction) * (6.0 + speed * 0.15) / sqrt(maxf(height * 0.3, 1.0))
+		world.fx.shatter(AABB(global_position - Vector3(footprint, 0, footprint), Vector3(footprint * 2.0, 1.0, footprint * 2.0)), debris, push, 0.35)
+		felled.emit(self)
+		return
 	var chunks := PropKit.collapse_pieces(model.mesh)
 	var pieces: Array[MeshInstance3D] = []
 	for chunk in chunks:
@@ -144,10 +153,6 @@ func _collapse(world: World, hit: Hit, style: CollapseStyle) -> void:
 		world.add_child(piece)
 		pieces.append(piece)
 	model.hide()
-	var push := Enemy.kill_push(hit)
-	var direction := Vector3(push.x, 0, push.z).normalized()
-	if direction == Vector3.ZERO:
-		direction = Vector3.FORWARD
 	if style == CollapseStyle.TORN:
 		var biggest := 0
 		for i in pieces.size():
@@ -184,8 +189,6 @@ func _collapse(world: World, hit: Hit, style: CollapseStyle) -> void:
 		piece.reparent(motion, true)
 	if style == CollapseStyle.RAM:
 		world.fx.debris(hit_center(), 12, debris, 12.0 + minf(hit.speed, 30.0), 0.5, direction * 2.0)
-	if style == CollapseStyle.TOPPLE:
-		felled.emit(self)
 
 
 func _init() -> void:

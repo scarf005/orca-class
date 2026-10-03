@@ -50,6 +50,7 @@ var _rows: Array = [
 	["Drop shadow density", func() -> float: return World.DROP_SHADOW, func(v: float) -> void: World.DROP_SHADOW = v, 0.0, 1.0, 0.05],
 	["Topple time (s)", func() -> float: return Prop.TOPPLE_TIME, func(v: float) -> void: Prop.TOPPLE_TIME = v, 0.1, 2.0, 0.05],
 	["Collapse time (s)", func() -> float: return Prop.COLLAPSE_TIME, func(v: float) -> void: Prop.COLLAPSE_TIME = v, 0.1, 2.0, 0.05],
+	["Knock-flying speed (m/s)", func() -> float: return Prop.KNOCK_SPEED, func(v: float) -> void: Prop.KNOCK_SPEED = v, 5.0, 80.0, 1.0],
 	["Hit weight (x)", func() -> float: return Tank.HIT_WEIGHT, func(v: float) -> void: Tank.HIT_WEIGHT = v, 0.0, 3.0, 0.05],
 ]
 var _grid := GridContainer.new()
