@@ -114,7 +114,7 @@ func test_hold_to_the_auto_fire_time_fires_once_until_pressed_again() -> void:
 	var world := _rig()
 	var tank := world.player
 	Input.action_press("fire")
-	_step(tank, Armament.AUTO_FIRE_TIME - 0.05)
+	_step(tank, tank.auto_fire_hold() - 0.05)
 	check_eq(world.stats.shots, 0, "not yet")
 	_step(tank, 0.1)
 	check_eq(world.stats.shots, 1, "the gun fires by itself")
@@ -126,7 +126,7 @@ func test_hold_to_the_auto_fire_time_fires_once_until_pressed_again() -> void:
 	_step(tank, 0.0)
 	_step(tank, Armament.CANNON_RECOVER)
 	Input.action_press("fire")
-	_step(tank, Armament.AUTO_FIRE_TIME + 0.05)
+	_step(tank, tank.auto_fire_hold() + 0.05)
 	check_eq(world.stats.shots, 2, "a new press and hold fires the next")
 	Input.action_release("fire")
 
@@ -197,7 +197,7 @@ func test_breech_damage_slows_the_charge() -> void:
 	check_near(tank.charge_time(), base * 1.5, 0.0001, "damaged breech charges x1.5 slower")
 	tank.modules.damage("breech", 999.0)
 	check_near(tank.charge_time(), base * 3.0, 0.0001, "destroyed breech: x3")
-	check_near(tank.auto_fire_hold() - Armament.TAP_TIME - tank.charge_time(), Armament.AUTO_FIRE_TIME - Armament.FULL_TIME, 0.0001, "auto-fire still comes a fixed time after full")
+	check_near(tank.auto_fire_hold(), Armament.TAP_TIME + tank.charge_time(), 0.0001, "auto-fire follows the damaged breech's full charge without an extra delay")
 	Input.action_press("fire")
 	_step(tank, Armament.TAP_TIME + base * 2.0)
 	check(tank.charge < 1.0, "twice the usual charge time is not enough")
@@ -455,17 +455,16 @@ func test_charged_shot_hits_a_target_crossing_at_15_m_per_s() -> void:
 		tank.aim_screen = world.camera.unproject_position(enemy.hit_center())
 		tank._update_aim(delta)
 		_step(tank, delta)
-	Input.action_press("fire")
-	while tank.charge < 1.0:
-		steer.call()
-	steer.call()
-	check(tank.charge_lock == enemy, "full charge locks the crosser")
-	for _i in 12:
-		steer.call()
 	var before := enemy.hp
+	var shots := world.stats.shots
+	Input.action_press("fire")
+	for _i in 120:
+		steer.call()
+		if world.stats.shots > shots:
+			break
+	check_eq(world.stats.shots, shots + 1, "full charge automatically fires at the crosser")
+	check(tank.charge_lock == enemy, "full charge locks the crosser")
 	Input.action_release("fire")
-	enemy.global_position.x += 15.0 * delta
-	tank._update_aim(delta)
-	_step(tank, delta)
+	_step(tank, 0.0)
 	check(before - enemy.hp >= Armament.SHELL_DAMAGE, "the charged shell hits it (%.0f damage)" % (before - enemy.hp))
 	check(world.projectiles.all(func(p: Projectile) -> bool: return p.homing_target == null), "nothing homes")
