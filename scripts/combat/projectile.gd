@@ -172,9 +172,11 @@ func resolve_now(max_range: float) -> Vector3:
 	impacted.connect(func(_p: Projectile, point: Vector3, _t: Entity) -> void: end[0] = point)
 	var speed := maxf(velocity.length(), 1.0)
 	life = max_range / speed + 1.0
-	while not is_queued_for_deletion() and _traveled < max_range:
+	while not is_queued_for_deletion() and not _glanced and _traveled < max_range:
 		end[0] = global_position
 		step(6.0 / speed)
+	if _glanced:
+		return end[0] # The line ends where it glanced; the round tumbles off on its own from there.
 	if not is_queued_for_deletion():
 		end[0] = global_position
 		queue_free()

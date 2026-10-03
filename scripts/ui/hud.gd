@@ -496,7 +496,7 @@ func _draw_reticle() -> void:
 		# Rounds without a lock stack the same boxes on the far sight, where they will burst; the
 		# canister's boxes are its cone's footprint, choking down step by step.
 		var box := p.charge_ring_radius() * SCALE * 0.7 if p.current_round == Armament.Round.CANISTER else 16.0
-		_draw_lock_boxes(c, box, p.charge)
+		_draw_lock_boxes(c, box, p.charge, Armament.ROUND_COLORS[p.current_round])
 	# Chevron and stadia.
 	draw_polyline(PackedVector2Array([c + Vector2(-9, 9), c, c + Vector2(9, 9)]), color, 2.0)
 	for side in [-1.0, 1.0]:
@@ -540,7 +540,7 @@ func _draw_reticle() -> void:
 		bracket_color = Color(Palette.FRIENDLY, 0.6)
 	var width := 1.0 if candidate else 2.0
 	if charged_lock:
-		_draw_lock_boxes(center, s, p.charge)
+		_draw_lock_boxes(center, s, p.charge, Armament.ROUND_COLORS[p.current_round])
 	else:
 		if not p.is_charging():
 			_lock_boxes = 0
@@ -601,7 +601,8 @@ var _lock_boxes := 0
 var _lock_box_times: Array[float] = [0.0, 0.0, 0.0]
 
 
-func _draw_lock_boxes(center: Vector2, size: float, charge: float) -> void:
+## `tint` is the loaded round's color, so the sight says what is about to fire.
+func _draw_lock_boxes(center: Vector2, size: float, charge: float, tint: Color) -> void:
 	var count := Armament.stage(charge)
 	while _lock_boxes < count:
 		_lock_box_times[_lock_boxes] = _time
@@ -613,7 +614,7 @@ func _draw_lock_boxes(center: Vector2, size: float, charge: float) -> void:
 		var settle := ease(k, 0.35)
 		# Spins in a half turn as it lands, then keeps turning slowly, alternate boxes the other way.
 		var angle := (1.0 - settle) * PI * 0.5 + _time * (0.8 + i * 0.5) * (1.0 if i % 2 == 0 else -1.0)
-		var color := Palette.WHITE if k < 1.0 or (full and fmod(_time, 0.2) < 0.08) else Palette.AMBER
+		var color := Palette.WHITE if k < 1.0 or (full and fmod(_time, 0.2) < 0.08) else tint
 		_draw_lock_box(center, lerpf(size * 3.0, size * (1.0 + i * 0.32), settle), angle, color)
 	# The next box is already on its way: it swings in from wide as the charge climbs to its step,
 	# so even a round that fires on its first box shows that box locking in.

@@ -1075,7 +1075,7 @@ func _fire_canister(muzzle: Vector3, aim_dir: Vector3) -> void:
 		pellet.hit.source = self
 		pellet.hit.weapon = "canister" # Shreds: what it kills is torn apart and flung back.
 		pellet.hit.stagger = 0.4
-		pellet.impacted.connect(_count_hit, CONNECT_ONE_SHOT)
+		pellet.impacted.connect(_count_pellet, CONNECT_ONE_SHOT)
 		var end := pellet.resolve_now(Armament.CANISTER_RANGE)
 		world.fx.beam(muzzle, end, Palette.WHITE, 0.06, 0.08)
 		world.fx.beam(muzzle, end, Palette.BUTTER, 0.18, 0.14)
@@ -1201,6 +1201,13 @@ func _cannon_feedback(muzzle: Vector3, dir: Vector3, power := 0.0) -> void:
 
 
 ## Main-gun impacts. A shell landing on an enemy freezes the frame for a beat and bucks the camera.
+## A canister ball landing: counted, with no shell-sized freeze, flash or ring of its own (fifty of
+## those at once read as the whole cone exploding).
+func _count_pellet(_projectile: Projectile, _point: Vector3, target: Entity) -> void:
+	if target and target.team == Team.ENEMY:
+		World.current.stats.shot_hits += 1
+
+
 func _count_hit(projectile: Projectile, point: Vector3, target: Entity) -> void:
 	var world := World.current
 	var power := projectile.hit.power if projectile.hit else 0.0
