@@ -1,9 +1,10 @@
 class_name DuelPanel
 extends PanelContainer
 ## Live tuning for the duel mode: Tab opens sliders for the gun's timing, the hit's weight and the
-## hunters each round sends, and pauses the fight. Values are saved to user://duel_tuning.cfg and
-## loaded again on the next duel.
+## hunters each round sends, and pauses the fight. Repository defaults are loaded first, then
+## personal overrides saved to user://duel_tuning.cfg.
 
+const DEFAULT_PATH := "res://duel_tuning.cfg"
 const PATH := "user://duel_tuning.cfg"
 ## [label, getter, setter, min, max, step, optional value text]
 var _rows: Array = [
@@ -143,10 +144,11 @@ func save_values() -> void:
 	config.save(PATH)
 
 
-func load_values() -> void:
-	var config := ConfigFile.new()
-	if config.load(PATH) != OK:
-		return
-	for row: Array in _rows:
-		if config.has_section_key("duel", row[0]):
-			row[2].call(float(config.get_value("duel", row[0])))
+func load_values(user_path := PATH) -> void:
+	for path: String in [DEFAULT_PATH, user_path]:
+		var config := ConfigFile.new()
+		if config.load(path) != OK:
+			continue
+		for row: Array in _rows:
+			if config.has_section_key("duel", row[0]):
+				row[2].call(float(config.get_value("duel", row[0])))
