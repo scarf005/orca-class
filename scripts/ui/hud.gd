@@ -167,6 +167,7 @@ func _draw() -> void:
 	_draw_status()
 	_draw_weapons()
 	_draw_score()
+	_draw_speed()
 	_draw_progress()
 	_draw_boss()
 	_draw_banner()
@@ -376,7 +377,12 @@ const STYLE_COLORS: Array[Color] = [Palette.MIST, Palette.SKY, Palette.MINT, Pal
 func _draw_score() -> void:
 	var stats := world.stats
 	_text(Vector2(16, 32), "%08d" % stats.score, Palette.CREAM, 24)
-	_draw_style()
+
+
+func _draw_speed() -> void:
+	var velocity := world.player.velocity
+	var kmh := Vector2(velocity.x, velocity.z).length() * 3.6
+	_text(Vector2(800, 86), "%dkm/h" % roundi(kmh), Palette.CREAM, 24, HORIZONTAL_ALIGNMENT_RIGHT, 144.0)
 
 
 ## ULTRAKILL-style meter on the right: rank letter, rank name, drain bar and the recent tricks.
