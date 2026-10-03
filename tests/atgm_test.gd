@@ -80,19 +80,20 @@ func test_a_missile_re_locks_the_nearest_enemy_when_its_target_dies() -> void:
 	tank.load_round(Armament.Round.ATGM)
 	var origin := tank.hit_center() - Vector3(0, 0, 40)
 	var first := _enemy(world, origin)
-	var second := _enemy(world, origin + Vector3(30, 0, -40))
-	var behind := _enemy(world, tank.hit_center() + Vector3(0, 0, 30))
+	var far := _enemy(world, origin + Vector3(30, 0, -60))
 	tank.coax_target = first
 	tank.fire_cannon()
 	var missile: Projectile = _missiles(world)[0]
 	_fly(world, 0.05)
+	# Already flown past, but nearer than anything ahead: a strong seeker turns back for it.
+	var passed := _enemy(world, missile.global_position + Vector3(20, 0, 20))
 	first.dead = true
-	var hp := second.hp
+	var hp := passed.hp
 	_fly(world, 0.03)
-	check(missile.homing_target == second, "it turned on the nearest living enemy ahead, not the one behind")
+	check(missile.homing_target == passed, "it turned on the nearest living enemy, even one behind it")
 	_fly(world, 2.0)
-	check(second.hp < hp or second.dead, "and struck it")
-	check(not behind.dead, "the one behind it was left alone")
+	check(passed.hp < hp or passed.dead, "and struck it")
+	check(not far.dead, "the farther one was left alone")
 
 
 func test_a_missile_with_nothing_to_lock_flies_straight_and_expires() -> void:

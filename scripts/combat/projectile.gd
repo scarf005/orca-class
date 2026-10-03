@@ -151,16 +151,16 @@ func _seeking() -> bool:
 	return is_instance_valid(homing_target) and not (homing_target is Entity and (homing_target.dead or homing_target in _hit_entities))
 
 
-## Locks the nearest living hostile within `retarget_range` that is not behind the seeker, if any.
+## Locks the nearest living hostile within `retarget_range`, if any: the seeker turns hard enough to
+## come back for one it has already flown past.
 func _retarget() -> void:
 	homing_target = null
 	homing_part = ""
 	_lead_velocity = Vector3.INF
-	var forward := velocity.normalized()
 	var best := retarget_range
 	for entity in World.current.targets_for(team):
 		var offset := entity.hit_center() - global_position
-		if entity.dead or entity is Flare or entity in _hit_entities or offset.dot(forward) <= 0.0 or offset.length() >= best:
+		if entity.dead or entity is Flare or entity in _hit_entities or offset.length() >= best:
 			continue
 		best = offset.length()
 		homing_target = entity
