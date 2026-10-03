@@ -357,6 +357,7 @@ func _airburst(point: Vector3) -> void:
 		var dir := Vector3(randf_range(-1, 1), randf_range(-0.35, 0.35), randf_range(-1, 1)).normalized()
 		var fragment := World.current.spawn_projectile(team, point, dir * 90.0, "fragment")
 		fragment.hit = Hit.make(Hit.Kind.FRAGMENT, hit.damage, point)
+		fragment.hit.caliber = Armament.AIRBURST_FRAGMENT_CALIBER # Heavy fragments: armor thicker than this turns them.
 		fragment.hit.source = hit.source if is_instance_valid(hit.source) else null
 		fragment.hit.weapon = hit.weapon
 		fragment.life = 0.26

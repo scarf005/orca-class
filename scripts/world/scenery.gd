@@ -323,7 +323,7 @@ func _overpass() -> void:
 	add_pickup("canister", 2700.0, 0.0)
 	add_pickup("era", 2950.0, -3.0)
 	add_pickup("tail", 3050.0, 4.0)
-	add_pickup("airburst", 3180.0, 4.0)
+	add_pickup("airburst", 3140.0, 4.0) # After the quad hold (armor turns its fragments), before the helicopters.
 	_fungus(2660.0, 2900.0, 1.8)
 
 

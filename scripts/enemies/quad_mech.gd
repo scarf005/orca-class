@@ -49,7 +49,6 @@ func _init() -> void:
 	super()
 	wreck_on_death = true
 	max_hp = 2400.0
-	heavy = true
 	hp = 2400.0
 	radius = 2.6
 	center_height = 2.6

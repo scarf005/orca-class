@@ -19,7 +19,7 @@ var weakness := {} ## Hit.Kind -> damage multiplier.
 var death_radius := 2.0 ## Size of the death blast: half the model's longest side, set once it is built.
 var debris: Array = [Fx.Debris.ARMOR, Fx.Debris.METAL] ## Fx.Debris materials it breaks into.
 var drop := ""
-var heavy := false ## Heavy armor: canister balls and airburst fragments barely scratch it.
+var heavy := false ## A boss's hide: canister balls and airbursts barely scratch it.
 var stagger := 0.0
 var burning := 0.0
 var can_stagger := true
@@ -335,10 +335,10 @@ static func dismember_focus(push: Vector3) -> float:
 
 
 const CANISTER_THROW := 3.0
-const HEAVY_AREA := 0.08 ## What heavy armor lets through of a canister ball or an airburst fragment.
+const HEAVY_AREA := 0.08 ## What a boss's hide lets through of a canister ball or an airburst.
 
 
-## Canister balls and airburst fragments: many small hits that shred light things and only scratch armor.
+## Canister balls and airburst fragments: they wreck ordinary enemies and only scratch a boss's hide.
 static func is_area_round(hit: Hit) -> bool:
 	return hit.kind == Hit.Kind.FRAGMENT or hit.weapon == "canister"
 const KILL_SHELL_SPEED := 260.0 ## A shell this fast throws the remains at the base push; faster ones by their kinetic energy.

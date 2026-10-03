@@ -82,14 +82,18 @@ func damage_multiplier(hit: Hit) -> float:
 	# Bullets that cannot beat the armor glance off; the ones that can still lose most of their bite.
 	if glances(hit):
 		return 0.0
-	if hit.kind == Hit.Kind.BULLET and not hit.pierce and armor > 0.0:
+	if hit.kind in SMALL_HITS and not hit.pierce and armor > 0.0:
 		return maxf(0.2, (hit.caliber - armor) / maxf(float(hit.caliber), 1.0))
 	return 1.0
 
 
-## Whether `hit` is a bullet this armor turns: it ricochets off for nothing.
+## Bullets and fragments: the hits armor in millimetres stops or blunts.
+const SMALL_HITS := [Hit.Kind.BULLET, Hit.Kind.FRAGMENT]
+
+
+## Whether `hit` is a bullet or fragment this armor turns: it ricochets off for nothing.
 func glances(hit: Hit) -> bool:
-	return hit.kind == Hit.Kind.BULLET and not hit.pierce and armor > 0.0 and hit.caliber <= armor
+	return hit.kind in SMALL_HITS and not hit.pierce and armor > 0.0 and hit.caliber <= armor
 
 
 func take_hit(hit: Hit) -> void:
