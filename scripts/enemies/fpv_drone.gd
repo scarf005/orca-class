@@ -8,6 +8,7 @@ enum State { APPROACH, TELEGRAPH, DIVE, TUMBLE }
 const TELEGRAPH_TIME := 0.6
 const DIVE_SPEED := 34.0
 const CRUISE_SPEED := 30.0
+const DIVE_TIME := 5.0 ## A dive that has not landed by now gives up: the tank got away.
 
 var state := State.APPROACH
 var slot := Vector3(0, 8, 22) ## (u, height, distance ahead of the tank) it hovers at before diving.
@@ -112,14 +113,14 @@ func behave(delta: float) -> void:
 			_light.visible = fmod(_state_time, 0.12) < 0.07
 			if _state_time >= TELEGRAPH_TIME:
 				_light.visible = true
-				var lead := tank.global_position + Vector3.UP * 1.2 + tank.velocity * 0.45
-				_dive_dir = (lead - global_position).normalized()
+				_dive_dir = (intercept(global_position, tank.hit_center(), tank.velocity, DIVE_SPEED) - global_position).normalized()
 				_set_state(State.DIVE)
 		State.DIVE:
 			# Commits to its line with only a little steering, so dodges work.
-			var to_tank := (tank.hit_center() - global_position).normalized()
+			var to_tank := (intercept(global_position, tank.hit_center(), tank.velocity, DIVE_SPEED) - global_position).normalized()
 			_dive_dir = _dive_dir.slerp(to_tank, clampf(0.6 * delta, 0.0, 1.0))
 			global_position += _dive_dir * DIVE_SPEED * delta
+			global_position.y = maxf(global_position.y, Course.height_at(global_position) + 0.5) # Skims the ground, never crashes into it.
 			model.look_at(global_position + _dive_dir, Vector3.UP if absf(_dive_dir.y) < 0.95 else Vector3.BACK)
 			if tank.hit_center().distance_to(global_position) < tank.radius + 0.8 and not tank.dead:
 				var boom := Hit.make(Hit.Kind.BLAST, 14.0, global_position, _dive_dir)
@@ -127,9 +128,8 @@ func behave(delta: float) -> void:
 				boom.warhead = true
 				tank.take_hit(boom)
 				_explode()
-			elif global_position.y < Course.height_at(global_position) + 0.3 or _state_time > 3.0:
-				World.current.blast(global_position, 3.0, 8.0, Team.ENEMY)
-				despawn()
+			elif _state_time > DIVE_TIME:
+				despawn() # Outrun or dodged: it gives up quietly, no blast.
 		State.TUMBLE:
 			_tumble(delta)
 
@@ -140,6 +140,25 @@ func _tumble(delta: float) -> void:
 	model.rotate_x(delta * 9.0)
 	if global_position.y < Course.height_at(global_position):
 		die(Hit.make(Hit.Kind.BLAST, 99.0, global_position))
+
+
+## Where a flyer at `speed` meets a target moving at `target_velocity`; the target's own spot
+## when it cannot catch up.
+static func intercept(from: Vector3, target: Vector3, target_velocity: Vector3, speed: float) -> Vector3:
+	var offset := target - from
+	var a := target_velocity.length_squared() - speed * speed
+	var b := 2.0 * offset.dot(target_velocity)
+	var c := offset.length_squared()
+	var time := -1.0
+	if absf(a) < 0.0001:
+		time = -c / b if b < 0.0 else -1.0
+	else:
+		var disc := b * b - 4.0 * a * c
+		if disc >= 0.0:
+			var roots := [(-b - sqrt(disc)) / (2.0 * a), (-b + sqrt(disc)) / (2.0 * a)]
+			roots = roots.filter(func(t: float) -> bool: return t > 0.0)
+			time = roots.min() if not roots.is_empty() else -1.0
+	return target + target_velocity * minf(time, 2.0) if time > 0.0 else target
 
 
 func _steer(target: Vector3, max_speed: float, accel: float, delta: float) -> void:
