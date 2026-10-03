@@ -27,7 +27,8 @@ func _ready() -> void:
 	world.process_mode = Node.PROCESS_MODE_PAUSABLE
 	view.viewport.add_child(world)
 	world.start_stage(checkpoint)
-	world.player.load_round(Director.duel_round)
+	if checkpoint == "duel":
+		world.player.load_round(Director.duel_round)
 	_reached_checkpoint = checkpoint
 	hud.world = world
 	add_child(hud)

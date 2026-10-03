@@ -68,7 +68,7 @@ func test_every_game_start_reloads_all_settings_before_creating_the_world() -> v
 		var screen: GameScreen = main._screen
 		for i in tuning._rows.size():
 			check_near(tuning._rows[i][1].call(), expected[i], 0.0001, "%s loads %s" % [checkpoint, tuning._rows[i][0]])
-		check_eq(screen.world.player.current_round, Director.duel_round, "initial round uses settings")
+		check_eq(screen.world.player.current_round, Director.duel_round if checkpoint == "duel" else Armament.Round.APHE, "only duel starts with the selected round")
 		check_near(screen.world.rail.speed, Rail.CRUISE, 0.0001, "rail is constructed with tuned cruise")
 		check_eq(screen.find_children("*", "DuelPanel", true, false).size(), 1 if checkpoint == "duel" else 0, "tuning UI stays duel-only")
 		main.queue_free()
