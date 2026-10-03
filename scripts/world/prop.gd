@@ -136,16 +136,6 @@ func _collapse(world: World, hit: Hit, style: CollapseStyle) -> void:
 	var direction := Vector3(push.x, 0, push.z).normalized()
 	if direction == Vector3.ZERO:
 		direction = Vector3.FORWARD
-	if style == CollapseStyle.TOPPLE:
-		# Snapped at the foot and knocked flying whole, end over end along the blow.
-		# A low, short flight: it clears the tank and lands within a few lengths, not across the valley.
-		var speed := KNOCK_SPEED * clampf(maxf(push.length(), hit.speed / 30.0 if _rammed(hit) else 0.0), 1.0, 2.0)
-		var wreck := Wreck.launch(model, hit_center(), 1.0, hit != null and hit.by_player(), Vector3.ZERO, false)
-		wreck.velocity = direction * speed + Vector3.UP * (3.0 + speed * 0.2)
-		wreck.spin = Vector3.UP.cross(direction) * (5.0 + speed * 0.2) / sqrt(maxf(height * 0.3, 1.0))
-		world.fx.shatter(AABB(global_position - Vector3(footprint, 0, footprint), Vector3(footprint * 2.0, 1.0, footprint * 2.0)), debris, push, 0.35)
-		felled.emit(self)
-		return
 	var chunks := PropKit.collapse_pieces(model.mesh)
 	var pieces: Array[MeshInstance3D] = []
 	for chunk in chunks:
@@ -155,6 +145,19 @@ func _collapse(world: World, hit: Hit, style: CollapseStyle) -> void:
 		world.add_child(piece)
 		pieces.append(piece)
 	model.hide()
+	if style == CollapseStyle.TOPPLE:
+		# Snapped at the foot and knocked flying in pieces, tumbling on along the blow. A low, short
+		# flight: it clears the tank and lands within a few lengths, not across the valley.
+		var speed := KNOCK_SPEED * clampf(maxf(push.length(), hit.speed / 30.0 if _rammed(hit) else 0.0), 1.0, 2.0)
+		for piece in pieces:
+			var at := piece.global_transform * piece.mesh.get_aabb().get_center()
+			var wreck := Wreck.launch(piece, at, 1.0, hit != null and hit.by_player(), Vector3.ZERO, false)
+			var spread := Vector3(randf_range(-2.0, 2.0), randf_range(0.0, 2.0), randf_range(-2.0, 2.0))
+			wreck.velocity = direction * speed * randf_range(0.8, 1.2) + Vector3.UP * (3.0 + speed * 0.2) + spread
+			wreck.spin = Vector3.UP.cross(direction) * (5.0 + speed * 0.2) + Vector3(randf_range(-3, 3), randf_range(-3, 3), randf_range(-3, 3))
+		world.fx.shatter(AABB(global_position - Vector3(footprint, 0, footprint), Vector3(footprint * 2.0, 1.0, footprint * 2.0)), debris, push, 0.35)
+		felled.emit(self)
+		return
 	if style == CollapseStyle.TORN:
 		var biggest := 0
 		for i in pieces.size():
@@ -429,3 +432,8 @@ func on_death(hit: Hit) -> void:
 		rubble.mesh = rubble_mesh
 		rubble.transform = global_transform
 		world.props.add_child(rubble)
+
+
+## Scenery takes no white hit flash: only units flash when struck.
+func flash() -> void:
+	pass
