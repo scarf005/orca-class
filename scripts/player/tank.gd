@@ -322,7 +322,7 @@ func _wade_spray(delta: float) -> void:
 ## While a charge lock is held, sideways driving slows as the locked target nears the edge of the
 ## lock's hold on screen, down to a stop, so weaving left and right never shakes the lock off.
 func _lock_move_factor() -> float:
-	if not is_instance_valid(charge_lock):
+	if not is_instance_valid(charge_lock) or not is_charging():
 		return 1.0
 	# The lock itself never lets go while charging, so what matters is the target staying in view:
 	# full speed while it is well inside the screen, a stop as it nears the edge (the camera keeps
@@ -773,6 +773,8 @@ func _cancel_charge() -> void:
 	_burst = 0.0
 	_salvo.clear()
 	micro_marked.clear()
+	charge_lock = null
+	charge_part = ""
 
 
 func _reset_charge() -> void:
@@ -780,9 +782,7 @@ func _reset_charge() -> void:
 	charge = 0.0
 	_hold = 0.0
 	_auto_fire = false
-	charge_lock = null
-	charge_part = ""
-	charge_candidate = null
+	charge_candidate = null # The lock outlives the shot: only its target dying or leaving the view drops it.
 
 
 func is_charging() -> bool:
@@ -905,13 +905,13 @@ func _nearest_lockable() -> Array:
 
 
 func _update_charge_lock() -> void:
-	if (not is_charging() and not _fire_released) or modules.lock_factor() <= 0.0 or current_round in AREA_ROUNDS or current_round == Armament.Round.MICRO:
+	if modules.lock_factor() <= 0.0 or current_round in AREA_ROUNDS or current_round == Armament.Round.MICRO:
 		charge_lock = null
 		charge_part = ""
 		charge_candidate = null
 		return
-	# While the gun charges, the lock holds whatever the sight does; only the target dying or going
-	# out of view drops it. Driving is slowed instead (`_lock_move_factor`) to keep it on screen.
+	# Through charges and shots alike, the lock holds whatever the sight does; only the target dying
+	# or going out of view drops it. Driving is slowed instead (`_lock_move_factor`) to keep it on screen.
 	if is_instance_valid(charge_lock) and _charge_distance(charge_lock, charge_part) < INF:
 		return
 	charge_lock = null
