@@ -12,7 +12,9 @@ func _ready() -> void:
 	if not script_path.is_empty():
 		_run_script(script_path)
 		return
-	if OS.get_cmdline_user_args().has("--play"):
+	if OS.get_cmdline_user_args().has("--tutorial"):
+		_open_tutorial()
+	elif OS.get_cmdline_user_args().has("--play"):
 		start_game("")
 	elif OS.get_cmdline_user_args().has("--duel"):
 		start_game("duel")
@@ -26,7 +28,15 @@ func show_title() -> void:
 	_swap(load("res://scripts/ui/title.gd").new())
 	_screen.start.connect(start_game)
 	_screen.debug_room.connect(_open_debug_room)
+	_screen.tutorial.connect(_open_tutorial)
 	_screen.quit_requested.connect(_quit)
+
+
+func _open_tutorial() -> void:
+	var tutorial := Tutorial.new()
+	tutorial.exit.connect(show_title)
+	tutorial.start.connect(start_game)
+	_swap(tutorial)
 
 
 func _open_debug_room() -> void:

@@ -3,6 +3,57 @@ TITLE,orca class,orca class
 TITLE_SUB,범고래급 · 운전수 하윤,ORCA-CLASS · DRIVER HA YOON
 TITLE_TAGLINE,1스테이지 — 균사에 먹힌 마을,STAGE 1 — THE VILLAGE THE FUNGUS ATE
 TITLE_BEST,최고 점수 %d,BEST %d
+MENU_TUTORIAL,처음이라면 — 조작 연습,FIRST TIME? LEARN THE CONTROLS
+TUTORIAL_TITLE,조작 연습,Learn the controls
+TUTORIAL_STEP,조작 연습  %d / %d,Practice  %d / %d
+TUTORIAL_WELCOME,"아래 보이는 전차를 직접 움직여 볼 거예요. 여기서는 공격받지 않아요.
+천천히 읽으세요. 준비되면 아래 '연습 시작'을 누르세요.","You'll drive the tank below. Nothing here will attack you.
+Take your time. Click 'Begin practice' below when you're ready."
+TUTORIAL_LEFT,"%s
+전차가 화면 왼쪽으로 움직여요. 움직인 뒤에는 손을 떼세요.","%s
+The tank moves to the left of the screen. Then let go."
+TUTORIAL_RIGHT,"%s
+전차가 화면 오른쪽으로 움직여요. 움직인 뒤에는 손을 떼세요.","%s
+The tank moves to the right of the screen. Then let go."
+TUTORIAL_FORWARD,"%s
+화면 위쪽으로 조금 가 보세요. 다 움직였으면 손을 떼세요.","%s
+Drive a little toward the top of the screen, then let go."
+TUTORIAL_BACK,"%s
+화면 아래쪽으로 조금 내려온 뒤 손을 떼세요.","%s
+Drive a little toward the bottom of the screen, then let go."
+TUTORIAL_STOP,"누르고 있던 이동 키에서 손을 떼세요. 전차가 멈춰요.
+이 연습장에서는 손을 떼면 멈추지만, 본 게임에서는 길을 따라 계속 전진해요.","Let go of the movement keys. The tank stops.
+In the main game, it keeps driving along the road even when you let go."
+TUTORIAL_AIM,"마우스를 책상 위에서 천천히 움직여 보세요. 화면의 + 표시가 따라와요.
++ 표시를 노란 동그라미 안으로 옮기세요. 아직 버튼은 누르지 마세요.","Move your mouse slowly across your desk. The + on screen follows it.
+Move the + inside the yellow circle. Don't press a button yet."
+TUTORIAL_FIRE,"+ 표시를 노란 동그라미 안에 놓으세요. %s
+누르고 있으면 주포가 발사돼요. 빗나가도 괜찮아요. 다시 겨누고 눌러 보세요.","Keep the + inside the yellow circle. %s
+The main gun fires after a short hold. If you miss, aim and try again."
+TUTORIAL_DONE,"이동하고 표적을 맞혔어요. 여기서 더 연습해도 돼요.
+본 게임에서는 겨눈 적에게 기관총도 자동으로 쏴요. '쉬움으로 시작'을 누르면 본 게임으로 가요.","You've moved the tank and hit the target. You can keep practicing here.
+In the main game, machine guns also fire at enemies you aim at. 'Play on easy' starts the game."
+TUTORIAL_BEGIN,연습 시작,Begin practice
+TUTORIAL_NEXT,다음,Next
+TUTORIAL_START_GAME,쉬움으로 시작,Play on easy
+TUTORIAL_LEAVE,첫 화면으로,Back to title
+TUTORIAL_RESTART,처음부터 연습,Practice again
+TUTORIAL_OK,됐어요. 준비되면 아래 '다음'을 누르세요.,Done. Click 'Next' below when you're ready.
+TUTORIAL_HIT,표적에 맞았어요. 아래 '다음'을 누르세요.,You hit the target. Click 'Next' below.
+TUTORIAL_KEY,키보드에서 %s 키를 찾아 누르고 있어 보세요.,Find the %s key on your keyboard and hold it down.
+TUTORIAL_STICK,왼쪽 스틱을 '%s' 방향으로 기울이세요.,Push the left stick in the %s direction.
+TUTORIAL_TRIGGER,오른쪽 방아쇠 버튼을 계속 누르세요.,Hold down the right trigger.
+TUTORIAL_MOUSE_1,마우스 왼쪽 버튼을 계속 누르세요.,Hold down the left mouse button.
+TUTORIAL_MOUSE_2,마우스 오른쪽 버튼을 계속 누르세요.,Hold down the right mouse button.
+TUTORIAL_MOUSE_3,마우스 가운데 버튼을 계속 누르세요.,Hold down the middle mouse button.
+TUTORIAL_MOUSE_8,마우스 4번 버튼을 계속 누르세요.,Hold down mouse button 4.
+TUTORIAL_MOUSE_9,마우스 5번 버튼을 계속 누르세요.,Hold down mouse button 5.
+TUTORIAL_STOP_PAD,"왼쪽 스틱에서 손을 떼세요. 전차가 멈춰요.
+이 연습장에서는 손을 떼면 멈추지만, 본 게임에서는 길을 따라 계속 전진해요.","Let go of the left stick. The tank stops.
+In the main game, it keeps driving along the road even when you let go."
+TUTORIAL_AIM_PAD,"오른쪽 스틱을 천천히 기울여 보세요. 화면의 + 표시가 따라와요.
++ 표시를 노란 동그라미 안으로 옮기세요. 아직 버튼은 누르지 마세요.","Tilt the right stick slowly. The + on screen follows it.
+Move the + inside the yellow circle. Don't press a button yet."
 MENU_START_EASY,출격 — 쉬움,SORTIE — EASY
 MENU_START_NORMAL,출격 — 보통,SORTIE — NORMAL
 MENU_START_HARD,출격 — 어려움,SORTIE — HARD
