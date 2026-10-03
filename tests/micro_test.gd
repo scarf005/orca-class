@@ -207,6 +207,35 @@ func test_initial_split_is_an_even_cone_for_each_salvo_size_and_barrel_angle() -
 	Armament.MICRO_INITIAL_SPLIT = saved_split
 
 
+func test_each_finished_missile_removes_only_its_own_mark() -> void:
+	var world := _rig()
+	var tank := world.player
+	var enemy := _row(world, 1)[0]
+	enemy.hp = 1.0e9
+	_hold_on(world, enemy, Armament.MICRO_STACK_INTERVAL * 3.0 + 0.05)
+	_hold_on(world, enemy, Armament.MICRO_RIPPLE * 4.0)
+	Input.action_release("fire")
+	var shots := _missiles(world)
+	check_eq(tank.micro_marked.size(), 4, "one mark per pending projectile")
+	shots[0].detonate(enemy.hit_center(), enemy)
+	check_eq(tank.micro_marked.size(), 3, "contact removes only that missile's mark")
+	shots[1].detonate(shots[1].global_position, null)
+	check_eq(tank.micro_marked.size(), 2, "a miss removes its mark")
+	shots[2].life = 0.0
+	shots[2].step(DT)
+	await frames(2)
+	check_eq(tank.micro_marked.size(), 1, "expiry removes its mark")
+	tank._cancel_charge()
+	tank.load_round(Armament.Round.MICRO)
+	_hold_on(world, enemy, DT)
+	_release(world)
+	check_eq(tank.micro_marked.size(), 1, "a new salvo on the same target")
+	shots[3].queue_free()
+	await frames(2)
+	check_eq(tank.micro_marked.size(), 1, "an old missile cannot remove a new identical lock")
+	check(not enemy.dead, "the target is still alive")
+
+
 func test_four_micro_missiles_carry_one_full_charge_between_them() -> void:
 	var world := _rig()
 	var tank := world.player
