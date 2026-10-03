@@ -3,6 +3,7 @@ extends Control
 
 signal start(checkpoint: String)
 signal debug_room
+signal quit_requested
 
 const SCENE_D := 575.0
 
@@ -54,7 +55,7 @@ func _show_main() -> void:
 	_menu.add_item(tr("MENU_DEBUG_ROOM"), func() -> void: debug_room.emit())
 	_menu.add_item(tr("MENU_SETTINGS"), _show_settings)
 	if not OS.has_feature("web"):
-		_menu.add_item(tr("MENU_QUIT"), func() -> void: get_tree().quit())
+		_menu.add_item(tr("MENU_QUIT"), func() -> void: quit_requested.emit())
 	add_child(_menu)
 
 

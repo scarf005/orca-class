@@ -71,6 +71,26 @@ func _ready() -> void:
 	add_child(_combat)
 	music.bus = &"Music"
 	add_child(music)
+	for player in [_ui, _combat, music]:
+		_release_on_exit(player)
+
+
+## Stop playback before clearing streams so the audio server releases its voices at shutdown.
+func _release_on_exit(player: Node) -> void:
+	player.add_to_group(&"sfx_players")
+	player.tree_exiting.connect(func() -> void:
+		player.stop()
+		player.stream = null
+	)
+
+
+## Godot retains active voices when quitting before the audio thread processes their stop.
+## https://github.com/godotengine/godot/issues/76745
+func stop_all() -> void:
+	for player in get_tree().get_nodes_in_group(&"sfx_players"):
+		player.stop()
+		player.stream = null
+	_music_path = ""
 
 
 func stream(name: String) -> AudioStream:
@@ -91,6 +111,7 @@ func _ensure_pool() -> bool:
 		_pool_owner = world
 		for i in POOL_SIZE:
 			var player := AudioStreamPlayer3D.new()
+			_release_on_exit(player)
 			player.bus = &"SFX"
 			player.unit_size = 18.0
 			player.max_distance = 260.0
@@ -132,6 +153,7 @@ func gun(name: String, pitch := 1.0) -> void:
 		return
 	if not _guns.has(name):
 		var player := AudioStreamPlayer.new()
+		_release_on_exit(player)
 		player.bus = &"SFX"
 		player.max_polyphony = 8
 		player.stream = audio
@@ -193,6 +215,7 @@ func loop(name: String, parent: Node3D, volume_db := 0.0) -> AudioStreamPlayer3D
 		wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
 		wav.loop_end = int(wav.get_length() * wav.mix_rate)
 	var player := AudioStreamPlayer3D.new()
+	_release_on_exit(player)
 	player.stream = audio
 	player.bus = &"SFX"
 	player.volume_db = SOUNDS[name][1] + volume_db

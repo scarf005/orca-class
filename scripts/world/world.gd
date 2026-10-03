@@ -68,6 +68,7 @@ func _ready() -> void:
 	_projectile_container.name = "Projectiles"
 	add_child(_projectile_container)
 	add_child(camera)
+	add_child(_drop_shadows)
 	terrain.stream(rail.d, true)
 
 
@@ -127,8 +128,6 @@ func _make_drop_shadows() -> MultiMeshInstance3D:
 
 
 func _update_drop_shadows() -> void:
-	if not _drop_shadows.is_inside_tree():
-		add_child(_drop_shadows)
 	var multimesh := _drop_shadows.multimesh
 	var count := 0
 	if DROP_SHADOW > 0.0:

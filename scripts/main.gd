@@ -3,9 +3,11 @@ extends Node
 ## with `run() -> int`) instead of the game; its return value becomes the exit code.
 
 var _screen: Node
+var _quitting := false
 
 
 func _ready() -> void:
+	get_tree().auto_accept_quit = false
 	var script_path := _arg("run")
 	if not script_path.is_empty():
 		_run_script(script_path)
@@ -24,6 +26,7 @@ func show_title() -> void:
 	_swap(load("res://scripts/ui/title.gd").new())
 	_screen.start.connect(start_game)
 	_screen.debug_room.connect(_open_debug_room)
+	_screen.quit_requested.connect(_quit)
 
 
 func _open_debug_room() -> void:
@@ -56,6 +59,23 @@ func _run_script(path: String) -> void:
 	var node: Node = load(path).new()
 	add_child(node)
 	var code: int = await node.run()
+	_quit(code)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_quit()
+
+
+func _quit(code := 0) -> void:
+	if _quitting:
+		return
+	_quitting = true
+	get_tree().paused = true
+	Sfx.stop_all()
+	# Real time, not frame time: fixed-FPS tools can outrun the audio thread.
+	# Let stopped voices mix out before the server shuts down.
+	OS.delay_msec(100)
 	get_tree().quit(code)
 
 

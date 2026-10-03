@@ -12,6 +12,30 @@ func test_script_runs_are_silent() -> void:
 	check(world.player._engine_sound == null, "a silent run does not create the engine loop")
 
 
+func test_leaving_the_tree_releases_every_audio_channel() -> void:
+	var world := stage()
+	var audio: Node = load("res://scripts/core/sfx.gd").new()
+	add_child(audio)
+	Game.silent = false
+	audio.ui("ui_select")
+	audio.gun("cannon")
+	audio.confirm_hit(true)
+	audio.play_music("res://assets/music/title.ogg")
+	audio.play("blast", world.player.global_position)
+	var engine: AudioStreamPlayer3D = audio.loop("engine", world.player)
+	Game.silent = true
+	var players: Array = audio.get_children()
+	players.append_array(audio._pool)
+	players.append(engine)
+	check(engine != null and engine.stream != null, "the engine loop starts with a stream")
+	check(audio.music.playing, "music plays before leaving the tree")
+	remove_child(world)
+	remove_child(audio)
+	for player: Node in players:
+		check(not player.playing and player.stream == null, "leaving the tree stops and clears %s" % player.get_class())
+	audio.free()
+
+
 const CANNON := "res://assets/audio/synth/cannon.wav"
 
 
