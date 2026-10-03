@@ -3,7 +3,9 @@ extends Node3D
 ## The Orca-class's low-poly body: hull and tracks, a turret with the 100 mm gun, coaxial guns
 ## that change with the upgrade tier, the laser RWS and the gunner's FCS sight on the roof. The tail is built by `Tail`.
 
-const COAX_SLOTS: Array[Vector3] = [Vector3(0.62, 0.12, -0.35), Vector3(-0.62, 0.12, -0.35), Vector3(0.0, 0.62, -0.1)]
+# Receivers sit behind the mantlet; only the short barrels emerge beside the main gun.
+const COAX_SLOTS: Array[Vector3] = [Vector3(0.31, 0.0, 0.1), Vector3(-0.31, 0.0, 0.1), Vector3(0.0, 0.20, 0.1)]
+const COAX_LENGTHS := {8: 0.7, 15: 0.85, 20: 1.0}
 
 var hull := Node3D.new()
 var turret := Node3D.new()
@@ -83,10 +85,10 @@ func set_coax_guns(calibers: Array) -> void:
 		var gun := Node3D.new()
 		gun.position = COAX_SLOTS[i]
 		coax_root.add_child(gun)
-		var length := {8: 1.3, 15: 1.8, 20: 2.4}[calibers[i]] as float
+		var length := COAX_LENGTHS[calibers[i]] as float
 		_mesh(gun, _coax_mesh(calibers[i], length))
 		var tip := Node3D.new()
-		tip.position = Vector3(0, 0, -length - 0.3)
+		tip.position = Vector3(0, 0.02, -length - 0.3)
 		gun.add_child(tip)
 		coax_muzzles.append(tip)
 
@@ -210,11 +212,11 @@ static func _coax_mesh(caliber: int, length: float) -> Mesh:
 	var b := LowPoly.new()
 	var body := {8: Vector3(0.18, 0.2, 0.6), 15: Vector3(0.26, 0.28, 0.8), 20: Vector3(0.34, 0.36, 1.0)}[caliber] as Vector3
 	var color := {8: Palette.SLATE, 15: Palette.DUSK, 20: Palette.INK}[caliber] as Color
-	b.box(Transform3D(Basis(), Vector3(0, 0, 0.1)), body, color)
+	b.box(Transform3D(Basis(), Vector3(0, 0, 0.45)), body, color)
 	var radius := {8: 0.035, 15: 0.055, 20: 0.075}[caliber] as float
 	b.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3(0, 0.02, -0.3)), radius, length, 6, color)
 	if caliber == 20:
-		b.box(Transform3D(Basis(), Vector3(0.24, -0.05, 0.1)), Vector3(0.14, 0.3, 0.5), Palette.OCHRE)
+		b.box(Transform3D(Basis(), Vector3(0.24, -0.05, 0.45)), Vector3(0.14, 0.3, 0.5), Palette.OCHRE)
 		b.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3(0, 0.02, -length + 0.1)), radius * 1.6, 0.3, 6, color)
 	return b.mesh()
 

@@ -306,7 +306,7 @@ func _rebuild_coax_view(calibers: Array) -> void:
 	for i in calibers.size():
 		var caliber: int = calibers[i]
 		var gun := MeshInstance3D.new()
-		gun.mesh = TankModel._coax_mesh(caliber, {8: 1.3, 15: 1.8, 20: 2.4}[caliber])
+		gun.mesh = TankModel._coax_mesh(caliber, TankModel.COAX_LENGTHS[caliber])
 		gun.position = Vector3(0, 0.35 - i * 0.35, 0)
 		gun.material_override = WireView.line(Armament.GUNS[caliber].color)
 		_coax_view.root.add_child(gun)
