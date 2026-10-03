@@ -11,6 +11,7 @@ func test_debug_room_shows_everything() -> void:
 	check(room.world.enemies.any(func(e: Entity) -> bool: return e is Helicopter), "ordinary helicopter is displayed")
 	check(room.world.enemies.any(func(e: Entity) -> bool: return e is Gunship), "twin-rotor boss is displayed separately")
 	check(room.world.pickups.size() == Pickup.IDS.size(), "every pickup is shown")
+	check(not room.world.pickups.any(func(p: Pickup) -> bool: return p.id in ["canister", "airburst"]), "disabled rounds do not spawn in the debug room")
 	var enemy_count := room.world.enemies.size()
 	await frames(30)
 	check_eq(room.world.enemies.size(), enemy_count, "posed enemies do not act, leave or attack")

@@ -5,7 +5,7 @@ extends Node3D
 const COLLECT_RADIUS := 4.5
 const MAGNET_RADIUS := 40.0 ## Within this, every pickup flies to the tank on its own.
 const MAGNET_SPEED := 60.0
-const IDS := ["coax", "heat", "canister", "dragon", "apfsds", "airburst", "atgm", "micro", "repair", "life", "era", "tail", "rws"]
+const IDS := ["coax", "heat", "dragon", "apfsds", "atgm", "micro", "repair", "life", "era", "tail", "rws"]
 
 var id := "coax"
 var collected := false
