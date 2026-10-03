@@ -33,6 +33,9 @@ const DRAW_DISTANCE := 150.0 ## Fog hides small props well before this.
 
 enum CollapseStyle { NONE, TORN, SINK, RAM, TOPPLE, BURN }
 const BUILDINGS := ["house", "infested_house", "hall", "greenhouse", "church", "church_nave", "church_tower", "church_spire", "school", "school_wing", "school_center", "gas_station", "bus_stop", "pavilion", "overpass_pier", "overpass_deck", "pier", "gate"]
+## Tuned live in the duel mode, hence static vars: at 105 km/h a slow fall lands behind the tank.
+static var TOPPLE_TIME := 0.45 ## Seconds a tall thing takes to fall flat.
+static var COLLAPSE_TIME := 0.45 ## Seconds a building takes to sink or fold.
 const TALL := ["church_tower", "church_spire", "overpass_pier", "fungal_spire", "spore_tower", "flagpole"]
 
 
@@ -48,9 +51,9 @@ func collapse_style(hit: Hit) -> CollapseStyle:
 			return CollapseStyle.TORN
 	if falls or kind in TALL:
 		return CollapseStyle.TOPPLE
-	if hit != null and hit.kind == Hit.Kind.RAM and (hit.speed >= 5.0 or hit.damage >= max_hp):
-		return CollapseStyle.RAM
-	return CollapseStyle.SINK
+	# Everything else bursts into its roof and walls too: rammed, they fly on along the tank's
+	# travel; shot by lighter guns, they fall apart outward, slower.
+	return CollapseStyle.TORN
 
 
 ## Detached visuals outlive the dead prop: scoring, loot and collateral still happen once,
@@ -75,7 +78,7 @@ class Collapse extends Node3D:
 		age += delta
 		var burning := style == CollapseStyle.BURN and age < 2.8
 		var time := maxf(age - (2.8 if style == CollapseStyle.BURN else 0.0), 0.0)
-		var duration := 0.65 if style == CollapseStyle.RAM else 1.2
+		var duration := Prop.COLLAPSE_TIME * (0.55 if style == CollapseStyle.RAM else 1.0)
 		var k := clampf(time / duration, 0.0, 1.0)
 		global_transform = start
 		match style:
@@ -150,13 +153,16 @@ func _collapse(world: World, hit: Hit, style: CollapseStyle) -> void:
 		for i in pieces.size():
 			if pieces[i].mesh.get_aabb().get_volume() > pieces[biggest].mesh.get_aabb().get_volume():
 				biggest = i
-		var energy := clampf(pow(hit.speed / Enemy.KILL_SHELL_SPEED, 2.0), 0.5, Enemy.KILL_THROW_MAX) if hit.speed > 0.0 else maxf(push.length(), 0.5)
+		var rammed := hit != null and hit.kind == Hit.Kind.RAM
+		var shell := hit != null and hit.caliber >= 100
+		var energy := clampf(pow(hit.speed / Enemy.KILL_SHELL_SPEED, 2.0), 0.5, Enemy.KILL_THROW_MAX) if shell and hit.speed > 0.0 else (1.4 if rammed else 0.6)
 		for i in pieces.size():
 			var piece := pieces[i]
 			var at := piece.global_transform * piece.mesh.get_aabb().get_center()
 			var out := at - hit_center()
 			out.y = maxf(out.y, 0.0) + 2.0
-			out = (out.normalized() + direction * 0.35 + Vector3.UP * 0.4).normalized()
+			# A ram flings the walls on ahead of the hull; anything else bursts them outward.
+			out = (out.normalized() + direction * (1.6 if rammed else 0.35) + Vector3.UP * 0.4).normalized()
 			var size := maxf(piece.mesh.get_aabb().size.length() * 0.25, 0.3)
 			Wreck.launch(piece, at, size, hit.by_player(), out * (10.0 + energy * 7.0) * sqrt(maxf(size, 1.0)), i == biggest)
 		world.fx.shatter(visual_bounds(), debris, push, 0.25)
@@ -260,7 +266,7 @@ func tick(delta: float) -> void:
 		return
 	delta = World.current.unfrozen(delta)
 	_topple += delta
-	var k := minf(_topple / (0.7 if falls else 1.1), 1.0)
+	var k := minf(_topple / (TOPPLE_TIME * (0.6 if falls else 1.0)), 1.0)
 	global_basis = Basis(_topple_axis, k * k * PI * 0.5) * _topple_start.basis
 	global_position.y = lerpf(_topple_start.origin.y, Course.height_at(_topple_start.origin), k)
 	if k >= 1.0:
