@@ -1096,6 +1096,7 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 
 			# A slow, visible round with a proximity fuse: it bursts into a ring of shot as it passes
 			# near any enemy, or at the end of its range.
 			shell.hit.damage = Armament.AIRBURST_FRAGMENT_DAMAGE / Armament.SHELL_DAMAGE_SCALE # Scaled back up below.
+			shell.hit.weapon = "airburst" # An area round even when it strikes something itself.
 			shell.velocity = dir * Armament.AIRBURST_SPEED
 			shell.life = Armament.SHELL_RANGE / Armament.AIRBURST_SPEED
 			shell.fuse_distance = Armament.SHELL_RANGE

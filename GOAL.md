@@ -182,7 +182,7 @@ Each enemy has a distinct silhouette, a clear telegraph before it attacks, a sat
 A broad, heavily armed gunship partly overtaken by mycelium, with a rotor on each wing, a chin cannon,
 outboard missile racks, ATGMs and flares. Nose and flank plates pop when a shell hits them; about ten
 full-charge hits anywhere bring it down (a quick shell counts half). Each rotor is a separate module: losing one slows the gunship and leaves
-it banking at lower altitude; losing both starts its crash. Destroying the chin gun or both missile racks stops
+it banking at lower altitude, but only the hull's hits bring it down. Destroying the chin gun or both missile racks stops
 that attack. It fights in three phases, each with new patterns and visible damage:
 
 1. **Hunter:** circles at range, strafes with its chin gun, and fires rocket volleys that test the CIWS heat limit.

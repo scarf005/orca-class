@@ -159,7 +159,9 @@ func _drive(world: World, t: float) -> void:
 			Input.action_press("fire")
 			_last_tap = t
 	elif bot == "charge":
-		if _charge_started >= 0.0 and tank.charge >= 1.0:
+		# Let go at full charge, or once a special round has fired itself at its step.
+		if _charge_started >= 0.0 and (tank.charge >= 1.0 or world.stats.shots != _shots_seen):
+			_shots_seen = world.stats.shots
 			Input.action_release("fire")
 			_charge_started = -1.0
 		elif target and _charge_started < 0.0:
