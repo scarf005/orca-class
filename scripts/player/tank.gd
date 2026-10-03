@@ -97,6 +97,7 @@ var charge_lock: Entity
 var charge_part := ""
 var charge_candidate: Entity ## What a hold would lock right now, shown while charging.
 var micro_locks: Array[Array] = [] ## Micro-missile locks as [Entity, part], one per missile the release will fire.
+var micro_marked: Array[Array] = [] ## Locks already fired, as [Entity, part]: they stay until their target dies or leaves the view.
 var _hold := 0.0 ## Seconds the fire button has been held since the gun recovered.
 var _fire_held := false
 var _micro_since := INF ## Seconds since the held button painted its last micro-missile lock.
@@ -771,6 +772,7 @@ func _cancel_charge() -> void:
 	_recover = 0.0
 	_burst = 0.0
 	_salvo.clear()
+	micro_marked.clear()
 
 
 func _reset_charge() -> void:
@@ -810,6 +812,7 @@ func _update_charge(delta: float) -> void:
 	if not input_enabled or dead or _respawn > 0.0:
 		_cancel_charge()
 		return
+	micro_marked = micro_marked.filter(func(lock: Array) -> bool: return is_instance_valid(lock[0]) and _charge_distance(lock[0], lock[1]) < INF)
 	var held := Input.is_action_pressed("fire")
 	_fire_released = _fire_held and not held
 	var waited := minf(_recover, delta)
@@ -1091,6 +1094,7 @@ func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO, power := 0.0) -> v
 		Armament.Round.MICRO:
 			for i in micro_locks.size():
 				_salvo.append([micro_locks[i][0], micro_locks[i][1], i * Armament.MICRO_RIPPLE, i])
+			micro_marked.append_array(micro_locks)
 		_:
 			_fire_shell(round, muzzle, shot_dir.call(shell_speed(power)), power)
 	if round != Armament.Round.APHE:

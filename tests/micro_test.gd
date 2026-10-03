@@ -88,6 +88,10 @@ func test_the_fourth_lock_fires_the_salvo_at_once() -> void:
 	check(_missiles(world).all(func(m: Projectile) -> bool: return m.homing_target == enemy), "all of them on the one enemy")
 	check_eq(tank.round_count, Armament.MAGAZINE[Armament.Round.MICRO] - 1, "one round for the whole salvo")
 	check(tank.micro_locks.is_empty(), "the locks are spent")
+	check_eq(tank.micro_marked.size(), Armament.MICRO_LOCKS, "but they stay marked on the target while the missiles fly")
+	enemy.dead = true
+	tank._update_charge(DT)
+	check(tank.micro_marked.is_empty(), "until it dies")
 	Input.action_release("fire")
 
 

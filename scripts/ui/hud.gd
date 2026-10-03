@@ -637,17 +637,20 @@ func _draw_micro_locks(p: Tank) -> void:
 	var cam := world.camera
 	var tint: Color = Armament.ROUND_COLORS[Armament.Round.MICRO]
 	var boxes := {}
-	for i in p.micro_locks.size():
-		var target: Entity = p.micro_locks[i][0]
+	# Fired locks first, settled, then the ones still being painted, each spinning in.
+	var locks := p.micro_marked + p.micro_locks
+	for i in locks.size():
+		var target: Entity = locks[i][0]
 		var parts := target.aim_parts()
-		var part: String = p.micro_locks[i][1]
+		var part: String = locks[i][1]
 		var focus: Vector3 = parts[part][0] if parts.has(part) else target.hit_center()
 		var size: float = parts[part][1] * 0.5 if parts.has(part) else target.radius
 		if cam.is_position_behind(focus):
 			continue
 		var n: int = boxes.get(target, 0)
 		boxes[target] = n + 1
-		var k := clampf((_time - _micro_times[i]) / LOCK_BOX_IN, 0.0, 1.0)
+		var painted := i - p.micro_marked.size()
+		var k := clampf((_time - _micro_times[painted]) / LOCK_BOX_IN, 0.0, 1.0) if painted >= 0 else 1.0
 		var settle := ease(k, 0.35)
 		var half := 18.0 + size * 3.0
 		var angle := (1.0 - settle) * PI * 0.5 + _time * (0.8 + n * 0.5) * (1.0 if n % 2 == 0 else -1.0)
