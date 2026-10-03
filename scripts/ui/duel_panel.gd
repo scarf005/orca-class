@@ -46,6 +46,8 @@ func _ready() -> void:
 			row[2].call(v)
 			if row[0] == "Round" and World.current != null and World.current.player != null:
 				World.current.player.load_round(Director.duel_round)
+			if row[0] == "Duel speed (x)" and World.current != null and World.current.director._duel:
+				World.current.game_speed = GameTuning.duel_speed
 			value.text = text.call(v)
 			_tuning.save_values())
 		_grid.add_child(name)

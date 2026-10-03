@@ -39,6 +39,11 @@ var boss: Entity
 
 var _nanites: Array[Dictionary] = []
 var _hitstop := 0.0
+var game_speed := 1.0:
+	set(value):
+		game_speed = value
+		if current == self:
+			Engine.time_scale = game_speed * (0.05 if _hitstop > 0.0 else 1.0)
 var _chain := 0
 var _last_kill := -INF
 var _enemy_container := Node3D.new()
@@ -74,6 +79,7 @@ func _ready() -> void:
 
 ## Starts a playable stage with the player, the director and scenery.
 func start_stage(checkpoint := "") -> void:
+	game_speed = GameTuning.duel_speed if checkpoint == "duel" else 1.0
 	director = Director.new()
 	director.name = "Director"
 	add_child(director)
@@ -88,7 +94,7 @@ func _process(delta: float) -> void:
 	if _hitstop > 0.0:
 		_hitstop -= delta / maxf(Engine.time_scale, 0.001)
 		if _hitstop <= 0.0:
-			Engine.time_scale = 1.0
+			Engine.time_scale = game_speed
 	var step := minf(delta, 1.0 / 30.0)
 	for projectile in projectiles.duplicate():
 		if is_instance_valid(projectile) and not projectile.is_queued_for_deletion():
@@ -506,7 +512,7 @@ func hitstop(duration: float) -> void:
 	if duration <= _hitstop:
 		return
 	_hitstop = duration
-	Engine.time_scale = 0.05
+	Engine.time_scale = game_speed * 0.05
 
 
 func screen_flash(color: Color, amount: float) -> void:

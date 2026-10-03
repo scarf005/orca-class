@@ -2,6 +2,59 @@ extends TestCase
 ## The duel prototype: a held rail and its live tuning panel.
 
 
+class TestTuning extends GameTuning:
+	var saved := false
+
+	func save_values() -> void:
+		saved = true
+
+
+func test_duel_speed_survives_hitstop_and_leaves_normal_stages_alone() -> void:
+	var saved := GameTuning.duel_speed
+	GameTuning.duel_speed = 0.5
+	var world := stage("duel")
+	world.set_process(false)
+	world.director.set_process(false)
+	world.player.set_process(false)
+	check_near(Engine.time_scale, 0.5, 0.0001, "duel starts at the selected speed")
+	world.hitstop(0.1)
+	check_near(Engine.time_scale, 0.025, 0.0001, "hitstop scales with duel speed")
+	world._process(0.005)
+	check_near(Engine.time_scale, 0.5, 0.0001, "hitstop restores duel speed")
+	world.queue_free()
+	await frames(1)
+	check_near(Engine.time_scale, 1.0, 0.0001, "leaving duel restores normal speed")
+	world = stage()
+	check_near(Engine.time_scale, 1.0, 0.0001, "normal stages ignore the duel setting")
+	GameTuning.duel_speed = saved
+
+
+func test_duel_speed_slider_applies_live_and_saves() -> void:
+	var saved := GameTuning.duel_speed
+	var world := stage("duel")
+	world.set_process(false)
+	world.director.set_process(false)
+	world.player.set_process(false)
+	var tuning := TestTuning.new()
+	var panel := DuelPanel.new()
+	panel._tuning = tuning
+	add_child(panel)
+	var row := tuning._rows.find(tuning._rows.filter(func(r: Array) -> bool: return r[0] == "Duel speed (x)")[0])
+	var slider: HSlider = panel._grid.get_child(row * 3 + 1)
+	for speed in [0.1, 2.0, 1.0]:
+		slider.value = speed
+		check_near(GameTuning.duel_speed, speed, 0.0001, "slider changes stored speed")
+		check_near(Engine.time_scale, speed, 0.0001, "slider changes duel speed immediately")
+	world.hitstop(0.1)
+	slider.value = 0.5
+	check_near(Engine.time_scale, 0.025, 0.0001, "changing speed preserves active hitstop")
+	world._process(0.005)
+	check_near(Engine.time_scale, 0.5, 0.0001, "hitstop restores the newly selected speed")
+	check(tuning.saved, "slider saves settings")
+	panel.queue_free()
+	GameTuning.duel_speed = saved
+
+
 func test_missile_turn_options_have_independent_setters() -> void:
 	var panel := GameTuning.new()
 	var options := {

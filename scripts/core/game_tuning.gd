@@ -4,8 +4,10 @@ extends RefCounted
 
 const DEFAULT_PATH := "res://constants.cfg"
 const PATH := "user://constants.cfg"
+static var duel_speed := 1.0
 ## [label, getter, setter, min, max, step, optional value text]
 var _rows: Array = [
+	["Duel speed (x)", func() -> float: return duel_speed, func(v: float) -> void: duel_speed = clampf(v, 0.1, 2.0), 0.1, 2.0, 0.1],
 	["Round", func() -> float: return Director.duel_round, func(v: float) -> void: Director.duel_round = int(v) as Armament.Round, 0.0, Armament.Round.size() - 1.0, 1.0,
 		func(v: float) -> String: return Armament.ROUND_IDS[int(v)].to_upper()],
 	["Coax burst (rounds)", func() -> float: return Armament.COAX_BURST_ROUNDS, func(v: float) -> void: Armament.COAX_BURST_ROUNDS = int(v), 1.0, 20.0, 1.0],
