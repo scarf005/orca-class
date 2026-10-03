@@ -12,13 +12,13 @@ static func events(hard: bool) -> Array[Dictionary]:
 		e.append(event)
 
 	# Farm road, the lessons one at a time: drones for the coax, a lone UGV whose front armor shrugs
-	# off the coax (charge the gun), a crawler pack to ram for healing, drones from behind to dash.
+	# off the coax (charge the gun), a crawler pack to ram for healing. Drones from behind are not
+	# scripted: they are the pursuit the Director sends whenever the tank runs slow (Director._update_pursuit).
 	wave.call(90.0, "fpv", {"count": 2, "formation": "line", "height": 9.0, "spacing": 7.0, "hover": 26.0})
 	wave.call(180.0, "fpv", {"count": 3, "formation": "v", "height": 8.0, "spacing": 5.0})
 	wave.call(260.0, "ugv", {"count": 1, "u": 0.0, "ahead": 90.0})
 	wave.call(330.0, "crawler", {"count": 3, "formation": "sides", "spacing": 16.0, "ahead": 70.0})
-	# Release 330-460: nothing spawns.
-	wave.call(460.0, "fpv", {"count": 2, "formation": "behind", "height": 6.0, "spacing": 6.0, "hover": 14.0, "approach": 1.2})
+	# Release 330-510: nothing spawns.
 	wave.call(510.0, "ugv", {"count": 1, "formation": "behind", "spacing": 10.0})
 
 	# Village, a ground war. Build: UGVs in the lanes, crawlers to ram, walkers that kick a rammer,
@@ -34,7 +34,6 @@ static func events(hard: bool) -> Array[Dictionary]:
 	wave.call(1100.0, "ugv", {"count": 2, "formation": "column", "spacing": 14.0, "ahead": 100.0, "u": 4.0, "drop": "coax"})
 	wave.call(1130.0, "walker", {"count": 2, "formation": "line", "spacing": 7.0, "ahead": 85.0, "props": {"weapon": "missile"}})
 	wave.call(1160.0, "crawler", {"count": 3, "formation": "scatter", "spacing": 16.0, "ahead": 50.0})
-	wave.call(1185.0, "fpv", {"count": 2, "formation": "behind", "height": 6.0, "spacing": 5.0, "hover": 14.0, "approach": 1.0})
 	wave.call(1300.0, "quad", {"count": 1, "u": 0.0, "ahead": 100.0, "props": {"weapon": "mortar"}})
 	e.append({"d": 1330.0, "type": "hold", "at": 1345.0, "timeout": 30.0})
 
@@ -84,6 +83,5 @@ static func events(hard: bool) -> Array[Dictionary]:
 		wave.call(60.0, "fpv", {"count": 2, "formation": "sides", "height": 7.0, "spacing": 10.0})
 		wave.call(890.0, "uav", {"count": 2, "formation": "line", "spacing": 10.0, "props": {"attack": "strafe"}})
 		wave.call(1800.0, "ugv", {"count": 2, "formation": "sides", "spacing": 9.0, "ahead": 100.0, "props": {"weapon": "atgm"}})
-		wave.call(2665.0, "fpv", {"count": 3, "formation": "behind", "height": 6.0, "spacing": 5.0, "hover": 14.0, "approach": 1.0})
 		wave.call(2940.0, "fpv", {"count": 4, "formation": "ring", "height": 9.0, "spacing": 9.0})
 	return e

@@ -6,7 +6,8 @@ func test_stage_attacks_from_behind_and_the_flanks() -> void:
 	var events := Stage1.events(false)
 	var behind := events.filter(func(e: Dictionary) -> bool: return e.type == "wave" and (e.get("formation", "") == "behind" or e.get("props", {}).get("from_behind", false)))
 	var flank := events.filter(func(e: Dictionary) -> bool: return e.type == "wave" and e.get("formation", "") == "flank")
-	check(behind.size() >= 8, "at least eight waves come from behind (got %d)" % behind.size())
+	check(behind.size() >= 6, "at least six scripted waves come from behind (got %d); rear drones are the dynamic pursuit now" % behind.size())
+	check(not behind.any(func(e: Dictionary) -> bool: return e.kind == "fpv"), "rear FPV drones are not scripted: the pursuit sends them")
 	check(behind.any(func(e: Dictionary) -> bool: return e.kind in ["ugv", "walker"]), "ground vehicles run the tank down from behind")
 	check(behind.any(func(e: Dictionary) -> bool: return e.kind == "uav"), "UAVs make passes from behind")
 	check(flank.size() >= 2, "some waves come in from the valley sides")
@@ -144,7 +145,7 @@ func test_helicopter_telegraphs_bursts_and_cleans_up() -> void:
 
 # --- Pacing: build, peak and release per section (hard scaling as the Director applies it).
 
-const BUDGETS := {Course.Section.FARM: 12, Course.Section.VILLAGE: 22, Course.Section.RESERVOIR: 22, Course.Section.OVERPASS: 20}
+const BUDGETS := {Course.Section.FARM: 10, Course.Section.VILLAGE: 20, Course.Section.RESERVOIR: 22, Course.Section.OVERPASS: 20}
 const PEAKS := {Course.Section.VILLAGE: Vector2(1085.0, 1195.0), Course.Section.RESERVOIR: Vector2(2185.0, 2370.0), Course.Section.OVERPASS: Vector2(3065.0, 3235.0)}
 const GROUND := ["ugv", "walker", "spitter", "crawler", "quad"]
 
