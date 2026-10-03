@@ -140,7 +140,7 @@ func _update_drop_shadows() -> void:
 		for body: Node3D in bodies:
 			if count >= DROP_SHADOW_MAX:
 				break
-			if not is_instance_valid(body) or body.is_queued_for_deletion():
+			if not is_instance_valid(body) or body.is_queued_for_deletion() or (body is Enemy and (body as Enemy).hidden):
 				continue
 			var at := body.global_position
 			var ground := Course.height_at(at)

@@ -212,6 +212,8 @@ func _fire(event: Dictionary) -> void:
 	match event.type:
 		"wave":
 			spawn_wave(event)
+		"ambush":
+			spawn_ambush(event)
 		"pickup":
 			var p := Course.ground_at(event.d + event.get("ahead", 40.0), event.get("u", 0.0))
 			world.spawn_pickup(event.id, p + Vector3.UP * 1.6)
@@ -235,6 +237,29 @@ func _fire(event: Dictionary) -> void:
 			storm.emit(event.duration)
 		"music":
 			Sfx.play_music(event.path)
+
+
+func spawn_ambush(event: Dictionary) -> Enemy:
+	if not _hard:
+		return null
+	for spec in scenery.specs:
+		if spec.kind not in ["house", "infested_house", "hall"] or absf(spec.d - float(event.building_d)) > 0.01:
+			continue
+		if not is_instance_valid(spec.node) and not spec.has_meta("destroyed"):
+			scenery._instantiate(spec)
+		var enemy: Enemy = load(ENEMY_SCRIPTS[event.kind]).new()
+		enemy.position = Course.ground_at(spec.d, spec.u)
+		if enemy is FpvDrone:
+			(enemy as FpvDrone).approach_time = 0.2
+		World.current.add_enemy(enemy)
+		if enemy is Walker:
+			(enemy as Walker)._attack_timer = 0.0
+		var host := spec.node as Prop if is_instance_valid(spec.node) else null
+		var cfg: Array = Scenery.PROPS[spec.kind]
+		enemy.hide_in(host, enemy.position, cfg[1], cfg[0])
+		return enemy
+	push_error("Ambush building missing at %.0f m" % event.building_d)
+	return null
 
 
 ## Spawns a formation. Positions are relative to the rail: `ahead` meters past the tank,

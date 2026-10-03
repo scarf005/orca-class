@@ -149,6 +149,8 @@ func _drive(world: World, t: float) -> void:
 	var target: Entity = null
 	var best := INF
 	for enemy in world.enemies:
+		if enemy is Enemy and (enemy as Enemy).hidden:
+			continue
 		var distance := enemy.global_position.distance_to(tank.global_position)
 		if distance < best and not world.camera.is_position_behind(enemy.hit_center()):
 			best = distance

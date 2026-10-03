@@ -80,6 +80,8 @@ static func events(hard: bool) -> Array[Dictionary]:
 	e.append({"d": 3465.0, "type": "boss", "kind": "gunship"})
 
 	if hard:
+		for site in [{"d": 760.0, "kind": "fpv"}, {"d": 900.0, "kind": "walker"}, {"d": 1030.0, "kind": "walker"}, {"d": 1290.0, "kind": "fpv"}, {"d": 2725.0, "kind": "fpv"}, {"d": 2780.0, "kind": "walker"}, {"d": 2860.0, "kind": "fpv"}]:
+			e.append({"d": site.d - 320.0, "type": "ambush", "building_d": site.d, "kind": site.kind})
 		# Hard adds flankers to the build beats, never inside a release, so the peaks keep their breathing room.
 		wave.call(60.0, "fpv", {"count": 2, "formation": "sides", "height": 7.0, "spacing": 10.0})
 		wave.call(890.0, "uav", {"count": 2, "formation": "line", "spacing": 10.0, "props": {"attack": "strafe"}})

@@ -590,7 +590,7 @@ func _ram_enemies() -> void:
 	if _ground_speed() < CRUSH_SPEED:
 		return
 	for entity: Entity in world.enemies.duplicate():
-		if entity.flying or not entity is Enemy or entity is Colossus:
+		if entity.flying or not entity is Enemy or entity is Colossus or (entity as Enemy).hidden:
 			continue
 		var offset := entity.global_position - global_position
 		offset.y = 0.0
@@ -1018,7 +1018,7 @@ func _pick_coax_target() -> Entity:
 
 ## Screen distance from the reticle to an enemy the FCS could lock, else INF.
 func _lock_distance(enemy: Entity) -> float:
-	if not is_instance_valid(enemy) or enemy.dead or enemy is Flare:
+	if not is_instance_valid(enemy) or enemy.dead or enemy is Flare or (enemy is Enemy and (enemy as Enemy).hidden):
 		return INF
 	var cam := World.current.camera
 	if cam.is_position_behind(enemy.hit_center()) or enemy.hit_center().distance_to(global_position) > COAX_RANGE:
@@ -1444,7 +1444,7 @@ func auto_tail() -> void:
 	var best_enemy: Enemy = null
 	best_distance = Tail.REACH
 	for entity in world.enemies:
-		if entity is Enemy and (entity as Enemy).stabbable:
+		if entity is Enemy and (entity as Enemy).stabbable and not (entity as Enemy).hidden:
 			var distance := entity.hit_center().distance_to(mount) - entity.radius
 			if distance < best_distance:
 				best_distance = distance
@@ -1457,6 +1457,8 @@ func auto_tail() -> void:
 
 ## Diving drones and bursting crawlers close to the hull.
 func _is_imminent(entity: Entity) -> bool:
+	if entity is Enemy and (entity as Enemy).hidden:
+		return false
 	var distance := entity.hit_center().distance_to(hit_center())
 	if entity is FpvDrone:
 		return (entity as FpvDrone).state != FpvDrone.State.APPROACH and distance < 9.0
@@ -1478,6 +1480,8 @@ func swat(start_state := true) -> void:
 				tail.set_state(Tail.State.IDLE))
 	Sfx.play("whip", mount, 0.0, 0.8)
 	for entity in world.enemies.duplicate():
+		if entity is Enemy and (entity as Enemy).hidden:
+			continue
 		if entity.hit_center().distance_to(global_position) < 7.5 + entity.radius:
 			if _is_imminent(entity):
 				world.style_event("DEFLECT", 80.0)

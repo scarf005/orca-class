@@ -73,7 +73,9 @@ func _following() -> bool:
 func _process(delta: float) -> void:
 	_clock += delta
 	if _following():
-		_record(delta)
+		visible = not (source is Enemy and (source as Enemy).hidden)
+		if visible:
+			_record(delta)
 	elif _clock - _newest >= TRAIL_TIME:
 		queue_free()
 		return

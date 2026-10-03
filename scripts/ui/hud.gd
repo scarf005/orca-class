@@ -688,7 +688,7 @@ func _draw_threats() -> void:
 			continue
 		_edge_arrow(cam, projectile.global_position, Palette.CORAL, center)
 	for enemy in world.enemies:
-		if enemy is Flare:
+		if enemy is Flare or (enemy is Enemy and (enemy as Enemy).hidden):
 			continue
 		if enemy is FpvDrone and (enemy as FpvDrone).state != FpvDrone.State.APPROACH:
 			_edge_arrow(cam, enemy.hit_center(), Palette.RED, center, 1.4)

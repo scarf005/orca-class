@@ -328,6 +328,9 @@ func _overpass() -> void:
 	add_pickup("era", 2950.0, -3.0)
 	add_pickup("tail", 3050.0, 4.0)
 	_fungus(2660.0, 2900.0, 1.8)
+	if Game.difficulty == Game.Difficulty.HARD:
+		for site in [Vector2(2725.0, -18.0), Vector2(2780.0, 18.0), Vector2(2860.0, -20.0)]:
+			add("house", site.x, site.y, 0.0, 0)
 
 
 func _arena() -> void:
@@ -454,7 +457,7 @@ func stream(d: float, budget := 8) -> void:
 	while _next < specs.size() and specs[_next].d < d + AHEAD and budget > 0:
 		var spec := specs[_next]
 		_next += 1
-		if spec.d < d - BEHIND:
+		if spec.d < d - BEHIND or is_instance_valid(spec.node) or spec.has_meta("destroyed"):
 			continue
 		_instantiate(spec)
 		budget -= 1
@@ -516,6 +519,7 @@ func _instantiate(spec: Spec) -> void:
 		prop.rotation.y = yaw
 		World.current.props.add_child(prop)
 		spec.node = prop
+		prop.died.connect(func(_prop: Entity) -> void: spec.set_meta("destroyed", true))
 		if spec.group >= 0:
 			_link(spec, prop)
 		if _wires_of.has(spec):

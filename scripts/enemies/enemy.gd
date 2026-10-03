@@ -41,6 +41,12 @@ var _burn_tick := 0.0
 var _burn_hit: Hit
 var killing_hit: Hit ## The lethal hit retained through a delayed crash or death throes.
 var _flame_tick := 0.0
+var hidden := false
+var ambush_host: Prop
+var _ambush_wind := -1.0
+var _ambush_roof := Vector3.ZERO
+var _ambush_exit := Vector3.ZERO
+var _ambush_interceptable := false
 var evasive := false
 var _jink_left := 0.0
 var _jink_cooldown := 0.0
@@ -80,6 +86,9 @@ func build() -> void:
 
 
 func tick(delta: float) -> void:
+	if hidden:
+		_update_ambush(delta)
+		return
 	age += delta
 	stagger = maxf(0.0, stagger - delta)
 	if burning > 0.0:
@@ -105,6 +114,65 @@ func tick(delta: float) -> void:
 		var world := World.current
 		if world.rail.mode != Rail.Mode.ARENA and Course.to_course(global_position).x < world.rail.d - despawn_behind:
 			despawn()
+
+
+func hide_in(host: Prop, site := Vector3.ZERO, height := 5.0, footprint := 4.2) -> void:
+	ambush_host = host
+	if is_instance_valid(host):
+		site = host.global_position
+		height = host.height
+		footprint = host.footprint
+	hidden = true
+	invulnerable = true
+	visible = false
+	_ambush_interceptable = interceptable
+	interceptable = false
+	global_position = site + Vector3.UP
+	_ambush_roof = site + Vector3.UP * height
+	var toward := player().global_position - site
+	toward.y = 0.0
+	_ambush_exit = _ambush_roof + Vector3.UP * 2.0 if flying else site + toward.normalized() * (footprint + radius + 1.0)
+	_ambush_exit.y = maxf(_ambush_exit.y, Course.height_at(_ambush_exit))
+	if is_instance_valid(host) and not host.dead:
+		host.died.connect(func(_host: Entity) -> void: _warn_ambush())
+	else:
+		_warn_ambush()
+
+
+func _warn_ambush() -> void:
+	if not hidden or _ambush_wind >= 0.0:
+		return
+	_ambush_wind = 0.65
+	var fx := World.current.fx
+	fx.dust(_ambush_roof, 18, 2.5, Palette.STRAW)
+	fx.marker(_ambush_roof, 4.0, _ambush_wind, Palette.HOT)
+	fx.light_flash(_ambush_roof, 5.0, Palette.BUTTER, 8.0)
+	Sfx.play("warn", _ambush_roof, -2.0, 0.8)
+
+
+func _update_ambush(delta: float) -> void:
+	if _ambush_wind < 0.0:
+		if not is_instance_valid(ambush_host) or ambush_host.dead or player().global_position.distance_to(global_position) < 55.0:
+			_warn_ambush()
+		return
+	_ambush_wind = maxf(0.0, _ambush_wind - delta)
+	if _ambush_wind > 0.0:
+		return
+	if is_instance_valid(ambush_host) and not ambush_host.dead:
+		ambush_host.die(Hit.make(Hit.Kind.RAM, 0.0, _ambush_roof, (_ambush_exit - global_position).normalized()))
+	World.current.fx.debris(_ambush_roof, 26, [Fx.Debris.CONCRETE, Fx.Debris.WOOD], 16.0, 0.5, (_ambush_exit - global_position).normalized())
+	World.current.fx.dust(_ambush_roof, 12, 3.0, Palette.STRAW)
+	global_position = _ambush_exit
+	_last_position = global_position
+	hidden = false
+	invulnerable = false
+	visible = true
+	interceptable = _ambush_interceptable
+	ambush_host = null
+
+
+func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
+	return -1.0 if hidden else super.hit_test(from, to, extra_radius)
 
 
 func _evade(delta: float) -> void:
