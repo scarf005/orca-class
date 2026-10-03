@@ -91,7 +91,9 @@ func test_the_fourth_lock_fires_the_salvo_at_once() -> void:
 	check_eq(tank.micro_marked.size(), Armament.MICRO_LOCKS, "but they stay marked on the target while the missiles fly")
 	enemy.dead = true
 	tank._update_charge(DT)
-	check(tank.micro_marked.is_empty(), "until it dies")
+	check_eq(tank.micro_marked.size(), Armament.MICRO_LOCKS, "death also keeps fired marks for the display delay")
+	await frames(10)
+	check(tank.micro_marked.is_empty(), "then its death removes the marks")
 	Input.action_release("fire")
 
 
@@ -218,12 +220,15 @@ func test_each_finished_missile_removes_only_its_own_mark() -> void:
 	var shots := _missiles(world)
 	check_eq(tank.micro_marked.size(), 4, "one mark per pending projectile")
 	shots[0].detonate(enemy.hit_center(), enemy)
+	check_eq(tank.micro_marked.size(), 4, "completed marks remain during the 0.1-second display delay")
+	await frames(10)
 	check_eq(tank.micro_marked.size(), 3, "contact removes only that missile's mark")
 	shots[1].detonate(shots[1].global_position, null)
+	await frames(10)
 	check_eq(tank.micro_marked.size(), 2, "a miss removes its mark")
 	shots[2].life = 0.0
 	shots[2].step(DT)
-	await frames(2)
+	await frames(10)
 	check_eq(tank.micro_marked.size(), 1, "expiry removes its mark")
 	tank._cancel_charge()
 	tank.load_round(Armament.Round.MICRO)
@@ -231,7 +236,7 @@ func test_each_finished_missile_removes_only_its_own_mark() -> void:
 	_release(world)
 	check_eq(tank.micro_marked.size(), 1, "a new salvo on the same target")
 	shots[3].queue_free()
-	await frames(2)
+	await frames(10)
 	check_eq(tank.micro_marked.size(), 1, "an old missile cannot remove a new identical lock")
 	check(not enemy.dead, "the target is still alive")
 

@@ -4,6 +4,9 @@ extends Node3D
 ## props and the terrain. Interceptable projectiles are CIWS targets and have their own HP.
 
 signal impacted(projectile: Projectile, point: Vector3, target: Entity)
+signal resolved ## First contact (including piercing/glancing hits) or flight end releases a fired lock.
+
+var _resolved := false
 
 var team := Entity.Team.PLAYER
 var shape := "" ## Its look (see World.PROJECTILE_SHAPES).
@@ -67,6 +70,7 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	_resolve()
 	if World.current:
 		World.current.projectiles.erase(self)
 
@@ -88,6 +92,7 @@ func step(delta: float) -> void:
 		if fuse_distance > 0.0:
 			detonate(global_position, null)
 		else:
+			_resolve()
 			queue_free()
 		return
 	if retarget_range > 0.0 and not _seeking():
@@ -221,6 +226,7 @@ func resolve_now(max_range: float) -> Vector3:
 		return end[0] # The line ends where it glanced; the round tumbles off on its own from there.
 	if not is_queued_for_deletion():
 		end[0] = global_position
+		_resolve()
 		queue_free()
 	return end[0]
 
@@ -328,10 +334,18 @@ func _apply(target: Entity, point: Vector3) -> Hit:
 	applied.direction = velocity.normalized()
 	applied.speed = velocity.length()
 	target.take_hit(applied)
+	_resolve()
 	return applied
 
 
+func _resolve() -> void:
+	if not _resolved:
+		_resolved = true
+		resolved.emit()
+
+
 func detonate(point: Vector3, target: Entity) -> void:
+	_resolve()
 	var world := World.current
 	if hit.source == null and team == Entity.Team.PLAYER:
 		hit.source = world.player

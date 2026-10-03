@@ -97,8 +97,11 @@ var charge_lock: Entity
 var charge_part := ""
 var charge_candidate: Entity ## What a hold would lock right now, shown while charging.
 var micro_locks: Array[Array] = [] ## Micro-missile locks as [Entity, part], one per missile the release will fire.
-var lock_charge := 0.0 ## The charge last fired at `charge_lock`: its boxes stay on it after the shot.
-var micro_marked: Array[Array] = [] ## Locks already fired, as [Entity, part]: they stay until their target dies or leaves the view.
+var lock_charge := 0.0 ## Fired boxes stay while their projectiles still need the lock.
+var micro_marked: Array[Array] = [] ## Pending salvo entries: removed when their target disappears or their missile resolves.
+var _lock_shots: Dictionary = {} ## Projectile IDs mapped to whether their delayed release is pending.
+var lock_visual: Array = [] ## Last fired [world position, half-size], safe even after the target is freed.
+const LOCK_RELEASE_DELAY := 0.1 ## Let the completed charge boxes register before removing them.
 var _hold := 0.0 ## Seconds the fire button has been held since the gun recovered.
 var _fire_held := false
 var _micro_since := INF ## Seconds since the held button painted its last micro-missile lock.
@@ -774,6 +777,7 @@ func _cancel_charge() -> void:
 	_burst = 0.0
 	_salvo.clear()
 	micro_marked.clear()
+	_lock_shots.clear()
 	charge_lock = null
 	charge_part = ""
 	lock_charge = 0.0
@@ -814,7 +818,9 @@ func _update_charge(delta: float) -> void:
 	if not input_enabled or dead or _respawn > 0.0:
 		_cancel_charge()
 		return
-	micro_marked = micro_marked.filter(func(lock: Array) -> bool: return is_instance_valid(lock[0]) and _charge_distance(lock[0], lock[1]) < INF)
+	for mark in micro_marked:
+		if not is_instance_valid(mark[0]) or _charge_distance(mark[0], mark[1]) == INF:
+			_release_micro_mark(mark)
 	var held := Input.is_action_pressed("fire")
 	_fire_released = _fire_held and not held
 	var waited := minf(_recover, delta)
@@ -921,14 +927,18 @@ func _update_charge_lock() -> void:
 		charge_part = ""
 		charge_candidate = null
 		lock_charge = 0.0
+		_lock_shots.clear()
 		return
-	# Through charges and shots alike, the lock holds whatever the sight does; only the target dying
-	# or going out of view drops it. Driving is slowed instead (`_lock_move_factor`) to keep it on screen.
+	# Hold the lock through charging and flight, until the target disappears or its shots resolve.
+	# Driving is slowed instead (`_lock_move_factor`) to keep it on screen.
 	if is_instance_valid(charge_lock) and _charge_distance(charge_lock, charge_part) < INF:
 		return
 	charge_lock = null
 	charge_part = ""
-	lock_charge = 0.0
+	for id in _lock_shots:
+		_release_lock_shot(id)
+	if _lock_shots.is_empty():
+		lock_charge = 0.0
 	if not is_charging():
 		return
 	var nearest := _nearest_lockable()
@@ -936,6 +946,8 @@ func _update_charge_lock() -> void:
 	var part: String = nearest[1]
 	charge_candidate = candidate
 	if candidate:
+		_lock_shots.clear()
+		lock_charge = 0.0
 		charge_lock = candidate
 		charge_part = part
 		charge_locked.emit(candidate)
@@ -967,7 +979,6 @@ func _update_weapons(delta: float) -> void:
 			_coax_timers[i] = maxf(_coax_timers[i] - delta, 0.0)
 	if _fire_released or _auto_fire:
 		if input_enabled and (Armament.stage(charge) >= 1 or not micro_locks.is_empty()):
-			lock_charge = charge
 			fire_cannon(Vector3.INF, Vector3.ZERO, charge)
 			_recover = Armament.CANNON_RECOVER
 			_spent = _auto_fire
@@ -1095,6 +1106,9 @@ func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO, power := 0.0) -> v
 	if round == Armament.Round.MICRO and micro_locks.is_empty():
 		return
 	power = clampf(power, 0.0, 1.0)
+	if is_instance_valid(charge_lock):
+		lock_charge = power
+		lock_visual = _lock_visual(charge_lock, charge_part)
 	World.current.stats.shots += 1
 	if power >= 1.0:
 		World.current.stats.charged_shots += 1
@@ -1107,8 +1121,9 @@ func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO, power := 0.0) -> v
 			_fire_atgm(muzzle, shot_dir.call(Armament.ATGM_LAUNCH_SPEED))
 		Armament.Round.MICRO:
 			for i in micro_locks.size():
-				_salvo.append([micro_locks[i][0], micro_locks[i][1], i * Armament.MICRO_RIPPLE, i, micro_locks.size()])
-			micro_marked.append_array(micro_locks)
+				var shot := [micro_locks[i][0], micro_locks[i][1], i * Armament.MICRO_RIPPLE, i, micro_locks.size(), false, _lock_visual(micro_locks[i][0], micro_locks[i][1])]
+				_salvo.append(shot)
+				micro_marked.append(shot)
 		_:
 			_fire_shell(round, muzzle, shot_dir.call(shell_speed(power)), power)
 	if round != Armament.Round.APHE:
@@ -1162,6 +1177,7 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 
 	shell.life = 2.0 if full else Armament.SHELL_RANGE / Armament.quick_speed(power)
 	shell.impact_sound = "blast"
 	shell.impacted.connect(_count_hit, CONNECT_ONE_SHOT)
+	_track_lock_shot(shell)
 	match round:
 		Armament.Round.APHE:
 			# A small filler: it wrecks what it hits and, charged, the pack around it.
@@ -1256,6 +1272,7 @@ func _fire_atgm(muzzle: Vector3, dir: Vector3) -> void:
 		target = nearest[0] if nearest[0] != null else (coax_target if is_instance_valid(coax_target) else null)
 		part = nearest[1] if nearest[0] != null else coax_part
 	var missile := _spawn_missile(Armament.Round.ATGM, muzzle, dir, target, part)
+	_track_lock_shot(missile)
 	missile.hit.damage = Armament.SHELL_DAMAGE * Armament.APHE_DAMAGE.y * Armament.SHELL_DAMAGE_SCALE
 	missile.hit.caliber = 100
 	missile.hit.power = 1.0
@@ -1291,6 +1308,7 @@ func _update_salvo(delta: float) -> void:
 		var radial := basis.x * cos(phase) + basis.y * sin(phase)
 		var dir := forward * cos(Armament.MICRO_INITIAL_SPLIT) + radial * sin(Armament.MICRO_INITIAL_SPLIT)
 		var missile := _spawn_missile(Armament.Round.MICRO, muzzle, dir, shot[0] if is_instance_valid(shot[0]) else null, shot[1])
+		missile.resolved.connect(_release_micro_mark.bind(shot), CONNECT_ONE_SHOT)
 		var full := Armament.SHELL_DAMAGE * Armament.APHE_DAMAGE.y * Armament.SHELL_DAMAGE_SCALE
 		missile.hit.damage = full * Armament.MICRO_DAMAGE
 		missile.hit.caliber = Armament.MICRO_CALIBER
@@ -1300,6 +1318,54 @@ func _update_salvo(delta: float) -> void:
 		missile.glow_size = 0.7
 		missile.trail_size = 2.0
 		_missile_launch(Armament.Round.MICRO, muzzle, dir)
+
+
+func _lock_visual(target: Entity, part: String) -> Array:
+	if not is_instance_valid(target):
+		return []
+	var parts := target.aim_parts()
+	return [parts[part][0], parts[part][1] * 0.5] if parts.has(part) else [target.hit_center(), target.radius]
+
+
+func _track_lock_shot(projectile: Projectile) -> void:
+	if not is_instance_valid(charge_lock):
+		return
+	var id := projectile.get_instance_id()
+	_lock_shots[id] = false
+	projectile.resolved.connect(_release_lock_shot.bind(id), CONNECT_ONE_SHOT)
+
+
+func _release_lock_shot(id: int) -> void:
+	if not _lock_shots.has(id) or _lock_shots[id]:
+		return
+	_lock_shots[id] = true
+	if is_inside_tree():
+		get_tree().create_timer(LOCK_RELEASE_DELAY, false, false, true).timeout.connect(_finish_lock_shot.bind(id))
+
+
+func _finish_lock_shot(id: int) -> void:
+	if not _lock_shots.has(id):
+		return # An old target's shot must not release a newly acquired lock.
+	_lock_shots.erase(id)
+	if not _lock_shots.is_empty():
+		return
+	lock_charge = 0.0
+	if not is_charging():
+		charge_lock = null
+		charge_part = ""
+		charge_candidate = null
+
+
+func _release_micro_mark(shot: Array) -> void:
+	if shot[5]:
+		return
+	shot[5] = true
+	if is_inside_tree():
+		get_tree().create_timer(LOCK_RELEASE_DELAY, false, false, true).timeout.connect(_finish_micro_mark.bind(shot))
+
+
+func _finish_micro_mark(shot: Array) -> void:
+	micro_marked = micro_marked.filter(func(mark: Array) -> bool: return not is_same(mark, shot))
 
 
 ## A player cannon hit template for blasts fired straight from the muzzle.

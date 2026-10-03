@@ -523,6 +523,10 @@ func _draw_reticle() -> void:
 		_lock_part = part
 		_lock_time = 0.0
 	_lock_time += get_process_delta_time()
+	if not charged_lock and p.lock_charge > 0.0 and not p.lock_visual.is_empty():
+		var at: Vector3 = p.lock_visual[0]
+		if not cam.is_position_behind(at):
+			_draw_lock_boxes(cam.unproject_position(at) * SCALE, 18.0 + p.lock_visual[1] * 3.0, p.lock_charge, Armament.ROUND_COLORS[p.current_round], true)
 	if not is_instance_valid(target) or cam.is_position_behind(target.hit_center()):
 		return
 	var focus := target.hit_center()
@@ -547,8 +551,8 @@ func _draw_reticle() -> void:
 		bracket_color = Color(Palette.FRIENDLY, 0.6)
 	var width := 1.0 if candidate else 2.0
 	if charged_lock:
-		# Between charges the boxes of the last shot stay on the lock until it dies.
-		_draw_lock_boxes(center, s, p.charge if p.is_charging() else maxf(p.charge, p.lock_charge), Armament.ROUND_COLORS[p.current_round])
+		# Between charges, keep fired boxes only while their projectiles need the lock.
+		_draw_lock_boxes(center, s, p.charge if p.is_charging() else maxf(p.charge, p.lock_charge), Armament.ROUND_COLORS[p.current_round], not p.is_charging())
 	else:
 		if not p.is_charging():
 			_lock_boxes = 0
@@ -611,7 +615,7 @@ var _micro_times: Array[float] = [] ## When each micro-missile lock landed, in s
 
 
 ## `tint` is the loaded round's color, so the sight says what is about to fire.
-func _draw_lock_boxes(center: Vector2, size: float, charge: float, tint: Color) -> void:
+func _draw_lock_boxes(center: Vector2, size: float, charge: float, tint: Color, settled := false) -> void:
 	var count := Armament.stage(charge)
 	while _lock_boxes < count:
 		_lock_box_times[_lock_boxes] = _time
@@ -619,7 +623,7 @@ func _draw_lock_boxes(center: Vector2, size: float, charge: float, tint: Color) 
 	_lock_boxes = mini(_lock_boxes, count)
 	var full := charge >= 1.0
 	for i in _lock_boxes:
-		var k := clampf((_time - _lock_box_times[i]) / LOCK_BOX_IN, 0.0, 1.0)
+		var k := 1.0 if settled else clampf((_time - _lock_box_times[i]) / LOCK_BOX_IN, 0.0, 1.0)
 		var settle := ease(k, 0.35)
 		# Spins in a half turn as it lands, then keeps turning slowly, alternate boxes the other way.
 		var angle := (1.0 - settle) * PI * 0.5 + _time * (0.8 + i * 0.5) * (1.0 if i % 2 == 0 else -1.0)
@@ -647,15 +651,19 @@ func _draw_micro_locks(p: Tank) -> void:
 	# Fired locks first, settled, then the ones still being painted, each spinning in.
 	var locks := p.micro_marked + p.micro_locks
 	for i in locks.size():
-		var target: Entity = locks[i][0]
-		var parts := target.aim_parts()
-		var part: String = locks[i][1]
-		var focus: Vector3 = parts[part][0] if parts.has(part) else target.hit_center()
-		var size: float = parts[part][1] * 0.5 if parts.has(part) else target.radius
+		var target = locks[i][0]
+		if not is_instance_valid(target) and locks[i].size() < 7:
+			continue
+		var visual: Array = p._lock_visual(target, locks[i][1]) if is_instance_valid(target) else locks[i][6]
+		if visual.is_empty():
+			continue
+		var focus: Vector3 = visual[0]
+		var size: float = visual[1]
 		if cam.is_position_behind(focus):
 			continue
-		var n: int = boxes.get(target, 0)
-		boxes[target] = n + 1
+		var key: Variant = target.get_instance_id() if is_instance_valid(target) else focus
+		var n: int = boxes.get(key, 0)
+		boxes[key] = n + 1
 		var painted := i - p.micro_marked.size()
 		var k := clampf((_time - _micro_times[painted]) / LOCK_BOX_IN, 0.0, 1.0) if painted >= 0 else 1.0
 		var settle := ease(k, 0.35)
