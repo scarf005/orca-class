@@ -892,10 +892,11 @@ func _update_micro_locks(delta: float, holding: bool) -> void:
 
 
 ## The enemy (and its part) nearest the sight within the lock ring, or [null, ""].
+## MICRO retains a narrow seeker lock without the FCS.
 func _nearest_lockable() -> Array:
 	var candidate: Entity = null
 	var part := ""
-	var best := charge_ring_radius() * modules.lock_factor()
+	var best := charge_ring_radius() * (maxf(modules.lock_factor(), 0.2) if current_round == Armament.Round.MICRO else modules.lock_factor())
 	for enemy in World.current.enemies:
 		var nearest_part := _pick_part(enemy)
 		var distance := _charge_distance(enemy, nearest_part)

@@ -115,6 +115,33 @@ func test_release_fires_one_missile_per_lock_and_they_ripple_out() -> void:
 	check_eq(tank.round_count, Armament.MAGAZINE[Armament.Round.MICRO] - 1, "one round per salvo")
 
 
+func test_micro_lock_ring_shrinks_with_fcs_damage_but_still_fires_without_it() -> void:
+	var world := _rig()
+	var tank := world.player
+	var enemy := _row(world, 1)[0]
+	for condition in [[TankModules.MAX.fcs, 1.0], [1.0, 0.5], [0.0, 0.2]]:
+		tank.modules.hp.fcs = condition[0]
+		tank._cancel_charge()
+		tank._recover = 0.0
+		tank.load_round(Armament.Round.MICRO)
+		var center := world.camera.unproject_position(enemy.hit_center())
+		var radius: float = Armament.LOCK_RADIUS * condition[1]
+		tank.aim_screen = center + Vector2(radius + 1.0, 0)
+		Input.action_press("fire")
+		tank._update_charge(DT)
+		check(tank.micro_locks.is_empty(), "no lock outside the FCS-scaled seeker ring")
+		tank.aim_screen = center + Vector2(radius - 1.0, 0)
+		tank._update_charge(DT)
+		check_eq(tank.micro_locks.size(), 1, "micro locks inside the reduced ring even without FCS")
+		_release(world)
+		check_eq(_missiles(world).size(), 1, "micro fires even with the FCS destroyed")
+		check_eq(tank.round_count, Armament.MAGAZINE[Armament.Round.MICRO] - 1, "the salvo consumes one round")
+		for shot: Projectile in _missiles(world):
+			check(shot.homing_target == enemy, "the missile keeps its own target")
+			shot.queue_free()
+		await frames(2)
+
+
 func test_releasing_without_a_lock_fires_nothing_and_keeps_the_round() -> void:
 	var world := _rig()
 	var tank := world.player
