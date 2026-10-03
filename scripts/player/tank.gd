@@ -770,10 +770,12 @@ func _update_charge(delta: float) -> void:
 		return
 	var held := Input.is_action_pressed("fire")
 	_fire_released = _fire_held and not held
-	if not held:
-		_spent = false
 	var waited := minf(_recover, delta)
 	_recover -= waited
+	# Held through a shot, the gun starts charging again by itself as soon as it has recovered and
+	# the sight finds an enemy to lock: no need to let go and press again.
+	if not held or (_spent and _recover <= 0.0 and _nearest_lockable()[0] != null):
+		_spent = false
 	if held and not _spent and _recover <= 0.0:
 		var before := _hold
 		_hold += delta - waited # Only the time after recovery counts.
@@ -814,6 +816,21 @@ func _charge_distance(target: Entity, part: String) -> float:
 	return INF if cam.is_position_behind(at) else cam.unproject_position(at).distance_to(aim_screen)
 
 
+## The enemy (and its part) nearest the sight within the lock ring, or [null, ""].
+func _nearest_lockable() -> Array:
+	var candidate: Entity = null
+	var part := ""
+	var best := charge_ring_radius() * modules.lock_factor()
+	for enemy in World.current.enemies:
+		var nearest_part := _pick_part(enemy)
+		var distance := _charge_distance(enemy, nearest_part)
+		if distance < best:
+			best = distance
+			candidate = enemy
+			part = nearest_part
+	return [candidate, part]
+
+
 func _update_charge_lock() -> void:
 	if (not is_charging() and not _fire_released) or modules.lock_factor() <= 0.0 or current_round in AREA_ROUNDS:
 		charge_lock = null
@@ -828,16 +845,9 @@ func _update_charge_lock() -> void:
 	charge_part = ""
 	if not is_charging():
 		return
-	var candidate: Entity
-	var part := ""
-	var best := charge_ring_radius() * modules.lock_factor()
-	for enemy in World.current.enemies:
-		var nearest_part := _pick_part(enemy)
-		var distance := _charge_distance(enemy, nearest_part)
-		if distance < best:
-			best = distance
-			candidate = enemy
-			part = nearest_part
+	var nearest := _nearest_lockable()
+	var candidate: Entity = nearest[0]
+	var part: String = nearest[1]
 	charge_candidate = candidate
 	if candidate:
 		charge_lock = candidate
