@@ -229,7 +229,7 @@ func _farm() -> void:
 	add("car", 360.0, 3.0, 0.3, 2)
 	_scatter("car", 60.0, 560.0, 10, 1.0, 14.0)
 	add_pickup("coax", 150.0, -4.0)
-	add_pickup("canister", 470.0, 5.0)
+	add_pickup("micro", 470.0, 5.0)
 	_fungus(200.0, 560.0, 0.5)
 
 
@@ -291,7 +291,7 @@ func _reservoir() -> void:
 	_scatter("house", 1780.0, 2640.0, 6, 22.0, 40.0, false)
 	_scatter("car", 1800.0, 2640.0, 18, 0.0, 12.0)
 	add_pickup("micro", 1850.0, 0.0)
-	add_pickup("airburst", 2000.0, 6.0)
+	add_pickup("atgm", 2000.0, 6.0)
 	add_pickup("era", 2150.0, -4.0)
 	add_pickup("tail", 2450.0, 3.0)
 	add_pickup("atgm", 2700.0, 0.0)

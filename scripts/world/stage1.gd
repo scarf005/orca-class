@@ -43,7 +43,7 @@ static func events(hard: bool) -> Array[Dictionary]:
 	e.append({"d": Course.MIDBOSS_D - 110.0, "type": "midboss", "kind": "colossus", "hold": Course.MIDBOSS_D - 56.0})
 
 	# Reservoir, an air war over the water. Build: drones from the reeds, a strafing pair, a lone
-	# helicopter (airburst), spitters on the bank. Release 2060-2185. Peak with the storm: bombers
+	# helicopter (ATGM), spitters on the bank. Release 2060-2185. Peak with the storm: bombers
 	# from behind, a reed ring, a helicopter pair that holds the rail, ATGM UGVs. Release to the
 	# overpass, only the supply UGV.
 	wave.call(1830.0, "fpv", {"count": 2, "formation": "scatter", "height": 1.5, "spacing": 3.0, "u": -17.0, "ahead": 60.0})
@@ -71,8 +71,8 @@ static func events(hard: bool) -> Array[Dictionary]:
 	wave.call(2980.0, "quad", {"count": 1, "u": 0.0, "ahead": 100.0, "props": {"weapon": "flak"}})
 	wave.call(3065.0, "quad", {"count": 2, "formation": "sides", "spacing": 7.0, "ahead": 100.0})
 	wave.call(3090.0, "walker", {"count": 3, "formation": "line", "spacing": 6.0, "ahead": 80.0, "props": {"weapon": "missile"}})
-	# The airburst for the flyers after it is the prize for clearing the quads, never shown while one lives.
-	e.append({"d": 3105.0, "type": "hold", "at": 3120.0, "timeout": 40.0, "reward": "airburst"})
+	# The ATGM for the flyers after it is the prize for clearing the quads, never shown while one lives.
+	e.append({"d": 3105.0, "type": "hold", "at": 3120.0, "timeout": 40.0, "reward": "atgm"})
 	wave.call(3150.0, "tiltrotor", {"count": 1, "height": 10.0, "ahead": 150.0, "u": -16.0, "hard_scale": 1.0})
 	wave.call(3185.0, "uav", {"count": 1, "formation": "line", "spacing": 10.0, "props": {"attack": "bomb", "from_behind": true}})
 	wave.call(3215.0, "fpv", {"count": 3, "formation": "ring", "height": 9.0, "spacing": 9.0, "stagger": 0.15})
