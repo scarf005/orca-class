@@ -20,6 +20,13 @@ play *args:
 duel *args:
     {{ quote(godot) }} --path . -- --duel "$@"
 
+# Record the stage 1 tiltrotor promo clip to builds/promo/promo.mp4.
+promo *args:
+    mkdir -p builds/promo
+    touch builds/.gdignore
+    xvfb-run -a -s "-screen 0 1920x1080x24" {{ quote(godot) }} --path . --resolution 1920x1080 --fixed-fps 60 --audio-driver Dummy --write-movie builds/promo/promo.avi -- --run=res://tools/promo.gd --sound "$@"
+    ffmpeg -y -loglevel error -i builds/promo/promo.avi -vf scale=1920:1080:flags=neighbor -c:v libx264 -crf 24 -preset slow -pix_fmt yuv420p -c:a aac -b:a 192k -movflags +faststart builds/promo/promo.mp4
+
 # Open the debug room.
 debug-room:
     {{ quote(godot) }} --path . -- --debug-room
