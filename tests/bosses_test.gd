@@ -107,7 +107,7 @@ func test_colossus_incendiary_overflow_keeps_cap_only_fire_bonus() -> void:
 	var node: Colossus.Part = boss.parts[0]
 	_hit_part(boss, node, Hit.Kind.FRAGMENT, 40.0, true)
 	check_eq(node.cap, 0.0, "incendiary fragments also burn caps four times faster")
-	check_near(node.hp, Colossus.NODE_HP - 2.5, 0.01, "37.5 damage burns the cap; the remaining 2.5 is not multiplied")
+	check_near(node.hp, Colossus.NODE_HP - 2.5 * Enemy.HEAVY_AREA, 0.01, "37.5 damage burns the cap; the remaining 2.5 is not multiplied by fire, only blunted like any fragment on its hide")
 
 
 func test_colossus_ignored_hits_do_not_damage_caps_or_confirm_hits() -> void:
