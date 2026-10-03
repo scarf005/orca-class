@@ -36,7 +36,7 @@ const BUILDINGS := ["house", "infested_house", "hall", "greenhouse", "church", "
 ## Tuned live in the duel mode, hence static vars: at 105 km/h a slow fall lands behind the tank.
 static var TOPPLE_TIME := 0.45 ## Seconds a tall thing takes to fall flat.
 static var COLLAPSE_TIME := 0.45 ## Seconds a building takes to sink or fold.
-static var KNOCK_SPEED := 22.0 ## m/s a tall thing is knocked flying at by a plain blow; harder ones throw it faster.
+static var KNOCK_SPEED := 10.0 ## m/s a tall thing is knocked flying at by a plain blow; harder ones throw it faster.
 const TALL := ["church_tower", "church_spire", "overpass_pier", "fungal_spire", "spore_tower", "flagpole"]
 
 
@@ -138,9 +138,11 @@ func _collapse(world: World, hit: Hit, style: CollapseStyle) -> void:
 		direction = Vector3.FORWARD
 	if style == CollapseStyle.TOPPLE:
 		# Snapped at the foot and knocked flying whole, end over end along the blow.
-		var speed := maxf(KNOCK_SPEED * maxf(push.length(), 1.0), hit.speed * 1.3 if _rammed(hit) else 0.0)
-		var wreck := Wreck.launch(model, hit_center(), 1.0, hit != null and hit.by_player(), direction * speed + Vector3.UP * speed * 0.4, false)
-		wreck.spin = Vector3.UP.cross(direction) * (6.0 + speed * 0.15) / sqrt(maxf(height * 0.3, 1.0))
+		# A low, short flight: it clears the tank and lands within a few lengths, not across the valley.
+		var speed := KNOCK_SPEED * clampf(maxf(push.length(), hit.speed / 30.0 if _rammed(hit) else 0.0), 1.0, 2.0)
+		var wreck := Wreck.launch(model, hit_center(), 1.0, hit != null and hit.by_player(), Vector3.ZERO, false)
+		wreck.velocity = direction * speed + Vector3.UP * (3.0 + speed * 0.2)
+		wreck.spin = Vector3.UP.cross(direction) * (5.0 + speed * 0.2) / sqrt(maxf(height * 0.3, 1.0))
 		world.fx.shatter(AABB(global_position - Vector3(footprint, 0, footprint), Vector3(footprint * 2.0, 1.0, footprint * 2.0)), debris, push, 0.35)
 		felled.emit(self)
 		return
