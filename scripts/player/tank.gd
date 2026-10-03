@@ -1220,11 +1220,16 @@ func _spawn_missile(round: Armament.Round, muzzle: Vector3, dir: Vector3, target
 
 
 ## The ATGM hits like the full-charge APHE shell. It homes on the charge lock (and its module), else
-## the coax's soft lock; with neither it locks the nearest enemy ahead as it flies.
+## whatever the lock ring holds at launch (its snap charge can fire before the lock has settled),
+## else the coax's soft lock; with none it locks the nearest enemy ahead as it flies.
 func _fire_atgm(muzzle: Vector3, dir: Vector3) -> void:
-	var locked := is_instance_valid(charge_lock)
-	var target: Entity = charge_lock if locked else (coax_target if is_instance_valid(coax_target) else null)
-	var missile := _spawn_missile(Armament.Round.ATGM, muzzle, dir, target, charge_part if locked else coax_part)
+	var target: Entity = charge_lock
+	var part := charge_part
+	if not is_instance_valid(target):
+		var nearest := _nearest_lockable()
+		target = nearest[0] if nearest[0] != null else (coax_target if is_instance_valid(coax_target) else null)
+		part = nearest[1] if nearest[0] != null else coax_part
+	var missile := _spawn_missile(Armament.Round.ATGM, muzzle, dir, target, part)
 	missile.hit.damage = Armament.SHELL_DAMAGE * Armament.APHE_DAMAGE.y * Armament.SHELL_DAMAGE_SCALE
 	missile.hit.caliber = 100
 	missile.hit.power = 1.0
