@@ -1050,6 +1050,8 @@ func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO, power := 0.0) -> v
 			_fire_canister(muzzle, shot_dir.call(200.0))
 		Armament.Round.DRAGON:
 			DragonBreath.fire(self, shot_dir.call(DragonBreath.MEAN_SPEED), from, float(power >= 1.0))
+		Armament.Round.ATGM:
+			_fire_atgm(muzzle, shot_dir.call(Armament.ATGM_LAUNCH_SPEED))
 		_:
 			_fire_shell(round, muzzle, shot_dir.call(shell_speed(power)), power)
 	if round != Armament.Round.APHE:
@@ -1156,6 +1158,38 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 
 	for k in int(length / 6.0):
 		var at := muzzle.lerp(end, (k + 0.5) * 6.0 / length)
 		world.fx.spawn(Fx.Kind.GLOW, at, Vector3(randf_range(-0.4, 0.4), 0.8, randf_range(-0.4, 0.4)), randf_range(0.5, 0.9), 0.5, Palette.MIST, {"end_size": 1.4, "drag": 2.0, "fade": 0.2})
+
+
+## A guided missile that hits like the full-charge APHE shell. It homes on the charge lock (and its
+## module), else the coax's soft lock; with neither it locks the nearest enemy ahead as it flies.
+func _fire_atgm(muzzle: Vector3, dir: Vector3) -> void:
+	var color: Color = Armament.ROUND_COLORS[Armament.Round.ATGM]
+	var missile := World.current.spawn_projectile(Team.PLAYER, muzzle, dir * Armament.ATGM_LAUNCH_SPEED, "atgm", color)
+	missile.hit = Hit.make(Hit.Kind.SHELL, Armament.SHELL_DAMAGE * Armament.APHE_DAMAGE.y * Armament.SHELL_DAMAGE_SCALE, muzzle)
+	missile.hit.caliber = 100
+	missile.hit.source = self
+	missile.hit.weapon = "cannon"
+	missile.hit.power = 1.0
+	missile.hit.stagger = 0.4
+	missile.blast_radius = Armament.APHE_RADIUS.y * Armament.HE_RADIUS_SCALE
+	missile.blast_damage = Armament.APHE_BLAST.y * Armament.SHELL_DAMAGE_SCALE
+	missile.pierce_entities = true
+	missile.impact_sound = "blast"
+	missile.impacted.connect(_count_hit, CONNECT_ONE_SHOT)
+	missile.scale = Vector3.ONE * QUICK_SHELL_SCALE
+	missile.glow_trail = color
+	missile.life = Armament.ATGM_LIFE
+	missile.thrust = Armament.ATGM_THRUST
+	missile.max_speed = Armament.ATGM_SPEED
+	missile.turn_rate = Armament.ATGM_TURN
+	missile.homing_lead = true
+	missile.retarget_range = Armament.ATGM_RETARGET_RANGE
+	if is_instance_valid(charge_lock):
+		missile.homing_target = charge_lock
+		missile.homing_part = charge_part
+	elif is_instance_valid(coax_target):
+		missile.homing_target = coax_target
+		missile.homing_part = coax_part
 
 
 ## A player cannon hit template for blasts fired straight from the muzzle.

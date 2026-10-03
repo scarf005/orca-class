@@ -12,6 +12,8 @@ var _rows: Array = [
 	["Charge for box 1 (0-1)", func() -> float: return Armament.STAGE_1, func(v: float) -> void: Armament.STAGE_1 = v, 0.0, 0.95, 0.01],
 	["Charge for box 2 (0-1)", func() -> float: return Armament.STAGE_2, func(v: float) -> void: Armament.STAGE_2 = v, 0.05, 0.99, 0.01],
 	["Airburst round speed (m/s)", func() -> float: return Armament.AIRBURST_SPEED, func(v: float) -> void: Armament.AIRBURST_SPEED = v, 30.0, 400.0, 5.0],
+	["ATGM top speed (m/s)", func() -> float: return Armament.ATGM_SPEED, func(v: float) -> void: Armament.ATGM_SPEED = v, 60.0, 400.0, 5.0],
+	["ATGM turn rate (rad/s)", func() -> float: return Armament.ATGM_TURN, func(v: float) -> void: Armament.ATGM_TURN = v, 1.0, 40.0, 0.5],
 	["Scroll speed (km/h)", func() -> float: return Rail.CRUISE * 3.6, func(v: float) -> void: Rail.set_cruise(v), 40.0, 200.0, 5.0],
 	["Charge delay (s)", func() -> float: return Armament.TAP_TIME, func(v: float) -> void: Armament.TAP_TIME = v, 0.0, 0.6, 0.01],
 	["Full charge (s)", func() -> float: return Armament.FULL_TIME, func(v: float) -> void: Armament.FULL_TIME = v, 0.3, 3.0, 0.05],

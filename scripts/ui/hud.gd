@@ -326,7 +326,7 @@ func _coax_label() -> String:
 ## Short codes for the loaded round, as on an ammunition rack.
 const ROUND_CODES := {
 	Armament.Round.APHE: "APHE", Armament.Round.HEAT: "HEAT", Armament.Round.CANISTER: "CAN",
-	Armament.Round.DRAGON: "DRAGON", Armament.Round.APFSDS: "APFSDS", Armament.Round.AIRBURST: "AHEAD",
+	Armament.Round.DRAGON: "DRAGON", Armament.Round.APFSDS: "APFSDS", Armament.Round.AIRBURST: "AHEAD", Armament.Round.ATGM: "ATGM",
 }
 
 

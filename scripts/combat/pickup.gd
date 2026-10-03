@@ -5,7 +5,7 @@ extends Node3D
 const COLLECT_RADIUS := 4.5
 const MAGNET_RADIUS := 40.0 ## Within this, every pickup flies to the tank on its own.
 const MAGNET_SPEED := 60.0
-const IDS := ["coax", "heat", "canister", "dragon", "apfsds", "airburst", "repair", "life", "era", "tail", "rws"]
+const IDS := ["coax", "heat", "canister", "dragon", "apfsds", "airburst", "atgm", "repair", "life", "era", "tail", "rws"]
 
 var id := "coax"
 var collected := false
@@ -150,6 +150,16 @@ static func _round(b: LowPoly, kind: String, c: Color) -> void:
 			b.prism(up.call(0.54), 0.13, 0.22, 12, c, 0.0)
 			b.glow = true
 			b.prism(up.call(0.2), 0.225, 0.04, 12, Palette.CYAN)
+			b.glow = false
+		"atgm":
+			# A missile standing on the case: slim body, nose cone, tail fins and a glowing seeker.
+			b.prism(up.call(-0.06), 0.22, 0.3, 12, c, 0.2)
+			b.prism(up.call(0.24), 0.14, 0.5, 12, Palette.STONE, 0.04)
+			b.prism(up.call(0.74), 0.14, 0.2, 12, c, 0.14)
+			for i in 4:
+				b.box(Transform3D(Basis(Vector3.UP, PI * 0.5 * i), Vector3(0, 0.3, 0)).translated_local(Vector3(0.2, 0, 0)), Vector3(0.14, 0.2, 0.02), Palette.DUSK)
+			b.glow = true
+			b.blob(up.call(0.98), 0.05, Palette.WHITE)
 			b.glow = false
 		_:
 			# Dragon's breath: a stubby incendiary nose with glowing vents.

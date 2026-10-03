@@ -293,6 +293,7 @@ func _reservoir() -> void:
 	add_pickup("airburst", 2000.0, 6.0)
 	add_pickup("era", 2150.0, -4.0)
 	add_pickup("tail", 2450.0, 3.0)
+	add_pickup("atgm", 2700.0, 0.0)
 	add_pickup("coax", 2300.0, -5.0)
 	add_pickup("repair", 2560.0, 4.0)
 	_fungus(1760.0, 2660.0, 1.6)

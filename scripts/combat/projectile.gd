@@ -20,6 +20,10 @@ var airburst_fragments := 0
 var proximity := 0.0 ## Airburst: once armed, detonates when it passes this close to a flying hostile; 0 disables.
 var homing_target: Node3D
 var turn_rate := 0.0 ## Radians per second toward the homing target.
+var retarget_range := 0.0 ## A seeker: steers at the target's hit point (or locked module), and when that is gone or struck locks the nearest hostile ahead within this; 0 disables.
+var homing_part := "" ## The module of `homing_target` a seeker steers at.
+var thrust := 0.0 ## Metres per second gained each second, up to `max_speed`.
+var max_speed := 0.0
 var homing_lead := false ## Steers to where the target will be on arrival, from the target's `velocity`.
 var lead_response := 3.0 ## Per second the estimate of that velocity catches up with a change of course.
 var flame_trail := false ## Leaves a stream of flame behind: white-hot young, red where it ends.
@@ -82,6 +86,10 @@ func step(delta: float) -> void:
 		else:
 			queue_free()
 		return
+	if retarget_range > 0.0 and not _seeking():
+		_retarget()
+	if thrust > 0.0:
+		velocity = velocity.normalized() * minf(velocity.length() + thrust * delta, max_speed)
 	if is_instance_valid(homing_target) and turn_rate > 0.0:
 		var desired := (_homing_point(delta) - global_position).normalized() * velocity.length()
 		velocity = velocity.slerp(desired, clampf(turn_rate * delta, 0.0, 1.0))
@@ -119,6 +127,9 @@ func step(delta: float) -> void:
 ## shot's speed (the target itself when it is faster than the shot and cannot be caught).
 func _homing_point(delta: float) -> Vector3:
 	var at := homing_target.global_position + Vector3.UP
+	if retarget_range > 0.0 and homing_target is Entity:
+		var parts: Dictionary = (homing_target as Entity).aim_parts()
+		at = parts[homing_part][0] if parts.has(homing_part) else (homing_target as Entity).hit_center()
 	var target_velocity: Variant = homing_target.get(&"velocity")
 	if not homing_lead or not target_velocity is Vector3:
 		return at
@@ -131,6 +142,26 @@ func _homing_point(delta: float) -> Vector3:
 	var b := 2.0 * relative.dot(v)
 	var t := (-b - sqrt(b * b - 4.0 * a * relative.length_squared())) / (2.0 * a)
 	return at + v * minf(t, life)
+
+
+## Whether a seeker still has a living target it has not struck yet.
+func _seeking() -> bool:
+	return is_instance_valid(homing_target) and not (homing_target is Entity and (homing_target.dead or homing_target in _hit_entities))
+
+
+## Locks the nearest living hostile within `retarget_range` that is not behind the seeker, if any.
+func _retarget() -> void:
+	homing_target = null
+	homing_part = ""
+	_lead_velocity = Vector3.INF
+	var forward := velocity.normalized()
+	var best := retarget_range
+	for entity in World.current.targets_for(team):
+		var offset := entity.hit_center() - global_position
+		if entity.dead or entity is Flare or entity in _hit_entities or offset.dot(forward) <= 0.0 or offset.length() >= best:
+			continue
+		best = offset.length()
+		homing_target = entity
 
 
 ## One flame puff every so often along the path, shifting from white-hot to red and swelling as

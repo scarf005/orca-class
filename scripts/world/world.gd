@@ -378,7 +378,7 @@ func reskin_projectile(projectile: Projectile) -> void:
 static func team_color(team: Entity.Team, shape: String, requested: Color) -> Color:
 	if team != Entity.Team.PLAYER:
 		return Palette.HOSTILE
-	if shape == "fire" and requested.a > 0.0:
+	if shape in ["fire", "atgm"] and requested.a > 0.0:
 		return requested
 	return Palette.BUTTER if shape in ["shell", "dart", "pellet"] else Palette.FRIENDLY
 

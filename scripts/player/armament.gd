@@ -10,18 +10,18 @@ const GUNS := {
 	20: {"interval": 0.115, "damage": 12.0, "speed": 140.0, "spread": 0.009, "color": Palette.AMBER, "sound": "coax20", "blast": 1.3},
 }
 
-enum Round { APHE, HEAT, CANISTER, DRAGON, APFSDS, AIRBURST }
+enum Round { APHE, HEAT, CANISTER, DRAGON, APFSDS, AIRBURST, ATGM }
 
 const ROUND_IDS := {
 	Round.APHE: "aphe", Round.HEAT: "heat", Round.CANISTER: "canister", Round.DRAGON: "dragon",
-	Round.APFSDS: "apfsds", Round.AIRBURST: "airburst",
+	Round.APFSDS: "apfsds", Round.AIRBURST: "airburst", Round.ATGM: "atgm",
 }
 
 ## Special rounds the stage hands out. HEAT and APFSDS are held back for now.
-const OFFERED: Array[Round] = [Round.CANISTER, Round.DRAGON, Round.AIRBURST]
+const OFFERED: Array[Round] = [Round.CANISTER, Round.DRAGON, Round.AIRBURST, Round.ATGM]
 
 ## Rounds loaded per special-round pickup.
-const MAGAZINE := {Round.HEAT: 6, Round.CANISTER: 6, Round.DRAGON: 6, Round.APFSDS: 6, Round.AIRBURST: 6}
+const MAGAZINE := {Round.HEAT: 6, Round.CANISTER: 6, Round.DRAGON: 6, Round.APFSDS: 6, Round.AIRBURST: 6, Round.ATGM: 6}
 
 ## A real 100 mm gun on the same button as the coax, Star Fox style: a click is a coax burst, a hold past
 ## TAP_TIME locks the target and charges the shell. Let go early for a quick shell, at full charge for a
@@ -76,13 +76,21 @@ const AIRBURST_PROXIMITY := Vector2(6.0, 8.0) ## It bursts within this of any en
 const AIRBURST_FRAGMENT_DAMAGE := 400.0 ## Each fragment of the ring, whatever the shell damage scale: one shell wrecks an ordinary enemy.
 const AIRBURST_FRAGMENT_CALIBER := 30 ## Armor in mm at or above this turns the fragments (the gunship's 40 mm does).
 static var AIRBURST_SPEED := 110.0 ## The airburst is a slow round you can watch fly (tuned live in the duel mode).
+## The ATGM hits like a full-charge APHE shell, but flies: it leaves slowly, its motor takes it to full
+## speed, and its seeker turns hard after the lock, then after the nearest enemy when the lock is gone.
+const ATGM_LAUNCH_SPEED := 60.0
+const ATGM_THRUST := 300.0 ## Metres per second gained each second, from launch (60 to 180 m/s in 0.4 s).
+const ATGM_RETARGET_RANGE := 150.0 ## A missile whose target is gone locks the nearest enemy within this, ahead of it.
+const ATGM_LIFE := 4.0
+static var ATGM_SPEED := 180.0 ## Top speed (tuned live in the duel mode).
+static var ATGM_TURN := 14.0 ## Radians per second the seeker steers the missile (tuned live in the duel mode).
 const RECOIL := Vector2(8.0, 14.0)
 const MUZZLE_SIZE := Vector2(4.2, 6.0)
 const HITSTOP := Vector2(0.03, 0.1)
 
 const ROUND_COLORS := {
 	Round.APHE: Palette.AMBER, Round.HEAT: Palette.HOT, Round.CANISTER: Palette.CYAN, Round.DRAGON: Palette.FUNGUS,
-	Round.APFSDS: Palette.CYAN, Round.AIRBURST: Palette.PERIWINKLE,
+	Round.APFSDS: Palette.CYAN, Round.AIRBURST: Palette.PERIWINKLE, Round.ATGM: Palette.MINT,
 }
 
 
