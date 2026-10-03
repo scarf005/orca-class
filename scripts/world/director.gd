@@ -34,6 +34,7 @@ const CHECKPOINTS := {"": 0.0, "midboss": Course.MIDBOSS_D - 110.0, "boss": Cour
 const DUEL_D := 100.0
 const DUEL_RESPAWN := 2.5
 ## How many of each hunter a duel round sends, tuned live in the duel mode.
+static var duel_round := Armament.Round.APHE ## The round every duel refit loads (picked in the duel panel).
 static var duel_counts := {"helicopter": 0, "tiltrotor": 1, "walker": 2, "uav": 0, "quad": 0, "ugv": 0, "fpv": 0}
 const DUEL := {
 	"helicopter": {"height": 13.0, "ahead": 90.0, "u": -8.0, "formation": "line", "spacing": 20.0},
@@ -115,7 +116,8 @@ func _process(delta: float) -> void:
 		_duel_wait = _duel_wait - delta if world.enemies.is_empty() else DUEL_RESPAWN
 		if _duel_wait <= 0.0:
 			_duel_wait = DUEL_RESPAWN
-			world.player.refit() # Every round starts with a whole tank.
+			world.player.refit() # Every round starts with a whole tank and a full magazine.
+			world.player.load_round(duel_round)
 			for kind: String in DUEL:
 				if duel_counts[kind] > 0:
 					var event: Dictionary = DUEL[kind].duplicate()

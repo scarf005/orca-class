@@ -5,8 +5,10 @@ extends PanelContainer
 ## loaded again on the next duel.
 
 const PATH := "user://duel_tuning.cfg"
-## [label, getter, setter, min, max, step]
+## [label, getter, setter, min, max, step, optional value text]
 var _rows: Array = [
+	["Round", func() -> float: return Director.duel_round, func(v: float) -> void: _set_round(int(v)), 0.0, Armament.Round.size() - 1.0, 1.0,
+		func(v: float) -> String: return Armament.ROUND_IDS[int(v)].to_upper()],
 	["Coax burst (rounds)", func() -> float: return Armament.COAX_BURST_ROUNDS, func(v: float) -> void: Armament.COAX_BURST_ROUNDS = int(v), 1.0, 20.0, 1.0],
 	["Coax burst gap (s)", func() -> float: return Armament.COAX_BURST_GAP, func(v: float) -> void: Armament.COAX_BURST_GAP = v, 0.0, 2.0, 0.05],
 	["Charge for box 1 (0-1)", func() -> float: return Armament.STAGE_1, func(v: float) -> void: Armament.STAGE_1 = v, 0.0, 0.95, 0.01],
@@ -100,10 +102,11 @@ func _ready() -> void:
 		var value := Label.new()
 		value.custom_minimum_size = Vector2(56, 0)
 		value.add_theme_color_override("font_color", Palette.BUTTER)
-		value.text = _format(slider.value, row[5], row[4])
+		var text: Callable = row[6] if row.size() > 6 else func(v: float) -> String: return _format(v, row[5], row[4])
+		value.text = text.call(slider.value)
 		slider.value_changed.connect(func(v: float) -> void:
 			row[2].call(v)
-			value.text = _format(v, row[5], row[4])
+			value.text = text.call(v)
 			save_values())
 		_grid.add_child(name)
 		_grid.add_child(slider)
@@ -117,6 +120,13 @@ func _input(event: InputEvent) -> void:
 		get_tree().paused = visible
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if visible else Input.MOUSE_MODE_CONFINED_HIDDEN
 		get_viewport().set_input_as_handled()
+
+
+## Picked mid-duel, the round is loaded at once as well as on every refit.
+static func _set_round(round: int) -> void:
+	Director.duel_round = round as Armament.Round
+	if World.current != null and World.current.player != null:
+		World.current.player.load_round(Director.duel_round)
 
 
 static func _format(v: float, step: float, top: float) -> String:
