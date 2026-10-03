@@ -1,4 +1,5 @@
 .godot/
+.claude/
 /builds/
 *.translation
 /screenshots/
