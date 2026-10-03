@@ -93,7 +93,7 @@ func behave(delta: float) -> void:
 				World.current.fx.dust(global_position, 4, 1.0, Palette.OCHRE)
 				_start_swell()
 		State.SWELL:
-			var k := _state_time / SWELL_TIME
+			var k := _state_time / (SWELL_TIME * Game.telegraph_scale())
 			_body.scale = Vector3.ONE * (1.0 + k * 0.7 + sin(_state_time * 40.0) * 0.08)
 			if fmod(_state_time, 0.14) < 0.07:
 				flash()
@@ -101,7 +101,7 @@ func behave(delta: float) -> void:
 				_state_time = 0.0
 				state = State.RUN
 				_body.scale = Vector3.ONE
-			elif _state_time >= SWELL_TIME:
+			elif _state_time >= SWELL_TIME * Game.telegraph_scale():
 				_burst()
 
 

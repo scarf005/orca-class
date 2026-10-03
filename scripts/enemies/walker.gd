@@ -217,13 +217,13 @@ func behave(delta: float) -> void:
 			_land_kick(tank)
 		return
 	if _kick_cooldown <= 0.0 and _flat_distance(tank) < KICK_RANGE and _faces(tank):
-		_kick = KICK_WIND
+		_kick = KICK_WIND * Game.telegraph_scale()
 		Sfx.play("warn", global_position, -6.0, 1.6)
 		return
 	_attack_timer -= delta
 	var distance := global_position.distance_to(tank.global_position)
 	if _attack_timer <= 0.0 and distance < 90.0 and distance > 10.0:
-		_telegraph = 0.55 if weapon == "gun" else MISSILE_WIND
+		_telegraph = (0.55 if weapon == "gun" else MISSILE_WIND) * Game.telegraph_scale()
 		_at_tail = randf() < Gunnery.TAIL_CHANCE
 		_attack_timer = (2.2 if weapon == "gun" else 3.2) * (0.75 if _hard else 1.0)
 		Sfx.play("warn", global_position, -6.0, 1.6)

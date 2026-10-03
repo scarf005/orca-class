@@ -114,6 +114,7 @@ var _body_mesh: MeshInstance3D
 
 func _init() -> void:
 	super()
+	boss = true
 	radius = 8.0
 	center_height = 5.0
 	can_stagger = true
@@ -157,6 +158,13 @@ func build() -> void:
 		segment.top_level = true
 		_tendril.append(segment)
 	Sfx.play("roar", global_position)
+
+
+func apply_difficulty() -> void:
+	super()
+	for part in parts + [core]:
+		part.hp *= Game.enemy_hp_scale(true)
+		part.cap *= Game.enemy_hp_scale(true)
 
 
 func _make_part(part_name: String, offset: Vector3, r: float, part_hp: float, cap_hp: float) -> Part:
@@ -364,11 +372,11 @@ func behave(delta: float) -> void:
 			Attack.SWEEP:
 				_update_sweep(move, tank)
 			Attack.BARRAGE:
-				if move.time >= BARRAGE_WIND:
+				if move.time >= BARRAGE_WIND * Game.telegraph_scale():
 					_barrage(tank)
 					_finish(move)
 			Attack.SPAWN:
-				if move.time >= SPAWN_WIND:
+				if move.time >= SPAWN_WIND * Game.telegraph_scale():
 					_spawn_crawlers(move)
 					_finish(move)
 			Attack.SPIKES, Attack.GEYSERS:
@@ -438,7 +446,7 @@ func _begin(kind: Attack) -> Move:
 				var angle := randf_range(-0.8, 0.8)
 				var spot := global_position + Vector3(sin(angle) * 11.0, 0, cos(angle) * 11.0)
 				move.points.append(spot)
-				world.fx.marker(spot, 2.0, SPAWN_WIND, Palette.PEACH)
+				world.fx.marker(spot, 2.0, SPAWN_WIND * Game.telegraph_scale(), Palette.PEACH)
 			Sfx.play("roar", global_position, -6.0, 1.2)
 		Attack.SPIKES:
 			_telegraph_spikes(move)
@@ -513,7 +521,7 @@ func _telegraph_sweep(move: Move) -> void:
 	var world := World.current
 	for i in 7:
 		var u := move.side * (2.0 + i * 2.6) if not move.full else -15.0 + i * 5.0
-		world.fx.marker(Course.ground_at(move.d, u), 2.2, 1.3, Palette.RED if not move.full else Palette.BUTTER)
+		world.fx.marker(Course.ground_at(move.d, u), 2.2, 1.3 * Game.telegraph_scale(), Palette.RED if not move.full else Palette.BUTTER)
 	Sfx.play("warn", Course.ground_at(move.d, 0.0), 0.0, 0.7)
 
 
@@ -523,12 +531,12 @@ func _update_sweep(move: Move, tank: Tank) -> void:
 	var start_u := 20.0 * move.side
 	var end_u := 0.0 if not move.full else -20.0 * move.side
 	var tip: Vector3
-	if move.time < SWEEP_RISE:
+	if move.time < SWEEP_RISE * Game.telegraph_scale():
 		# Rear up high over the sweep's starting edge.
-		var k := move.time / SWEEP_RISE
+		var k := move.time / (SWEEP_RISE * Game.telegraph_scale())
 		tip = Course.ground_at(move.d, start_u) + Vector3.UP * lerpf(4.0, 12.0, k)
 	else:
-		var k := clampf((move.time - SWEEP_RISE) / SWEEP_LASH, 0.0, 1.0)
+		var k := clampf((move.time - SWEEP_RISE * Game.telegraph_scale()) / SWEEP_LASH, 0.0, 1.0)
 		var u := lerpf(start_u, end_u, k)
 		tip = Course.ground_at(move.d, u) + Vector3.UP * lerpf(12.0, 1.2, minf(k * 3.0, 1.0))
 		if k > 0.2:
@@ -550,7 +558,7 @@ func _barrage(tank: Tank) -> void:
 	var from := global_position + Vector3(0, 11.0, 0)
 	var count := 9 + 2 * _phase()
 	for i in count:
-		var flight := 1.1 + i * 0.05
+		var flight := (1.1 + i * 0.05) * Game.telegraph_scale()
 		var target := tank.global_position + tank.velocity * flight * 0.5 + Vector3(randf_range(-9, 9), 0, randf_range(-6, 6))
 		if i == 0:
 			target = tank.global_position
@@ -625,14 +633,14 @@ func _telegraph_spikes(move: Move) -> void:
 		var u := move.lane + (i - (lines - 1) * 0.5) * 6.0
 		var from := Course.ground_at(root_d, 0.0)
 		var to := Course.ground_at(move.d - 4.0, u)
-		world.fx.beam(from + Vector3.UP * 0.3, to + Vector3.UP * 0.3, Palette.RED, 0.3, SPIKE_WIND + 1.5)
+		world.fx.beam(from + Vector3.UP * 0.3, to + Vector3.UP * 0.3, Palette.RED, 0.3, SPIKE_WIND * Game.telegraph_scale() + 1.5)
 		var length := Vector2(from.x - to.x, from.z - to.z).length()
 		for s in range(1, int(length / SPIKE_GAP) + 1):
 			var f := s * SPIKE_GAP / length
 			var burst := Burst.new()
 			burst.position = Course.ground_at(lerpf(root_d, move.d - 4.0, f), lerpf(0.0, u, f))
-			burst.warn_at = SPIKE_WIND + s * SPIKE_GAP / CRACK_SPEED
-			burst.at = burst.warn_at + SPIKE_DELAY
+			burst.warn_at = SPIKE_WIND * Game.telegraph_scale() + s * SPIKE_GAP / CRACK_SPEED
+			burst.at = burst.warn_at + SPIKE_DELAY * Game.telegraph_scale()
 			burst.radius = SPIKE_RADIUS
 			burst.damage = SPIKE_DAMAGE
 			move.bursts.append(burst)
@@ -648,7 +656,7 @@ func _update_bursts(move: Move, tank: Tank) -> void:
 			var burst := Burst.new()
 			burst.position = Vector3(tank.global_position.x, Course.height_at(tank.global_position), tank.global_position.z)
 			burst.warn_at = move.time
-			burst.at = move.time + GEYSER_WARN
+			burst.at = move.time + GEYSER_WARN * Game.telegraph_scale()
 			burst.radius = GEYSER_RADIUS
 			burst.damage = GEYSER_DAMAGE
 			burst.geyser = true
@@ -693,7 +701,7 @@ func _telegraph_slam(move: Move) -> void:
 	strip.global_transform = Transform3D(Basis(Vector3.UP, Course.yaw_at(mid)) * Basis.from_scale(Vector3(SLAM_HALF_WIDTH * 2.0, 0.05, span.x - span.y)), Course.ground_at(mid, move.lane) + Vector3.UP * 0.12)
 	move.props.append(strip)
 	for i in int((span.x - span.y) / 4.0) + 1:
-		world.fx.marker(Course.ground_at(span.y + i * 4.0, move.lane), SLAM_HALF_WIDTH, SLAM_RISE, Palette.RED)
+		world.fx.marker(Course.ground_at(span.y + i * 4.0, move.lane), SLAM_HALF_WIDTH, SLAM_RISE * Game.telegraph_scale(), Palette.RED)
 	Sfx.play("warn", Course.ground_at(span.x, move.lane), 0.0, 0.6)
 
 
@@ -702,11 +710,11 @@ func _update_slam(move: Move, tank: Tank) -> void:
 	var world := World.current
 	var span := _slam_span(move)
 	var tip: Vector3
-	_tip_open = move.time < SLAM_RISE
+	_tip_open = move.time < SLAM_RISE * Game.telegraph_scale()
 	if _tip_open:
-		tip = Course.ground_at(span.x, move.lane) + Vector3.UP * lerpf(4.0, 14.0, move.time / SLAM_RISE)
+		tip = Course.ground_at(span.x, move.lane) + Vector3.UP * lerpf(4.0, 14.0, move.time / (SLAM_RISE * Game.telegraph_scale()))
 	else:
-		var k := clampf((move.time - SLAM_RISE) / SLAM_TIME, 0.0, 1.0)
+		var k := clampf((move.time - SLAM_RISE * Game.telegraph_scale()) / SLAM_TIME, 0.0, 1.0)
 		var d := lerpf(span.x, span.y, k)
 		tip = Course.ground_at(d, move.lane) + Vector3.UP * lerpf(14.0, 1.2, minf(k * 4.0, 1.0))
 		if k > 0.1:
@@ -741,11 +749,11 @@ func _telegraph_wall(move: Move) -> void:
 			world.add_child(puff)
 			puff.global_position = Course.ground_at(move.d, u)
 			puff.scale = Vector3.ONE * 0.05
-			puff.create_tween().tween_property(puff, "scale", Vector3.ONE, WALL_WIND)
+			puff.create_tween().tween_property(puff, "scale", Vector3.ONE, WALL_WIND * Game.telegraph_scale())
 			move.props.append(puff)
 	var gap := Course.ground_at(move.d, move.lane)
-	world.fx.marker(gap, GAP_HALF, WALL_WIND, Palette.BUTTER)
-	world.fx.beam(gap, gap + Vector3.UP * 9.0, Palette.BUTTER, 0.3, WALL_WIND)
+	world.fx.marker(gap, GAP_HALF, WALL_WIND * Game.telegraph_scale(), Palette.BUTTER)
+	world.fx.beam(gap, gap + Vector3.UP * 9.0, Palette.BUTTER, 0.3, WALL_WIND * Game.telegraph_scale())
 	Sfx.play("warn", gap, 0.0, 0.8)
 
 
@@ -755,14 +763,14 @@ func _in_wall(move: Move, tank: Tank) -> bool:
 
 func _update_wall(move: Move, tank: Tank, delta: float) -> void:
 	var world := World.current
-	if move.time >= WALL_WIND:
+	if move.time >= WALL_WIND * Game.telegraph_scale():
 		move.d -= WALL_SPEED * delta
 	for puff in move.props:
 		var at := Course.ground_at(move.d, puff.get_meta("u"))
 		puff.global_position = at + Vector3.UP * (puff.get_meta("y") as float)
 		if randf() < delta * 1.5:
 			world.fx.spores(puff.global_position, 3, 1.5)
-	if move.time >= WALL_WIND and _in_wall(move, tank):
+	if move.time >= WALL_WIND * Game.telegraph_scale() and _in_wall(move, tank):
 		move.held += delta
 		if move.held >= 0.2:
 			move.held -= 0.2
@@ -778,7 +786,7 @@ func _update_grab(move: Move, tank: Tank, delta: float) -> void:
 	var world := World.current
 	var target := tank.hit_center() if tank.tail.destroyed else tank.tail.claw_position()
 	var tip := _tendril_tip
-	var landed := GRAB_REACH + GRAB_DROP
+	var landed := GRAB_REACH * Game.telegraph_scale() + GRAB_DROP
 	_tip_open = true
 	if move.held > 0.0:
 		move.held += delta
@@ -794,14 +802,14 @@ func _update_grab(move: Move, tank: Tank, delta: float) -> void:
 			_strike(tank, Hit.Kind.RAM, GRAB_DAMAGE, tip)
 			_finish(move)
 			return
-	elif move.time < GRAB_REACH:
+	elif move.time < GRAB_REACH * Game.telegraph_scale():
 		tip = tip.lerp(target + Vector3.UP * 7.0, minf(delta * 4.0, 1.0))
 		if fposmod(move.time, 0.25) < delta:
 			world.fx.marker(Vector3(target.x, 0.0, target.z), GRAB_RADIUS, 0.3, Palette.BUTTER)
 	elif move.time < landed:
 		if move.points.is_empty():
 			move.points.append(target)
-		tip = tip.lerp(move.points[0], clampf((move.time - GRAB_REACH) / GRAB_DROP, 0.0, 1.0))
+		tip = tip.lerp(move.points[0], clampf((move.time - GRAB_REACH * Game.telegraph_scale()) / GRAB_DROP, 0.0, 1.0))
 	else:
 		tip = move.points[0]
 		_tip_open = false

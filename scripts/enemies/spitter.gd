@@ -74,7 +74,7 @@ func behave(delta: float) -> void:
 		return
 	if _telegraph > 0.0:
 		_telegraph -= delta
-		var k := 1.0 - _telegraph / 0.8
+		var k := 1.0 - _telegraph / (0.8 * Game.telegraph_scale())
 		_sac.scale = Vector3.ONE * (1.0 + k * 0.5 + sin(age * 30.0) * 0.05)
 		if fmod(_telegraph, 0.16) < 0.08:
 			flash()
@@ -84,7 +84,7 @@ func behave(delta: float) -> void:
 	_sac.scale = _sac.scale.lerp(Vector3.ONE, 4.0 * delta)
 	_timer -= delta
 	if _timer <= 0.0 and along > RANGE.x and along < RANGE.y:
-		_telegraph = 0.8
+		_telegraph = 0.8 * Game.telegraph_scale()
 		_timer = (2.2 if _hard else 2.8) + randf() * 0.6
 		Sfx.play("squelch", global_position, 0.0, 0.6)
 
@@ -94,7 +94,7 @@ func _volley(tank: Tank) -> void:
 	var from := _sac.global_position + Vector3.UP * 0.8
 	var shots := 4 if _hard else 3
 	for i in shots:
-		var flight := 1.6 + i * 0.15
+		var flight := (1.6 + i * 0.15) * Game.telegraph_scale()
 		var target := tank.global_position + tank.velocity * flight
 		if i > 0:
 			target += Vector3(randf_range(-6, 6), 0, randf_range(-6, 6))

@@ -7,6 +7,7 @@ extends Node
 var screen: GameScreen
 var bot := "hold"
 var cleared := false
+var deaths := 0
 var kill_sources := {"coax": 0, "cannon": 0, "ram": 0, "dash": 0, "tail": 0, "ciws": 0, "collateral": 0, "reflect": 0, "other": 0}
 var _last_tap := -1.0
 var _charge_started := -1.0
@@ -18,6 +19,11 @@ func run() -> int:
 	var args: Dictionary = preload("res://scripts/main.gd").args()
 	if args.has("seed"):
 		seed(int(args.seed))
+	var difficulty: String = args.get("difficulty", "normal")
+	if difficulty not in ["easy", "normal", "hard"]:
+		push_error("Unknown difficulty: %s" % difficulty)
+		return 1
+	Game.difficulty = {"easy": Game.Difficulty.EASY, "normal": Game.Difficulty.NORMAL, "hard": Game.Difficulty.HARD}[difficulty]
 	bot = args.get("bot", "hold")
 	if bot not in ["hold", "idle", "tap", "charge"]:
 		push_error("Unknown bot mode: %s" % bot)
@@ -34,6 +40,7 @@ func run() -> int:
 	add_child(screen)
 	var world := screen.world
 	world.killed.connect(_killed)
+	world.player.life_lost.connect(func() -> void: deaths += 1)
 	world.stage_cleared.connect(func() -> void:
 		cleared = true
 		_section_end(world))
@@ -105,8 +112,8 @@ func run() -> int:
 	print("AUTOPLAY d=%.0f score=%d kills=%d/%d lives=%d hp=%.0f enemies=%d projectiles=%d frames=%d slow=%d worst=%.1fms" % [
 		world.rail.d, stats.score, stats.kills, stats.spawned, stats.lives, world.player.hp, world.enemies.size(),
 		world.projectiles.size(), frames, slow_frames, worst])
-	print("PROBE bot=%s cleared=%s dead=%s time=%.2f d=%.0f lives=%d damage_taken=%.2f kills=%d/%d front_mean=%.2f coax=%d cannon=%d ram=%d dash=%d tail=%d ciws=%d collateral=%d reflect=%d other=%d cannon_shots=%d charged_shots=%d healing_melee=%.2f healing_repair=%.2f" % [
-		bot, cleared and not world.player.dead, world.player.dead, stats.time, world.rail.d, stats.lives, stats.damage_taken, stats.kills, stats.spawned, front_total / maxi(frames, 1),
+	print("PROBE difficulty=%s bot=%s cleared=%s dead=%s time=%.2f d=%.0f lives=%d deaths=%d damage_taken=%.2f kills=%d/%d front_mean=%.2f coax=%d cannon=%d ram=%d dash=%d tail=%d ciws=%d collateral=%d reflect=%d other=%d cannon_shots=%d charged_shots=%d healing_melee=%.2f healing_repair=%.2f" % [
+		difficulty, bot, cleared and not world.player.dead, world.player.dead, stats.time, world.rail.d, stats.lives, deaths, stats.damage_taken, stats.kills, stats.spawned, front_total / maxi(frames, 1),
 		kill_sources.coax, kill_sources.cannon, kill_sources.ram, kill_sources.dash, kill_sources.tail, kill_sources.ciws, kill_sources.collateral, kill_sources.reflect, kill_sources.other, stats.shots, stats.charged_shots, stats.melee_healing, stats.repair_healing])
 	for action in ["fire", "move_left", "move_right"]:
 		Input.action_release(action)

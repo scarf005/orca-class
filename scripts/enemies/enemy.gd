@@ -19,6 +19,7 @@ var weakness := {} ## Hit.Kind -> damage multiplier.
 var death_radius := 2.0 ## Size of the death blast: half the model's longest side, set once it is built.
 var debris: Array = [Fx.Debris.ARMOR, Fx.Debris.METAL] ## Fx.Debris materials it breaks into.
 var drop := ""
+var boss := false
 var heavy := false ## A boss's hide: canister balls and airbursts barely scratch it.
 var stagger := 0.0
 var burning := 0.0
@@ -50,6 +51,7 @@ func _ready() -> void:
 	model.name = "Model"
 	add_child(model)
 	build()
+	apply_difficulty()
 	track_meshes(model)
 	if trails:
 		FlyerTrail.follow(self)
@@ -59,6 +61,12 @@ func _ready() -> void:
 	ActorLayer.mark(self, ActorLayer.HOSTILE)
 	_last_position = global_position
 	World.current.stats.spawned += 1
+
+
+func apply_difficulty() -> void:
+	armor *= 0.25 if Game.difficulty == Game.Difficulty.EASY else 1.0
+	max_hp *= Game.enemy_hp_scale(boss)
+	hp *= Game.enemy_hp_scale(boss)
 
 
 ## Subclasses add meshes to `model` here.
@@ -465,4 +473,5 @@ func frontal_armor(hit: Hit, factor: float) -> float:
 	incoming.y = 0.0
 	if hit.kind != Hit.Kind.BULLET or incoming.length_squared() < 0.0001:
 		return 1.0
-	return factor if facing.angle_to(incoming) <= deg_to_rad(60.0) else 1.0
+	var front := lerpf(1.0, factor, 0.25) if Game.difficulty == Game.Difficulty.EASY else factor
+	return front if facing.angle_to(incoming) <= deg_to_rad(60.0) else 1.0

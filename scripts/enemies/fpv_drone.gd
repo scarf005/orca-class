@@ -124,7 +124,7 @@ func behave(delta: float) -> void:
 			global_position += velocity * delta + Vector3.UP * sin(_state_time * 40.0) * 0.02
 			model.look_at(tank.global_position + Vector3.UP, Vector3.UP)
 			_light.visible = fmod(_state_time, 0.12) < 0.07
-			if _state_time >= TELEGRAPH_TIME:
+			if _state_time >= TELEGRAPH_TIME * Game.telegraph_scale():
 				_light.visible = true
 				_start_dive(tank)
 		State.DIVE:

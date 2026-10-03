@@ -4,7 +4,7 @@ extends Node
 const SETTINGS_PATH := "user://settings.cfg"
 const BESTS_PATH := "user://bests.cfg"
 
-enum Difficulty { NORMAL, HARD }
+enum Difficulty { NORMAL, HARD, EASY }
 
 ## Default bindings. Each entry is a list of InputEvents; keyboard/mouse events are rebindable.
 ## The keyboard needs only WASD, Space and the mouse: W/S also boost and brake the rail, Space or the right
@@ -175,5 +175,14 @@ func is_checkpoint_unlocked(name: String) -> bool:
 	return bests.has("checkpoint_" + name)
 
 
+func telegraph_scale() -> float:
+	return 2.0 if difficulty == Difficulty.EASY else 1.0
+
+
+func enemy_hp_scale(boss := false) -> float:
+	return (0.6 if boss else 0.7) if difficulty == Difficulty.EASY else 1.0
+
+
 func best_key(name: String) -> String:
-	return "%s_%s" % [name, "hard" if difficulty == Difficulty.HARD else "normal"]
+	var mode := "easy" if difficulty == Difficulty.EASY else ("hard" if difficulty == Difficulty.HARD else "normal")
+	return "%s_%s" % [name, mode]

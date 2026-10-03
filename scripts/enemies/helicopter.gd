@@ -170,7 +170,7 @@ func behave(delta: float) -> void:
 	if _telegraph > 0.0:
 		_telegraph -= delta
 		if _strafing:
-			_strafe_d -= STRAFE_WALK * delta
+			_strafe_d -= STRAFE_WALK * delta / Game.telegraph_scale()
 		world.fx.beam(_chin.global_position, _aim_point(tank) if _strafing else tank.hit_center(), Palette.CORAL, 0.035, 0.05)
 		if _telegraph <= 0.0:
 			_rocket_aim = _aim_point(tank)
@@ -188,7 +188,7 @@ func behave(delta: float) -> void:
 	else:
 		_attack_timer -= delta
 		if _attack_timer <= 0.0 and to_tank.length() < 130.0:
-			_telegraph = 0.8
+			_telegraph = 0.8 * Game.telegraph_scale()
 			if _strafing:
 				var lane := Course.to_course(tank.global_position + tank.velocity * 0.4)
 				_strafe_d = lane.x + STRAFE_LEAD

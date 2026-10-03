@@ -104,6 +104,7 @@ var _jitter := Vector3.ZERO
 
 func _init() -> void:
 	super()
+	boss = true
 	radius = 6.0
 	armor = 40.0
 	center_height = 0.0
@@ -454,7 +455,7 @@ func _cannon_strike(hit: Hit, splash: bool) -> float:
 	var world := World.current
 	var charged := hit.power >= 1.0
 	var weight := 1.0 if charged and not splash else QUICK_WEIGHT
-	var share := max_hp * CANNON_SHARE
+	var share := max_hp / Game.enemy_hp_scale(true) * CANNON_SHARE
 	if splash:
 		if age - _shell_time < SHELL_WINDOW:
 			return 0.0
@@ -784,7 +785,7 @@ func _update_attack(delta: float, tank: Tank) -> void:
 		Attack.CANNON:
 			_cannon(delta, tank)
 		Attack.ATGM:
-			if _attack_time < 1.3:
+			if _attack_time < 1.3 * Game.telegraph_scale():
 				set_meta("locking", true)
 				if fmod(_attack_time, 0.1) < 0.05:
 					World.current.fx.beam(_chin.global_position, tank.hit_center(), Palette.RED, 0.05, 0.05)
@@ -794,7 +795,7 @@ func _update_attack(delta: float, tank: Tank) -> void:
 					_launch_atgm(tank, i)
 				_end_attack()
 		Attack.DRONES:
-			if _attack_time > 0.6:
+			if _attack_time > 0.6 * Game.telegraph_scale():
 				var wave := {"d": 0.0, "kind": "fpv", "count": 3 if not _hard else 5, "formation": "ring", "height": 0.0, "spacing": 5.0, "ahead": 0.0, "hover": 18.0, "approach": 1.0}
 				var spawned: Array[Enemy] = World.current.director.spawn_wave(wave)
 				# They rise in front of the tank, low and outside the laser's reach, so some meet the tail or the hull.
@@ -861,7 +862,7 @@ func _gun(delta: float, tank: Tank) -> void:
 	if live.is_empty():
 		_end_attack()
 		return
-	if _attack_time < 0.6:
+	if _attack_time < 0.6 * Game.telegraph_scale():
 		# Telegraph: sight beam sweeping onto the tank.
 		if fmod(_attack_time, 0.12) < 0.06:
 			var sight: Node3D = _chin if _live("chin") else _gatlings[live[0]]
@@ -895,7 +896,7 @@ func _rockets(delta: float, tank: Tank) -> void:
 		_end_attack()
 		return
 	var world := World.current
-	if _attack_time < 0.8:
+	if _attack_time < 0.8 * Game.telegraph_scale():
 		for side in ["pod_l", "pod_r"]:
 			var part: Part = parts[side]
 			if part.hp > 0.0:
@@ -953,7 +954,9 @@ func _rocket_target(tank: Tank, shot: int) -> Vector3:
 func _cannon(delta: float, tank: Tank) -> void:
 	var world := World.current
 	var muzzle := _nose_muzzle.global_position
-	var cycle := CANNON_AIM + 0.25
+	var wind := CANNON_AIM * Game.telegraph_scale()
+	var lock_time := CANNON_LOCK * Game.telegraph_scale()
+	var cycle := wind + 0.25
 	var index := int(_attack_time / cycle)
 	if index >= 3:
 		_end_attack()
@@ -961,15 +964,15 @@ func _cannon(delta: float, tank: Tank) -> void:
 	if _shots > index:
 		return
 	var aiming := _attack_time - index * cycle
-	if aiming < CANNON_AIM - CANNON_LOCK:
+	if aiming < wind - lock_time:
 		# Tracking: a flickering sight line follows the tank.
 		_cannon_aim = tank.hit_center() + tank.velocity * (muzzle.distance_to(tank.hit_center()) / CANNON_SPEED)
 		if aiming < delta:
 			Sfx.play("lock", muzzle, 4.0, 1.3)
 		if fmod(aiming, 0.1) < 0.06:
 			world.fx.beam(muzzle, _cannon_aim, Palette.HOT, 0.06 + aiming * 0.15, 0.05)
-	if aiming < CANNON_AIM:
-		if aiming >= CANNON_AIM - CANNON_LOCK:
+	if aiming < wind:
+		if aiming >= wind - lock_time:
 			# Locked: the line goes solid and stops following, and so does the barrel. This is the moment to dash.
 			if _cannon_hold == Vector3.ZERO:
 				_cannon_hold = -_nose_muzzle.global_basis.z.normalized()
@@ -992,7 +995,7 @@ func _cannon(delta: float, tank: Tank) -> void:
 
 ## Bomb bay: red circles walk along the tank's path, then the bombs fall onto them.
 func _bombs(tank: Tank) -> void:
-	if _attack_time < 0.4 or _shots > 0:
+	if _attack_time < 0.4 * Game.telegraph_scale() or _shots > 0:
 		if _shots > 0 and _attack_time > 2.6:
 			_end_attack()
 		return
@@ -1001,7 +1004,7 @@ func _bombs(tank: Tank) -> void:
 	var count := [6, 8, 10][phase] as int
 	_shots = count
 	for i in count:
-		var flight := BOMB_FLIGHT + i * 0.08
+		var flight := (BOMB_FLIGHT + i * 0.08) * Game.telegraph_scale()
 		var target := tank.global_position + tank.velocity * flight + Vector3(randf_range(-4, 4), 0, randf_range(-4, 4))
 		target.y = Course.height_at(target)
 		var velocity_out := (target - from) / flight

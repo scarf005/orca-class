@@ -6,6 +6,7 @@ S = {
     "TITLE_SUB": ("범고래급 · 운전수 하윤", "ORCA-CLASS · DRIVER HA YOON"),
     "TITLE_TAGLINE": ("1스테이지 — 균사에 먹힌 마을", "STAGE 1 — THE VILLAGE THE FUNGUS ATE"),
     "TITLE_BEST": ("최고 점수 %d", "BEST %d"),
+    "MENU_START_EASY": ("출격 — 쉬움", "SORTIE — EASY"),
     "MENU_START_NORMAL": ("출격 — 보통", "SORTIE — NORMAL"),
     "MENU_START_HARD": ("출격 — 어려움", "SORTIE — HARD"),
     "MENU_FROM_MIDBOSS": ("분교부터 (기록 제외)", "FROM THE SCHOOL (UNRANKED)"),

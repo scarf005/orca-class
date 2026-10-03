@@ -142,7 +142,7 @@ func _process(delta: float) -> void:
 ## Only the rail running (never a hold, the duel or the arena) counts the tank's speed.
 func _update_pursuit(delta: float) -> void:
 	var world := World.current
-	if world.rail.mode != Rail.Mode.RAIL or world.player.dead:
+	if Game.difficulty == Game.Difficulty.EASY or world.rail.mode != Rail.Mode.RAIL or world.player.dead:
 		slow_meter = 0.0
 		_pursuit_groups = 0
 		return
@@ -165,6 +165,8 @@ func _update_pursuit(delta: float) -> void:
 func send_pursuers(count: int, pattern: FpvDrone.Pattern) -> Array[Enemy]:
 	var world := World.current
 	var sent: Array[Enemy] = []
+	if Game.difficulty == Game.Difficulty.EASY:
+		return sent
 	var alive := world.enemies.filter(func(e: Entity) -> bool: return e is FpvDrone and (e as FpvDrone).state == FpvDrone.State.PURSUE).size()
 	if alive + count > PURSUIT_MAX:
 		return sent

@@ -44,6 +44,7 @@ func _show_main() -> void:
 	_menu = Menu.new()
 	_menu.center = Vector2(760, 380)
 	_menu.width = 300
+	_menu.add_item(tr("MENU_START_EASY"), _begin.bind(Game.Difficulty.EASY, ""))
 	_menu.add_item(tr("MENU_START_NORMAL"), _begin.bind(Game.Difficulty.NORMAL, ""))
 	_menu.add_item(tr("MENU_START_HARD"), _begin.bind(Game.Difficulty.HARD, ""))
 	if Game.is_checkpoint_unlocked("midboss"):

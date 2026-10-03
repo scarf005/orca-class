@@ -188,7 +188,7 @@ func behave(delta: float) -> void:
 		return
 	_attack_timer -= delta
 	if _attack_timer <= 0.0 and distance < 110.0 and distance > 12.0 and _ram_wind <= 0.0 and _ram <= 0.0:
-		_telegraph = 1.4 if weapon == "atgm" else 0.5
+		_telegraph = (1.4 if weapon == "atgm" else 0.5) * Game.telegraph_scale()
 		_at_tail = randf() < Gunnery.TAIL_CHANCE
 		if weapon == "atgm":
 			Sfx.play("lock", global_position)
@@ -205,7 +205,7 @@ func _ram_step(delta: float, tank: Tank, here: Vector2, move: Vector2) -> Vector
 	var ahead := Course.to_course(tank.global_position) - here
 	if _ram_wind <= 0.0 and _ram <= 0.0:
 		if _ram_cooldown <= 0.0 and _burst == 0 and _telegraph <= 0.0 and ahead.x > RAM_REACH.x and ahead.x < RAM_REACH.y and absf(ahead.y) < RAM_LANE:
-			_ram_wind = RAM_WIND
+			_ram_wind = RAM_WIND * Game.telegraph_scale()
 			Sfx.play("warn", global_position, -2.0, 0.7)
 		return move
 	if fmod(age, 0.1) < delta:

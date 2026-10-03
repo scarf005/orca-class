@@ -171,8 +171,8 @@ func behave(delta: float) -> void:
 			_land_stomp(tank)
 		return
 	elif _stomp_cooldown <= 0.0 and _telegraph <= 0.0 and _burst == 0 and _flat_distance(tank) < STOMP_RANGE:
-		_stomp = STOMP_WIND
-		world.fx.marker(global_position, STOMP_REACH, STOMP_WIND, Palette.HOT)
+		_stomp = STOMP_WIND * Game.telegraph_scale()
+		world.fx.marker(global_position, STOMP_REACH, _stomp, Palette.HOT)
 		Sfx.play("warn", global_position, 0.0, 0.6)
 		return
 	if disarmed or collapsed() or is_staggered():
@@ -205,7 +205,7 @@ func behave(delta: float) -> void:
 	_attack_timer -= delta
 	var distance := global_position.distance_to(tank.global_position)
 	if _attack_timer <= 0.0 and distance < 110.0 and distance > 12.0:
-		_telegraph = 0.8
+		_telegraph = 0.8 * Game.telegraph_scale()
 		_attack_timer = (3.0 if weapon == "flak" else 3.6) * (0.75 if _hard else 1.0)
 		Sfx.play("warn", global_position, 0.0, 0.7)
 
@@ -224,7 +224,7 @@ func _attack(tank: Tank) -> void:
 	for slot in slots:
 		if slot == gap:
 			continue
-		var flight := 1.7 + fired * 0.12
+		var flight := (1.7 + fired * 0.12) * Game.telegraph_scale()
 		fired += 1
 		var target := _mortar_target(tank, slot, slots)
 		var lob := _lob(from, target, flight)

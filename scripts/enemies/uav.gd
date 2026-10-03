@@ -25,6 +25,7 @@ var _bombs := 0 ## Carpets still to drop on this pass.
 var _bomb_timer := 0.0
 var _strafe := 0
 var _strafe_timer := 0.0
+var _strafe_wind := 0.0
 var _strafe_point := Vector3.ZERO
 var _strafe_step := Vector3.ZERO
 var _prop: Node3D
@@ -179,7 +180,7 @@ func _bomb_run(delta: float, tank: Tank, ahead: float) -> void:
 	# A line of bombs across the road centred where the tank will be; one slot is left open.
 	var world := World.current
 	var centre := Course.to_course(tank.global_position + tank.velocity * CARPET_LEAD)
-	var along := Course.to_course(tank.global_position + tank.velocity * BOMB_FLIGHT).x
+	var along := Course.to_course(tank.global_position + tank.velocity * BOMB_FLIGHT * Game.telegraph_scale()).x
 	var gap := randi() % CARPET_BOMBS
 	for i in CARPET_BOMBS:
 		if i == gap:
@@ -187,14 +188,15 @@ func _bomb_run(delta: float, tank: Tank, ahead: float) -> void:
 		var target := Course.to_world(along, centre.y + (i - (CARPET_BOMBS - 1) * 0.5) * CARPET_SPACING)
 		target.y = Course.height_at(target)
 		_drop_bomb(target)
-		world.fx.marker(target, 3.6, BOMB_FLIGHT, Palette.RED)
+		world.fx.marker(target, 3.6, BOMB_FLIGHT * Game.telegraph_scale(), Palette.RED)
 		Sfx.play("warn", target, -6.0, 1.4)
 
 
 func _drop_bomb(target: Vector3) -> void:
 	var from := global_position + Vector3.DOWN * 0.6
-	var velocity_out := (target - from) / BOMB_FLIGHT
-	velocity_out.y += 0.5 * 20.0 * BOMB_FLIGHT
+	var flight := BOMB_FLIGHT * Game.telegraph_scale()
+	var velocity_out := (target - from) / flight
+	velocity_out.y += 0.5 * 20.0 * flight
 	var bomb := World.current.spawn_projectile(Team.ENEMY, from, velocity_out, "bomb", Palette.HOT)
 	bomb.gravity = 20.0
 	bomb.hit = Hit.make(Hit.Kind.BLAST, 0.0, from)
@@ -203,7 +205,7 @@ func _drop_bomb(target: Vector3) -> void:
 	bomb.blast_damage = 30.0
 	bomb.interceptable = true
 	bomb.intercept_hp = 0.8
-	bomb.life = BOMB_FLIGHT + 1.0
+	bomb.life = flight + 1.0
 
 
 func _strafe_run(delta: float, tank: Tank, ahead: float) -> void:
@@ -211,6 +213,7 @@ func _strafe_run(delta: float, tank: Tank, ahead: float) -> void:
 	if _strafe == 0 and ahead < 80.0 and ahead > 45.0 and _turn <= 0.0 and not is_staggered():
 		# Start the walking line well ahead of the tank so the dust shows where it will go.
 		_strafe = 22
+		_strafe_wind = 0.6 * (Game.telegraph_scale() - 1.0)
 		var along := Vector3(_dir.x, 0, _dir.z).normalized()
 		_strafe_point = tank.global_position - along * 26.0 + tank.global_basis.x * randf_range(-3, 3)
 		_strafe_step = along * 2.4
@@ -219,6 +222,10 @@ func _strafe_run(delta: float, tank: Tank, ahead: float) -> void:
 	var line := _strafe_point + _strafe_step
 	line.y = Course.height_at(line)
 	aim_barrel(_gun, line, BARREL_SLEW, delta)
+	if _strafe_wind > 0.0:
+		_strafe_wind -= delta
+		world.fx.beam(_muzzle.global_position, line, Palette.CORAL, 0.05, 0.05)
+		return
 	_strafe_timer -= delta
 	if _strafe_timer > 0.0:
 		return

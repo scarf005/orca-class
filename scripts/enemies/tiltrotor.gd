@@ -282,7 +282,7 @@ func _hover_tasks(delta: float, tank: Tank) -> void:
 		_drop_squad()
 	if _hover > SWEEP_AT and not _sweep_done and _wind <= 0.0 and _sweep <= 0.0 and _ramp > 0.9:
 		_sweep_done = true
-		_wind = SWEEP_WIND
+		_wind = SWEEP_WIND * Game.telegraph_scale()
 		_line_across(tank)
 		Sfx.play("warn", global_position, -2.0, 0.8)
 	var aim := _line_a
@@ -311,7 +311,7 @@ func _hover_tasks(delta: float, tank: Tank) -> void:
 ## starting on the near side so the sweep runs away from the aircraft.
 func _line_across(tank: Tank) -> void:
 	var at := Gunnery.sensor_lead(tank, _muzzle.global_position, MG_SPEED)
-	var lead := Course.to_course(at + tank.velocity * (SWEEP_WIND + SWEEP_TIME * 0.5))
+	var lead := Course.to_course(at + tank.velocity * (SWEEP_WIND * Game.telegraph_scale() + SWEEP_TIME * 0.5))
 	var side := signf(Course.to_course(global_position).y - lead.y)
 	_line_a = Course.to_world(lead.x, lead.y + side * SWEEP_HALF)
 	_line_b = Course.to_world(lead.x, lead.y - side * SWEEP_HALF)
