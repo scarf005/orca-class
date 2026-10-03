@@ -18,12 +18,14 @@ enum Attack { NONE, GUN, ROCKETS, ATGM, DRONES, DIVE, BOMBS, CANNON }
 const BODY_HP := 1600.0
 const CANNON_SHARE := 0.1 ## Hull taken by one full-charge main-gun hit wherever it lands: ten of them bring it down.
 const QUICK_WEIGHT := 0.5 ## A quick shell, or the blast of one that missed, counts as this much of a hit.
-const SPLASH_WINDOW := 0.3 ## Seconds after a shell's direct hit in which a blast of the main gun counts for nothing: it is that shell's own.
+const SHELL_WINDOW := 0.3 ## Seconds in which a shell's direct hit and its blast count as one: together never more than its own weight.
+const AREA_ROUNDS := ["airburst", "canister"] ## Their hits, like every machine-gun round and fragment, glance off its armor.
+const SIDE_RATE := 16.0 ## Most hull per second that everything but the main gun and the machine guns takes together (wreck and chain blasts, rams, the tail, a dragon's breath).
 const ROTOR_HITS := 3 ## Full-charge hits that wreck a rotor.
 const MODULE_HITS := 2 ## Full-charge hits that wreck any other module.
-const COAX_MODULE := 0.5 ## Share of a machine-gun round's damage a module takes.
+const COAX_MODULE := 0.2 ## Share of a machine-gun round's damage a weapon takes; the airframe and plates shrug it off.
 const PHASE_MARKS := [0.7, 0.34] ## Hull fraction at which the next phase begins.
-const ERA_HP := 100.0 ## A full charge or HEAT pops a plate, a plain shell cracks half of it; machine guns chew through it slowly.
+const ERA_HP := 100.0 ## A full charge or HEAT pops a plate, a plain shell cracks half of it; machine guns glance off.
 const MODULE_HP := {"rotor_l": 150.0, "rotor_r": 150.0, "chin": 90.0, "pod_l": 140.0, "pod_r": 140.0,
 	"gatling_l": 80.0, "gatling_r": 80.0, "nose_gun": 110.0, "bay": 120.0}
 const GATLINGS := ["gatling_l", "gatling_r"]
@@ -92,6 +94,10 @@ var _crash_to := Vector3.ZERO ## Where it hits the dam: in front of the face, up
 var _cannon_aim := Vector3.ZERO ## Where the nose cannon's next shell is locked to go.
 var _hard := false
 var _shell_time := -1.0 ## Age at the last direct main-gun hit.
+var _splash := 0.0 ## Weight of the last blast of the main gun, and the age it landed at: a direct hit just after it only adds the rest.
+var _splash_time := -1.0
+var _side_time := -1.0 ## Start of the second the hull taken from side hits is counted in.
+var _side_taken := 0.0
 var _rotor_sound: AudioStreamPlayer3D
 var _jitter := Vector3.ZERO
 
@@ -99,7 +105,7 @@ var _jitter := Vector3.ZERO
 func _init() -> void:
 	super()
 	radius = 6.0
-	armor = 0.6
+	armor = 40.0
 	center_height = 0.0
 	flying = true
 	trails = true
@@ -407,43 +413,13 @@ func take_hit(hit: Hit) -> void:
 	if dead or invulnerable or _crash > 0.0 or hit.damage <= 0.0:
 		return
 	var world := World.current
-	var splash := hit.kind == Hit.Kind.BLAST and hit.weapon == "cannon" and hit.caliber >= 100
-	var cannon := splash or hit.kind == Hit.Kind.SHELL and hit.caliber >= 100
-	if splash and age - _shell_time < SPLASH_WINDOW:
-		return
-	if cannon and not splash:
-		_shell_time = age
-	var charged := hit.power >= 1.0
-	var weight := 1.0 if charged and not splash else QUICK_WEIGHT
-	var amount := hit.damage * damage_multiplier(hit)
-	var hull := max_hp * CANNON_SHARE * weight if cannon else amount
-	var local := model.global_transform.affine_inverse() * hit.position
-	# A blast bursts in the air or on the ground, not on the airframe: it only ever takes the hull share.
-	var struck: Part = null if splash else _struck_part(hit.position)
-	var plate := "" if splash else _plate_facing(local)
-	if struck and struck.module:
-		# A module takes its fixed share of the hit and the airframe behind it takes the hull share too.
-		struck.hp -= MODULE_HP[struck.name] / float(ROTOR_HITS if struck.name in ROTORS else MODULE_HITS) * weight if cannon else amount * COAX_MODULE
-		world.fx.sparks(hit.position, -hit.direction, 10, Palette.BUTTER, 12.0)
-		if struck.hp <= 0.0:
-			_lose_part(struck, hit.direction)
-		if not cannon:
-			hull = 0.0
-	elif plate != "" and _live(plate) and hit.kind != Hit.Kind.FIRE:
-		# ERA on the struck facing detonates outward and eats the shell.
-		var era: Part = parts[plate]
-		era.hp -= ERA_HP * (1.0 if charged or hit.pierce else 0.5) if cannon else amount
-		world.fx.sparks(hit.position, -hit.direction, 8, Palette.WHITE, 9.0)
-		if era.hp <= 0.0:
-			_lose_part(era, hit.direction)
-		else:
-			# A plate that held: cracked, glowing and shedding chips.
-			world.fx.sparks(hit.position, -hit.direction, 14, Palette.AMBER, 14.0)
-			world.fx.debris(hit.position, 6, [Fx.Debris.ARMOR], 9.0, 0.3, -hit.direction)
-		if not cannon:
-			hull = amount * 0.1
+	var glance := hit.kind in [Hit.Kind.BULLET, Hit.Kind.FRAGMENT] or hit.weapon in AREA_ROUNDS
+	var splash := not glance and hit.kind == Hit.Kind.BLAST and hit.weapon == "cannon" and hit.caliber >= 100
+	var cannon := not glance and (splash or hit.kind == Hit.Kind.SHELL and hit.caliber >= 100)
+	var hull := _cannon_strike(hit, splash) if cannon else _side_strike(hit, glance)
 	hp -= hull
-	var falls := hp <= 0.0 or not (_live("rotor_l") or _live("rotor_r"))
+	var amount := hit.damage * damage_multiplier(hit) if cannon else hull
+	var falls := hp <= 0.0
 	impact_feedback(hit, amount, falls and phase == Phase.INFECTED)
 	if cannon:
 		# A 100 mm shell lands like a truck: a blast on the skin, the whole craft lurches and rolls.
@@ -469,6 +445,69 @@ func take_hit(hit: Hit) -> void:
 		_recover()
 		return
 	_update_phase()
+
+
+## A main-gun hit: a full charge is one share of the hull wherever it lands, a quick shell or a blast
+## half of one, and one shell's direct hit and blasts together never add up to more than its own
+## weight. The struck module or plate takes its own fixed share on top. Returns the hull taken.
+func _cannon_strike(hit: Hit, splash: bool) -> float:
+	var world := World.current
+	var charged := hit.power >= 1.0
+	var weight := 1.0 if charged and not splash else QUICK_WEIGHT
+	var share := max_hp * CANNON_SHARE
+	if splash:
+		if age - _shell_time < SHELL_WINDOW:
+			return 0.0
+		_splash = weight
+		_splash_time = age
+		return share * weight # A blast bursts in the air or on the ground, not on the airframe: it only ever takes the hull share.
+	var owed := weight - (_splash if age - _splash_time < SHELL_WINDOW else 0.0)
+	_shell_time = age
+	_splash = 0.0
+	var hull := share * owed
+	var struck := _struck_part(hit.position)
+	var plate := _plate_facing(model.to_local(hit.position))
+	if struck and struck.module:
+		struck.hp -= MODULE_HP[struck.name] / float(ROTOR_HITS if struck.name in ROTORS else MODULE_HITS) * weight
+		world.fx.sparks(hit.position, -hit.direction, 10, Palette.BUTTER, 12.0)
+		if struck.hp <= 0.0:
+			_lose_part(struck, hit.direction)
+	elif plate != "" and _live(plate):
+		# ERA on the struck facing detonates outward and eats the shell.
+		var era: Part = parts[plate]
+		era.hp -= ERA_HP * (1.0 if charged or hit.pierce else 0.5)
+		world.fx.sparks(hit.position, -hit.direction, 8, Palette.WHITE, 9.0)
+		if era.hp <= 0.0:
+			_lose_part(era, hit.direction)
+		else:
+			# A plate that held: cracked, glowing and shedding chips.
+			world.fx.sparks(hit.position, -hit.direction, 14, Palette.AMBER, 14.0)
+			world.fx.debris(hit.position, 6, [Fx.Debris.ARMOR], 9.0, 0.3, -hit.direction)
+	return hull
+
+
+## Everything but the main gun's shells. Machine-gun rounds, fragments and the area rounds glance off the
+## airframe and plates for nothing; only a machine-gun round that meets a weapon (not a rotor) hurts it, a
+## fifth as much. Blasts of wrecks, rams, the tail and the rest together take at most SIDE_RATE hull a second,
+## so none of them shortcuts the fight. Returns the hull taken.
+func _side_strike(hit: Hit, glance: bool) -> float:
+	var world := World.current
+	if glance:
+		var struck := _struck_part(hit.position)
+		if hit.kind == Hit.Kind.BULLET and hit.weapon not in AREA_ROUNDS and struck and struck.module and struck.name not in ROTORS:
+			struck.hp -= hit.damage * COAX_MODULE
+			world.fx.sparks(hit.position, -hit.direction, 3, Palette.BUTTER, 8.0)
+			if struck.hp <= 0.0:
+				_lose_part(struck, hit.direction)
+		else:
+			world.fx.ricochet(hit, hit_center())
+		return 0.0
+	if age - _side_time >= 1.0:
+		_side_time = age
+		_side_taken = 0.0
+	var taken := clampf(hit.damage * damage_multiplier(hit), 0.0, SIDE_RATE - _side_taken)
+	_side_taken += taken
+	return taken
 
 
 ## The live part whose shell the impact landed in, if any.
@@ -499,16 +538,6 @@ static func _plate_facing(local: Vector3) -> String:
 	if local.z < 2.0 and local.z > -4.4 and local.y < 1.6 and absf(local.x) > 1.8:
 		return "era_left" if local.x < 0.0 else "era_right"
 	return ""
-
-
-func damage_multiplier(hit: Hit) -> float:
-	var multiplier := super(hit)
-	match hit.kind:
-		Hit.Kind.FRAGMENT:
-			multiplier *= 1.5 # Airburst fragments shred rotorcraft.
-		Hit.Kind.BULLET:
-			multiplier *= 0.4 # Machine guns only scratch it; the main gun does the work.
-	return multiplier
 
 
 func _lose_part(part: Part, direction := Vector3.ZERO) -> void:
@@ -578,22 +607,9 @@ func _advance_phase() -> void:
 		_next_attack = 0.8
 
 
-## Before the last phase it cannot fall: with the hull emptied or both rotors gone it comes back
-## into the next phase at that phase's hull, its lost rotors regrown with one hit left.
+## Before the last phase it cannot fall: with the hull emptied it comes back into the next phase at that phase's hull.
 func _recover() -> void:
-	var world := World.current
-	var entry: float = max_hp * PHASE_MARKS[phase]
-	hp = entry if hp <= 0.0 else minf(hp, entry)
-	for name: String in ROTORS:
-		if not _live(name):
-			_build_rotor(-1.0 if name == "rotor_l" else 1.0)
-			var part: Part = parts[name]
-			part.module = true
-			part.hp = MODULE_HP[name] / ROTOR_HITS
-			ActorLayer.unmark(_discs.back(), ActorLayer.HOSTILE)
-			var at: Vector3 = model.global_transform * part.offset
-			world.fx.smoke(at, 8, 3.0, [Palette.STONE, Palette.ASH, Palette.DUSK])
-			world.fx.sparks(at, Vector3.UP, 24, Palette.BUTTER, 16.0)
+	hp = max_hp * PHASE_MARKS[phase]
 	_end_attack()
 	_advance_phase()
 
