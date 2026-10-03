@@ -52,7 +52,7 @@ func _init() -> void:
 	hp = 60.0
 	radius = 1.8
 	center_height = 1.0
-	armor = 0.0
+	armor = 12.0 ## Millimetres: the light coax glances off; heavier rounds bite less.
 	stabbable = true
 	score = 400
 	debris = [Fx.Debris.ARMOR, Fx.Debris.METAL]

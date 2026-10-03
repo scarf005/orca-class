@@ -207,6 +207,8 @@ func take_hit(hit: Hit) -> void:
 			world.shake(0.3)
 	if hit.kind == Hit.Kind.SHELL and hit.pierce and hit.caliber < 100:
 		amount *= 1.5
+	if is_area_round(hit):
+		amount *= HEAVY_AREA # Its hide shrugs off balls and fragments.
 	best.hp = maxf(0.0, best.hp - amount)
 	hp = _total_hp()
 	impact_feedback(hit, health_before - hp, core.hp <= 0.0)

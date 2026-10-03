@@ -22,7 +22,7 @@ var flying := false
 var dead := false
 var overkilled := false ## Killed by an overkill hit: scenery leaves no rubble, a wreck flies harder.
 var interceptable := false ## The player's laser CIWS may target this.
-var armor := 0.0 ## Fraction of small-caliber damage (below 20 mm) that is stopped.
+var armor := 0.0 ## Armor in millimetres: bullets of this caliber or less glance off, bigger ones lose some of their damage.
 var invulnerable := false
 var always_tick := true ## False for scenery: it only processes while a hit flash is showing.
 var _flash := 0.0
@@ -79,10 +79,17 @@ static func segment_sphere(from: Vector3, to: Vector3, center: Vector3, r: float
 
 
 func damage_multiplier(hit: Hit) -> float:
-	# Armor stops rifle-caliber rounds outright and half as much of heavy machine gun rounds.
-	if hit.kind == Hit.Kind.BULLET and hit.caliber < 20 and not hit.pierce:
-		return 1.0 - armor * (1.0 if hit.caliber < 12 else 0.5)
+	# Bullets that cannot beat the armor glance off; the ones that can still lose most of their bite.
+	if glances(hit):
+		return 0.0
+	if hit.kind == Hit.Kind.BULLET and not hit.pierce and armor > 0.0:
+		return maxf(0.2, (hit.caliber - armor) / maxf(float(hit.caliber), 1.0))
 	return 1.0
+
+
+## Whether `hit` is a bullet this armor turns: it ricochets off for nothing.
+func glances(hit: Hit) -> bool:
+	return hit.kind == Hit.Kind.BULLET and not hit.pierce and armor > 0.0 and hit.caliber <= armor
 
 
 func take_hit(hit: Hit) -> void:
@@ -90,9 +97,7 @@ func take_hit(hit: Hit) -> void:
 		return
 	var amount := hit.damage * damage_multiplier(hit)
 	if amount <= 0.0:
-		if hit.kind == Hit.Kind.BULLET and armor > 0.0 and World.current:
-			World.current.fx.ricochet(hit, hit_center())
-		return
+		return # A glancing round tumbles off on its own (Projectile._glance).
 	hp -= amount
 	flash()
 	damaged.emit(self, hit)

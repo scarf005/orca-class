@@ -293,7 +293,7 @@ func detonate(point: Vector3, target: Entity) -> void:
 		hit.source = world.player
 	if target:
 		var applied := _apply(target, point)
-		if target is Tank and Tank.is_small_arms(applied):
+		if target.glances(applied):
 			_glance(point, target)
 			return
 	if airburst_fragments > 0:

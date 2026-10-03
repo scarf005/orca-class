@@ -37,6 +37,7 @@ var _hard := false
 func _init() -> void:
 	super()
 	max_hp = 40.0
+	armor = 6.0 ## Millimetres: thin skin, the coax still chews it.
 	hp = max_hp
 	radius = 2.5
 	flying = true

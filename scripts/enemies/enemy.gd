@@ -19,6 +19,7 @@ var weakness := {} ## Hit.Kind -> damage multiplier.
 var death_radius := 2.0 ## Size of the death blast: half the model's longest side, set once it is built.
 var debris: Array = [Fx.Debris.ARMOR, Fx.Debris.METAL] ## Fx.Debris materials it breaks into.
 var drop := ""
+var heavy := false ## Heavy armor: canister balls and airburst fragments barely scratch it.
 var stagger := 0.0
 var burning := 0.0
 var can_stagger := true
@@ -134,6 +135,8 @@ func is_staggered() -> bool:
 
 func damage_multiplier(hit: Hit) -> float:
 	var multiplier: float = super.damage_multiplier(hit) * weakness.get(hit.kind, 1.0)
+	if heavy and is_area_round(hit):
+		multiplier *= HEAVY_AREA
 	if hit.incendiary:
 		multiplier *= weakness.get(Hit.Kind.FIRE, 1.0) if hit.kind != Hit.Kind.FIRE else 1.0
 	return multiplier
@@ -332,6 +335,12 @@ static func dismember_focus(push: Vector3) -> float:
 
 
 const CANISTER_THROW := 3.0
+const HEAVY_AREA := 0.08 ## What heavy armor lets through of a canister ball or an airburst fragment.
+
+
+## Canister balls and airburst fragments: many small hits that shred light things and only scratch armor.
+static func is_area_round(hit: Hit) -> bool:
+	return hit.kind == Hit.Kind.FRAGMENT or hit.weapon == "canister"
 const KILL_SHELL_SPEED := 260.0 ## A shell this fast throws the remains at the base push; faster ones by their kinetic energy.
 static var KILL_THROW_MAX := 3.0 ## Cap on that energy multiplier (tuned live in the duel mode); KILL_THROW_UNCAPPED or more lifts it.
 const KILL_THROW_UNCAPPED := 45.0

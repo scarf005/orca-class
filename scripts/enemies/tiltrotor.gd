@@ -55,6 +55,7 @@ var _shot_timer := 0.0
 func _init() -> void:
 	super()
 	max_hp = 2600.0
+	armor = 8.0 ## Millimetres: the 8 mm coax glances off; 15 and 20 mm get in.
 	hp = max_hp
 	radius = 3.2
 	center_height = 0.4
