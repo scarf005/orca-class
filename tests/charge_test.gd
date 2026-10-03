@@ -11,6 +11,7 @@ func _rig() -> World:
 	world.camera.set_process(false)
 	world.camera.follow(0.0)
 	Input.action_release("fire")
+	Input.action_release("coax")
 	return world
 
 
@@ -27,11 +28,15 @@ func _shells(world: World) -> Array:
 	return world.projectiles.filter(func(p: Projectile) -> bool: return p.shape == "shell" and not p.is_queued_for_deletion())
 
 
-func test_a_press_fires_one_coax_burst_and_holding_does_not_extend_it() -> void:
+func test_coax_button_fires_a_burst_independently_of_main_gun_hold() -> void:
 	var world := _rig()
 	var tank := world.player
 	Input.action_press("fire")
 	_step(tank, 1.0 / 60.0)
+	check_eq(_bullets(world), 0, "the main-gun button alone does not fire coax")
+	Input.action_press("coax")
+	_step(tank, 1.0 / 60.0)
+	Input.action_release("coax")
 	check_eq(_bullets(world), 1, "the first round leaves on the press frame")
 	for _i in 30:
 		_step(tank, 1.0 / 60.0)
@@ -42,10 +47,10 @@ func test_a_press_fires_one_coax_burst_and_holding_does_not_extend_it() -> void:
 	Input.action_release("fire")
 	_step(tank, 0.0)
 	_step(tank, 1.0 / 60.0)
-	Input.action_press("fire")
+	Input.action_press("coax")
 	_step(tank, 1.0 / 60.0)
-	check_eq(_bullets(world), burst + 1, "the next press gives a new burst")
-	Input.action_release("fire")
+	check_eq(_bullets(world), burst + 1, "the next coax press gives a new burst")
+	Input.action_release("coax")
 
 
 func test_a_tap_fires_no_cannon_and_resets() -> void:
@@ -53,9 +58,8 @@ func test_a_tap_fires_no_cannon_and_resets() -> void:
 	var tank := world.player
 	for _i in 10:
 		Input.action_press("fire")
-		_step(tank, Armament.TAP_TIME - 0.02)
-		check_eq(tank.charge, 0.0, "no charge inside the tap time")
-		check(not tank.is_charging(), "and not charging")
+		_step(tank, Armament.TAP_TIME + tank.charge_time() * Armament.STAGE_1 * 0.5)
+		check(tank.charge < Armament.STAGE_1, "a short tap does not reach the first charge step")
 		Input.action_release("fire")
 		_step(tank, 0.0)
 		_step(tank, 0.1)
@@ -86,9 +90,9 @@ func test_release_short_of_full_fires_one_visible_quick_shell() -> void:
 	check_near(shell.velocity.length(), Armament.quick_speed(shell.hit.power), 0.01, "it flies at its charge step's quick speed")
 	check_eq(shell.gravity, 0.0, "without gravity")
 	check_near(shell.hit.power, power, 0.03, "its power is the charge")
-	check_near(shell.hit.damage, lerpf(Armament.QUICK_DAMAGE.x, Armament.QUICK_DAMAGE.y, shell.hit.power), 0.01, "damage lerps with it")
-	check_near(shell.blast_radius, lerpf(Armament.QUICK_RADIUS.x, Armament.QUICK_RADIUS.y, shell.hit.power), 0.01, "so does the blast radius")
-	check_near(shell.blast_damage, lerpf(Armament.QUICK_BLAST.x, Armament.QUICK_BLAST.y, shell.hit.power), 0.01, "and the blast damage")
+	check_near(shell.hit.damage, lerpf(Armament.QUICK_DAMAGE.x, Armament.QUICK_DAMAGE.y, shell.hit.power) * Armament.SHELL_DAMAGE_SCALE, 0.01, "damage lerps with it")
+	check_near(shell.blast_radius, lerpf(Armament.QUICK_RADIUS.x, Armament.QUICK_RADIUS.y, shell.hit.power) * Armament.HE_RADIUS_SCALE, 0.01, "so does the blast radius")
+	check_near(shell.blast_damage, lerpf(Armament.QUICK_BLAST.x, Armament.QUICK_BLAST.y, shell.hit.power) * Armament.SHELL_DAMAGE_SCALE, 0.01, "and the blast damage")
 	check(not shell.pierce_entities, "it does not overpenetrate")
 	check_eq(tank.charge, 0.0, "release clears the charge")
 	_step(tank, 0.0)
@@ -99,12 +103,14 @@ func test_full_hold_fires_a_hitscan_shell_that_overpenetrates() -> void:
 	var world := _rig()
 	var tank := world.player
 	Input.action_press("fire")
-	_step(tank, Armament.FULL_TIME)
-	check_eq(tank.charge, 1.0, "full at FULL_TIME of hold")
-	check_eq(world.stats.shots, 0, "holding fires nothing")
+	tank._update_charge(tank.auto_fire_hold())
+	check_eq(tank.charge, 1.0, "full at the auto-fire threshold")
+	check_eq(world.stats.shots, 0, "charge update prepares the shot")
+	tank._update_weapons(0.0)
+	check_eq(world.stats.shots, 1, "the weapon update automatically fires one shell")
 	Input.action_release("fire")
 	_step(tank, 0.0)
-	check_eq(world.stats.shots, 1, "release fires one shell")
+	check_eq(world.stats.shots, 1, "release does not fire a second shell")
 	check_eq(world.stats.charged_shots, 1, "a full charge")
 	check(_shells(world).is_empty(), "it landed this frame: nothing is left flying")
 	check_eq(tank.charge, 0.0, "release clears the charge")
@@ -131,7 +137,7 @@ func test_hold_to_the_auto_fire_time_fires_once_until_pressed_again() -> void:
 	Input.action_release("fire")
 
 
-func test_recovery_blocks_a_new_charge_but_not_the_coax_burst() -> void:
+func test_recovery_blocks_a_new_charge_but_not_the_coax_button() -> void:
 	var world := _rig()
 	var tank := world.player
 	Input.action_press("fire")
@@ -141,11 +147,13 @@ func test_recovery_blocks_a_new_charge_but_not_the_coax_burst() -> void:
 	check_eq(world.stats.shots, 1, "a shot")
 	var bullets := _bullets(world)
 	Input.action_press("fire")
+	Input.action_press("coax")
 	_step(tank, 0.02)
-	check(_bullets(world) > bullets, "a press right after still gives the coax burst")
-	_step(tank, Armament.CANNON_RECOVER + Armament.TAP_TIME - 0.1)
-	check(not tank.is_charging() and tank.charge == 0.0, "but the hold does not charge during recovery and the tap time")
-	_step(tank, 0.14)
+	Input.action_release("coax")
+	check(_bullets(world) > bullets, "coax still fires during main-gun recovery")
+	_step(tank, Armament.CANNON_RECOVER - 0.03)
+	check_eq(tank.charge, 0.0, "the hold does not charge during recovery")
+	_step(tank, Armament.TAP_TIME + 0.14)
 	check(tank.is_charging(), "it charges once recovered and held past the tap time")
 	Input.action_release("fire")
 	_step(tank, 0.0)
@@ -153,8 +161,8 @@ func test_recovery_blocks_a_new_charge_but_not_the_coax_burst() -> void:
 	var shot_times: Array[float] = []
 	var t := 0.0
 	for _i in 600:
-		# The bot: hold, and let go the frame the charge is full.
-		if tank.charge >= 1.0:
+		# Without a target, release after auto-fire to rearm the next charge.
+		if tank._spent:
 			Input.action_release("fire")
 		else:
 			Input.action_press("fire")
@@ -201,8 +209,10 @@ func test_breech_damage_slows_the_charge() -> void:
 	Input.action_press("fire")
 	_step(tank, Armament.TAP_TIME + base * 2.0)
 	check(tank.charge < 1.0, "twice the usual charge time is not enough")
-	_step(tank, base + 0.001)
+	tank._update_charge(base + 0.001)
 	check_eq(tank.charge, 1.0, "three times it is")
+	tank._update_weapons(0.0)
+	check_eq(world.stats.charged_shots, 1, "the damaged breech fires when its charge completes")
 	Input.action_release("fire")
 
 
@@ -212,11 +222,14 @@ func test_special_rounds_spend_one_round_per_charged_shot() -> void:
 	tank.load_round(Armament.Round.CANISTER)
 	check_eq(tank.round_count, Armament.MAGAZINE[Armament.Round.CANISTER], "full magazine")
 	Input.action_press("fire")
-	_step(tank, Armament.FULL_TIME)
-	check_eq(tank.round_count, Armament.MAGAZINE[Armament.Round.CANISTER], "charging spends none")
+	var threshold := Armament.TAP_TIME + Tank.round_step(tank.current_round) * tank.charge_time()
+	_step(tank, threshold - 0.001)
+	check_eq(tank.round_count, Armament.MAGAZINE[Armament.Round.CANISTER], "charging below the first step spends none")
+	_step(tank, 0.002)
+	check_eq(tank.round_count, Armament.MAGAZINE[Armament.Round.CANISTER] - 1, "automatic fire at the first step spends one")
 	Input.action_release("fire")
 	_step(tank, 0.0)
-	check_eq(tank.round_count, Armament.MAGAZINE[Armament.Round.CANISTER] - 1, "the charged shot spends one")
+	check_eq(tank.round_count, Armament.MAGAZINE[Armament.Round.CANISTER] - 1, "release spends no extra round")
 
 
 func _target(world: World, at: Vector3) -> Enemy:
@@ -234,13 +247,12 @@ func test_single_lock_holds_drops_and_reacquires() -> void:
 	var first := _target(world, at)
 	var second := _target(world, at + Vector3.RIGHT * 2.0)
 	tank.aim_screen = world.camera.unproject_position(first.hit_center())
-	Input.action_press("fire")
-	_step(tank, Armament.TAP_TIME - 0.01)
 	tank._update_charge_lock()
-	check(tank.charge_lock == null and tank.charge_candidate == null, "no lock inside the tap time")
+	check(tank.charge_lock == null and tank.charge_candidate == null, "no lock before a charge starts")
 	var locks: Array[Entity] = []
 	tank.charge_locked.connect(func(target: Entity) -> void: locks.append(target))
-	_step(tank, 0.02)
+	Input.action_press("fire")
+	_step(tank, Armament.TAP_TIME + 0.02)
 	tank._update_charge_lock()
 	check(tank.charge_lock == first, "the hold locks the nearest entity at once, long before full charge")
 	check(tank.charge < 0.1, "(charge %.2f)" % tank.charge)
@@ -250,7 +262,10 @@ func test_single_lock_holds_drops_and_reacquires() -> void:
 	check(tank.charge_lock == first, "held lock is not replaced by another candidate")
 	first.global_position += Vector3.RIGHT * 50.0
 	tank._update_charge_lock()
-	check(tank.charge_lock == second, "outside hold radius drops and reacquires nearest")
+	check(tank.charge_lock == first, "moving away from the reticle does not replace a valid lock")
+	first.global_position += Vector3.RIGHT * Tank.COAX_RANGE
+	tank._update_charge_lock()
+	check(tank.charge_lock == second, "out-of-range target drops and reacquires nearest")
 	second.global_position = world.camera.global_position + world.camera.global_basis.z * 20.0
 	tank._update_charge_lock()
 	check(tank.charge_lock == null, "behind-camera target drops")
@@ -279,7 +294,7 @@ func test_the_lock_lays_the_turret_on_the_lead_point_while_held() -> void:
 	check(lead.x > enemy.hit_center().x, "toward its lead point (%.1f m ahead)" % (lead.x - enemy.hit_center().x))
 	Input.action_release("fire")
 	_step(tank, 0.0)
-	check(tank.charge_lock == null, "firing clears the lock")
+	check(tank.charge_lock == enemy, "firing preserves a valid lock")
 
 
 func test_a_hold_with_nothing_in_reach_locks_the_first_enemy_that_comes() -> void:
@@ -322,7 +337,7 @@ func test_freed_lock_drops_and_reacquires() -> void:
 	var second := _target(world, at + Vector3.RIGHT)
 	tank.aim_screen = world.camera.unproject_position(first.hit_center())
 	Input.action_press("fire")
-	_step(tank, Armament.FULL_TIME)
+	_step(tank, Armament.TAP_TIME + 0.01)
 	tank._update_charge_lock()
 	check(tank.charge_lock == first, "first locks")
 	first.free()
@@ -338,14 +353,15 @@ func test_fcs_and_cancellation() -> void:
 	tank.aim_screen = world.camera.unproject_position(enemy.hit_center())
 	tank.modules.hp.fcs = 0.0
 	Input.action_press("fire")
-	_step(tank, Armament.FULL_TIME)
+	tank._update_charge(tank.auto_fire_hold())
 	tank._update_charge_lock()
 	check_eq(tank.charge, 1.0, "FCS loss does not prevent charging")
 	check(tank.charge_lock == null, "knocked-off FCS cannot lock")
 	tank.input_enabled = false
 	check_eq(tank.charge, 0.0, "input disable cancels immediately")
 	tank.input_enabled = true
-	_step(tank, Armament.FULL_TIME)
+	_step(tank, tank.auto_fire_hold() * 0.5)
+	check(tank.charge > 0.0, "charge resumes before losing a life")
 	tank.die(Hit.new())
 	check_eq(tank.charge, 0.0, "losing a life cancels")
 	tank._finish_respawn()
@@ -434,11 +450,11 @@ func test_charged_blast_takes_a_pack_within_6_m_of_the_hit() -> void:
 	var world := _rig()
 	var tank := world.player
 	var pack := _pack(world, 3.0, 6.0)
-	var wide := _pack(world, 3.0, 14.0)[2]
+	var wide := _pack(world, 3.0, Armament.APHE_RADIUS.y * Armament.HE_RADIUS_SCALE * 3.0)[2]
 	await frames(1)
 	tank.fire_cannon(pack[0].hit_center() + Vector3.UP * 20.0, Vector3.DOWN, 1.0)
 	check_eq(pack.map(func(ugv: Ugv) -> bool: return ugv.dead), [true, true, true], "a charged shell takes the whole pack")
-	check(not wide.dead, "but not one 14 m away")
+	check(not wide.dead, "but not a target outside the scaled blast and collateral explosions")
 
 
 func test_charged_shot_hits_a_target_crossing_at_15_m_per_s() -> void:
