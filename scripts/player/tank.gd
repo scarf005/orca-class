@@ -892,18 +892,26 @@ func _update_micro_locks(delta: float, holding: bool) -> void:
 
 
 ## The enemy (and its part) nearest the sight within the lock ring, or [null, ""].
-## MICRO retains a narrow seeker lock without the FCS.
+## ATGM and MICRO prefer flying enemies within that same ring; MICRO retains a narrow seeker lock without the FCS.
 func _nearest_lockable() -> Array:
 	var candidate: Entity = null
 	var part := ""
-	var best := charge_ring_radius() * (maxf(modules.lock_factor(), 0.2) if current_round == Armament.Round.MICRO else modules.lock_factor())
+	var radius := charge_ring_radius() * (maxf(modules.lock_factor(), 0.2) if current_round == Armament.Round.MICRO else modules.lock_factor())
+	var best := radius
+	var prefer_air := current_round in [Armament.Round.ATGM, Armament.Round.MICRO]
 	for enemy in World.current.enemies:
 		var nearest_part := _pick_part(enemy)
 		var distance := _charge_distance(enemy, nearest_part)
-		if distance < best:
-			best = distance
-			candidate = enemy
-			part = nearest_part
+		if distance >= radius:
+			continue
+		if prefer_air and candidate != null and candidate.flying != enemy.flying:
+			if not enemy.flying:
+				continue
+		elif distance >= best:
+			continue
+		best = distance
+		candidate = enemy
+		part = nearest_part
 	return [candidate, part]
 
 
@@ -1230,6 +1238,7 @@ func _spawn_missile(round: Armament.Round, muzzle: Vector3, dir: Vector3, target
 	missile.turn_rate_increment = Armament.MICRO_TURN_INCREMENT if round == Armament.Round.MICRO else Armament.ATGM_TURN_INCREMENT
 	missile.homing_lead = true
 	missile.retarget_range = Armament.ATGM_RETARGET_RANGE
+	missile.prefer_air = true
 	missile.homing_target = target
 	missile.homing_part = part
 	missile.sure_target = target # Like a locked full charge, nothing in between stops it short of its lock.

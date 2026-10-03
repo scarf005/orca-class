@@ -22,6 +22,7 @@ var homing_target: Node3D
 var turn_rate := 0.0 ## Radians per second toward the homing target.
 var turn_rate_increment := 0.0 ## Turn rate gained per second of flight, even while no target is locked.
 var retarget_range := 0.0 ## A seeker: steers at the target's hit point (or locked module), and when that is gone or struck locks the nearest hostile ahead within this; 0 disables.
+var prefer_air := false ## Prefers flying hostiles when acquiring a new seeker target.
 var homing_part := "" ## The module of `homing_target` a seeker steers at.
 var thrust := 0.0 ## Metres per second gained each second, up to `max_speed`.
 var max_speed := 0.0
@@ -162,9 +163,15 @@ func _retarget() -> void:
 	var best := retarget_range
 	for entity in World.current.targets_for(team):
 		var offset := entity.hit_center() - global_position
-		if entity.dead or entity is Flare or entity in _hit_entities or offset.length() >= best:
+		var distance := offset.length()
+		if entity.dead or entity is Flare or entity in _hit_entities or distance >= retarget_range:
 			continue
-		best = offset.length()
+		if prefer_air and homing_target != null and homing_target.flying != entity.flying:
+			if not entity.flying:
+				continue
+		elif distance >= best:
+			continue
+		best = distance
 		homing_target = entity
 
 
