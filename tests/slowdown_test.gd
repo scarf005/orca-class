@@ -32,6 +32,44 @@ func test_a_hard_building_drops_the_speed_and_it_recovers() -> void:
 	check_near(world.rail.speed, Rail.CRUISE, 0.1, "it is back at cruise afterwards")
 
 
+func test_building_slowdown_scales_only_on_easy() -> void:
+	var saved := Game.difficulty
+	for mode in [Game.Difficulty.EASY, Game.Difficulty.NORMAL, Game.Difficulty.HARD]:
+		Game.difficulty = mode
+		var share := 0.25 if mode == Game.Difficulty.EASY else 1.0
+		var expected := Rail.CRUISE * (1.0 - (1.0 - Rail.HARD_HIT_SPEED) * share)
+		var rail := Rail.new()
+		rail.jolt()
+		check_near(rail.speed, expected, 0.001, "building slowdown matches difficulty")
+		rail.advance(Rail.HARD_RECOVER * 0.5, 0)
+		check_near(rail.speed_cap(), (expected + Rail.OVERDRIVE + 1.0) * 0.5, 0.001, "cap keeps the same recovery curve")
+		rail.jolt()
+		check_near(rail.speed, expected, 0.001, "repeated collisions reset the cap")
+		rail.advance(Rail.HARD_RECOVER, 0)
+		check_near(rail.speed_cap(), Rail.OVERDRIVE + 1.0, 0.001, "building cap lifts after the same duration")
+		rail.advance(0.5, 0)
+		check_near(rail.speed, Rail.CRUISE, 0.001, "cruise recovers")
+		rail.wading = true
+		rail.jolt()
+		check_near(rail.speed_cap(), minf(expected, Rail.WADE_SPEED * Rail.CRUISE), 0.001, "water still enforces its own cap")
+	Game.difficulty = saved
+
+
+func test_easy_building_collision_still_breaks_the_building() -> void:
+	var saved := Game.difficulty
+	Game.difficulty = Game.Difficulty.EASY
+	var world := _quiet_stage(100.0, 0.0)
+	await frames(10)
+	var house := _prop_in_front(world, "house", true)
+	await frames(2)
+	check(not is_instance_valid(house) or house.dead, "easy collision still destroys the building")
+	var expected := Rail.CRUISE * (1.0 - (1.0 - Rail.HARD_HIT_SPEED) * 0.25)
+	check_near(world.rail.speed, expected, 0.5, "easy applies a quarter of the normal speed loss")
+	await frames(int(60 * (Rail.HARD_RECOVER + 1.5)))
+	check_near(world.rail.speed, Rail.CRUISE, 0.1, "easy collision recovers to cruise")
+	Game.difficulty = saved
+
+
 func test_a_light_prop_costs_no_speed() -> void:
 	var world := _quiet_stage(100.0, 0.0)
 	await frames(10)

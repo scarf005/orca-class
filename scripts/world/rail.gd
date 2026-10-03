@@ -71,7 +71,8 @@ func jolt() -> void:
 
 ## The fastest the rail may run right now; above overdrive means no cap.
 func speed_cap() -> float:
-	var jolted := lerpf(HARD_HIT_SPEED * CRUISE, OVERDRIVE + 1.0, clampf(_since_jolt / HARD_RECOVER, 0.0, 1.0))
+	var hit_speed := lerpf(1.0, HARD_HIT_SPEED, 0.25) if Game.difficulty == Game.Difficulty.EASY else HARD_HIT_SPEED
+	var jolted := lerpf(hit_speed * CRUISE, OVERDRIVE + 1.0, clampf(_since_jolt / HARD_RECOVER, 0.0, 1.0))
 	return minf(jolted, WADE_SPEED * CRUISE if wading else INF)
 
 
