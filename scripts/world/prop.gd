@@ -11,6 +11,7 @@ var kind := ""
 var footprint := 1.0
 var height := 2.0
 var crushable := false
+var hard := false ## A solid building: the tank breaks it but loses most of its speed doing so.
 var debris: Array = [Fx.Debris.WOOD, Fx.Debris.CONCRETE] ## Fx.Debris materials it breaks into.
 var burnable := false
 var explosive := false

@@ -98,7 +98,7 @@ func lay(last: Vector3, hull: Transform3D, offsets: Array, width: float, airborn
 			var p: Vector3 = along + hull.basis.x * offset
 			# Above the smooth height by more than the terrain mesh strays from it between samples.
 			p.y = Course.height_at(p) + 0.22
-			var crushed := _over_fungus(p)
+			var crushed := over_fungus(p)
 			crushed_prints += int(crushed)
 			var plate := Transform3D(yaw.scaled_local(Vector3(width * (CRUSHED_WIDTH if crushed else 1.0), 1.0, 1.0)), p)
 			multimesh.set_instance_transform(_next, plate)
@@ -112,7 +112,7 @@ func lay(last: Vector3, hull: Transform3D, offsets: Array, width: float, airborn
 	return at
 
 
-func _over_fungus(p: Vector3) -> bool:
+static func over_fungus(p: Vector3) -> bool:
 	var course := Course.to_course(p)
 	return Course.fungus_at(course.x, course.y) > FUNGUS_THRESHOLD and p.y > Course.WATER_LEVEL
 

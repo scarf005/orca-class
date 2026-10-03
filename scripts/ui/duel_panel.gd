@@ -39,6 +39,9 @@ var _rows: Array = [
 	["Explosion pace (x time)", func() -> float: return Fx.BLAST_PACE, func(v: float) -> void: Fx.BLAST_PACE = v, 0.2, 1.5, 0.05],
 	["Drift tail lash damage", func() -> float: return Tank.LASH_DAMAGE, func(v: float) -> void: Tank.LASH_DAMAGE = v, 0.0, 400.0, 5.0],
 	["Tail stab damage", func() -> float: return Tank.STAB_DAMAGE, func(v: float) -> void: Tank.STAB_DAMAGE = v, 0.0, 200.0, 5.0],
+	["Hard building slows to (share of cruise)", func() -> float: return Rail.HARD_HIT_SPEED, func(v: float) -> void: Rail.HARD_HIT_SPEED = v, 0.0, 1.0, 0.05],
+	["Hard building recovery (s)", func() -> float: return Rail.HARD_RECOVER, func(v: float) -> void: Rail.HARD_RECOVER = v, 0.1, 5.0, 0.1],
+	["Water and mud cap (share of cruise)", func() -> float: return Rail.WADE_SPEED, func(v: float) -> void: Rail.WADE_SPEED = v, 0.1, 1.0, 0.05],
 	["Hit weight (x)", func() -> float: return Tank.HIT_WEIGHT, func(v: float) -> void: Tank.HIT_WEIGHT = v, 0.0, 3.0, 0.05],
 ]
 var _grid := GridContainer.new()

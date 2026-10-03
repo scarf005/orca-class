@@ -120,6 +120,7 @@ var _drift := 0.0
 var _drift_dir := 0.0
 var _drift_yaw := 0.0
 var _dust_wait := 0.0
+var _spray_wait := 0.0
 var _stage_rung := 0 ## The last lock box whose note has rung.
 var _stabilized_yaw := 0.0 ## Hull yaw the turret was last laid against. ## The nose's swing against a sideways dash, eased in and out.
 var _respawn := 0.0
@@ -275,6 +276,8 @@ func _update_movement(delta: float) -> void:
 		_move_arena(delta, input)
 		rail.advance(delta, 0, modules.meter_refill_factor())
 		return
+	rail.wading = _wet or TrackMarks.over_fungus(global_position)
+	_wade_spray(delta)
 	rail.advance(delta, command, modules.meter_refill_factor())
 	var hold := _lock_move_factor()
 	var target := Vector2(input.x * MOVE_SPEED.x * hold, input.y * MOVE_SPEED.y) * modules.move_factor()
@@ -295,6 +298,21 @@ func _update_movement(delta: float) -> void:
 	_ram_enemies()
 	_place(rail.d)
 	model.animate_tracks(delta, rail.speed + local_velocity.y, rail.speed + local_velocity.y)
+
+
+## Water and mud throw spray up behind the tracks while they hold the tank back.
+func _wade_spray(delta: float) -> void:
+	_spray_wait -= delta
+	if not World.current.rail.wading or _spray_wait > 0.0 or _ground_speed() < 4.0:
+		return
+	_spray_wait = 0.1
+	var fx := World.current.fx
+	for side: float in [-1.0, 1.0]:
+		var at: Vector3 = global_position + global_basis.x * side * TrackMarks.TRACK_OFFSET + global_basis.z * 1.5
+		if _wet:
+			fx.splash(at, 0.8, Water.surface_at(global_position))
+		else:
+			fx.juice(at, global_basis.z)
 
 
 ## While a charge lock is held, sideways driving slows as the locked target nears the edge of the
@@ -533,10 +551,12 @@ func _collide_props() -> void:
 		ram.source = self
 		prop.take_hit(ram)
 		_ram_jolt(prop.footprint)
+		if prop.hard and World.current.rail.mode == Rail.Mode.RAIL:
+			_hard_jolt()
 
 
-## The camera bucks and the hull rocks, more for bigger things, but nothing stops the tank: no
-## frozen frame, no lost speed.
+## The camera bucks and the hull rocks, more for bigger things; no frozen frame. Only hard
+## buildings cost speed (`_hard_jolt`).
 func _ram_jolt(size: float) -> void:
 	var world := World.current
 	var heavy := clampf(size / 4.0, 0.15, 1.0) * clampf(_ground_speed() / Rail.CRUISE, 0.5, 1.5)
@@ -544,6 +564,15 @@ func _ram_jolt(size: float) -> void:
 	world.camera.kick(0.01 + heavy * 0.03)
 	model.rotation.x = -0.05 - heavy * 0.12
 	Sfx.play("impact", global_position, -6.0 + heavy * 6.0, 0.8)
+
+
+## A solid building drops the rail speed; the hull pitches and the camera lurches.
+func _hard_jolt() -> void:
+	var world := World.current
+	world.rail.jolt()
+	world.shake(0.55)
+	world.camera.kick(0.06)
+	model.rotation.x = -0.2
 
 
 func _ground_speed() -> float:

@@ -64,6 +64,9 @@ const VEHICLES := ["car", "truck", "infested_car", "cultivator"]
 ## Tall thin props that snap and fall over rather than vanish.
 const FALLING := ["pole", "plane_tree", "persimmon", "cordyceps"]
 
+## Solid buildings and structures: the tank breaks them but is slowed hard (Rail.jolt).
+const HARD := ["house", "infested_house", "hall", "church_nave", "church_tower", "church_spire", "school_wing", "school_center", "gas_station", "overpass_pier", "overpass_deck", "gate", "rock", "fungal_spire", "zelkova_trunk"]
+
 ## Plain props that spawn overgrown more often the deeper the stage goes.
 const INFESTED := {"house": "infested_house", "car": "infested_car"}
 const FUNGAL := ["fungal_spire", "infested_house", "infested_car", "flesh_mound", "cordyceps", "husk_cow", "egg_sacs", "mushroom", "spore_tower"]
@@ -504,6 +507,7 @@ func _instantiate(spec: Spec) -> void:
 			prop.rubble_mesh = PropKit.mesh("rubble", spec.variant)
 		prop.falls = spec.kind in FALLING
 		prop.vehicle = spec.kind in VEHICLES
+		prop.hard = spec.kind in HARD
 		prop.fungal = spec.kind in FUNGAL
 		prop.flattens = spec.kind == "veins"
 		prop.debris = _debris(spec.kind)
