@@ -6,10 +6,11 @@ extends Enemy
 ## Cannon rounds count in rounds, not raw damage: a plain shell is worth ROUND_DAMAGE and only half of
 ## it on a node that has not been set alight, and coax a quarter on any weak point not burning; fire and
 ## full charges (twice a round) land in full, and a full charge on the open core counts double again.
-## Attacks: half-corridor tendril sweeps, spore barrages and crawler spawns; the exposed core
-## adds a full sweep that must be dodged with an anchor drift.
+## Every attack shows where it will land before it hurts, and drifting sideways, moving or shooting a
+## weak point gets out of it. Each lost node unlocks more of them (UNLOCK); with only the core left it
+## layers a ground attack over a tendril one and rests for less.
 
-enum Attack { NONE, SWEEP, BARRAGE, SPAWN }
+enum Attack { NONE, SWEEP, BARRAGE, SPAWN, SPIKES, GEYSERS, SLAM, WALL, GRAB }
 
 const NODE_HP := 150.0
 const CAP_HP := 150.0
@@ -18,6 +19,40 @@ const ROUND_DAMAGE := 40.0 ## What one plain main-gun round is worth; a full cha
 const BURN_TIME := 4.0 ## Seconds a node keeps taking full damage after fire touched it.
 const WINDOW := 1.0 ## Seconds after each attack with none new: time for a full charge and its aim.
 const STRIKE_DAMAGE := 33.0 ## Tendril lash and spore burst: a third of the tank's armor before its facing counts.
+const SPIKE_DAMAGE := 30.0
+const GEYSER_DAMAGE := 28.0
+const SLAM_DAMAGE := 35.0
+const GRAB_DAMAGE := 25.0 ## The crush when a grab has pulled the tank all the way in.
+const WALL_DPS := 30.0 ## Armor a second inside the spore wall.
+const UNLOCK := {Attack.SWEEP: 0, Attack.BARRAGE: 0, Attack.SPAWN: 0, Attack.SPIKES: 0, Attack.GEYSERS: 1, Attack.SLAM: 1, Attack.WALL: 2, Attack.GRAB: 3} ## Weak points lost before each attack is in play.
+const WEIGHT := {Attack.SWEEP: 3.0, Attack.BARRAGE: 2.0, Attack.SPAWN: 1.0, Attack.SPIKES: 3.0, Attack.GEYSERS: 3.0, Attack.SLAM: 3.0, Attack.WALL: 2.0, Attack.GRAB: 2.0}
+const TENDRIL_ATTACKS := [Attack.SWEEP, Attack.SLAM, Attack.GRAB] ## They share the one tendril, so only one runs at a time.
+const COMBOS := [Attack.GEYSERS, Attack.SPIKES, Attack.BARRAGE] ## Ground attacks the core phase layers over a tendril one.
+const COMBO_CHANCE := 0.7
+const BARRAGE_WIND := 0.6
+const SPAWN_WIND := 0.6
+const SPIKE_LINES := 3 ## Cracks racing toward the tank; two more from the third phase.
+const SPIKE_WIND := 0.5 ## Seconds the cracks are drawn before they start to run.
+const CRACK_SPEED := 26.0
+const SPIKE_GAP := 3.5 ## Metres between spikes along a crack.
+const SPIKE_DELAY := 0.75 ## Seconds from the crack passing a spot to the spike.
+const SPIKE_RADIUS := 2.0
+const GEYSER_WARN := 0.9 ## Seconds a geyser's circle swells before it erupts.
+const GEYSER_RADIUS := 3.4
+const SLAM_RISE := 1.3
+const SLAM_TIME := 0.45
+const SLAM_HALF_WIDTH := 2.6 ## Half the lane the slam covers.
+const WALL_WIND := 1.0 ## Seconds the wall grows out of the ground before it drifts.
+const WALL_SPEED := 9.0
+const WALL_HALF := 18.0 ## Half the wall's length across the road.
+const WALL_DEPTH := 3.5 ## Half its thickness along the road.
+const GAP_HALF := 3.6 ## Half the gap's width.
+const GRAB_REACH := 1.0 ## Seconds the tendril hovers over the tank's tail before it drops.
+const GRAB_DROP := 0.3
+const GRAB_RADIUS := 3.0
+const GRAB_HOLD := 1.6 ## Seconds it drags the tank in before the crush.
+const GRAB_PULL := 12.0 ## Metres a second.
+const TIP_RADIUS := 2.5 ## The raised tendril's tip as a target.
 const SWEEP_RISE := 0.8 ## Seconds the tendril rears up over the sweep's starting edge.
 const SWEEP_LASH := 0.3 ## Seconds the lash takes across the corridor.
 const DYING_TIME := 1.0 ## Seconds from the killing blow to the final blast.
@@ -35,17 +70,43 @@ class Part:
 	var mesh: MeshInstance3D
 	var cap_mesh: MeshInstance3D
 
+## A ground spot that erupts at `at` seconds into its move; `warn_at` is when its circle appears.
+class Burst:
+	var position := Vector3.ZERO
+	var warn_at := 0.0
+	var at := 0.0
+	var radius := 2.0
+	var damage := 0.0
+	var geyser := false
+	var shown := false
+	var done := false
+
+
+## One attack under way; the passive ones do not hold up the next.
+class Move:
+	var kind := Attack.NONE
+	var time := 0.0
+	var side := 1.0
+	var full := false
+	var lane := 0.0 ## Road u the attack is aimed along.
+	var d := 0.0 ## Road d it is aimed at.
+	var hit := false
+	var passive := false
+	var held := 0.0 ## Seconds a grab has dragged the tank.
+	var spawned := 0
+	var points: Array[Vector3] = []
+	var bursts: Array[Burst] = []
+	var props: Array[Node3D] = []
+
 var parts: Array[Part] = []
 var core: Part
-var _attack := Attack.NONE
-var _attack_time := 0.0
+var _moves: Array[Move] = []
+var _last := Attack.NONE
 var _next_attack := 1.5
-var _sweep_side := 1.0
-var _sweep_full := false
-var _sweep_hit := false
-var _sweep_d := 0.0
 var _tendril: Array[MeshInstance3D] = []
 var _tendril_tip := Vector3.ZERO
+var _tip_open := false ## The tendril is raised where a shot can cut it.
+var _prop_meshes := {}
 var _hard := false
 var _dying := 0.0
 var _body_mesh: MeshInstance3D
@@ -137,6 +198,8 @@ func aim_parts() -> Dictionary:
 		return result
 	for part in _live_parts():
 		result[part.name] = [global_transform * part.offset, part.radius, PART_LABELS[part.name]]
+	if _tip_open:
+		result["tip"] = [_tendril_tip, TIP_RADIUS, "TENDRIL"]
 	return result
 
 
@@ -154,6 +217,10 @@ func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 		var pt := Entity.segment_sphere(from, to, global_transform * part.offset, part.radius + extra_radius)
 		if pt >= 0.0 and (t < 0.0 or pt < t):
 			t = pt
+	if _tip_open:
+		var tt := Entity.segment_sphere(from, to, _tendril_tip, TIP_RADIUS + extra_radius)
+		if tt >= 0.0 and (t < 0.0 or tt < t):
+			t = tt
 	return t
 
 
@@ -166,6 +233,9 @@ func take_hit(hit: Hit) -> void:
 	if dead or invulnerable or _dying > 0.0 or hit.damage <= 0.0:
 		return
 	var world := World.current
+	if _tip_open and hit.position.distance_to(_tendril_tip) <= TIP_RADIUS + 0.5:
+		_hit_tip(hit)
+		return
 	# Find the part nearest the impact (blasts reach any part within their falloff).
 	var best: Part = null
 	var best_distance := INF
@@ -174,8 +244,9 @@ func take_hit(hit: Hit) -> void:
 		if distance < best_distance:
 			best_distance = distance
 			best = part
-	if hit.stagger >= 1.0 and _attack == Attack.SWEEP and _attack_time < 1.2:
-		_cancel_attack()
+	if hit.stagger >= 1.0:
+		for move in _moves.filter(func(m: Move) -> bool: return m.kind == Attack.SWEEP and m.time < 1.2):
+			_cancel(move)
 	_flesh_hit(hit)
 	if best == null or best_distance > (2.5 if hit.kind != Hit.Kind.BLAST else 5.0):
 		if hit.incendiary:
@@ -221,7 +292,7 @@ func take_hit(hit: Hit) -> void:
 		world.shake(0.5)
 		world.award(2000, global_transform * best.offset, false)
 		Sfx.play("roar", global_position, 0.0, 0.8)
-		if best != core and _core_phase():
+		if best != core and _phase() >= 3:
 			core.mesh.visible = true
 			stagger = 2.0
 	if core.hp <= 0.0:
@@ -281,111 +352,202 @@ func behave(delta: float) -> void:
 	var tank := player()
 	if tank == null:
 		return
-	if _attack == Attack.NONE:
+	var busy := _moves.any(func(m: Move) -> bool: return not m.passive)
+	if not busy:
 		_next_attack -= delta
 		if _next_attack <= 0.0:
 			_choose_attack()
-		return
-	_attack_time += delta
-	match _attack:
-		Attack.SWEEP:
-			_update_sweep(delta, tank)
-		Attack.BARRAGE:
-			if _attack_time >= 0.6:
-				_barrage(tank)
-				_end_attack()
-		Attack.SPAWN:
-			if _attack_time >= 0.4:
-				_spawn_crawlers()
-				_end_attack()
+	for move in _moves.duplicate():
+		move.time += delta
+		match move.kind:
+			Attack.SWEEP:
+				_update_sweep(move, tank)
+			Attack.BARRAGE:
+				if move.time >= BARRAGE_WIND:
+					_barrage(tank)
+					_finish(move)
+			Attack.SPAWN:
+				if move.time >= SPAWN_WIND:
+					_spawn_crawlers(move)
+					_finish(move)
+			Attack.SPIKES, Attack.GEYSERS:
+				_update_bursts(move, tank)
+			Attack.SLAM:
+				_update_slam(move, tank)
+			Attack.WALL:
+				_update_wall(move, tank, delta)
+			Attack.GRAB:
+				_update_grab(move, tank, delta)
 
 
-func _core_phase() -> bool:
-	return parts.all(func(part: Part) -> bool: return part.hp <= 0.0)
+## Nodes lost so far: the attacks it has unlocked and how hard it presses.
+func _phase() -> int:
+	return parts.filter(func(part: Part) -> bool: return part.hp <= 0.0).size()
+
+
+func _tank_d(tank: Tank) -> float:
+	return World.current.rail.d + tank.course_offset
+
+
+## The tank takes `damage` at `at`; true when it was not dodged or shielded by a drift's invulnerability.
+func _strike(tank: Tank, kind: Hit.Kind, damage: float, at: Vector3) -> bool:
+	var hit := Hit.make(kind, damage, at, (tank.global_position - at).normalized())
+	hit.source = self
+	var landed := tank.damage_multiplier(hit) > 0.0
+	tank.take_hit(hit)
+	return landed
 
 
 func _choose_attack() -> void:
-	var roll := randf()
-	if roll < 0.4:
-		_attack = Attack.SWEEP
-		var tank := player()
-		_sweep_full = _core_phase() and randf() < 0.5
-		_sweep_side = signf(tank.course_u + 0.01) if randf() < 0.7 else -signf(tank.course_u + 0.01)
-		_sweep_d = World.current.rail.d + tank.course_offset
-		_sweep_hit = false
-		_telegraph_sweep()
-	elif roll < 0.7:
-		_attack = Attack.BARRAGE
-		flash()
-		Sfx.play("squelch", global_position, 4.0, 0.5)
-	else:
-		_attack = Attack.SPAWN
-		Sfx.play("roar", global_position, -6.0, 1.2)
-	_attack_time = 0.0
+	var phase := _phase()
+	var kinds: Array = UNLOCK.keys().filter(func(k: Attack) -> bool: return UNLOCK[k] <= phase and k != _last and not _moves.any(func(m: Move) -> bool: return m.kind == k))
+	var roll: float = randf() * kinds.reduce(func(sum: float, k: Attack) -> float: return sum + WEIGHT[k], 0.0)
+	var kind: Attack = kinds[0]
+	for k: Attack in kinds:
+		kind = k
+		roll -= WEIGHT[k]
+		if roll <= 0.0:
+			break
+	_begin(kind)
+	if phase >= 3 and kind in TENDRIL_ATTACKS and randf() < COMBO_CHANCE:
+		_begin(COMBOS.pick_random())
+
+
+## Starts an attack and draws its telegraph.
+func _begin(kind: Attack) -> Move:
+	var tank := player()
+	var world := World.current
+	var move := Move.new()
+	move.kind = kind
+	move.d = _tank_d(tank)
+	move.lane = tank.course_u
+	_last = kind
+	_moves.append(move)
+	match kind:
+		Attack.SWEEP:
+			move.full = _phase() >= 2 and randf() < 0.5
+			move.side = signf(tank.course_u + 0.01) if randf() < 0.7 else -signf(tank.course_u + 0.01)
+			_telegraph_sweep(move)
+		Attack.BARRAGE:
+			flash()
+			world.fx.spores(global_position + Vector3(0, 11.0, 0), 14, 2.0)
+			Sfx.play("squelch", global_position, 4.0, 0.5)
+		Attack.SPAWN:
+			for i in 4 + _phase() + (2 if _hard else 0):
+				var angle := randf_range(-0.8, 0.8)
+				var spot := global_position + Vector3(sin(angle) * 11.0, 0, cos(angle) * 11.0)
+				move.points.append(spot)
+				world.fx.marker(spot, 2.0, SPAWN_WIND, Palette.PEACH)
+			Sfx.play("roar", global_position, -6.0, 1.2)
+		Attack.SPIKES:
+			_telegraph_spikes(move)
+		Attack.GEYSERS:
+			Sfx.play("warn", global_position, 0.0, 0.9)
+		Attack.SLAM:
+			_telegraph_slam(move)
+		Attack.WALL:
+			_telegraph_wall(move)
+		Attack.GRAB:
+			_tendril_tip = global_transform * Vector3(0, 6.0, 6.0)
+			Sfx.play("warn", global_position, 0.0, 0.5)
+	return move
+
+
+func _finish(move: Move) -> void:
+	_moves.erase(move)
+	for prop in move.props:
+		if is_instance_valid(prop):
+			prop.queue_free()
+	if move.kind in TENDRIL_ATTACKS:
+		_tip_open = false
+		for segment in _tendril:
+			segment.visible = false
+	if not _moves.any(func(m: Move) -> bool: return not m.passive):
+		_next_attack = WINDOW + randf_range(0.0, 0.5) * (1.0 - 0.2 * _phase()) * (0.8 if _hard else 1.0)
 
 
 func _end_attack() -> void:
-	_attack = Attack.NONE
-	var pace := 0.7 if _core_phase() else 1.0
-	_next_attack = WINDOW + randf_range(0.0, 0.5) * pace * (0.8 if _hard else 1.0)
-	for segment in _tendril:
-		segment.visible = false
+	for move in _moves.duplicate():
+		_finish(move)
+	_next_attack = maxf(_next_attack, WINDOW)
 
 
-func _cancel_attack() -> void:
+func _cancel(move: Move) -> void:
 	World.current.fx.sparks(_tendril_tip, Vector3.UP, 12, Palette.FUNGUS)
-	_end_attack()
+	_finish(move)
 
 
-## Ground markers along the half (or all) of the corridor about to be swept.
-func _telegraph_sweep() -> void:
+## A shot at the raised tendril's tip: a slam is cut by a full charge, a grab lets go for any cannon round or stab.
+func _hit_tip(hit: Hit) -> void:
 	var world := World.current
-	for i in 7:
-		var u := _sweep_side * (2.0 + i * 2.6) if not _sweep_full else -15.0 + i * 5.0
-		world.fx.marker(Course.ground_at(_sweep_d, u), 2.2, 1.3, Palette.RED if not _sweep_full else Palette.BUTTER)
-	Sfx.play("warn", Course.ground_at(_sweep_d, 0.0), 0.0, 0.7)
+	flash()
+	world.fx.sparks(hit.position, -hit.direction, 8, Palette.FUNGUS)
+	var move: Move = _moves.filter(func(m: Move) -> bool: return m.kind in [Attack.SLAM, Attack.GRAB])[0]
+	var cuts := hit.power >= 1.0 if move.kind == Attack.SLAM else hit.kind != Hit.Kind.BULLET
+	if not cuts:
+		Sfx.play("squelch", hit.position, -4.0, 1.4)
+		return
+	world.fx.explosion(_tendril_tip, 2.0, [Palette.WHITE, Palette.BLUSH, Palette.FUNGUS])
+	world.shake(0.3)
+	world.hitstop(0.05)
+	if hit.by_player():
+		world.hit_confirmed.emit(false)
+		Sfx.confirm_hit(false)
+	Sfx.play("roar", global_position, -2.0, 1.4)
+	_finish(move)
 
 
-func _update_sweep(delta: float, tank: Tank) -> void:
-	var world := World.current
+## Draws the tendril from the colossus's face to `tip`, arching over by `arch` metres.
+func _show_tendril(tip: Vector3, arch := 5.0) -> void:
 	var root := global_transform * Vector3(0, 3.0, 4.0)
-	var start_u := 20.0 * _sweep_side if not _sweep_full else 20.0 * _sweep_side
-	var end_u := 0.0 if not _sweep_full else -20.0 * _sweep_side
-	var tip: Vector3
-	if _attack_time < SWEEP_RISE:
-		# Rear up high over the sweep's starting edge.
-		var k := _attack_time / SWEEP_RISE
-		tip = Course.ground_at(_sweep_d, start_u) + Vector3.UP * lerpf(4.0, 12.0, k)
-	else:
-		var k := clampf((_attack_time - SWEEP_RISE) / SWEEP_LASH, 0.0, 1.0)
-		var u := lerpf(start_u, end_u, k)
-		tip = Course.ground_at(_sweep_d, u) + Vector3.UP * lerpf(12.0, 1.2, minf(k * 3.0, 1.0))
-		if k > 0.2:
-			world.fx.dust(tip, 2, 1.5, Palette.OCHRE)
-		if not _sweep_hit and absf(tank.course_u - u) < 3.0 and absf(world.rail.d + tank.course_offset - _sweep_d) < 5.0 and tip.y - tank.global_position.y < 3.0:
-			_sweep_hit = true
-			var hit := Hit.make(Hit.Kind.RAM, STRIKE_DAMAGE, tip, (tank.global_position - root).normalized())
-			hit.source = self
-			tank.take_hit(hit)
-			if tank.damage_multiplier(hit) > 0.0:
-				tank.course_u -= _sweep_side * 5.0
-				world.hitstop(0.08)
-		if k >= 1.0:
-			world.shake(0.3)
-			_end_attack()
-			return
 	_tendril_tip = tip
 	for i in _tendril.size():
 		var t := float(i) / (_tendril.size() - 1)
-		var arc := root.lerp(tip, t) + Vector3.UP * sin(t * PI) * 5.0
-		_tendril[i].global_position = arc
+		_tendril[i].global_position = root.lerp(tip, t) + Vector3.UP * sin(t * PI) * arch
 		_tendril[i].visible = true
+
+
+## Ground markers along the half (or all) of the corridor about to be swept.
+func _telegraph_sweep(move: Move) -> void:
+	var world := World.current
+	for i in 7:
+		var u := move.side * (2.0 + i * 2.6) if not move.full else -15.0 + i * 5.0
+		world.fx.marker(Course.ground_at(move.d, u), 2.2, 1.3, Palette.RED if not move.full else Palette.BUTTER)
+	Sfx.play("warn", Course.ground_at(move.d, 0.0), 0.0, 0.7)
+
+
+func _update_sweep(move: Move, tank: Tank) -> void:
+	var world := World.current
+	var root := global_transform * Vector3(0, 3.0, 4.0)
+	var start_u := 20.0 * move.side
+	var end_u := 0.0 if not move.full else -20.0 * move.side
+	var tip: Vector3
+	if move.time < SWEEP_RISE:
+		# Rear up high over the sweep's starting edge.
+		var k := move.time / SWEEP_RISE
+		tip = Course.ground_at(move.d, start_u) + Vector3.UP * lerpf(4.0, 12.0, k)
+	else:
+		var k := clampf((move.time - SWEEP_RISE) / SWEEP_LASH, 0.0, 1.0)
+		var u := lerpf(start_u, end_u, k)
+		tip = Course.ground_at(move.d, u) + Vector3.UP * lerpf(12.0, 1.2, minf(k * 3.0, 1.0))
+		if k > 0.2:
+			world.fx.dust(tip, 2, 1.5, Palette.OCHRE)
+		if not move.hit and absf(tank.course_u - u) < 3.0 and absf(_tank_d(tank) - move.d) < 5.0 and tip.y - tank.global_position.y < 3.0:
+			move.hit = true
+			if _strike(tank, Hit.Kind.RAM, STRIKE_DAMAGE, tip):
+				tank.course_u -= move.side * 5.0
+				world.hitstop(0.08)
+		if k >= 1.0:
+			world.shake(0.3)
+			_finish(move)
+			return
+	_show_tendril(tip)
 
 
 func _barrage(tank: Tank) -> void:
 	var world := World.current
 	var from := global_position + Vector3(0, 11.0, 0)
-	var count := 9 if not _core_phase() else 13
+	var count := 9 + 2 * _phase()
 	for i in count:
 		var flight := 1.1 + i * 0.05
 		var target := tank.global_position + tank.velocity * flight * 0.5 + Vector3(randf_range(-9, 9), 0, randf_range(-6, 6))
@@ -409,15 +571,248 @@ func _barrage(tank: Tank) -> void:
 	Sfx.play("spore", from, 4.0)
 
 
-func _spawn_crawlers() -> void:
+func _spawn_crawlers(move: Move) -> void:
 	var world := World.current
-	for i in (4 if not _hard else 6):
+	for spot in move.points:
 		var crawler: Crawler = load("res://scripts/enemies/crawler.gd").new()
-		var angle := randf_range(-0.8, 0.8)
-		crawler.position = global_position + Vector3(sin(angle) * 11.0, 0, cos(angle) * 11.0)
+		crawler.position = spot
 		world.add_enemy(crawler)
-		world.fx.dust(crawler.position, 6, 1.5, Palette.OCHRE)
-		world.fx.spores(crawler.position, 8, 1.0)
+		world.fx.dust(spot, 6, 1.5, Palette.OCHRE)
+		world.fx.spores(spot, 8, 1.0)
+
+
+## A cached mesh for the attacks' own parts, in the colossus's palette.
+func _mesh(id: String) -> Mesh:
+	if not _prop_meshes.has(id):
+		var b := LowPoly.new()
+		match id:
+			"spike":
+				b.prism(Transform3D(), 1.1, 4.5, 5, Palette.CREAM, 0.0)
+				b.prism(Transform3D(Basis(), Vector3(1.0, 0, 0.6)), 0.7, 3.0, 5, Palette.BLUSH, 0.0)
+				b.prism(Transform3D(Basis(), Vector3(-0.9, 0, -0.7)), 0.7, 3.2, 5, Palette.BLUSH, 0.0)
+			"geyser":
+				b.glow = true
+				b.prism(Transform3D(), 1.0, 9.0, 7, Palette.FUNGUS, 1.25, Palette.WHITE)
+			"strip":
+				b.box(Transform3D(), Vector3.ONE, Palette.DUSK)
+			"puff":
+				b.blob(Transform3D(), 2.4, Palette.LILAC, 1, 0.3, 21)
+		_prop_meshes[id] = b.mesh()
+	return _prop_meshes[id]
+
+
+## A short-lived prop that shoots up out of the ground at `position` and sinks again.
+func _eruption(id: String, position: Vector3, width: float, hold: float) -> void:
+	var node := MeshInstance3D.new()
+	node.mesh = _mesh(id)
+	World.current.add_child(node)
+	node.global_position = position
+	node.scale = Vector3(width, 0.02, width)
+	var tween := node.create_tween()
+	tween.tween_property(node, "scale", Vector3(width, 1.0, width), 0.12)
+	tween.tween_interval(hold)
+	tween.tween_property(node, "scale", Vector3(width, 0.02, width), 0.25)
+	tween.tween_callback(node.queue_free)
+
+
+## Cracks run from the colossus toward the tank and spikes follow along them (drift off the line).
+func _telegraph_spikes(move: Move) -> void:
+	var world := World.current
+	var root_d := Course.to_course(global_position).x - 7.0
+	var lines := SPIKE_LINES + (2 if _phase() >= 2 else 0)
+	for i in lines:
+		var u := move.lane + (i - (lines - 1) * 0.5) * 6.0
+		var from := Course.ground_at(root_d, 0.0)
+		var to := Course.ground_at(move.d - 4.0, u)
+		world.fx.beam(from + Vector3.UP * 0.3, to + Vector3.UP * 0.3, Palette.RED, 0.3, SPIKE_WIND + 1.5)
+		var length := Vector2(from.x - to.x, from.z - to.z).length()
+		for s in range(1, int(length / SPIKE_GAP) + 1):
+			var f := s * SPIKE_GAP / length
+			var burst := Burst.new()
+			burst.position = Course.ground_at(lerpf(root_d, move.d - 4.0, f), lerpf(0.0, u, f))
+			burst.warn_at = SPIKE_WIND + s * SPIKE_GAP / CRACK_SPEED
+			burst.at = burst.warn_at + SPIKE_DELAY
+			burst.radius = SPIKE_RADIUS
+			burst.damage = SPIKE_DAMAGE
+			move.bursts.append(burst)
+	Sfx.play("warn", Course.ground_at(root_d, 0.0), 0.0, 0.6)
+	world.shake(0.2)
+
+## Spikes and geysers both erupt at marked spots; geysers are laid one after another under where the tank is.
+func _update_bursts(move: Move, tank: Tank) -> void:
+	var world := World.current
+	var geysers := 3 + _phase()
+	if move.kind == Attack.GEYSERS:
+		while move.spawned < geysers and move.time >= 0.4 + move.spawned * (0.4 if _phase() >= 3 else 0.5):
+			var burst := Burst.new()
+			burst.position = Vector3(tank.global_position.x, Course.height_at(tank.global_position), tank.global_position.z)
+			burst.warn_at = move.time
+			burst.at = move.time + GEYSER_WARN
+			burst.radius = GEYSER_RADIUS
+			burst.damage = GEYSER_DAMAGE
+			burst.geyser = true
+			move.bursts.append(burst)
+			move.spawned += 1
+	for burst in move.bursts:
+		if not burst.shown and move.time >= burst.warn_at:
+			burst.shown = true
+			world.fx.marker(burst.position, burst.radius, burst.at - burst.warn_at, Palette.FUNGUS if burst.geyser else Palette.RED)
+			world.fx.dust(burst.position, 3, 1.0, Palette.OCHRE)
+		if not burst.done and move.time >= burst.at:
+			burst.done = true
+			_erupt(burst, tank)
+	if move.bursts.all(func(b: Burst) -> bool: return b.done) and (move.kind != Attack.GEYSERS or move.spawned >= geysers):
+		_finish(move)
+
+
+func _erupt(burst: Burst, tank: Tank) -> void:
+	var world := World.current
+	_eruption("geyser" if burst.geyser else "spike", burst.position, burst.radius if burst.geyser else 1.0, 0.45 if burst.geyser else 0.3)
+	world.fx.spores(burst.position, 10 if burst.geyser else 4, burst.radius)
+	world.fx.dust(burst.position, 6, burst.radius, Palette.OCHRE)
+	Sfx.play("squelch" if burst.geyser else "stab", burst.position, 0.0, randf_range(0.7, 1.0))
+	if Vector2(tank.global_position.x - burst.position.x, tank.global_position.z - burst.position.z).length() < burst.radius:
+		_strike(tank, Hit.Kind.SPORE if burst.geyser else Hit.Kind.RAM, burst.damage, burst.position)
+		world.hitstop(0.05)
+
+
+## The road span a slam covers, from the colossus's face to past the tank: x is the near end, y the far one.
+func _slam_span(move: Move) -> Vector2:
+	return Vector2(Course.to_course(global_position).x - 7.0, move.d - 12.0)
+
+
+## A dark strip along the tank's lane, ringed in red, under the tendril rearing over it.
+func _telegraph_slam(move: Move) -> void:
+	var world := World.current
+	var span := _slam_span(move)
+	var mid := (span.x + span.y) * 0.5
+	var strip := MeshInstance3D.new()
+	strip.mesh = _mesh("strip")
+	world.add_child(strip)
+	strip.global_transform = Transform3D(Basis(Vector3.UP, Course.yaw_at(mid)) * Basis.from_scale(Vector3(SLAM_HALF_WIDTH * 2.0, 0.05, span.x - span.y)), Course.ground_at(mid, move.lane) + Vector3.UP * 0.12)
+	move.props.append(strip)
+	for i in int((span.x - span.y) / 4.0) + 1:
+		world.fx.marker(Course.ground_at(span.y + i * 4.0, move.lane), SLAM_HALF_WIDTH, SLAM_RISE, Palette.RED)
+	Sfx.play("warn", Course.ground_at(span.x, move.lane), 0.0, 0.6)
+
+
+## The tendril rears over the lane's near end, then slams down along it.
+func _update_slam(move: Move, tank: Tank) -> void:
+	var world := World.current
+	var span := _slam_span(move)
+	var tip: Vector3
+	_tip_open = move.time < SLAM_RISE
+	if _tip_open:
+		tip = Course.ground_at(span.x, move.lane) + Vector3.UP * lerpf(4.0, 14.0, move.time / SLAM_RISE)
+	else:
+		var k := clampf((move.time - SLAM_RISE) / SLAM_TIME, 0.0, 1.0)
+		var d := lerpf(span.x, span.y, k)
+		tip = Course.ground_at(d, move.lane) + Vector3.UP * lerpf(14.0, 1.2, minf(k * 4.0, 1.0))
+		if k > 0.1:
+			world.fx.dust(tip, 2, 2.0, Palette.OCHRE)
+		if not move.hit and absf(tank.course_u - move.lane) < SLAM_HALF_WIDTH and absf(_tank_d(tank) - d) < 4.0 and tip.y - tank.global_position.y < 3.0:
+			move.hit = true
+			if _strike(tank, Hit.Kind.RAM, SLAM_DAMAGE, tip):
+				world.hitstop(0.08)
+		if k >= 1.0:
+			world.shake(0.4)
+			_finish(move)
+			return
+	_show_tendril(tip, 3.0)
+
+
+## A wall of spore cloud grows across the road with one gap, then drifts toward the tank.
+func _telegraph_wall(move: Move) -> void:
+	var world := World.current
+	var tank := player()
+	move.passive = true
+	move.lane = clampf(tank.course_u + randf_range(-8.0, 8.0), -9.0, 9.0)
+	move.d = Course.to_course(global_position).x - 9.0
+	for row in 2:
+		for i in 12:
+			var u := -WALL_HALF + 1.6 + i * 3.2
+			if absf(u - move.lane) < GAP_HALF + 1.6:
+				continue
+			var puff := MeshInstance3D.new()
+			puff.mesh = _mesh("puff")
+			puff.set_meta("u", u)
+			puff.set_meta("y", 2.2 + row * 3.4)
+			world.add_child(puff)
+			puff.global_position = Course.ground_at(move.d, u)
+			puff.scale = Vector3.ONE * 0.05
+			puff.create_tween().tween_property(puff, "scale", Vector3.ONE, WALL_WIND)
+			move.props.append(puff)
+	var gap := Course.ground_at(move.d, move.lane)
+	world.fx.marker(gap, GAP_HALF, WALL_WIND, Palette.BUTTER)
+	world.fx.beam(gap, gap + Vector3.UP * 9.0, Palette.BUTTER, 0.3, WALL_WIND)
+	Sfx.play("warn", gap, 0.0, 0.8)
+
+
+func _in_wall(move: Move, tank: Tank) -> bool:
+	return absf(tank.course_u) <= WALL_HALF and absf(tank.course_u - move.lane) > GAP_HALF and absf(_tank_d(tank) - move.d) < WALL_DEPTH
+
+
+func _update_wall(move: Move, tank: Tank, delta: float) -> void:
+	var world := World.current
+	if move.time >= WALL_WIND:
+		move.d -= WALL_SPEED * delta
+	for puff in move.props:
+		var at := Course.ground_at(move.d, puff.get_meta("u"))
+		puff.global_position = at + Vector3.UP * (puff.get_meta("y") as float)
+		if randf() < delta * 1.5:
+			world.fx.spores(puff.global_position, 3, 1.5)
+	if move.time >= WALL_WIND and _in_wall(move, tank):
+		move.held += delta
+		if move.held >= 0.2:
+			move.held -= 0.2
+			_strike(tank, Hit.Kind.SPORE, WALL_DPS * 0.2, tank.global_position)
+	else:
+		move.held = 0.0
+	if move.d < _tank_d(tank) - 25.0 or move.time > 14.0:
+		_finish(move)
+
+
+## A tendril hovers over the tank's tail, then drops on it; if it catches, it drags the tank in until a drift frees it or a shot cuts the tendril.
+func _update_grab(move: Move, tank: Tank, delta: float) -> void:
+	var world := World.current
+	var target := tank.hit_center() if tank.tail.destroyed else tank.tail.claw_position()
+	var tip := _tendril_tip
+	var landed := GRAB_REACH + GRAB_DROP
+	_tip_open = true
+	if move.held > 0.0:
+		move.held += delta
+		if tank.is_dashing():
+			Sfx.play("roar", global_position, -4.0, 1.5)
+			_finish(move)
+			return
+		tank.course_offset += GRAB_PULL * delta
+		tank.course_u = move_toward(tank.course_u, 0.0, 6.0 * delta)
+		tip = target
+		if move.held >= GRAB_HOLD:
+			world.shake(0.5)
+			_strike(tank, Hit.Kind.RAM, GRAB_DAMAGE, tip)
+			_finish(move)
+			return
+	elif move.time < GRAB_REACH:
+		tip = tip.lerp(target + Vector3.UP * 7.0, minf(delta * 4.0, 1.0))
+		if fposmod(move.time, 0.25) < delta:
+			world.fx.marker(Vector3(target.x, 0.0, target.z), GRAB_RADIUS, 0.3, Palette.BUTTER)
+	elif move.time < landed:
+		if move.points.is_empty():
+			move.points.append(target)
+		tip = tip.lerp(move.points[0], clampf((move.time - GRAB_REACH) / GRAB_DROP, 0.0, 1.0))
+	else:
+		tip = move.points[0]
+		_tip_open = false
+		if not move.hit:
+			move.hit = true
+			world.fx.dust(tip, 8, 2.0, Palette.OCHRE)
+			if tip.distance_to(target) < GRAB_RADIUS and not tank.is_dashing():
+				move.held = delta
+		elif move.time > landed + 0.4:
+			_finish(move)
+			return
+	_show_tendril(tip, 3.0)
 
 
 func _begin_death() -> void:

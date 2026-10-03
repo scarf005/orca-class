@@ -148,20 +148,308 @@ func test_colossus_core_opens_then_dies() -> void:
 	check(died, "core destroyed: collapses and dies")
 
 
-func test_colossus_leaves_a_charge_window_after_each_attack() -> void:
-	var world := stage()
+## A fighting colossus (free to attack, but choosing nothing on its own) and the tank placed in the lane `u`.
+func _fighter(world: World, u := 0.0) -> Colossus:
 	var boss := _colossus(world)
 	boss.stagger = 0.0
+	boss._next_attack = 1000.0
+	_place(world, u)
+	return boss
+
+
+func _place(world: World, u: float, offset := 4.0) -> Tank:
+	var tank := world.player
+	tank.invuln = 0.0
+	tank.tail.destroyed = true # Its hit center is where a grab aims, and the test moves that by hand.
+	tank.course_u = u
+	tank.course_offset = offset
+	tank.global_position = Course.ground_at(world.rail.d + offset, u)
+	return tank
+
+
+func _step(boss: Colossus, seconds: float) -> void:
+	var tank := boss.player()
+	for i in roundi(seconds * 60.0):
+		tank.invuln = maxf(0.0, tank.invuln - 1.0 / 60.0)
+		boss.behave(1.0 / 60.0)
+
+
+## Armor the tank lost, as a share of the strike's damage: its facing scales a hit between 0.6 and 1.4.
+func _near_strike(lost: float, damage: float, message: String) -> void:
+	check(lost >= damage * 0.6 - 0.01 and lost <= damage * 1.4 + 0.01, "%s (lost %.1f of a %.0f strike)" % [message, lost, damage])
+
+
+func _unlocked(phase: int) -> Array:
+	return Colossus.UNLOCK.keys().filter(func(k: int) -> bool: return Colossus.UNLOCK[k] <= phase)
+
+
+func _lose_nodes(boss: Colossus, count: int) -> void:
+	for i in count:
+		boss.parts[i].hp = 0.0
+
+
+func test_colossus_leaves_a_charge_window_after_each_attack() -> void:
+	var world := stage()
+	var boss := _fighter(world)
 	var crawlers := world.enemies.size()
-	for attack in [Colossus.Attack.SWEEP, Colossus.Attack.BARRAGE, Colossus.Attack.SPAWN]:
-		boss._attack = attack
+	for attack in Colossus.UNLOCK:
+		if attack == Colossus.Attack.WALL:
+			continue # Passive: it drifts on while the next attack comes.
+		boss._begin(attack)
 		boss._end_attack()
-		check(boss._next_attack >= Colossus.WINDOW, "a %d attack is followed by at least %.1f s of quiet" % [attack, Colossus.WINDOW])
+		check(boss._next_attack >= Colossus.WINDOW, "attack %d is followed by at least %.1f s of quiet" % [attack, Colossus.WINDOW])
 		boss._next_attack = Colossus.WINDOW
-		for i in int(Colossus.WINDOW * 60.0) - 2:
-			boss.behave(1.0 / 60.0)
-		check_eq(boss._attack, Colossus.Attack.NONE, "no new attack begins inside the window")
+		_step(boss, Colossus.WINDOW - 2.0 / 60.0)
+		check(boss._moves.is_empty(), "no new attack begins inside the window")
 	check_eq(world.enemies.size(), crawlers, "and nothing is spawned in it")
+
+
+func test_colossus_phase_gates_its_attacks() -> void:
+	var world := stage()
+	var boss := _fighter(world)
+	var most := 0
+	for phase in 4:
+		_lose_nodes(boss, phase)
+		check_eq(boss._phase(), phase, "%d lost nodes make phase %d" % [phase, phase])
+		var seen := {}
+		var most_at_once := 0
+		for i in 400:
+			boss._end_attack()
+			boss._choose_attack()
+			most_at_once = maxi(most_at_once, boss._moves.size())
+			for move: Colossus.Move in boss._moves:
+				seen[move.kind] = true
+			check(boss._moves.filter(func(m: Colossus.Move) -> bool: return m.kind in Colossus.TENDRIL_ATTACKS).size() <= 1, "one tendril at a time")
+		boss._end_attack()
+		var expected := _unlocked(phase)
+		expected.sort()
+		var got := seen.keys()
+		got.sort()
+		check_eq(got, expected, "phase %d picks exactly the attacks it has unlocked" % phase)
+		check_eq(most_at_once, 2 if phase == 3 else 1, "attacks combine only in the last phase")
+		check(expected.size() > most, "each phase has more attacks than the one before")
+		most = expected.size()
+
+
+func test_colossus_rests_for_less_as_it_loses_nodes() -> void:
+	var world := stage()
+	var boss := _fighter(world)
+	var longest := []
+	for phase in 4:
+		_lose_nodes(boss, phase)
+		var gap := 0.0
+		for i in 100:
+			var move := Colossus.Move.new()
+			boss._moves.append(move)
+			boss._finish(move)
+			gap = maxf(gap, boss._next_attack)
+			check(boss._next_attack >= Colossus.WINDOW, "rests at least the charge window")
+		longest.append(gap)
+	check(longest[3] < longest[0] - 0.2, "the longest rest shrinks from %.2f s to %.2f s" % [longest[0], longest[3]])
+	for i in 3:
+		check(longest[i + 1] <= longest[i] + 0.001, "and never grows with a lost node")
+
+
+func test_colossus_hits_cost_a_quarter_to_a_third_of_the_armor() -> void:
+	for damage: float in [Colossus.STRIKE_DAMAGE, Colossus.SPIKE_DAMAGE, Colossus.GEYSER_DAMAGE, Colossus.SLAM_DAMAGE, Colossus.GRAB_DAMAGE]:
+		check(damage >= 25.0 and damage <= 35.0, "a strike of %.0f is 25 to 35 armor" % damage)
+	check(Colossus.WALL_DPS * 2.0 * Colossus.WALL_DEPTH / Colossus.WALL_SPEED >= 20.0, "crossing the wall costs about a hit")
+
+
+func test_colossus_spikes_follow_cracks_and_hurt_only_where_they_erupt() -> void:
+	var world := stage()
+	var boss := _fighter(world)
+	var tank := world.player
+	boss._begin(Colossus.Attack.SPIKES)
+	var move: Colossus.Move = boss._moves[0]
+	check(move.bursts.size() >= 3 * 8, "three cracks of spikes run toward the tank")
+	var first: Colossus.Burst = move.bursts[0]
+	for burst in move.bursts:
+		check(burst.at - burst.warn_at >= Colossus.SPIKE_DELAY - 0.001, "every spike is marked at least %.2f s before it erupts" % Colossus.SPIKE_DELAY)
+		if burst.at < first.at:
+			first = burst
+	tank.global_position = first.position
+	_step(boss, first.at - 0.05)
+	check(first.shown and not first.done, "the crack reached the spot and the spike has not come yet")
+	check_eq(tank.hp, tank.max_hp, "standing on a marked spot is safe until it erupts")
+	_step(boss, 0.1)
+	check(first.done, "the spike erupts")
+	_near_strike(tank.max_hp - tank.hp, Colossus.SPIKE_DAMAGE, "and costs the tank standing on it a hit")
+	boss._end_attack()
+	tank.hp = tank.max_hp
+	boss._begin(Colossus.Attack.SPIKES)
+	_place(world, 30.0)
+	for i in 600:
+		_step(boss, 1.0 / 60.0)
+		if boss._moves.is_empty():
+			break
+	check(boss._moves.is_empty(), "the cracks run out")
+	check_eq(tank.hp, tank.max_hp, "a tank off every line is not touched")
+
+
+func test_colossus_geysers_chase_the_tank_and_hurt_only_a_tank_that_stays() -> void:
+	var world := stage()
+	var boss := _fighter(world, -8.0)
+	var tank := world.player
+	_lose_nodes(boss, 1)
+	boss._begin(Colossus.Attack.GEYSERS)
+	var move: Colossus.Move = boss._moves[0]
+	var seen := 0
+	var spots: Array[Vector3] = []
+	for i in 600:
+		_step(boss, 1.0 / 60.0)
+		if move.bursts.size() > seen:
+			var burst: Colossus.Burst = move.bursts[seen]
+			spots.append(burst.position)
+			check_near(burst.position.distance_to(Vector3(tank.global_position.x, burst.position.y, tank.global_position.z)), 0.0, 0.01, "geyser %d is laid where the tank is" % seen)
+			check_near(burst.at - burst.warn_at, Colossus.GEYSER_WARN, 0.001, "and marked %.1f s before it erupts" % Colossus.GEYSER_WARN)
+			seen += 1
+			var best := 0.0
+			var best_gap := -1.0
+			for u: float in [-14.0, -7.0, 0.0, 7.0, 14.0]:
+				var gap := 1000.0
+				for spot in spots:
+					gap = minf(gap, Course.ground_at(world.rail.d + 4.0, u).distance_to(spot))
+				if gap > best_gap:
+					best = u
+					best_gap = gap
+			_place(world, best) # Keeps moving: each geyser lands where it was, away from the next.
+		if boss._moves.is_empty():
+			break
+	check_eq(seen, 4, "a geyser chase with one node lost has four geysers")
+	check(spots[0].distance_to(spots[1]) > 10.0, "each lies where the tank was, not where it is going")
+	check_eq(tank.hp, tank.max_hp, "a tank that keeps moving is never caught")
+	cleanup()
+	var world2 := stage()
+	var still := _fighter(world2, 0.0)
+	still._begin(Colossus.Attack.GEYSERS)
+	_step(still, 0.5)
+	var hp := world2.player.hp
+	_step(still, 0.5)
+	check_eq(world2.player.hp, hp, "a geyser's circle swells before it hurts")
+	_step(still, 0.35)
+	_near_strike(world2.player.max_hp - world2.player.hp, Colossus.GEYSER_DAMAGE, "a tank that stays is caught by the first geyser")
+
+
+func test_colossus_slam_marks_the_lane_and_hurts_only_inside_it() -> void:
+	var world := stage()
+	var boss := _fighter(world, 3.0)
+	var tank := world.player
+	boss._begin(Colossus.Attack.SLAM)
+	var move: Colossus.Move = boss._moves[0]
+	check_eq(move.props.size(), 1, "a shadow strip is laid along the lane")
+	_step(boss, Colossus.SLAM_RISE - 0.1)
+	check(boss._tip_open, "the tendril hangs raised over the lane")
+	check_eq(tank.hp, tank.max_hp, "nothing hurts while it rises")
+	_step(boss, 1.0)
+	check(boss._moves.is_empty(), "the slam ends")
+	_near_strike(tank.max_hp - tank.hp, Colossus.SLAM_DAMAGE, "a tank left in the lane is slammed")
+	cleanup()
+	var world2 := stage()
+	var dodge := _fighter(world2, 3.0)
+	dodge._begin(Colossus.Attack.SLAM)
+	_step(dodge, Colossus.SLAM_RISE - 0.1)
+	var drifted := _place(world2, 3.0 + Colossus.SLAM_HALF_WIDTH + 1.0)
+	_step(dodge, 1.0)
+	check_eq(drifted.hp, drifted.max_hp, "a tank that drifted out of the lane is not touched")
+
+
+func test_colossus_slam_is_cut_by_a_charged_shot_on_the_raised_tip_only() -> void:
+	var world := stage()
+	var boss := _fighter(world, 0.0)
+	var tank := world.player
+	boss._begin(Colossus.Attack.SLAM)
+	_step(boss, 0.5)
+	boss.take_hit(_shell(boss._tendril_tip))
+	check_eq(boss._moves.size(), 1, "a plain shell does not cut it")
+	boss.take_hit(_charged(boss._tendril_tip + Vector3(0, 0, 20)))
+	check_eq(boss._moves.size(), 1, "a charged shot that misses the tip does not either")
+	boss.take_hit(_charged(boss._tendril_tip))
+	check(boss._moves.is_empty() and not boss._tip_open, "a charged shot on the tip cuts it")
+	_step(boss, 2.0)
+	check_eq(tank.hp, tank.max_hp, "the cut slam never lands")
+	check(not boss.aim_parts().has("tip"), "and the tip is no longer a target")
+	boss._begin(Colossus.Attack.SLAM)
+	_step(boss, 0.5)
+	check(boss.aim_parts().has("tip"), "a raised tip can be locked")
+	check(boss.hit_test(boss._tendril_tip + Vector3(0, 0, 10), boss._tendril_tip, 0.0) >= 0.0, "and shots collide with it")
+
+
+func test_colossus_wall_hurts_inside_its_cloud_not_in_the_gap_or_while_it_grows() -> void:
+	var world := stage()
+	var boss := _fighter(world)
+	boss._begin(Colossus.Attack.WALL)
+	var move: Colossus.Move = boss._moves[0]
+	check(move.passive, "the wall does not hold up the next attack")
+	check(absf(move.lane) <= 9.0, "its gap is on the road")
+	var inside := move.lane + (8.0 if move.lane < 0.0 else -8.0)
+	var tank := _place(world, inside, move.d - 3.4 - world.rail.d)
+	_step(boss, Colossus.WALL_WIND - 0.1)
+	check_eq(tank.hp, tank.max_hp, "the growing wall does not hurt yet")
+	while not boss._moves.is_empty():
+		_step(boss, 1.0 / 60.0)
+	var lost := tank.max_hp - tank.hp
+	check(lost >= 8.0 and lost <= 45.0, "crossing the cloud costs about a hit (lost %.1f)" % lost)
+	cleanup()
+	var world2 := stage()
+	var boss2 := _fighter(world2)
+	boss2._begin(Colossus.Attack.WALL)
+	var move2: Colossus.Move = boss2._moves[0]
+	var safe := _place(world2, move2.lane, move2.d - 3.4 - world2.rail.d)
+	while not boss2._moves.is_empty():
+		_step(boss2, 1.0 / 60.0)
+	check_eq(safe.hp, safe.max_hp, "a tank in the gap takes nothing")
+	cleanup()
+	var world3 := stage()
+	var boss3 := _fighter(world3)
+	boss3._begin(Colossus.Attack.WALL)
+	var move3: Colossus.Move = boss3._moves[0]
+	var beside := _place(world3, Colossus.WALL_HALF + 1.5, move3.d - 3.4 - world3.rail.d)
+	while not boss3._moves.is_empty():
+		_step(boss3, 1.0 / 60.0)
+	check_eq(beside.hp, beside.max_hp, "nor does one past the wall's end")
+
+
+func test_colossus_grab_drags_a_tank_in_until_a_drift_or_a_shot_frees_it() -> void:
+	var world := stage()
+	var boss := _fighter(world)
+	var tank := world.player
+	boss._begin(Colossus.Attack.GRAB)
+	var move: Colossus.Move = boss._moves[0]
+	_step(boss, Colossus.GRAB_REACH - 0.1)
+	check(boss._tip_open and move.held == 0.0, "the tendril hovers over the tail before it drops")
+	_step(boss, Colossus.GRAB_DROP + 0.2)
+	check(move.held > 0.0, "a tank that stayed is caught")
+	var offset := tank.course_offset
+	_step(boss, 0.5)
+	check(tank.course_offset > offset + 4.0, "and dragged toward the colossus")
+	tank._drift = 0.3
+	_step(boss, 0.05)
+	check(boss._moves.is_empty(), "a drift frees it")
+	check_eq(tank.hp, tank.max_hp, "with no crush")
+	cleanup()
+	var world2 := stage()
+	var boss2 := _fighter(world2)
+	boss2._begin(Colossus.Attack.GRAB)
+	_step(boss2, Colossus.GRAB_REACH + Colossus.GRAB_DROP + 0.3)
+	boss2.take_hit(_shell(boss2._tendril_tip))
+	check(boss2._moves.is_empty(), "a cannon round on the tendril frees it")
+	cleanup()
+	var world3 := stage()
+	var boss3 := _fighter(world3)
+	boss3._begin(Colossus.Attack.GRAB)
+	_step(boss3, Colossus.GRAB_REACH + Colossus.GRAB_DROP + Colossus.GRAB_HOLD + 0.2)
+	_near_strike(world3.player.max_hp - world3.player.hp, Colossus.GRAB_DAMAGE, "dragged all the way in it is crushed")
+	cleanup()
+	var world4 := stage()
+	var boss4 := _fighter(world4)
+	boss4._begin(Colossus.Attack.GRAB)
+	_step(boss4, Colossus.GRAB_REACH + 0.1)
+	var away := _place(world4, 12.0)
+	_step(boss4, 0.7)
+	check(boss4._moves.is_empty(), "the missed grab lets go")
+	check_eq(away.hp, away.max_hp, "a tank that moved before the drop takes nothing")
+	check_eq(away.course_offset, 4.0, "and is not dragged")
 
 
 func test_colossus_sweep_costs_an_ignoring_tank_a_third_of_its_armor() -> void:
@@ -180,14 +468,13 @@ func test_colossus_sweep_costs_an_ignoring_tank_a_third_of_its_armor() -> void:
 
 func test_colossus_heat_interrupts_sweep() -> void:
 	var world := stage()
-	var boss := _colossus(world)
-	boss.stagger = 0.0
-	boss._attack = Colossus.Attack.SWEEP
-	boss._attack_time = 0.5
+	var boss := _fighter(world)
+	boss._begin(Colossus.Attack.SWEEP)
+	boss._moves[0].time = 0.5
 	var heat := Hit.make(Hit.Kind.SHELL, 10.0, boss.global_position)
 	heat.stagger = 1.0
 	boss.take_hit(heat)
-	check_eq(boss._attack, Colossus.Attack.NONE, "heavy stagger cancels a telegraphed sweep")
+	check(boss._moves.is_empty(), "heavy stagger cancels a telegraphed sweep")
 
 
 func _gunship(world: World) -> Gunship:
