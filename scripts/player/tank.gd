@@ -896,9 +896,10 @@ func _update_charge_lock() -> void:
 func _update_weapons(delta: float) -> void:
 	coax_part = _pick_part(coax_target)
 	# The coax fires bursts on its own at whatever the sight soft-locks, a short pause between them;
-	# the coax button fires them at will, target or not.
+	# the coax button fires them at will, target or not. With the sight gone it still opens up on an
+	# enemy under the reticle, only unguided.
 	_burst_gap -= delta
-	if input_enabled and _burst <= 0.0 and _burst_gap <= 0.0 and (Input.is_action_pressed("coax") or is_instance_valid(coax_target)):
+	if input_enabled and _burst <= 0.0 and _burst_gap <= 0.0 and (Input.is_action_pressed("coax") or is_instance_valid(coax_target) or World.current.enemies.any(func(enemy: Entity) -> bool: return _lock_distance(enemy) < SOFT_LOCK_RADIUS)):
 		# Half an interval short, so the last round lands inside it.
 		_burst = (Armament.COAX_BURST_ROUNDS - 0.5) * Armament.GUNS[Armament.tier_calibers(coax_tier)[0]].interval
 		_burst_gap = _burst + Armament.COAX_BURST_GAP
@@ -1560,6 +1561,7 @@ func damage_multiplier(hit: Hit) -> float:
 func take_hit(hit: Hit) -> void:
 	if dead or invulnerable or _respawn > 0.0:
 		return
+	flash() # Every blow shows on the hull, even one the armor or ERA turns.
 	if is_small_arms(hit):
 		_glance_off(hit)
 		return
@@ -1589,7 +1591,7 @@ static func is_small_arms(hit: Hit) -> bool:
 	return hit.kind == Hit.Kind.BULLET and hit.caliber < SMALL_ARMS_CALIBER and not (is_top_attack(hit) and hit.caliber >= ROOF_CALIBER)
 
 
-## Small arms do nothing to the hull (no damage taken, no flash): they whine off the armor, unless
+## Small arms do no damage to the hull: they whine off the armor, unless
 ## they land on an exposed roof sensor, which takes the hit.
 func _glance_off(hit: Hit) -> void:
 	var world := World.current
