@@ -35,9 +35,10 @@ debug-room:
 import:
     {{ quote(godot) }} --headless --path . --import
 
-# Run all tests, or filter by filename (e.g. just test tail).
+# Run all tests, or filter by filename (e.g. just test tail). Tests use a temporary
+# XDG data root so settings, bests and live tuning cannot touch the developer profile.
 test only="": import
-    {{ quote(godot) }} --headless --fixed-fps 60 --path . -- --run=res://tests/run.gd --only="$1"
+    tmpdir="$(mktemp -d)"; trap 'rm -rf "${tmpdir}"' EXIT; mkdir -p "${tmpdir}/data" "${tmpdir}/config" "${tmpdir}/cache"; log="${tmpdir}/test.log"; status=0; ORCA_TEST_DATA_HOME="${tmpdir}/data" XDG_DATA_HOME="${tmpdir}/data" XDG_CONFIG_HOME="${tmpdir}/config" XDG_CACHE_HOME="${tmpdir}/cache" {{ quote(godot) }} --headless --fixed-fps 60 --path . -- --run=res://tests/run.gd --only="$1" >"${log}" 2>&1 || status=$?; cat "${log}"; if [ "${status}" -ne 0 ]; then exit "${status}"; fi; if ! grep -Fq "Test sandbox verified: true" "${log}" || ! grep -Fq "Test user data directory: ${tmpdir}/data/" "${log}"; then echo 'FAIL: test user data directory was not isolated' >&2; exit 1; fi; if grep -Eq '(^|: )(SCRIPT ERROR|ERROR):|Parse Error|Failed to (load|instantiate)' "${log}"; then echo 'FAIL: Godot reported a runtime or script error' >&2; exit 1; fi
 
 # Export the web build (requires Godot export templates).
 export-web: import
