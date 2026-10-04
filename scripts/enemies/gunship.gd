@@ -47,7 +47,9 @@ const RACK_SLEW := 4.0
 const CANNON_SLEW := 6.0 ## The nose cannon traverses onto its target while the line follows; the lock then holds it.
 const GUN_SPREAD := 0.025 ## Radians of scatter on a gatling round (doubled with a rotor gone).
 const RACK_CELLS := [Vector2(-0.45, -0.9), Vector2(0.45, 0.0), Vector2(-0.45, 0.9), Vector2(0.45, -0.9), Vector2(-0.45, 0.0), Vector2(0.45, 0.9)]
-const MIN_CLEARANCE := 9.0 ## Its belly and underslung guns hang this far below it: never lower than this over the ground.
+const MIN_CLEARANCE := 9.0 ## Ground clearance during the dive; normal flight stays higher.
+const FLIGHT_CLEARANCE := 24.0
+const TANK_DISTANCE := 50.0 ## Minimum horizontal separation outside the dive.
 const PART_PRIORITY := 3.0 ## A module this close behind the airframe skin still takes the hit.
 const ROTORS := ["rotor_l", "rotor_r"]
 const ROTOR_RADIUS := 11.5
@@ -640,8 +642,8 @@ func behave(delta: float) -> void:
 	_watch_for_shells()
 	# Orbit the arena center, keeping the tank in front.
 	var center := Course.to_world(Course.ARENA_CENTER_D, 0.0)
-	var orbit_radius := [70.0, 50.0, 42.0][phase] as float
-	var altitude := [24.0, 18.0, 15.0][phase] as float
+	var orbit_radius := [90.0, 75.0, 65.0][phase] as float
+	var altitude := [42.0, 36.0, 32.0][phase] as float
 	var speed := [0.18, 0.3, 0.42][phase] as float
 	var window := _attack == Attack.NONE ## Between attacks it hangs almost still: the moment to charge a shot.
 	if window:
@@ -671,18 +673,21 @@ func behave(delta: float) -> void:
 		goal = tank.global_position + Vector3.UP * 5.0
 	if is_staggered():
 		goal.y -= 5.0
-	goal.y = maxf(goal.y, Course.height_at(goal) + MIN_CLEARANCE)
+	goal = _flight_space(goal, tank.global_position)
 	var accel := (goal - global_position) * 1.6 - _velocity * 1.4
 	_velocity += accel * delta
 	if _attack == Attack.CANNON:
 		# Steadies itself for the shot: a bore held still only hits if the muzzle stays put too.
 		_velocity = _velocity.lerp(Vector3.ZERO, 1.0 - exp(-CANNON_BRAKE * delta))
 	global_position += _velocity * delta
-	# However hard it is knocked about, it stays in the air until it actually crashes.
-	var floor_y := Course.height_at(global_position) + MIN_CLEARANCE
-	if global_position.y < floor_y:
-		global_position.y = floor_y
-		_velocity.y = maxf(_velocity.y, 0.0)
+	# Constrain actual motion too: momentum and damage must not carry it into the tank or terrain.
+	var safe := _flight_space(global_position, tank.global_position)
+	var correction := safe - global_position
+	if correction.length_squared() > 0.000001:
+		var normal := correction.normalized()
+		if _velocity.dot(normal) < 0.0:
+			_velocity = _velocity.slide(normal)
+	global_position = safe
 	# Nose at the tank, bank into the turn.
 	var to_tank := tank.global_position - global_position
 	var yaw := atan2(-to_tank.x, -to_tank.z)
@@ -813,6 +818,18 @@ func _update_attack(delta: float, tank: Tank) -> void:
 				hit.source = self
 				tank.take_hit(hit)
 				_end_attack()
+
+
+## The dive retains its close approach; every other attack shares the same flight envelope.
+func _flight_space(point: Vector3, tank_position: Vector3) -> Vector3:
+	if _attack != Attack.DIVE:
+		var offset := Vector3(point.x - tank_position.x, 0, point.z - tank_position.z)
+		if offset.length() < TANK_DISTANCE:
+			var outward := offset.normalized() if offset.length_squared() > 0.000001 else Vector3.RIGHT
+			point.x = tank_position.x + outward.x * TANK_DISTANCE
+			point.z = tank_position.z + outward.z * TANK_DISTANCE
+	point.y = maxf(point.y, Course.height_at(point) + (MIN_CLEARANCE if _attack == Attack.DIVE else FLIGHT_CLEARANCE))
+	return point
 
 
 func _choose_attack() -> void:
