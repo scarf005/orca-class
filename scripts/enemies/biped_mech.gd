@@ -38,18 +38,20 @@ func add_mesh(parent: Node3D, mesh: Mesh) -> void:
 	parent.add_child(instance)
 
 
-func build_legs(stocky := false, color := Palette.SLATE) -> void:
+func build_legs(stocky := false, color := Palette.SLATE, girth := 1.0) -> void:
 	for side in [-1.0, 1.0]:
 		var leg := Node3D.new()
-		leg.position = Vector3(side * 0.85, 0, 0)
+		leg.position = Vector3(side * 0.85 * girth, 0, 0)
 		_body.add_child(leg)
 		var b := LowPoly.new()
-		b.blob(Transform3D(), 0.35, Palette.INK)
-		b.box(Transform3D(Basis(Vector3.RIGHT, -0.4 if not stocky else 0.1), Vector3(0, -0.65, -0.25)), Vector3(0.65 if stocky else 0.45, 1.45, 0.65), color)
-		b.blob(Transform3D(Basis(), Vector3(0, -1.25, -0.55)), 0.35, Palette.CORAL)
-		b.box(Transform3D(Basis(Vector3.RIGHT, 0.4 if not stocky else -0.1), Vector3(0, -2, -0.25)), Vector3(0.6 if stocky else 0.35, 1.55, 0.45), Palette.DUSK)
-		b.box(Transform3D(Basis(), Vector3(0, -2.85, -0.45)), Vector3(0.9, 0.3, 1.5), Palette.INK)
-		b.prism(Transform3D(Basis(), Vector3(side * 0.3, -1.8, -0.2)), 0.09, 1.1, 6, Palette.ASH)
+		var w := girth
+		b.blob(Transform3D(), 0.4 * w, Palette.INK)
+		b.box(Transform3D(Basis(Vector3.RIGHT, -0.4 if not stocky else 0.1), Vector3(0, -0.65, -0.25)), Vector3((0.65 if stocky else 0.5) * w, 1.45, 0.7 * w), color)
+		b.blob(Transform3D(Basis(), Vector3(0, -1.25, -0.55)), 0.4 * w, Palette.CORAL)
+		b.box(Transform3D(Basis(Vector3.RIGHT, 0.4 if not stocky else -0.1), Vector3(0, -2, -0.25)), Vector3((0.6 if stocky else 0.42) * w, 1.55, 0.5 * w), color.darkened(0.25))
+		b.box(Transform3D(Basis(), Vector3(0, -2.85, -0.45)), Vector3(0.9 * w, 0.3, 1.5 * w), Palette.INK)
+		b.box(Transform3D(Basis(), Vector3(0, -2.65, -0.9)), Vector3(0.7 * w, 0.2, 0.5 * w), color.darkened(0.4))
+		b.prism(Transform3D(Basis(), Vector3(side * 0.3 * w, -1.8, -0.2)), 0.09, 1.1, 6, Palette.ASH)
 		add_mesh(leg, b.mesh())
 		_legs.append(leg)
 

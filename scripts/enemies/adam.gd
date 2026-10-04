@@ -19,50 +19,74 @@ var _hose := Node3D.new()
 var _beam := Node3D.new()
 
 
+const SCALE := 1.6 ## Drawn this much larger than its model-space layout.
+
+
 func _init() -> void:
 	super()
 	max_hp = 3000.0
 	hp = max_hp
-	radius = 2.5
+	radius = 2.5 * SCALE
+	center_height *= SCALE
 	armor = 18.0
 	score = 1000
 
 
 func build() -> void:
 	super()
-	build_legs(false, Palette.OCHRE)
+	model.scale = Vector3.ONE * SCALE
+	build_legs(false, Palette.AMBER, 1.5)
 	var b := LowPoly.new()
-	b.box(Transform3D(), Vector3(2.3, 1.0, 1.8), Palette.OCHRE, Palette.BUTTER)
-	b.box(Transform3D(Basis(), Vector3(0, 0.9, 0)), Vector3(1.4, 1.2, 1.3), Palette.STONE)
-	b.box(Transform3D(Basis(Vector3.RIGHT, -0.2), Vector3(0, 1.05, -0.72)), Vector3(1.15, 0.65, 0.1), Palette.INK)
-	for x in [-0.85, 0.85]:
-		b.box(Transform3D(Basis(), Vector3(x, 0.4, 1.0)), Vector3(0.5, 0.9, 0.6), Palette.DUSK)
+	# Undercarriage deck in construction yellow with black-and-cream hazard striping.
+	b.box(Transform3D(), Vector3(2.6, 1.0, 2.1), Palette.AMBER, Palette.BUTTER)
+	for i in 6:
+		b.box(Transform3D(Basis(Vector3.BACK, 0.7), Vector3(-1.0 + i * 0.4, -0.35, -1.07)), Vector3(0.16, 0.5, 0.04), Palette.INK)
+	# Cab: boxy glazed operator cage on top with a roll-over frame, work lights and a beacon.
+	b.box(Transform3D(Basis(), Vector3(-0.1, 1.15, -0.15)), Vector3(1.6, 1.3, 1.5), Palette.AMBER)
+	b.box(Transform3D(Basis(Vector3.RIGHT, -0.12), Vector3(-0.1, 1.2, -0.92)), Vector3(1.35, 0.85, 0.08), Palette.CYAN)
+	b.box(Transform3D(Basis(), Vector3(-0.1, 1.82, -0.15)), Vector3(1.8, 0.1, 1.7), Palette.INK)
+	for x in [-0.85, 0.65]:
+		for z in [-0.85, 0.55]:
+			b.box(Transform3D(Basis(), Vector3(x, 1.4, z)), Vector3(0.08, 0.9, 0.08), Palette.INK)
 	b.glow = true
-	b.box(Transform3D(Basis(), Vector3(0, 1.65, -0.2)), Vector3(0.25, 0.15, 0.25), Palette.CORAL)
+	b.box(Transform3D(Basis(), Vector3(-0.1, 2.0, -0.15)), Vector3(0.3, 0.2, 0.3), Palette.CORAL)
+	for x in [-0.6, 0.4]:
+		b.box(Transform3D(Basis(), Vector3(x, 1.9, -0.95)), Vector3(0.3, 0.12, 0.08), Palette.BUTTER)
+	b.glow = false
+	# Counterweight block and engine.
+	b.box(Transform3D(Basis(), Vector3(0, 0.55, 1.15)), Vector3(2.4, 1.3, 0.9), Palette.DUSK)
+	b.box(Transform3D(Basis(), Vector3(0, 0.55, 1.62)), Vector3(2.0, 0.9, 0.08), Palette.AMBER)
+	b.prism(Transform3D(Basis(), Vector3(0.9, 1.15, 1.0)), 0.12, 1.2, 6, Palette.INK)
 	add_mesh(_body, b.mesh())
-	_arm.position = Vector3(1.7, 0.6, -0.1)
+	_arm.position = Vector3(1.85, 0.7, -0.1)
 	_body.add_child(_arm)
 	var a := LowPoly.new()
-	a.blob(Transform3D(), 0.45, Palette.INK)
-	a.box(Transform3D(Basis(Vector3.RIGHT, -0.2), Vector3(0, -0.9, -0.2)), Vector3(0.6, 2.0, 0.65), Palette.OCHRE)
-	a.prism(Transform3D(Basis(), Vector3(0.35, -0.5, -0.4)), 0.12, 1.6, 6, Palette.ASH)
-	a.box(Transform3D(Basis(), Vector3(0, -2.0, -0.5)), Vector3(0.65, 0.8, 0.65), Palette.DUSK)
-	a.prism(Transform3D(Basis(), Vector3(0, -2.6, -0.5)), 0.13, 1.0, 6, Palette.INK, 0.02)
+	# Boom arm hanging down: shoulder pivot, yellow boom, hydraulic ram and a hammer-head breaker.
+	a.blob(Transform3D(), 0.5, Palette.INK)
+	a.box(Transform3D(Basis(Vector3.RIGHT, -0.2), Vector3(0, -0.95, -0.2)), Vector3(0.7, 2.1, 0.75), Palette.AMBER)
+	a.prism(Transform3D(Basis(), Vector3(0.45, -0.5, -0.45)), 0.14, 1.7, 6, Palette.ASH)
+	a.box(Transform3D(), Vector3(0.001, 0.001, 0.001), Palette.INK)
+	a.box(Transform3D(Basis(), Vector3(0, -2.15, -0.55)), Vector3(0.85, 0.85, 0.85), Palette.DUSK)
+	a.prism(Transform3D(Basis(), Vector3(0, -2.75, -0.55)), 0.22, 1.2, 6, Palette.STONE, 0.08)
+	a.prism(Transform3D(Basis(), Vector3(0, -2.9, -0.55)), 0.3, 0.2, 6, Palette.CORAL)
 	add_mesh(_arm, a.mesh())
 	_hose.position = Vector3(0.4, -0.6, 0)
 	_arm.add_child(_hose)
 	var h := LowPoly.new()
 	for x in [-0.12, 0.0, 0.12]:
-		h.prism(Transform3D(Basis(Vector3.RIGHT, 0.25), Vector3(x, 0, 0)), 0.055, 1.1, 6, Palette.CORAL)
+		h.prism(Transform3D(Basis(Vector3.RIGHT, 0.25), Vector3(x, 0, 0)), 0.065, 1.1, 6, Palette.CORAL)
 	add_mesh(_hose, h.mesh())
-	_beam.position = Vector3(-1.65, 0.3, -0.2)
+	_beam.position = Vector3(-1.85, 0.4, -0.2)
 	_body.add_child(_beam)
 	var steel := LowPoly.new()
-	steel.box(Transform3D(Basis(), Vector3(0, -0.5, 0)), Vector3(0.5, 1.2, 0.5), Palette.OCHRE)
-	# Two flanges and the narrow web make the carried scrap read as an I-beam.
+	steel.blob(Transform3D(), 0.45, Palette.INK)
+	steel.box(Transform3D(Basis(), Vector3(0, -0.55, 0)), Vector3(0.55, 1.3, 0.55), Palette.AMBER)
+	# Two flanges and the narrow web make the carried scrap read as an I-beam, with orange paint marks.
 	for y in [-0.95, -1.65]:
-		steel.box(Transform3D(Basis(), Vector3(0, y, -2.0)), Vector3(0.65, 0.12, 7.0), Palette.SLATE)
-	steel.box(Transform3D(Basis(), Vector3(0, -1.3, -2.0)), Vector3(0.15, 0.7, 7.0), Palette.DUSK)
+		steel.box(Transform3D(Basis(), Vector3(0, y, -2.0)), Vector3(0.75, 0.14, 7.2), Palette.ASH)
+	steel.box(Transform3D(Basis(), Vector3(0, -1.3, -2.0)), Vector3(0.16, 0.7, 7.2), Palette.STONE)
+	for z in [-4.2, -2.0, 0.4]:
+		steel.box(Transform3D(Basis(), Vector3(0, -0.94, z)), Vector3(0.78, 0.16, 0.5), Palette.CORAL)
 	add_mesh(_beam, steel.mesh())
 	pop_parts = [_arm, _beam]
 
@@ -146,24 +170,24 @@ func _land_attack(tank: Tank) -> void:
 
 
 func damage_multiplier(hit: Hit) -> float:
-	return super(hit) * (3.0 if not disarmed and hit.position.distance_to(_hose.global_position) < 0.7 else 1.0)
+	return super(hit) * (3.0 if not disarmed and hit.position.distance_to(_hose.global_position) < 0.7 * SCALE else 1.0)
 
 
 func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 	var best := super(from, to, extra_radius)
 	if hidden or disarmed:
 		return best
-	var t := Entity.segment_sphere(from, to, _hose.global_position, 0.5 + extra_radius)
+	var t := Entity.segment_sphere(from, to, _hose.global_position, 0.5 * SCALE + extra_radius)
 	# A hose on the hull's skin takes a shot aimed at it, not the overlapping hull sphere.
-	return t if t >= 0.0 and (best < 0.0 or t - best < 1.0) else best
+	return t if t >= 0.0 and (best < 0.0 or t - best < SCALE) else best
 
 
 func aim_parts() -> Dictionary:
-	return {} if disarmed else {"hose": [_hose.global_position, 0.5, tr("ENEMY_ADAM")]}
+	return {} if disarmed else {"hose": [_hose.global_position, 0.5 * SCALE, tr("ENEMY_ADAM")]}
 
 
 func on_damaged(hit: Hit, amount: float) -> void:
-	var hose_hit := not disarmed and hit.position.distance_to(_hose.global_position) < 0.7
+	var hose_hit := not disarmed and hit.position.distance_to(_hose.global_position) < 0.7 * SCALE
 	super(hit, amount)
 	if hose_hit:
 		hose_hp -= amount

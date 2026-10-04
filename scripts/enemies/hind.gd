@@ -15,8 +15,10 @@ func build() -> void:
 	super()
 	_height = 7.0
 	_attack_timer = 1.0
-	# Retain the tandem airframe and five-bladed rotor, with a longer nose and outboard missile rails.
-	model.get_child(0).scale = Vector3(0.9, 1.0, 1.12)
+	model.scale = Vector3.ONE * 1.35
+	# The parent builds the nodes (rotor, tail rotor, chin, pods); this gunship dresses them in its own airframe.
+	(model.get_child(0) as MeshInstance3D).mesh = _airframe()
+	(_rotor.get_child(0) as MeshInstance3D).mesh = _rotor_mesh()
 	var gun := LowPoly.new()
 	for i in 4:
 		var angle := TAU * i / 4.0
@@ -46,6 +48,78 @@ func build() -> void:
 		mesh.mesh = b.mesh()
 		lid.add_child(mesh)
 		_lids.append(lid)
+
+
+static func _xf(pos: Vector3, yaw := 0.0, pitch := 0.0, roll := 0.0) -> Transform3D:
+	return Transform3D(Basis.from_euler(Vector3(pitch, yaw, roll)), pos)
+
+
+## Mi-24-style Hind: a bulbous tandem canopy over a boxy troop cabin, intakes on the shoulders, a long
+## tapering boom and a red-starred fin, in a three-tone green camouflage over a pale belly.
+func _airframe() -> Mesh:
+	var b := LowPoly.new()
+	var dark := Palette.PINE
+	var mid := Palette.SAGE
+	var light := Palette.LEAF
+	b.box(_xf(Vector3(0, 0.15, 0.6)), Vector3(2.2, 1.9, 4.3), mid, light)
+	b.box(_xf(Vector3(0, -0.8, 0.5)), Vector3(1.9, 0.16, 4.1), Palette.ASH)
+	b.box(_xf(Vector3(0, -0.05, -2.3), 0, 0.14), Vector3(1.75, 1.35, 2.7), dark, mid)
+	b.box(_xf(Vector3(0, -0.3, -3.7), 0, 0.2), Vector3(1.0, 0.85, 1.4), dark)
+	b.glow = true
+	b.box(_xf(Vector3(0, -0.5, -4.45)), Vector3(0.5, 0.3, 0.12), Palette.CYAN)
+	b.blob(_xf(Vector3(0, 0.5, -3.0)), 0.75, Palette.SKY, 0, 0.0, 1)
+	b.blob(_xf(Vector3(0, 1.2, -1.15)), 0.82, Palette.SKY, 0, 0.0, 2)
+	b.glow = false
+	for z in [-3.0, -1.15]:
+		b.box(_xf(Vector3(0, 0.55 if z < -2.0 else 1.25, z)), Vector3(0.12, 1.3, 0.12), Palette.INK)
+	b.box(_xf(Vector3(0, 0.8, -2.05), 0, 0.0), Vector3(1.4, 0.3, 0.3), dark)
+	for side in [-1.0, 1.0]:
+		b.box(_xf(Vector3(side * 0.88, 1.35, 0.35)), Vector3(0.85, 0.75, 1.7), light, mid)
+		b.box(_xf(Vector3(side * 0.88, 1.35, -0.52)), Vector3(0.7, 0.58, 0.06), Palette.INK)
+		b.tube(_xf(Vector3(side * 0.9, 1.3, 1.2)), 0.26, 1.2, 8, Palette.DUSK, 0.32)
+		b.box(_xf(Vector3(side * 1.12, 0.2, 0.6)), Vector3(0.05, 1.0, 1.0), light)
+		b.box(_xf(Vector3(side * 1.12, 0.35, 1.9)), Vector3(0.05, 0.6, 0.9), dark)
+		b.box(_xf(Vector3(side * 1.13, 0.1, -0.6)), Vector3(0.04, 1.1, 0.04), Palette.INK)
+		b.box(_xf(Vector3(side * 1.5, -0.7, 0.5)), Vector3(0.6, 0.6, 1.3), Palette.DUSK)
+		b.prism(_xf(Vector3(side * 1.55, -1.25, 0.5), 0, 0, PI * 0.5), 0.38, 0.35, 8, Palette.INK)
+		b.prism(_xf(Vector3(side * 1.45, -1.25, 0.5)), 0.04, 0.8, 4, Palette.ASH)
+		b.box(_xf(Vector3(side * 2.8, 0.1, 0.5), 0, 0, side * -0.06), Vector3(3.5, 0.15, 1.15), Palette.ASH, light)
+		b.box(_xf(Vector3(side * 4.55, 0.12, 0.5)), Vector3(0.3, 0.18, 1.15), Palette.CORAL)
+	b.box(_xf(Vector3(0, 1.8, 0.4)), Vector3(0.9, 0.5, 1.4), dark)
+	b.box(_xf(Vector3(0, 0.55, 4.6)), Vector3(0.95, 0.95, 3.4), mid)
+	b.box(_xf(Vector3(0, 0.7, 6.9)), Vector3(0.6, 0.65, 2.0), dark)
+	b.box(_xf(Vector3(0, 1.75, 7.45), 0, -0.28), Vector3(0.2, 2.5, 1.5), mid)
+	b.box(_xf(Vector3(0, 0.8, 7.0)), Vector3(2.6, 0.08, 0.8), dark)
+	b.box(_xf(Vector3(0, 2.9, 7.75), 0, -0.28), Vector3(0.22, 0.2, 0.7), Palette.INK)
+	# Red stars on the fin: five thin arms.
+	for i in 5:
+		for side in [-1.0, 1.0]:
+			b.box(Transform3D(Basis(Vector3.RIGHT, TAU * i / 5.0 * 0.5 + 0.2), Vector3(side * 0.12, 1.7, 7.55)), Vector3(0.03, 0.18, 0.95), Palette.RED)
+	b.box(_xf(Vector3(0, 1.9, 0.2)), Vector3(0.4, 0.5, 0.4), Palette.INK)
+	return b.mesh()
+
+
+func _rotor_mesh() -> Mesh:
+	var r := LowPoly.new()
+	r.prism(_xf(Vector3(0, -0.12, 0)), 0.34, 0.45, 8, Palette.INK)
+	for i in 5:
+		var xf := Transform3D(Basis(Vector3.UP, TAU * i / 5.0 + 0.3), Vector3.ZERO)
+		r.box(xf.translated_local(Vector3(3.75, 0, 0)), Vector3(7.5, 0.06, 0.5), Palette.INK)
+		r.box(xf.translated_local(Vector3(7.0, 0.01, 0)), Vector3(0.9, 0.08, 0.52), Palette.BUTTER)
+	return r.mesh()
+
+
+func _pod_mesh() -> Mesh:
+	var b := LowPoly.new()
+	b.box(_xf(Vector3(0, 0.55, 0.7)), Vector3(0.14, 0.5, 1.4), Palette.DUSK)
+	b.tube(_xf(Vector3(0, 0, 1.1), PI), 0.46, 2.2, 8, Palette.SAGE)
+	b.tube(_xf(Vector3(0, 0, -1.1), PI), 0.46, 0.3, 8, Palette.DUSK)
+	b.glow = true
+	for i in 7:
+		var angle := TAU * i / 7.0
+		var ring := 0.26 if i < 6 else 0.0
+		b.box(_xf(Vector3(cos(angle) * ring, sin(angle) * ring, -1.42)), Vector3(0.13, 0.13, 0.02), Palette.CORAL)
+	return b.mesh()
 
 
 func behave(delta: float) -> void:

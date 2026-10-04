@@ -19,8 +19,13 @@ var _muzzle := Node3D.new()
 var _coax := Node3D.new()
 
 
+const SCALE := 1.5 ## Drawn this much larger than its model-space layout.
+
+
 func _init() -> void:
 	super()
+	radius *= SCALE
+	center_height *= SCALE
 	max_hp = 2000.0
 	hp = max_hp
 	score = 900
@@ -28,32 +33,57 @@ func _init() -> void:
 
 func build() -> void:
 	super()
-	build_legs()
+	model.scale = Vector3.ONE * SCALE
+	build_legs(false, Palette.HULL, 1.5)
 	var b := LowPoly.new()
-	b.box(Transform3D(), Vector3(1.8, 0.8, 2.0), Palette.SLATE, Palette.ASH)
-	b.box(Transform3D(Basis(Vector3.RIGHT, 0.3), Vector3(0, 0.4, -1.1)), Vector3(1.4, 0.7, 0.7), Palette.DUSK)
+	# Hull: low wide chassis with a sloped glacis, side skirts studded with reactive tiles and a rear engine deck.
+	b.box(Transform3D(), Vector3(2.5, 0.9, 2.6), Palette.HULL, Palette.HULL_LIGHT)
+	b.box(Transform3D(Basis(Vector3.RIGHT, 0.45), Vector3(0, 0.2, -1.45)), Vector3(2.3, 0.18, 1.1), Palette.HULL_LIGHT)
+	for side in [-1.0, 1.0]:
+		b.box(Transform3D(Basis(), Vector3(side * 1.3, -0.05, 0)), Vector3(0.18, 0.8, 2.4), Palette.MOSS)
+		for i in 5:
+			b.box(Transform3D(Basis(), Vector3(side * 1.4, -0.05, -0.95 + i * 0.48)), Vector3(0.08, 0.5, 0.36), Palette.ASH)
+	b.box(Transform3D(Basis(), Vector3(0, 0.55, 1.25)), Vector3(1.9, 0.35, 0.9), Palette.MOSS)
+	for i in 5:
+		b.box(Transform3D(Basis(), Vector3(-0.7 + i * 0.35, 0.74, 1.25)), Vector3(0.09, 0.05, 0.8), Palette.INK)
+	for side in [-1.0, 1.0]:
+		b.prism(Transform3D(Basis(Vector3.RIGHT, -0.4), Vector3(side * 0.6, 0.4, 1.7)), 0.14, 0.7, 6, Palette.INK)
 	b.glow = true
-	b.box(Transform3D(Basis(), Vector3(0, 0.5, -1.5)), Vector3(0.55, 0.1, 0.05), Palette.HOT)
+	b.box(Transform3D(Basis(), Vector3(0, 0.35, -1.78)), Vector3(0.8, 0.12, 0.05), Palette.HOT)
+	b.glow = false
 	add_mesh(_body, b.mesh())
-	_turret.position = Vector3(0, 0.8, 0.55)
+	_turret.position = Vector3(0, 0.8, 0.45)
 	_body.add_child(_turret)
 	var t := LowPoly.new()
-	t.prism(Transform3D(), 1.3, 0.7, 6, Palette.MOSS, 1.1, Palette.SLATE)
-	t.box(Transform3D(Basis(Vector3.RIGHT, 0.3), Vector3(0, 0.45, -0.9)), Vector3(2.1, 0.7, 0.5), Palette.DUSK)
-	for x in [-0.7, 0.7]:
-		t.box(Transform3D(Basis(), Vector3(x, 0.45, 1.1)), Vector3(0.45, 0.4, 0.5), Palette.CORAL)
+	# Cast wedge turret with a thick mantlet, a cupola, smoke launchers and a whip antenna.
+	t.box(Transform3D(), Vector3(2.5, 0.85, 2.3), Palette.HULL_LIGHT, Palette.CREAM)
+	t.box(Transform3D(Basis(Vector3.RIGHT, 0.5), Vector3(0, 0.35, -1.25)), Vector3(2.3, 0.7, 0.35), Palette.HULL_LIGHT)
+	t.box(Transform3D(Basis(), Vector3(0, 0.0, -1.35)), Vector3(1.1, 0.8, 0.5), Palette.DUSK)
+	t.box(Transform3D(Basis(), Vector3(0, 0.5, 0.0)), Vector3(2.0, 0.1, 1.9), Palette.HULL)
+	t.prism(Transform3D(Basis(), Vector3(0.65, 0.9, 0.45)), 0.4, 0.3, 8, Palette.HULL_LIGHT)
+	t.box(Transform3D(Basis(), Vector3(0.65, 1.22, 0.3)), Vector3(0.45, 0.14, 0.12), Palette.CYAN)
+	for x in [-1.0, 1.0]:
+		for i in 3:
+			t.tube(Transform3D(Basis(Vector3.RIGHT, -0.6), Vector3(x * 1.3, 0.25, 0.3 + i * 0.22)), 0.07, 0.35, 6, Palette.INK)
+	for x in [-0.8, 0.8]:
+		t.box(Transform3D(Basis(), Vector3(x, 0.45, 1.1)), Vector3(0.5, 0.4, 0.5), Palette.CORAL)
+	t.prism(Transform3D(Basis(Vector3.BACK, 0.12), Vector3(-0.85, 0.9, 0.95)), 0.025, 2.2, 5, Palette.INK)
+	t.box(Transform3D(Basis(), Vector3(-0.35, 0.95, 0.15)), Vector3(0.12, 0.12, 0.4), Palette.INK)
+	t.box(Transform3D(Basis(), Vector3(0, 0.66, -0.6)), Vector3(1.0, 0.12, 0.9), Palette.BUTTER)
 	add_mesh(_turret, t.mesh())
-	_gun.position = Vector3(0, 0.55, -0.85)
+	_gun.position = Vector3(0, 0.3, -1.45)
 	_turret.add_child(_gun)
 	var g := LowPoly.new()
-	g.blob(Transform3D(), 0.4, Palette.SLATE)
-	g.tube(Transform3D(Basis(Vector3.UP, PI), Vector3.ZERO), 0.18, 2.5, 8, Palette.INK)
-	g.box(Transform3D(Basis(), Vector3(0, 0, -2.3)), Vector3(0.6, 0.4, 0.4), Palette.DUSK)
-	g.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(0.55, 0, 0)), 0.07, 1.4, 6, Palette.INK)
+	# Stubby low-pressure 100 mm: fat tube, bore evacuator bulge, a muzzle brake, and the coax beside it.
+	g.tube(Transform3D(Basis(Vector3.UP, PI), Vector3.ZERO), 0.27, 2.5, 8, Palette.ASH)
+	g.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(0, 0, -1.2)), 0.36, 0.5, 8, Palette.MIST)
+	g.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(0, 0, -2.2)), 0.34, 0.4, 8, Palette.DUSK)
+	g.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(0.62, -0.05, 0.0)), 0.09, 1.8, 6, Palette.INK)
+	g.box(Transform3D(Basis(), Vector3(0.62, -0.05, -0.2)), Vector3(0.28, 0.28, 0.5), Palette.DUSK)
 	add_mesh(_gun, g.mesh())
-	_muzzle.position.z = -2.6
+	_muzzle.position.z = -2.65
 	_gun.add_child(_muzzle)
-	_coax.position = Vector3(0.55, 0, -1.5)
+	_coax.position = Vector3(0.62, -0.05, -1.8)
 	_gun.add_child(_coax)
 	pop_parts = [_turret]
 
@@ -147,7 +177,7 @@ func damage_multiplier(hit: Hit) -> float:
 
 
 func aim_parts() -> Dictionary:
-	return {"turret": [_turret.global_position + Vector3.UP * 0.3, 1.3, tr("ENEMY_KAIN")]}
+	return {"turret": [_turret.global_position + Vector3.UP * 0.3 * SCALE, 1.3 * SCALE, tr("ENEMY_KAIN")]}
 
 
 func telegraphing() -> bool:
