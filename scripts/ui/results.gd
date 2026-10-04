@@ -13,6 +13,7 @@ var _time := 0.0
 var _rows: Array = []
 var _rank := ""
 var _new_best := false
+var _stage_number := 1
 var _menu: Menu
 
 
@@ -20,6 +21,7 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	font = get_theme_default_font()
+	_stage_number = Game.stage
 	_rank = stats.rank()
 	_rows = [
 		[tr("RESULT_SCORE"), stats.score, "%d"],
@@ -30,8 +32,8 @@ func _ready() -> void:
 		[tr("RESULT_TIME"), stats.time, "time"],
 	]
 	if stats.ranked:
-		_new_best = Game.submit_best(Game.best_key("score"), stats.score)
-		Game.submit_best(Game.best_key("rank_" + _rank), 1)
+		_new_best = Game.submit_best(Game.best_key("score", _stage_number), stats.score)
+		Game.submit_best(Game.best_key("rank_" + _rank, _stage_number), 1)
 	Sfx.play_music("res://assets/music/clear.ogg", false)
 
 
@@ -54,7 +56,7 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color(Palette.INK, clampf(_time * 2.0, 0.0, 0.85)))
-	var header := tr("STAGE_CLEAR")
+	var header := clear_heading()
 	var w := font.get_string_size(header, HORIZONTAL_ALIGNMENT_LEFT, -1, 36).x
 	draw_string(font, Vector2(480 - w * 0.5, 90), header, HORIZONTAL_ALIGNMENT_LEFT, -1, 36, Palette.FUNGUS)
 	for i in _rows.size():
@@ -81,6 +83,10 @@ func _draw() -> void:
 			draw_string(font, Vector2(640, 330), tr("RESULT_NEW_BEST"), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.BUTTER if fmod(_time, 0.5) < 0.3 else Palette.PEACH)
 		if not stats.ranked:
 			draw_string(font, Vector2(640, 350), tr("RESULT_UNRANKED"), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.STONE)
+
+
+func clear_heading() -> String:
+	return tr(Game.string_key("STAGE_CLEAR", _stage_number))
 
 
 func _format(value: float, kind: String) -> String:
