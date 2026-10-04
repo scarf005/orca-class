@@ -129,6 +129,28 @@ func test_spore_shells_leave_a_pale_trail() -> void:
 	check(Spitter.SPORE_TRAIL.get_luminance() > 0.8, "and the trail is pale")
 
 
+func _ground_impact(projectile: Projectile) -> Vector3:
+	var from := projectile.global_position
+	var velocity := projectile.velocity
+	var previous_t := 0.0
+	for i in range(1, 601):
+		var next_t := i * 0.01
+		var next := from + velocity * next_t + Vector3.DOWN * 0.5 * projectile.gravity * next_t * next_t
+		if next.y <= Course.height_at(next):
+			var low := previous_t
+			var high := next_t
+			for _j in 8:
+				var middle := (low + high) * 0.5
+				var point := from + velocity * middle + Vector3.DOWN * 0.5 * projectile.gravity * middle * middle
+				if point.y > Course.height_at(point):
+					low = middle
+				else:
+					high = middle
+			return from + velocity * high + Vector3.DOWN * 0.5 * projectile.gravity * high * high
+		previous_t = next_t
+	return from + velocity * previous_t + Vector3.DOWN * 0.5 * projectile.gravity * previous_t * previous_t
+
+
 func test_helicopter_strafing_run_walks_its_sight_down_the_lane_then_fires() -> void:
 	var world := stage()
 	var tank := world.player
@@ -150,22 +172,22 @@ func test_helicopter_strafing_run_walks_its_sight_down_the_lane_then_fires() -> 
 	var walked := start - Course.to_course(heli._strafe_point()).x
 	check(walked > 20.0, "the sight walks toward the tank during the telegraph (%.0f m)" % walked)
 	check_eq(world.projectiles.size(), 0, "and nothing is fired yet")
-	var targets: Array[Vector3] = []
+	var target_ds: Array[float] = []
+	var target_us: Array[float] = []
 	for _i in 200:
 		var before := world.projectiles.size()
 		heli.behave(0.02)
 		for projectile: Projectile in world.projectiles.slice(before):
 			if projectile.shape != "orb":
 				continue
-			var target := heli._strafe_point()
-			targets.append(target)
-			check(projectile.velocity.normalized().dot((target - projectile.global_position).normalized()) > 0.995, "each round is aimed at its strafing sight")
-	check_eq(targets.size(), Helicopter.STRAFE_ROUNDS, "the strafing run fires its complete round count")
-	var target_ds: Array[float] = []
-	for target in targets:
-		var target_course := Course.to_course(target)
-		target_ds.append(target_course.x)
-		check_near(target_course.y, lane.y, 1.0, "each round targets the selected lane")
+			var intended := Course.to_course(heli._strafe_point())
+			var actual := Course.to_course(_ground_impact(projectile))
+			target_ds.append(actual.x)
+			target_us.append(actual.y)
+			check(actual.distance_to(intended) <= 1.5, "each fired trajectory reaches its intended sight point within the 0.8 m targeting jitter")
+	check_eq(target_ds.size(), Helicopter.STRAFE_ROUNDS, "the strafing run fires its complete round count")
+	for target_u in target_us:
+		check(absf(target_u - lane.y) <= 1.5, "each fired trajectory reaches the selected lane")
 	for i in range(1, target_ds.size()):
-		check(target_ds[i] < target_ds[i - 1], "successive strafing rounds walk downrange toward the tank")
+		check(target_ds[i] < target_ds[i - 1] - 0.5, "successive fired trajectories walk downrange toward the tank")
 	check(not heli._strafing and heli._rockets == false and heli._burst == 0, "and the cycle goes back to the gun")

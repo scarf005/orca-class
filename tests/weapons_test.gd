@@ -106,10 +106,10 @@ func test_airburst_flies_slowly_and_bursts_at_max_range_not_the_reticle() -> voi
 
 ## Fires an airburst from the muzzle along the barrel with the reticle `reticle` m out and returns where the
 ## fragments were released (INF when nothing burst) with a UAV `ahead` m out and `off` m beside the line.
-func _burst_beside_uav(world: World, ahead: float, off: float, reticle: float, power: float) -> Array:
+func _burst_beside_uav(world: World, ahead: float, off: float, reticle: float, power: float, unobstructed := false) -> Array:
 	var tank := world.player
 	tank.load_round(Armament.Round.AIRBURST)
-	var muzzle := tank.model.muzzle.global_position
+	var muzzle := tank.model.muzzle.global_position + (Vector3.UP * 100.0 if unobstructed else Vector3.ZERO)
 	var forward := -tank.model.barrel.global_basis.z
 	var uav := Uav.new()
 	world.add_enemy(uav)
@@ -117,7 +117,10 @@ func _burst_beside_uav(world: World, ahead: float, off: float, reticle: float, p
 	uav.global_position = muzzle + forward * ahead + tank.model.barrel.global_basis.x * off - Vector3.UP * uav.center_height
 	tank.aim_point = muzzle + forward * reticle
 	var before := world.projectiles.size()
-	tank.fire_cannon(Vector3.INF, Vector3.ZERO, power)
+	if unobstructed:
+		tank.fire_cannon(muzzle, forward, power)
+	else:
+		tank.fire_cannon(Vector3.INF, Vector3.ZERO, power)
 	land(world, before)
 	var fragments := world.projectiles.slice(before).filter(func(p: Projectile) -> bool: return not p.is_queued_for_deletion())
 	return [muzzle, fragments[0].global_position if not fragments.is_empty() else Vector3.INF, uav]
@@ -141,12 +144,11 @@ func test_airburst_bursts_on_passing_a_uav_off_its_line() -> void:
 
 func test_airburst_proximity_reaches_5_m_but_not_7_m() -> void:
 	var world := stage()
-	var plain := await _burst_beside_uav(world, 60.0, 7.0, 120.0, 0.0)
+	var plain := await _burst_beside_uav(world, 60.0, 7.0, 120.0, 0.0, true)
 	check(plain[1].is_finite(), "a UAV 7 m off the line still reaches the end-range fuse")
 	if plain[1].is_finite():
-		var end_distance: float = plain[0].distance_to(plain[1])
-		check(end_distance > 100.0 and end_distance < Armament.SHELL_RANGE, "the out-of-range proximity shot bursts at a finite terminal range (%.0f m)" % end_distance)
-	var inside := await _burst_beside_uav(world, 60.0, 5.0, 120.0, Armament.STAGE_1)
+		check_near(plain[0].distance_to(plain[1]), Armament.SHELL_RANGE, 0.5, "the out-of-range proximity shot bursts at the 420 m end-range fuse")
+	var inside := await _burst_beside_uav(world, 60.0, 5.0, 120.0, Armament.STAGE_1, true)
 	check_near(inside[0].distance_to(inside[1]), 60.0, 6.0, "a special-round snap shot bursts beside an enemy inside 6 m")
 
 
@@ -231,6 +233,7 @@ func test_heat_hits_harder_and_wider_than_aphe() -> void:
 	check_eq(dead, [true, true, false], "HEAT's blast reaches past APHE's")
 	var aphe_damage := await _cannon_damage(Armament.Round.APHE)
 	var heat_damage := await _cannon_damage(Armament.Round.HEAT)
+	check_near(heat_damage, Armament.SHELL_DAMAGE * 1.5 * Armament.SHELL_DAMAGE_SCALE, 0.001, "HEAT applies its configured direct damage")
 	check(heat_damage > aphe_damage, "HEAT's direct hit carries more accepted damage (%.1f vs %.1f)" % [heat_damage, aphe_damage])
 
 

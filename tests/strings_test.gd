@@ -4,7 +4,12 @@ extends TestCase
 ## Families built by concatenation (e.g. "PICKUP_" + id) are checked explicitly below.
 const KEY_PATTERNS := ["\"title\", \"([A-Z0-9_]+)\"", "\"key\": \"([A-Z0-9_]+)\""]
 const TR_LITERAL := "\"([A-Z][A-Z0-9_]*)\""
-const STYLE_LITERAL_PATTERNS := ["style_event\\(\"([A-Z0-9_]+)\"", "trick\\s*=\\s*\"([A-Z0-9_]+)\""]
+
+
+func _assert_translation(table: Dictionary, key: String, origin: String) -> void:
+	check(table.has(key), "%s used in %s is missing" % [key, origin])
+	if table.has(key):
+		check(not table[key][1].is_empty() and not table[key][2].is_empty(), "%s has both languages" % key)
 
 
 func test_all_keys_translated() -> void:
@@ -16,6 +21,7 @@ func test_all_keys_translated() -> void:
 		if row.size() >= 3 and not row[0].is_empty():
 			table[row[0]] = row
 	var used := {}
+	var literal_regex := RegEx.create_from_string(TR_LITERAL)
 	var style_names := {}
 	for path in _scripts("res://scripts"):
 		var text := FileAccess.get_file_as_string(path)
@@ -25,30 +31,36 @@ func test_all_keys_translated() -> void:
 				used[m.get_string(1)] = path
 		# Extract every literal inside a tr(...) expression, including both arms of conditionals.
 		var tr_regex := RegEx.create_from_string("tr\\(([^\\)]*)\\)")
-		var literal_regex := RegEx.create_from_string(TR_LITERAL)
 		for expression in tr_regex.search_all(text):
 			for literal in literal_regex.search_all(expression.get_string(1)):
 				used[literal.get_string(1)] = path
-		for pattern in STYLE_LITERAL_PATTERNS:
-			var style_regex := RegEx.create_from_string(pattern)
-			for m in style_regex.search_all(text):
-				style_names[m.get_string(1)] = path
+		# Both `trick =` and `var trick :=` occur, and a conditional assignment has two keys.
+		var style_assignment := RegEx.create_from_string("trick\\s*:?=\\s*([^\\n]+)")
+		for assignment in style_assignment.search_all(text):
+			for literal in literal_regex.search_all(assignment.get_string(1)):
+				style_names[literal.get_string(1)] = path
+		var style_event := RegEx.create_from_string("style_event\\(\"([A-Z0-9_]+)\"")
+		for m in style_event.search_all(text):
+			style_names[m.get_string(1)] = path
 	for style in style_names:
 		used["STYLE_" + style] = style_names[style]
 	for key in used:
 		if key.ends_with("_"):
 			continue # A concatenated family is checked from its authoritative IDs below.
-		check(table.has(key), "%s used in %s is missing" % [key, used[key]])
-		if table.has(key):
-			check(not table[key][1].is_empty() and not table[key][2].is_empty(), "%s has both languages" % key)
+		_assert_translation(table, key, used[key])
+
 	for i in 6:
-		check(table.has("SECTION_%d" % i), "section %d named" % i)
+		_assert_translation(table, "SECTION_%d" % i, "section family")
 	for id in Pickup.IDS:
-		check(table.has("PICKUP_" + id.to_upper()), "pickup %s named" % id)
+		_assert_translation(table, "PICKUP_" + id.to_upper(), "pickup family")
 	for round_id in Armament.ROUND_IDS.values():
-		check(table.has("ROUND_" + round_id.to_upper()), "round %s named" % round_id)
+		_assert_translation(table, "ROUND_" + round_id.to_upper(), "round family")
 	for action in Game.REBINDABLE:
-		check(table.has("ACTION_" + String(action).to_upper()), "action %s named" % action)
+		_assert_translation(table, "ACTION_" + String(action).to_upper(), "action family")
+	for button in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_MIDDLE, MOUSE_BUTTON_XBUTTON1, MOUSE_BUTTON_XBUTTON2]:
+		_assert_translation(table, "MOUSE_%d" % button, "Game.binding_label mouse family")
+	for chain: Array in World.CHAIN_TRICKS.values():
+		_assert_translation(table, "STYLE_" + chain[0], "World.CHAIN_TRICKS")
 
 
 func test_language_switch() -> void:
