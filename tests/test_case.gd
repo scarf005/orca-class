@@ -28,9 +28,9 @@ static func _sandbox_isolated(marker: String, xdg_data_home: String, user_data_d
 func begin(name: String) -> void:
 	_current = name
 	_environment = _capture_environment()
-	# Do not reseed here: several tests intentionally seed part-way through a method, and
-	# gameplay fixtures also rely on the engine's established random stream. Tests that need
-	# a particular sequence call seed(...) themselves.
+	# The method name makes incidental randomness reproducible. Tests that need a particular
+	# sequence can still call seed(...) after begin(), overriding this baseline locally.
+	seed(hash(name))
 
 
 func check(condition: bool, message: String) -> void:
@@ -58,10 +58,7 @@ func stage(checkpoint := "", rws := true) -> World:
 	# A method may construct several scenarios without an await between them. Queue every
 	# previous scenario before making the next one so stale worlds cannot process against the
 	# new World.current or clear it during their later teardown.
-	for previous: World in _worlds:
-		if is_instance_valid(previous):
-			previous.queue_free()
-	_worlds.clear()
+	_queue_owned_worlds()
 	_world = World.new()
 	_worlds.append(_world)
 	add_child(_world)
@@ -101,19 +98,26 @@ func gone(object: Object) -> Callable:
 	return func() -> bool: return ref.get_ref() == null
 
 
-## Remove the latest stage. Internal cleanup deliberately does not restore the method baseline:
+## Remove all owned stages. Internal cleanup deliberately does not restore the method baseline:
 ## tests commonly call cleanup() before constructing their next legitimate stage. The runner calls
 ## cleanup(true) at the method boundary to restore every captured global instead.
 func cleanup(restore_environment := false) -> void:
-	for world: World in _worlds:
-		if is_instance_valid(world):
-			world.queue_free()
-	_worlds.clear()
-	_world = null
+	_queue_owned_worlds()
 	Engine.time_scale = 1.0
 	_release_input()
 	if restore_environment:
 		_restore_environment()
+
+
+func _queue_owned_worlds() -> void:
+	var worlds: Array[World] = _worlds.duplicate()
+	if is_instance_valid(_world) and not worlds.has(_world):
+		worlds.append(_world)
+	for world: World in worlds:
+		if is_instance_valid(world):
+			world.queue_free()
+	_worlds.clear()
+	_world = null
 
 
 func _capture_environment() -> Dictionary:

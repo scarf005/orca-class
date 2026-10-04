@@ -8,6 +8,21 @@ func test_sandbox_marker_rejects_mismatch_without_disk_access() -> void:
 	check(TestCase._sandbox_isolated(marker, marker, marker + "/godot/app_userdata/orca class"), "a matching descendant data path is isolated")
 
 
+func test_direct_world_assignment_and_wrecks_are_cleaned_at_boundary() -> void:
+	var direct := World.new()
+	_world = direct
+	add_child(direct)
+	direct.set_process(false)
+	var wrecks_before := Wreck._live.size()
+	var wreck := Wreck.new()
+	direct.add_child(wreck)
+	check(Wreck._live.size() == wrecks_before + 1, "the direct fixture owns its wreck")
+	cleanup(true)
+	await frames(1)
+	check(not is_instance_valid(direct), "a directly assigned world is freed")
+	check(not is_instance_valid(wreck) and Wreck._live.size() == wrecks_before, "its wreck is gone before the next method")
+
+
 func test_cleanup_restores_mutable_environment() -> void:
 	var original_silent := Game.silent
 	var original_settings: Dictionary = Game.settings.duplicate(true)

@@ -51,11 +51,13 @@ Set `GODOT`, `BUTLER`, or `ITCH_PROJECT` to override the executable paths or `sc
 ### Run Test
 
 ```sh
-godot --headless --path . --import   # refresh the class cache after adding class_name scripts
-godot --headless --fixed-fps 60 --path . -- --run=res://tests/run.gd [--only=tail]
+just test                 # isolated settings/bests/tuning and strict error reporting
+just test tail            # run one filename filter
 ```
 
-The exit code is the number of failed checks.
+Direct Godot runs are diagnostic-only and may write `user://` files; provide temporary XDG paths
+when using them. The runner reports skipped tests separately and exits 1 for any failed check,
+compile error, or runtime error (0 only when all selected tests pass).
 
 ```sh
 godot --path . -- --debug-room
