@@ -50,8 +50,8 @@ func run() -> int:
 			_stage_mechs(world, scene)
 		"hovercraft":
 			_stage_hovercraft(world, args.get("phase", "1") == "2")
-		"landsword":
-			_stage_landsword(world, int(args.get("phase", "0")))
+		"hi_mo":
+			_stage_hi_mo(world, int(args.get("phase", "0")))
 		"hind", "rooftop_battery", "sea_mine":
 			_stage_city_hunter(world, scene)
 		"fungus":
@@ -80,11 +80,11 @@ func run() -> int:
 	return 0
 
 
-func _stage_landsword(world: World, phase: int) -> void:
+func _stage_hi_mo(world: World, phase: int) -> void:
 	world.rail.d = Stage2.BAY_D
 	world.rail.mode = Rail.Mode.ARENA
 	world.director.scenery.stream(Stage2.BAY_D, 100000)
-	var boss := Landsword.new()
+	var boss := HiMo.new()
 	boss.position = Course.ground_at(Stage2.BAY_D, 0.0)
 	world.add_enemy(boss)
 	world.boss = boss
@@ -95,7 +95,7 @@ func _stage_landsword(world: World, phase: int) -> void:
 		hit.caliber = 100
 		boss.take_hit(hit)
 	boss.stagger = 0.0
-	boss._begin_attack(Landsword.Attack.STOMP if phase == 2 else Landsword.Attack.MISSILES if phase == 1 else Landsword.Attack.GUN)
+	boss._begin_attack(HiMo.Attack.STOMP if phase == 2 else HiMo.Attack.MISSILES if phase == 1 else HiMo.Attack.GUN)
 	var camera := world.camera
 	camera.set_process(false)
 	camera.global_position = boss.global_position + (Vector3(42, 24, -10) if phase == 2 else Vector3(22, 13, -27))

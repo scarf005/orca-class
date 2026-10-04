@@ -78,7 +78,7 @@ func test_boss_start_uses_active_stage_theme_before_any_deferred_call() -> void:
 	for number in [1, 2]:
 		var world := stage("", false, number)
 		world.process_mode = Node.PROCESS_MODE_DISABLED
-		world.director._start_boss({"kind": "gunship" if number == 1 else "landsword"})
+		world.director._start_boss({"kind": "gunship" if number == 1 else "hi_mo"})
 		check_eq(Sfx._music_path, "res://assets/music/boss.ogg" if number == 1 else "res://assets/music/stage2_boss.ogg", "director immediately starts the active stage's boss theme")
 		Sfx.stop_music()
 	Game.silent = silent

@@ -245,7 +245,7 @@ func events(hard: bool) -> Array[Dictionary]:
 	e.append({"d": 3390.0, "type": "checkpoint", "name": "boss"})
 	e.append({"d": 3450.0, "type": "pickup", "id": "repair", "u": -4.0, "ahead": 20.0})
 	e.append({"d": 3490.0, "type": "pickup", "id": "apfsds", "ahead": 15.0})
-	e.append({"d": BAY_D - 110.0, "type": "boss", "kind": "landsword", "height": 0.0, "music": "res://assets/music/stage2_boss.ogg"})
+	e.append({"d": BAY_D - 110.0, "type": "boss", "kind": "hi_mo", "height": 0.0, "music": "res://assets/music/stage2_boss.ogg"})
 
 	if hard:
 		# Pressure from the other deck and an extra flanker, never during an opening or release.

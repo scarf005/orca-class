@@ -1,4 +1,4 @@
-class_name Landsword
+class_name HiMo
 extends Enemy
 ## Low military hull on four reverse-jointed wheel legs. It skates around the bay, sheds armor,
 ## then fights on exposed rails and broken legs. Heavy shells tear off wheels; two lost force a crawl.
@@ -57,7 +57,7 @@ func _init() -> void:
 	score = 50000
 	mark_offsets = [-5.2, 5.2]
 	mark_width = 0.6
-	set_meta("title", "BOSS_LANDSWORD")
+	set_meta("title", "BOSS_HI_MO")
 	set_meta("phase_marks", PHASE_MARKS)
 
 

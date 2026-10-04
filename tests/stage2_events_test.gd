@@ -83,7 +83,7 @@ func test_supplies_offer_missiles_and_kinetic_counters_before_plaza() -> void:
 
 func test_boss_events_follow_checkpoints_and_do_not_overlap_waves() -> void:
 	var events := Stage2.new().events(false)
-	for spec in [{"type": "midboss", "kind": "hovercraft", "name": "midboss", "d": Stage2.PLAZA_D - 110.0}, {"type": "boss", "kind": "landsword", "name": "boss", "d": Stage2.BAY_D - 110.0}]:
+	for spec in [{"type": "midboss", "kind": "hovercraft", "name": "midboss", "d": Stage2.PLAZA_D - 110.0}, {"type": "boss", "kind": "hi_mo", "name": "boss", "d": Stage2.BAY_D - 110.0}]:
 		var fights := events.filter(func(e: Dictionary) -> bool: return e.type == spec.type)
 		check_eq(fights.size(), 1, "one %s encounter" % spec.type)
 		if fights.is_empty():

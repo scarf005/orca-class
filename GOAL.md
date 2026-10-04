@@ -215,7 +215,7 @@ Music is lyrical solo piano over chopped breakcore, one track per section, and t
 | Rooftop battery | Rocket ripples from a roof or viaduct deck | Ground circles | A shell or heavy coax |
 | Sea mine | Floats toward the tank and detonates, chains with others | Beeping speeds up | Shoot it, swat with the tail |
 | Hovercraft (mid-boss) | All-range in the plaza: twin lasers that shoot down player ATGM and micro-missiles, autocannons, a bow shell, a ram, and a rear rocket rack after half hull | Laser heat, circles, a ram line | Direct rounds bypass the lasers; overlapping missile salvos overheat them; shells break the lift fans and emitters |
-| Landsword (boss) | All-range in the bay: a four-legged wheeled machine that skates and hops over cover; guns, a missile rack, a heavy rail shot, a drift charge, a stomp and a leg sweep over three phases | Laser line, impact circles | Heavy shells tear off wheels and plates; two lost wheels force it to crawl |
+| HI-MO (boss) | All-range in the bay: a four-legged wheeled machine that skates and hops over cover; guns, a missile rack, a heavy rail shot, a drift charge, a stomp and a leg sweep over three phases | Laser line, impact circles | Heavy shells tear off wheels and plates; two lost wheels force it to crawl |
 
 ## Presentation
 
@@ -237,7 +237,7 @@ Hitstop on big hits; screen shake scaled by source and with a cap; cannon recoil
 tank; muzzle blasts that flatten grass and kick up dust; debris and persistent scorch marks; fungi that pop with
 spores; enemies that stagger. Every weapon has a distinct, punchy sound.
 
-Effects in the spirit of Project Landsword and Metal Slug: oversized, glowing projectiles (a white-hot core in a
+Effects in the spirit of Metal Slug: oversized, glowing projectiles (a white-hot core in a
 dithered colored halo; tracer streaks, with enemy fire as red bolts), star-shaped muzzle flashes and muzzle-brake
 jets, cartoon fireballs in hard bands that bloom, cool to smoke and break up (with a shock ring, ground dust ring,
 embers and secondary pops), burning debris that trails smoke, lingering smoke columns, burning wrecks, and tread

@@ -2,12 +2,12 @@ extends TestCase
 ## Bay boss: fair wind-ups, a sideways escape and heavy-shell reversals.
 
 
-func _boss() -> Landsword:
+func _boss() -> HiMo:
 	var world := stage("", false, 2)
 	world.rail.d = Stage2.BAY_D
 	world.rail.mode = Rail.Mode.ARENA
 	world.director._next_event = world.director.events.size()
-	var boss := Landsword.new()
+	var boss := HiMo.new()
 	boss.position = Course.ground_at(Stage2.BAY_D, 0.0)
 	world.add_enemy(boss)
 	world.boss = boss
@@ -17,7 +17,7 @@ func _boss() -> Landsword:
 	return boss
 
 
-func _shell(boss: Landsword, at: Vector3, damage: float, charged := false) -> void:
+func _shell(boss: HiMo, at: Vector3, damage: float, charged := false) -> void:
 	var hit := Hit.make(Hit.Kind.SHELL, damage, at, Vector3.BACK)
 	hit.caliber = 100
 	hit.power = 1.0 if charged else 0.0
@@ -25,26 +25,26 @@ func _shell(boss: Landsword, at: Vector3, damage: float, charged := false) -> vo
 	boss.take_hit(hit)
 
 
-func _advance(boss: Landsword, seconds: float) -> void:
+func _advance(boss: HiMo, seconds: float) -> void:
 	for _i in ceili(seconds * 60.0):
 		boss.behave(1.0 / 60.0)
 
 
 func test_phase_boundaries_and_music() -> void:
 	var boss := _boss()
-	check_eq(boss.phase, Landsword.Phase.SKATER, "full hull starts skating")
+	check_eq(boss.phase, HiMo.Phase.SKATER, "full hull starts skating")
 	check(boss.music_track().ends_with("stage2_boss.ogg"), "first boss theme")
 	_shell(boss, boss.hit_center(), boss.max_hp * 0.35)
-	check_eq(boss.phase, Landsword.Phase.STRIPPED, "65 percent enters phase two")
+	check_eq(boss.phase, HiMo.Phase.STRIPPED, "65 percent enters phase two")
 	check(boss._plates.is_empty(), "armor tears off at the transition")
 	check(boss.music_track().ends_with("stage2_boss_phase2.ogg"), "stripped phase changes theme")
 	_shell(boss, boss.hit_center(), boss.max_hp * 0.35)
-	check_eq(boss.phase, Landsword.Phase.DESPERATE, "30 percent enters phase three")
+	check_eq(boss.phase, HiMo.Phase.DESPERATE, "30 percent enters phase three")
 	check(boss.legs_lost() >= 1, "last phase visibly fights on a broken wheel leg")
-	check(boss.skate_speed() > (Landsword.SPEED[Landsword.Phase.STRIPPED] as float), "desperate drive is faster despite the first broken wheel")
+	check(boss.skate_speed() > (HiMo.SPEED[HiMo.Phase.STRIPPED] as float), "desperate drive is faster despite the first broken wheel")
 	check(boss.music_track().ends_with("stage2_boss_phase2.ogg"), "last phase keeps the second theme")
 	_shell(boss, boss.hit_center(), -100.0)
-	check_eq(boss.phase, Landsword.Phase.DESPERATE, "ignored hits cannot reverse phases")
+	check_eq(boss.phase, HiMo.Phase.DESPERATE, "ignored hits cannot reverse phases")
 
 
 func test_eight_real_charged_shells_clear_all_phases() -> void:
@@ -54,9 +54,9 @@ func test_eight_real_charged_shells_clear_all_phases() -> void:
 		_shell(boss, boss.hit_center(), damage, true)
 		check(not boss.dead, "a full charge advances the fight without skipping every phase")
 		if i == 2:
-			check_eq(boss.phase, Landsword.Phase.STRIPPED, "third full charge strips armor")
+			check_eq(boss.phase, HiMo.Phase.STRIPPED, "third full charge strips armor")
 		if i == 5:
-			check_eq(boss.phase, Landsword.Phase.DESPERATE, "sixth full charge exposes the last phase")
+			check_eq(boss.phase, HiMo.Phase.DESPERATE, "sixth full charge exposes the last phase")
 	_shell(boss, boss.hit_center(), damage, true)
 	check(boss.dead, "eighth actual APHE charge finishes the boss, with no recovery gate")
 
@@ -74,21 +74,21 @@ func test_actual_music_player_switches() -> void:
 
 
 func test_all_attacks_warn_before_projectiles_or_contact() -> void:
-	for attack: Landsword.Attack in [Landsword.Attack.GUN, Landsword.Attack.MISSILES, Landsword.Attack.RAIL, Landsword.Attack.CHARGE, Landsword.Attack.STOMP, Landsword.Attack.SWEEP]:
+	for attack: HiMo.Attack in [HiMo.Attack.GUN, HiMo.Attack.MISSILES, HiMo.Attack.RAIL, HiMo.Attack.CHARGE, HiMo.Attack.STOMP, HiMo.Attack.SWEEP]:
 		var boss := _boss()
-		boss.phase = Landsword.Phase.DESPERATE
+		boss.phase = HiMo.Phase.DESPERATE
 		var tank := _world.player
-		if attack in [Landsword.Attack.CHARGE, Landsword.Attack.SWEEP]:
+		if attack in [HiMo.Attack.CHARGE, HiMo.Attack.SWEEP]:
 			tank.global_position = boss.global_position + Vector3(0, 0, -8)
 		var before := tank.hp
 		var shots := _world.projectiles.size()
 		boss._begin_attack(attack)
-		_advance(boss, (Landsword.WIND[attack] as float) * Game.telegraph_scale() * 0.8)
+		_advance(boss, (HiMo.WIND[attack] as float) * Game.telegraph_scale() * 0.8)
 		check(boss.telegraphing(), "%s is still warning" % attack)
 		check_eq(_world.projectiles.size(), shots, "%s has not fired during warning" % attack)
 		check_eq(tank.hp, before, "%s cannot hurt during warning" % attack)
 		_advance(boss, 1.5)
-		if attack in [Landsword.Attack.GUN, Landsword.Attack.MISSILES, Landsword.Attack.RAIL]:
+		if attack in [HiMo.Attack.GUN, HiMo.Attack.MISSILES, HiMo.Attack.RAIL]:
 			check(_world.projectiles.size() > shots, "%s fires after warning" % attack)
 		else:
 			check(tank.hp < before, "%s contact hurts after warning" % attack)
@@ -96,7 +96,7 @@ func test_all_attacks_warn_before_projectiles_or_contact() -> void:
 
 func test_missiles_home_gently_and_ciws_can_intercept() -> void:
 	var boss := _boss()
-	boss._begin_attack(Landsword.Attack.MISSILES)
+	boss._begin_attack(HiMo.Attack.MISSILES)
 	_advance(boss, 1.2 * Game.telegraph_scale())
 	check(not _world.projectiles.is_empty(), "rack launches missiles")
 	for shot: Projectile in _world.projectiles:
@@ -119,7 +119,7 @@ func test_wheel_shots_cripple_and_two_losses_crawl() -> void:
 		var wheel: Node3D = boss._legs[i].wheel
 		var at := wheel.global_position
 		check(boss.hit_test(at + Vector3.UP * 3.0, at - Vector3.UP * 3.0) >= 0.0, "low aimed shell can hit a wheel")
-		_shell(boss, at, Landsword.LEG_HP, true)
+		_shell(boss, at, HiMo.LEG_HP, true)
 		check_eq(boss.legs_lost(), i + 1, "heavy shell tears off the targeted wheel only")
 		check(boss.skate_speed() < speed, "each loss slows the walker")
 		speed = boss.skate_speed()
@@ -128,17 +128,17 @@ func test_wheel_shots_cripple_and_two_losses_crawl() -> void:
 	_advance(boss, 0.5)
 	check(boss.position.distance_to(before) > 0.1, "two lost legs crawl rather than becoming a stationary sponge")
 	check(boss._body.position.y < 2.2, "collapse visibly lowers the hull")
-	boss.phase = Landsword.Phase.DESPERATE
+	boss.phase = HiMo.Phase.DESPERATE
 	for _i in 12:
 		boss._choose_attack()
-		check(boss._attack not in [Landsword.Attack.CHARGE, Landsword.Attack.STOMP, Landsword.Attack.SWEEP], "crawl cannot use intact-leg attacks")
+		check(boss._attack not in [HiMo.Attack.CHARGE, HiMo.Attack.STOMP, HiMo.Attack.SWEEP], "crawl cannot use intact-leg attacks")
 
 
 func test_charged_shot_interrupts_and_sheds_armor() -> void:
 	var boss := _boss()
-	boss._begin_attack(Landsword.Attack.RAIL)
+	boss._begin_attack(HiMo.Attack.RAIL)
 	_shell(boss, boss.hit_center(), 100.0, true)
-	check_eq(boss._attack, Landsword.Attack.NONE, "full charge cancels the warned heavy shot")
+	check_eq(boss._attack, HiMo.Attack.NONE, "full charge cancels the warned heavy shot")
 	check_eq(boss._plates.size(), 1, "one charged hit visibly knocks a plate off")
 	check(boss.hp < boss.max_hp, "armor loss does not absorb hull damage")
 	boss.stagger = 0.0
@@ -167,7 +167,7 @@ func test_arena_clamps_skating_charge_and_hops() -> void:
 	boss.position = center + Vector3(500, 0, 0)
 	boss.behave(0.1)
 	check(Vector2(boss.position.x - center.x, boss.position.z - center.z).length() <= Stage2.BAY_RADIUS - boss.radius + 0.01, "even an outside spawn is brought into the bay")
-	boss._begin_attack(Landsword.Attack.CHARGE)
+	boss._begin_attack(HiMo.Attack.CHARGE)
 	_advance(boss, 5.0)
 	check(Vector2(boss.position.x - center.x, boss.position.z - center.z).length() <= Stage2.BAY_RADIUS - boss.radius + 0.01, "drift charge stays inside")
 	boss._start_hop(center + Vector3(-500, 0, 0))
@@ -182,7 +182,7 @@ func test_charge_stops_at_cover_without_hidden_contact() -> void:
 	var mid := boss.position.lerp(tank.position, 0.5)
 	Course.structure_boxes.append({"pose": Transform3D(Basis(), mid), "size": Vector3(24, 6, 3)})
 	var hp := tank.hp
-	boss._begin_attack(Landsword.Attack.CHARGE)
+	boss._begin_attack(HiMo.Attack.CHARGE)
 	_advance(boss, 2.0 * Game.telegraph_scale())
 	check_eq(tank.hp, hp, "container stops the drift instead of letting it ram through")
 	check(boss.position.distance_to(tank.position) > boss.radius + tank.radius, "charge remains on the near side of cover")
@@ -193,7 +193,7 @@ func test_hull_shots_leave_wheels_and_front_shrugs_mg() -> void:
 	var boss := _boss()
 	_shell(boss, boss.hit_center(), 100.0)
 	check_eq(boss.legs_lost(), 0, "hull hit cannot tear off a distant wheel")
-	boss._begin_attack(Landsword.Attack.GUN)
+	boss._begin_attack(HiMo.Attack.GUN)
 	_advance(boss, 1.1 * Game.telegraph_scale())
 	var tank := _world.player
 	var hp := tank.hp
@@ -206,7 +206,7 @@ func test_cover_blocks_guns_and_melee() -> void:
 	var tank := _world.player
 	var mid := boss.position.lerp(tank.position, 0.5)
 	Course.structure_boxes.append({"pose": Transform3D(Basis(), mid), "size": Vector3(24, 10, 3)})
-	for attack: Landsword.Attack in [Landsword.Attack.GUN, Landsword.Attack.MISSILES, Landsword.Attack.RAIL]:
+	for attack: HiMo.Attack in [HiMo.Attack.GUN, HiMo.Attack.MISSILES, HiMo.Attack.RAIL]:
 		boss._begin_attack(attack)
 		boss._update_attack(2.0, tank)
 		check(_world.projectiles.is_empty(), "hard cover cancels %s rather than firing through it" % attack)
@@ -214,7 +214,7 @@ func test_cover_blocks_guns_and_melee() -> void:
 	boss._area_hit(tank, 50.0, 100.0)
 	check_eq(tank.hp, hp, "container shelters the tank from an impact wave")
 	Course.structure_boxes.pop_back()
-	boss._begin_attack(Landsword.Attack.GUN)
+	boss._begin_attack(HiMo.Attack.GUN)
 	boss._update_attack(2.0, tank)
 	check(not _world.projectiles.is_empty(), "clear sight restores gunfire")
 
@@ -235,23 +235,23 @@ func test_hops_clear_cover_and_land_on_roof() -> void:
 func test_impact_falloff_and_circle_boundary() -> void:
 	var boss := _boss()
 	var tank := _world.player
-	tank.position = boss.position + Vector3(0, 0, Landsword.STOMP_REACH)
+	tank.position = boss.position + Vector3(0, 0, HiMo.STOMP_REACH)
 	var hp := tank.hp
-	boss._area_hit(tank, Landsword.STOMP_REACH, 40.0)
+	boss._area_hit(tank, HiMo.STOMP_REACH, 40.0)
 	check_eq(tank.hp, hp, "outside and exact ring edge are safe")
 	tank.position = boss.position + Vector3(0, 0, 2)
-	boss._area_hit(tank, Landsword.STOMP_REACH, 40.0)
+	boss._area_hit(tank, HiMo.STOMP_REACH, 40.0)
 	var close_damage := hp - tank.hp
 	tank.hp = hp
 	tank.position = boss.position + Vector3(0, 0, 10)
-	boss._area_hit(tank, Landsword.STOMP_REACH, 40.0)
+	boss._area_hit(tank, HiMo.STOMP_REACH, 40.0)
 	check(hp - tank.hp < close_damage, "impact falls off toward the ring edge")
 
 
 func test_rail_lock_allows_lateral_escape() -> void:
 	var boss := _boss()
 	var tank := _world.player
-	boss._begin_attack(Landsword.Attack.RAIL)
+	boss._begin_attack(HiMo.Attack.RAIL)
 	_advance(boss, 0.9 * Game.telegraph_scale())
 	var aim := boss._aim
 	tank.global_position += Vector3.RIGHT * 20.0
@@ -267,10 +267,10 @@ func test_director_spawns_bay_boss_and_deferred_theme() -> void:
 	await frames(2) # The real Director updates the section before firing its boss event.
 	var silent := Game.silent
 	Game.silent = false
-	_world.director._start_boss({"kind": "landsword"})
+	_world.director._start_boss({"kind": "hi_mo"})
 	await frames(2)
-	var boss := _world.boss as Landsword
-	check(boss != null, "registered Director path creates Landsword")
+	var boss := _world.boss as HiMo
+	check(boss != null, "registered Director path creates HiMo")
 	check_eq(_world.rail.mode, Rail.Mode.ARENA, "Director enters all-range movement")
 	check_eq(Sfx._music_path, boss.music_track(), "deferred bay theme replaces Director's stage-one default")
 	Sfx.stop_music()
