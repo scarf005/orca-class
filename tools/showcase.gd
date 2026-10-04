@@ -16,13 +16,13 @@ func run() -> int:
 	for s: String in String(args.get("shots", "0.5,1,1.5,2.5")).split(",", false):
 		shots.append(float(s))
 	screen = GameScreen.new()
-	screen.stage = int(args.get("stage", "1"))
+	screen.stage = int(args.get("stage", "2" if scene == "hovercraft" else "1"))
 	screen.checkpoint = "boss" if scene == "boss" else ""
 	add_child(screen)
 	var world := screen.world
 	world.player.invulnerable = true
 	world.player.input_enabled = false
-	var d := float(args.get("d", "620"))
+	var d := float(args.get("d", "1900" if scene == "hovercraft" else "620"))
 	if scene != "boss":
 		world.rail.d = d
 		world.rail.mode = Rail.Mode.HOLD
@@ -48,6 +48,8 @@ func run() -> int:
 			_stage_vfx(world)
 		"abel", "kain", "adam", "mechs":
 			_stage_mechs(world, scene)
+		"hovercraft":
+			_stage_hovercraft(world, args.get("phase", "1") == "2")
 		"hind", "rooftop_battery", "sea_mine":
 			_stage_city_hunter(world, scene)
 		"fungus":
@@ -66,6 +68,9 @@ func run() -> int:
 			_drive(world, elapsed)
 		elif scene == "tail":
 			world.player.auto_tail()
+		elif scene == "hovercraft":
+			world.camera.global_position = world.boss.global_position + Vector3(22, 13, -26)
+			world.camera.look_at(world.boss.hit_center(), Vector3.UP)
 		if elapsed >= shots[0]:
 			shots.pop_front()
 			get_viewport().get_texture().get_image().save_png("%s/%s_%d.png" % [out, scene, index])
@@ -107,6 +112,27 @@ func _stage_city_hunter(world: World, kind: String) -> void:
 	var camera := world.camera
 	camera.set_process(false)
 	camera.global_position = enemy.global_position + (Vector3(6, 4, 8) if kind == "sea_mine" else Vector3(16, 10, 22))
+	camera.look_at(enemy.hit_center(), Vector3.UP)
+
+
+func _stage_hovercraft(world: World, stripped: bool) -> void:
+	var center := Course.to_world(Stage2.PLAZA_D, 0.0)
+	world.rail.d = Stage2.PLAZA_D
+	world.rail.mode = Rail.Mode.ARENA
+	world.player.global_position = center + Vector3(0, 0, -25)
+	world.director.scenery.stream(Stage2.PLAZA_D, 100000)
+	var enemy := Hovercraft.new()
+	enemy.position = center + Vector3(18, 0, 0)
+	world.add_enemy(enemy)
+	world.boss = enemy
+	world.boss_changed.emit(enemy)
+	if stripped:
+		var hit := Hit.make(Hit.Kind.SHELL, enemy.max_hp * 0.5, enemy.hit_center())
+		enemy.take_hit(hit)
+	enemy._begin_attack(Hovercraft.Attack.MLRS if stripped else Hovercraft.Attack.CANNON)
+	var camera := world.camera
+	camera.set_process(false)
+	camera.global_position = enemy.global_position + Vector3(22, 13, -26)
 	camera.look_at(enemy.hit_center(), Vector3.UP)
 
 

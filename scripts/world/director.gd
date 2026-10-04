@@ -20,6 +20,7 @@ const ENEMY_SCRIPTS := {
 	"kain": "res://scripts/enemies/kain.gd",
 	"adam": "res://scripts/enemies/adam.gd",
 	"colossus": "res://scripts/enemies/colossus.gd",
+	"hovercraft": "res://scripts/enemies/hovercraft.gd",
 	"helicopter": "res://scripts/enemies/helicopter.gd",
 	"hind": "res://scripts/enemies/hind.gd",
 	"rooftop_battery": "res://scripts/enemies/rooftop_battery.gd",
