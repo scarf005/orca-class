@@ -12,7 +12,7 @@ default:
 run *args:
     {{ quote(godot) }} --path . -- "$@"
 
-# Skip the title screen.
+# Skip the title screen; e.g. just play --stage=2 --checkpoint=boss.
 play *args:
     {{ quote(godot) }} --path . -- --play "$@"
 

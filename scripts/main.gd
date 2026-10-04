@@ -15,7 +15,8 @@ func _ready() -> void:
 	if OS.get_cmdline_user_args().has("--tutorial"):
 		_open_tutorial()
 	elif OS.get_cmdline_user_args().has("--play"):
-		start_game("")
+		Game.stage = int(_arg("stage")) if not _arg("stage").is_empty() else 1
+		start_game(_arg("checkpoint"))
 	elif OS.get_cmdline_user_args().has("--duel"):
 		start_game("duel")
 	elif OS.get_cmdline_user_args().has("--debug-room"):
