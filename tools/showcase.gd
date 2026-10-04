@@ -16,6 +16,7 @@ func run() -> int:
 	for s: String in String(args.get("shots", "0.5,1,1.5,2.5")).split(",", false):
 		shots.append(float(s))
 	screen = GameScreen.new()
+	screen.stage = int(args.get("stage", "1"))
 	screen.checkpoint = "boss" if scene == "boss" else ""
 	add_child(screen)
 	var world := screen.world
@@ -45,6 +46,8 @@ func run() -> int:
 			tank.modules.damage("breech", 40.0)
 			tank.tail.damage(70.0)
 			_stage_vfx(world)
+		"abel", "kain", "adam", "mechs":
+			_stage_mechs(world, scene)
 		"fungus":
 			world.player.model.visible = true
 		"church":
@@ -66,6 +69,21 @@ func run() -> int:
 			get_viewport().get_texture().get_image().save_png("%s/%s_%d.png" % [out, scene, index])
 			index += 1
 	return 0
+
+
+func _stage_mechs(world: World, kind: String) -> void:
+	var kinds: Array = ["abel", "kain", "adam"] if kind == "mechs" else [kind]
+	var base := world.rail.d + world.player.course_offset
+	for i in kinds.size():
+		var enemy: Enemy = load(Director.ENEMY_SCRIPTS[kinds[i]]).new()
+		enemy.position = Course.ground_at(base + (8.0 if kind == "adam" else 32.0), (i - (kinds.size() - 1) * 0.5) * 10.0)
+		world.add_enemy(enemy)
+		enemy.set("_attack_timer", 0.2)
+	var cam := world.camera
+	cam.set_process(false)
+	var spot := Course.ground_at(base + (8.0 if kind == "adam" else 32.0), 0.0)
+	cam.global_position = spot + Vector3(15, 8, 17)
+	cam.look_at(spot + Vector3.UP * 2.0, Vector3.UP)
 
 
 func _stage_vfx(world: World) -> void:

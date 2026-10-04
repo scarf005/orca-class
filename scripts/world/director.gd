@@ -16,6 +16,9 @@ const ENEMY_SCRIPTS := {
 	"spitter": "res://scripts/enemies/spitter.gd",
 	"walker": "res://scripts/enemies/walker.gd",
 	"quad": "res://scripts/enemies/quad_mech.gd",
+	"abel": "res://scripts/enemies/abel.gd",
+	"kain": "res://scripts/enemies/kain.gd",
+	"adam": "res://scripts/enemies/adam.gd",
 	"colossus": "res://scripts/enemies/colossus.gd",
 	"helicopter": "res://scripts/enemies/helicopter.gd",
 	"tiltrotor": "res://scripts/enemies/tiltrotor.gd",
@@ -32,13 +35,16 @@ const DUEL_D := 100.0
 const DUEL_RESPAWN := 2.5
 ## How many of each hunter a duel round sends, tuned live in the duel mode.
 static var duel_round := Armament.Round.APHE ## The round every duel refit loads (picked in the duel panel).
-static var duel_counts := {"helicopter": 0, "tiltrotor": 1, "walker": 2, "uav": 0, "quad": 0, "ugv": 0, "fpv": 0}
+static var duel_counts := {"helicopter": 0, "tiltrotor": 1, "walker": 2, "uav": 0, "quad": 0, "ugv": 0, "fpv": 0, "abel": 0, "kain": 0, "adam": 0}
 const DUEL := {
 	"helicopter": {"height": 13.0, "ahead": 90.0, "u": -8.0, "formation": "line", "spacing": 20.0},
 	"tiltrotor": {"height": 10.0, "ahead": 150.0, "u": 16.0, "formation": "line", "spacing": 20.0},
 	"walker": {"formation": "sides", "spacing": 9.0, "ahead": 60.0},
 	"uav": {"formation": "line", "spacing": 10.0, "props": {"attack": "bomb"}},
 	"quad": {"formation": "sides", "spacing": 8.0, "ahead": 90.0},
+	"abel": {"formation": "sides", "spacing": 8.0, "ahead": 85.0},
+	"kain": {"formation": "sides", "spacing": 9.0, "ahead": 80.0},
+	"adam": {"formation": "line", "spacing": 8.0, "ahead": 35.0},
 	"ugv": {"formation": "sides", "spacing": 8.0, "ahead": 80.0},
 	"fpv": {"formation": "v", "height": 8.0, "spacing": 5.0},
 }
