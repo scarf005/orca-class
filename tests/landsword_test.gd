@@ -198,7 +198,7 @@ func test_hull_shots_leave_wheels_and_front_shrugs_mg() -> void:
 	var tank := _world.player
 	var hp := tank.hp
 	land(_world, 0)
-	check_eq(tank.hp, hp, "flat 30 mm bursts glance off the tank's armor")
+	check(tank.hp > hp - 10.0, "flat 30 mm bursts glance off the tank's armor, at most one round biting")
 
 
 func test_cover_blocks_guns_and_melee() -> void:

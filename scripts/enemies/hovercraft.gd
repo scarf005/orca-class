@@ -7,6 +7,7 @@ extends Enemy
 enum Phase { ARMORED, STRIPPED }
 enum Attack { NONE, GUN, CANNON, RAM, MLRS }
 
+const SCALE := 1.3 ## Drawn this much larger than its model-space layout.
 const BODY_HP := 900.0
 const ROUND_DAMAGE := 40.0 ## Like the colossus, main-gun damage counts in rounds, not the tank's raw thousands.
 const SPEED := 24.0
@@ -54,8 +55,8 @@ func _init() -> void:
 	max_hp = BODY_HP
 	hp = max_hp
 	armor = 25.0
-	radius = 7.0
-	center_height = 2.0
+	radius = 7.0 * SCALE
+	center_height = 2.0 * SCALE
 	score = 20000
 	despawn_behind = 0.0
 	set_meta("title", "BOSS_HOVERCRAFT")
@@ -63,6 +64,7 @@ func _init() -> void:
 
 
 func build() -> void:
+	model.scale = Vector3.ONE * SCALE
 	var b := LowPoly.new()
 	# Wide rubber skirt in hazard-banded fingers, a stepped deck, a clipped bow and an overbuilt bridge:
 	# this hull carries every weapon its builders could bolt on.
@@ -181,7 +183,7 @@ func aim_parts() -> Dictionary:
 		return result
 	for name: String in parts:
 		if parts[name] > 0.0:
-			result[name] = [model.global_transform * PARTS[name], 2.2 if name != "laser" else 1.2, tr(LABELS[name])]
+			result[name] = [model.global_transform * PARTS[name], (2.2 if name != "laser" else 1.2) * SCALE, tr(LABELS[name])]
 	result["rear"] = [model.global_transform * Vector3(0, 2, 6), 2.0, tr("HOVER_REAR")]
 	return result
 

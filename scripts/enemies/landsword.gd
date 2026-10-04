@@ -9,11 +9,12 @@ enum Attack { NONE, GUN, MISSILES, RAIL, CHARGE, STOMP, SWEEP }
 const BODY_HP := 48000.0 ## Eight normal full-charge APHE hits; the gunship takes ten.
 const PHASE_MARKS := [0.65, 0.30]
 const LEG_HP := 100.0
-const WHEEL_RADIUS := 0.85
+const SCALE := 1.7 ## The whole machine is drawn this much larger than its model-space layout.
+const WHEEL_RADIUS := 0.85 * SCALE
 const SPEED := [30.0, 38.0, 62.0] ## The last phase is faster even with its first wheel gone.
 const WIND := [0.0, 0.7, 1.0, 1.2, 1.0, 1.1, 0.9]
-const STOMP_REACH := 12.0
-const SWEEP_REACH := 15.0
+const STOMP_REACH := 20.0 ## Both reaches grow with the machine: 12 and 15 m at model size.
+const SWEEP_REACH := 25.0
 const CHARGE_SPEED := 68.0
 const HOP_TIME := 1.0
 
@@ -49,8 +50,8 @@ func _init() -> void:
 	wreck_on_death = true
 	max_hp = BODY_HP
 	hp = BODY_HP
-	radius = 6.5
-	center_height = 4.4
+	radius = 6.5 * SCALE
+	center_height = 4.4 * SCALE
 	armor = 30.0
 	despawn_behind = 0.0
 	score = 50000
@@ -61,6 +62,7 @@ func _init() -> void:
 
 
 func build() -> void:
+	model.scale = Vector3.ONE * SCALE
 	_body.position.y = 4.4
 	model.add_child(_body)
 	var b := LowPoly.new()
@@ -156,7 +158,7 @@ func build() -> void:
 		wheel.position = Vector3(corner.x * 1.0, -1.55, -1.3)
 		knee.add_child(wheel)
 		var w := LowPoly.new()
-		w.prism(Transform3D(Basis(Vector3.BACK, PI * 0.5), Vector3.ZERO), WHEEL_RADIUS, 0.7, 14, Palette.INK)
+		w.prism(Transform3D(Basis(Vector3.BACK, PI * 0.5), Vector3.ZERO), WHEEL_RADIUS / SCALE, 0.7, 14, Palette.INK)
 		w.prism(Transform3D(Basis(Vector3.BACK, PI * 0.5), Vector3(corner.x * 0.35, 0, 0)), 0.58, 0.06, 10, Palette.WHITE)
 		w.prism(Transform3D(Basis(Vector3.BACK, PI * 0.5), Vector3(corner.x * 0.4, 0, 0)), 0.18, 0.06, 6, Palette.CORAL)
 		_add_mesh(wheel, w.mesh())
@@ -342,7 +344,7 @@ func _update_attack(delta: float, tank: Tank) -> void:
 			if missile or _attack == Attack.RAIL:
 				shot.hit.kind = Hit.Kind.SHELL
 			if missile:
-				shot.blast_radius = 4.0
+				shot.blast_radius = 4.0 * SCALE
 				shot.blast_damage = 20.0
 				shot.homing_target = tank
 				shot.turn_rate = 0.5
@@ -401,7 +403,7 @@ func _melee(tank: Tank, damage: float) -> void:
 func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 	var best := -1.0
 	for z in [-3.8, 0.0, 3.8]:
-		var t := Entity.segment_sphere(from, to, _body.global_transform * Vector3(0, 0, z), 2.8 + extra_radius)
+		var t := Entity.segment_sphere(from, to, _body.global_transform * Vector3(0, 0, z), 2.8 * SCALE + extra_radius)
 		if t >= 0.0 and (best < 0.0 or t < best):
 			best = t
 	for leg in _legs:
