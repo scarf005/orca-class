@@ -329,6 +329,9 @@ func _ground_hit(from: Vector3, to: Vector3) -> float:
 
 func _apply(target: Entity, point: Vector3) -> Hit:
 	var applied := hit.copy()
+	# Splash excludes the direct target: blast-only rounds must deliver their damage here.
+	if applied.damage == 0.0 and blast_radius > 0.0:
+		applied.damage = blast_damage
 	if applied.source == null and team == Entity.Team.PLAYER:
 		applied.source = World.current.player
 	applied.position = point
