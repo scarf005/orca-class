@@ -27,6 +27,13 @@ class TestLogger extends Logger:
 		return result
 
 
+func _runtime_failures(errors: Array[Dictionary], label: String) -> Array[String]:
+	var failures: Array[String] = []
+	for error: Dictionary in errors:
+		failures.append("%s: runtime error in %s:%d (%s) %s" % [label, error.file, error.line, error.code, error.rationale])
+	return failures
+
+
 func run() -> int:
 	var only: String = preload("res://scripts/main.gd").args().get("only", "")
 	var files: Array[String] = []
@@ -53,13 +60,27 @@ func run() -> int:
 		return 1
 	var logger := TestLogger.new()
 	OS.add_logger(logger)
+	var error_cursor := 0
 	for file in files:
 		var script: GDScript = load("res://tests/" + file)
 		if script == null or not script.can_instantiate():
 			total_failures.append("%s: failed to compile" % file)
+			total_failures.append_array(_runtime_failures(logger.since(error_cursor), "%s setup" % file))
+			error_cursor = logger.count()
 			continue
 		var suite: TestCase = script.new()
 		add_child(suite)
+		var setup_errors := logger.since(error_cursor)
+		error_cursor = logger.count()
+		if not setup_errors.is_empty():
+			total_failures.append_array(_runtime_failures(setup_errors, "%s setup" % file))
+			suite.queue_free()
+			await get_tree().process_frame
+			var setup_teardown_errors := logger.since(error_cursor)
+			error_cursor = logger.count()
+			total_failures.append_array(_runtime_failures(setup_teardown_errors, "%s teardown" % file))
+			continue
+		var suite_passed := 0
 		var methods: Array[String] = []
 		for method in suite.get_method_list():
 			var name: String = method.name
@@ -70,20 +91,33 @@ func run() -> int:
 			count += 1
 			var failure_start := suite.failures.size()
 			var skip_start := suite.skips.size()
-			var error_start := logger.count()
-			suite.begin("%s.%s" % [file.get_basename(), name])
+			var method_label := "%s.%s" % [file.get_basename(), name]
+			suite.begin(method_label)
 			await suite.call(name)
 			suite.cleanup(true)
 			await get_tree().process_frame
 			var method_failures: Array = suite.failures.slice(failure_start)
 			var method_skips: Array = suite.skips.slice(skip_start)
-			for error: Dictionary in logger.since(error_start):
-				method_failures.append("%s: runtime error in %s:%d (%s) %s" % [suite._current, error.file, error.line, error.code, error.rationale])
+			method_failures.append_array(_runtime_failures(logger.since(error_cursor), method_label))
+			error_cursor = logger.count()
 			total_failures.append_array(method_failures)
 			total_skips.append_array(method_skips)
 			if method_skips.is_empty() and method_failures.is_empty():
 				passed += 1
+				suite_passed += 1
 		suite.queue_free()
+		await get_tree().process_frame
+		var teardown_errors := logger.since(error_cursor)
+		error_cursor = logger.count()
+		total_failures.append_array(_runtime_failures(teardown_errors, "%s teardown" % file))
+		if not teardown_errors.is_empty():
+			passed -= suite_passed
+	await get_tree().process_frame
+	var final_errors := logger.since(error_cursor)
+	error_cursor = logger.count()
+	total_failures.append_array(_runtime_failures(final_errors, "runner finalization"))
+	if not final_errors.is_empty():
+		passed = 0
 	OS.remove_logger(logger)
 	if count == 0 and total_failures.is_empty():
 		var method_message := " for filter '%s'" % only if not only.is_empty() else ""
