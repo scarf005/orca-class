@@ -3,6 +3,7 @@ extends Node
 ## Usage: xvfb-run -a godot --path . -- --run=res://tools/autoplay.gd --seconds=30 --shots=5,10 \
 ##        [--checkpoint=boss] [--stage=2] [--out=builds/auto] [--god] [--scale=1] [--seed=1]
 ##        [--range=3000,3300] # print frame times within a course-distance interval
+##        [--milestones] [--verify] # capture sections, boss phases and results; fail unless results arrive
 
 var screen: GameScreen
 var bot := "hold"
@@ -13,6 +14,8 @@ var _last_tap := -1.0
 var _charge_started := -1.0
 var _shots_seen := 0
 var _section := 0
+var _out := ""
+var _milestones := false
 
 
 func run() -> int:
@@ -29,6 +32,8 @@ func run() -> int:
 		push_error("Unknown bot mode: %s" % bot)
 		return 1
 	var out: String = args.get("out", "builds/auto")
+	_out = out
+	_milestones = args.has("milestones")
 	DirAccess.make_dir_recursive_absolute(out)
 	var seconds := float(args.get("seconds", "20"))
 	var shots: Array = []
@@ -48,7 +53,10 @@ func run() -> int:
 	_section = world.director.section
 	world.director.section_changed.connect(func(section: int) -> void:
 		_section_end(world)
-		_section = section)
+		_section = section
+		_capture("section-%d" % section))
+	world.director.checkpoint_reached.connect(func(checkpoint: String) -> void:
+		print("CHECKPOINT name=%s t=%.2f d=%.0f" % [checkpoint, world.stats.time, world.rail.d]))
 	if args.has("god"):
 		world.player.invulnerable = true
 	var elapsed := 0.0
@@ -60,8 +68,12 @@ func run() -> int:
 	var range_times := PackedFloat32Array()
 	var front_total := 0.0
 	var boss_start := -1.0
-	var boss_end := -1.0
 	var boss_phase := 0
+	var boss_kind := ""
+	var active_boss: Entity
+	var mode := world.rail.mode
+	await get_tree().process_frame
+	await _capture("section-%d" % _section)
 	while elapsed < seconds:
 		var start := Time.get_ticks_usec()
 		await get_tree().process_frame
@@ -93,17 +105,32 @@ func run() -> int:
 		if not shots.is_empty() and elapsed >= shots[0]:
 			shots.pop_front()
 			get_viewport().get_texture().get_image().save_png("%s/t%03d.png" % [out, int(elapsed)])
-		if world.boss != null and boss_start < 0.0:
-			boss_start = elapsed
-		if boss_end < 0.0 and is_instance_valid(world.boss) and world.boss is Gunship:
-			boss_phase = maxi(boss_phase, world.boss.phase + 1)
-		if world.boss == null and boss_start >= 0.0 and boss_end < 0.0:
-			boss_end = elapsed
+		if world.rail.mode != mode:
+			mode = world.rail.mode
+			print("MODE mode=%s t=%.2f d=%.0f" % [Rail.Mode.keys()[mode], world.stats.time, world.rail.d])
+		if is_instance_valid(world.boss) and not world.boss.dead:
+			var phase := int(world.boss.get("phase")) + 1
+			if active_boss != world.boss or boss_phase != phase:
+				if active_boss != world.boss:
+					boss_start = elapsed
+				active_boss = world.boss
+				boss_kind = world.boss.get_script().resource_path.get_file().get_basename()
+				boss_phase = phase
+				print("BOSS kind=%s phase=%d t=%.2f d=%.0f hp=%.0f music=%s" % [world.boss.get_script().resource_path.get_file().get_basename(), phase, world.stats.time, world.rail.d, world.boss.hp, Sfx._music_path])
+				_capture("%s-phase-%d" % [world.boss.get_script().resource_path.get_file().get_basename(), phase])
+		elif not boss_kind.is_empty():
+			print("BOSS_END kind=%s t=%.2f d=%.0f fight=%.2fs" % [boss_kind, world.stats.time, world.rail.d, elapsed - boss_start])
+			boss_kind = ""
+			active_boss = null
 		if world.player.dead or screen._finished:
 			break
+	if cleared:
+		while screen._results == null:
+			await get_tree().process_frame
+		await get_tree().process_frame
+		await _capture("results")
+		print("RESULTS stage=%d heading=%s ranked=%s" % [screen.stage, screen._results.clear_heading(), world.stats.ranked])
 	var stats := world.stats
-	if boss_start >= 0.0:
-		print("AUTOPLAY boss_fight=%.1fs phase=%d" % [(boss_end if boss_end >= 0.0 else elapsed) - boss_start, boss_phase])
 	if not frame_times.is_empty():
 		frame_times.sort()
 		print("BENCH median=%.2fms p95=%.2fms samples=%d" % [frame_times[frame_times.size() / 2], frame_times[int(frame_times.size() * 0.95)], frame_times.size()])
@@ -119,11 +146,17 @@ func run() -> int:
 	for action in ["fire", "move_left", "move_right"]:
 		Input.action_release(action)
 	Engine.time_scale = 1.0
-	return 0
+	return 1 if args.has("verify") and (not cleared or screen._results == null) else 0
+
+
+func _capture(name: String) -> void:
+	if _milestones:
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png("%s/%s.png" % [_out, name])
 
 
 func _section_end(world: World) -> void:
-	print("SECTION section=%d lives=%d hp=%.2f kills=%d/%d" % [_section, world.stats.lives, world.player.hp, world.stats.kills, world.stats.spawned])
+	print("SECTION section=%d t=%.2f d=%.0f lives=%d hp=%.2f kills=%d/%d" % [_section, world.stats.time, world.rail.d, world.stats.lives, world.player.hp, world.stats.kills, world.stats.spawned])
 
 
 func _killed(_victim: Entity, hit: Hit) -> void:
