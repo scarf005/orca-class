@@ -99,7 +99,7 @@ func test_release_short_of_full_fires_one_visible_quick_shell() -> void:
 	check_eq(world.stats.shots, 1, "and only the one")
 
 
-func test_full_hold_fires_a_hitscan_shell_that_overpenetrates() -> void:
+func test_full_hold_auto_fires_one_hitscan_shell() -> void:
 	var world := _rig()
 	var tank := world.player
 	Input.action_press("fire")
@@ -292,6 +292,10 @@ func test_the_lock_lays_the_turret_on_the_lead_point_while_held() -> void:
 	check(tank._sight_lock == enemy, "and the sight lays on it")
 	var lead := tank.lead_point(tank.model.muzzle.global_position, tank.shell_speed(), enemy, enemy.hit_center())
 	check(lead.x > enemy.hit_center().x, "toward its lead point (%.1f m ahead)" % (lead.x - enemy.hit_center().x))
+	for _i in 60:
+		tank._update_aim(1.0 / 60.0)
+	var barrel_dir := -tank.model.barrel.global_basis.z
+	check(barrel_dir.angle_to((lead - tank.model.muzzle.global_position).normalized()) < deg_to_rad(0.15), "the barrel points at the lead point rather than the target centre")
 	Input.action_release("fire")
 	_step(tank, 0.0)
 	check(tank.charge_lock == enemy, "firing preserves a valid lock")
@@ -325,7 +329,13 @@ func test_special_rounds_take_the_quick_or_full_table() -> void:
 	check(not quick.is_queued_for_deletion(), "and still flies")
 	before = world.projectiles.size()
 	tank.fire_cannon(Vector3.INF, Vector3.ZERO, 1.0)
-	check(world.projectiles.slice(before).all(func(p: Projectile) -> bool: return p.is_queued_for_deletion() or p.shape != "shell"), "a full HEAT lands at once")
+	var full: Projectile = world.projectiles[before]
+	check(full.is_queued_for_deletion(), "a full HEAT lands at once")
+	check_near(full.hit.damage, Armament.SHELL_DAMAGE * 1.5 * Armament.SHELL_DAMAGE_SCALE, 0.001, "full HEAT uses its charged direct damage")
+	check(full.hit.pierce, "full HEAT keeps its penetration")
+	check_near(full.hit.stagger, Armament.HEAT_STAGGER.y, 0.001, "full HEAT uses its charged stagger")
+	check_near(full.blast_radius, Armament.HEAT_RADIUS.y, 0.001, "full HEAT uses its charged blast radius")
+	check_near(full.blast_damage, 500.0 * Armament.SHELL_DAMAGE_SCALE, 0.001, "full HEAT uses its charged blast damage")
 	check_eq(tank.round_count, Armament.MAGAZINE[Armament.Round.HEAT] - 2, "one round per shot")
 
 

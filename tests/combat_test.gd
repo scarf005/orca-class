@@ -80,9 +80,14 @@ func test_blast_hits_enemies_and_props_not_player() -> void:
 	var crawler := Crawler.new()
 	crawler.position = Course.ground_at(world.rail.d + 40.0, 0.0)
 	world.add_enemy(crawler)
+	var prop := Prop.new()
+	prop.setup("car", PropKit.mesh("car", 0), 2.0, 1.8, 50.0)
+	prop.position = crawler.hit_center()
+	world.props.add_child(prop)
 	var hp := tank.hp
 	world.blast(crawler.hit_center(), 4.0, 100.0, Entity.Team.PLAYER)
 	check(crawler.dead, "player blast kills the crawler")
+	check(prop.dead, "player blast also damages a prop inside its radius")
 	check_eq(tank.hp, hp, "player blast does not hurt the player")
 
 

@@ -48,20 +48,39 @@ func _landing_offset(bomb: Projectile) -> Vector3:
 
 
 func test_carpet_circles_are_marked_before_impact_and_follow_the_tank() -> void:
+	seed(17)
 	var world := stage()
 	var tank := world.player
 	tank.velocity = Course.right(world.rail.d) * 8.0
 	var uav := _uav_over(world)
 	check(Uav.BOMB_FLIGHT >= 1.2, "every circle shows at least 1.2 s before impact")
+	var transient_before := world.fx._transients.size()
 	uav._bomb_run(0.0, tank, 30.0)
 	var bombs := world.projectiles.filter(func(p: Projectile) -> bool: return p.blast_damage > 0.0)
 	var predicted := Course.to_course(tank.global_position + tank.velocity * Uav.CARPET_LEAD).y
 	var mean := 0.0
+	var impact_points: Array[Vector3] = []
 	for bomb: Projectile in bombs:
 		check(bomb.life >= Uav.BOMB_FLIGHT, "the bomb outlives its telegraph")
-		mean += Course.to_course(bomb.global_position + _landing_offset(bomb)).y
+		var impact := bomb.global_position + _landing_offset(bomb)
+		impact_points.append(impact)
+		mean += Course.to_course(impact).y
 	mean /= bombs.size()
 	check(absf(mean - predicted) <= Uav.CARPET_SPACING * 1.0, "the carpet is centred on the tank's lateral position one second ahead (%.1f vs %.1f)" % [mean, predicted])
+	var used: Array[int] = []
+	var marked := 0
+	for impact in impact_points:
+		for i in range(transient_before, world.fx._transients.size()):
+			if i in used:
+				continue
+			var entry: Dictionary = world.fx._transients[i]
+			var node: MeshInstance3D = entry["node"]
+			if node.global_position.distance_to(impact) <= 0.7:
+				check(float(entry["life"]) >= Uav.BOMB_FLIGHT, "each bomb marker lasts until its impact")
+				used.append(i)
+				marked += 1
+				break
+	check_eq(marked, bombs.size(), "one impact marker is created for every bomb")
 
 
 func _heli_ready_to_fire(world: World, tank: Tank) -> Helicopter:

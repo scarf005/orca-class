@@ -246,6 +246,7 @@ func test_gunship_cannon_barrel_turns_then_holds_still_through_the_lock() -> voi
 
 
 func test_gunship_gatlings_fire_visibly_from_both_barrels() -> void:
+	seed(104)
 	var world := stage("boss")
 	var boss := _gunship(world)
 	var chosen := {}

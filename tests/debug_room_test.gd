@@ -7,9 +7,38 @@ func test_debug_room_shows_everything() -> void:
 	add_child(room)
 	await frames(5)
 	check(Course.flat, "the floor is flat while the room is open")
-	check(room.world.enemies.size() >= 9, "all enemy types and bosses are posed")
-	check(room.world.enemies.any(func(e: Entity) -> bool: return e is Helicopter), "ordinary helicopter is displayed")
-	check(room.world.enemies.any(func(e: Entity) -> bool: return e is Gunship), "twin-rotor boss is displayed separately")
+	var expected := [
+		"fpv", "ugv:gun", "ugv:atgm", "ugv:supply", "uav", "helicopter", "tiltrotor",
+		"crawler", "spitter", "walker:gun", "walker:missile", "quad:flak", "quad:mortar",
+		"colossus", "gunship",
+	]
+	var actual: Array[String] = []
+	for enemy: Entity in room.world.enemies:
+		if enemy is FpvDrone:
+			actual.append("fpv")
+		elif enemy is Ugv:
+			actual.append("ugv:%s" % enemy.weapon)
+		elif enemy is Uav:
+			actual.append("uav")
+		elif enemy is Helicopter:
+			actual.append("helicopter")
+		elif enemy is Tiltrotor:
+			actual.append("tiltrotor")
+		elif enemy is Crawler:
+			actual.append("crawler")
+		elif enemy is Spitter:
+			actual.append("spitter")
+		elif enemy is Walker:
+			actual.append("walker:%s" % enemy.weapon)
+		elif enemy is QuadMech:
+			actual.append("quad:%s" % enemy.weapon)
+		elif enemy is Colossus:
+			actual.append("colossus")
+		elif enemy is Gunship:
+			actual.append("gunship")
+	actual.sort()
+	expected.sort()
+	check_eq(actual, expected, "debug room poses the complete enemy and boss catalogue")
 	check(room.world.pickups.size() == Pickup.IDS.size(), "every pickup is shown")
 	check(not room.world.pickups.any(func(p: Pickup) -> bool: return p.id in ["canister", "airburst"]), "disabled rounds do not spawn in the debug room")
 	var enemy_count := room.world.enemies.size()

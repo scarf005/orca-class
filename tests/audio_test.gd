@@ -3,6 +3,7 @@ extends TestCase
 
 
 func test_script_runs_are_silent() -> void:
+	var previous_silent := Game.silent
 	check(Game.silent, "script runs flag themselves silent")
 	Game.apply_settings()
 	check(AudioServer.is_bus_mute(AudioServer.get_bus_index("Master")), "master bus stays muted after settings apply")
@@ -10,9 +11,11 @@ func test_script_runs_are_silent() -> void:
 	check(world != null and AudioServer.is_bus_mute(0), "starting a stage (and its music) stays muted")
 	check(Sfx.music.stream == null and not Sfx.music.playing, "a silent run does not start music")
 	check(world.player._engine_sound == null, "a silent run does not create the engine loop")
+	Game.silent = previous_silent
 
 
 func test_leaving_the_tree_releases_every_audio_channel() -> void:
+	var previous_silent := Game.silent
 	var world := stage()
 	var audio: Node = load("res://scripts/core/sfx.gd").new()
 	add_child(audio)
@@ -34,6 +37,7 @@ func test_leaving_the_tree_releases_every_audio_channel() -> void:
 	for player: Node in players:
 		check(not player.playing and player.stream == null, "leaving the tree stops and clears %s" % player.get_class())
 	audio.free()
+	Game.silent = previous_silent
 
 
 const CANNON := "res://assets/audio/synth/cannon.wav"
@@ -70,9 +74,11 @@ func test_cannon_report_starts_at_once() -> void:
 
 
 func test_player_cannon_plays_on_the_flat_gun_channel() -> void:
+	var previous_silent := Game.silent
 	var world := stage()
 	Game.silent = false # Silent runs load no streams; the master bus stays muted.
 	Sfx._guns.clear()
 	world.player.fire_cannon()
 	Game.silent = true
 	check(Sfx._guns.has("cannon"), "the tank's own cannon shot goes through the non-positional gun player")
+	Game.silent = previous_silent

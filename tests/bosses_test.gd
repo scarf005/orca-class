@@ -207,6 +207,7 @@ func test_colossus_leaves_a_charge_window_after_each_attack() -> void:
 
 
 func test_colossus_phase_gates_its_attacks() -> void:
+	seed(101)
 	var world := stage()
 	var boss := _fighter(world)
 	var most := 0
@@ -234,6 +235,7 @@ func test_colossus_phase_gates_its_attacks() -> void:
 
 
 func test_colossus_rests_for_less_as_it_loses_nodes() -> void:
+	seed(102)
 	var world := stage()
 	var boss := _fighter(world)
 	var longest := []
@@ -661,6 +663,7 @@ func test_gunship_phases_follow_hull() -> void:
 
 
 func test_gunship_modules_change_the_fight() -> void:
+	seed(103)
 	var world := stage("boss")
 	var boss := _gunship(world)
 	_cannon_on(boss, "chin", 1)
@@ -1092,6 +1095,7 @@ func test_crash_breaks_the_dam_near_the_impact_and_floods_the_arena() -> void:
 
 
 func test_flares_catch_shells() -> void:
+	seed(105)
 	var world := stage("boss")
 	var boss := _gunship(world)
 	boss.phase = Gunship.Phase.STRIPPED
@@ -1099,6 +1103,18 @@ func test_flares_catch_shells() -> void:
 	var flares := world.enemies.filter(func(e: Entity) -> bool: return e is Flare)
 	check(flares.size() >= 4, "pops a spread of flares")
 	check(flares.all(func(e: Entity) -> bool: return e.team == Entity.Team.ENEMY), "flares are targets for shells")
+	var tank := world.player
+	var muzzle := tank.model.muzzle.global_position
+	boss.global_position = muzzle - tank.global_basis.z * 100.0
+	var direction := (boss.hit_center() - muzzle).normalized()
+	var flare := flares[0] as Flare
+	flare.global_position = muzzle + direction * muzzle.distance_to(boss.hit_center()) * 0.5
+	flare.set_process(false)
+	var boss_hp := boss.hp
+	tank.fire_cannon(muzzle, direction, 0.5)
+	await frames(90)
+	check(not is_instance_valid(flare) or flare.dead, "a real quick shell intercepts the flare")
+	check_eq(boss.hp, boss_hp, "the intercepted shell does not reach the boss")
 
 
 func test_gunship_machine_guns_and_fragments_glance_off_its_body() -> void:

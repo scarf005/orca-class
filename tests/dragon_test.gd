@@ -38,7 +38,7 @@ func test_a_target_at_50_meters_burns_and_one_at_75_is_untouched() -> void:
 		var full := far.hp
 		_breath(tank, _toward(tank, near))
 		await frames(70)
-		check(not is_instance_valid(near) or near.dead or near.burning > 0.0 or near.hp < near.max_hp, "a UGV 50 m ahead is hit or burning (round %d)" % round)
+		check(not is_instance_valid(near) or near.dead or near.burning > 0.0, "a UGV 50 m ahead catches fire or dies (round %d)" % round)
 		check(is_instance_valid(far) and far.hp == full and far.burning <= 0.0, "a UGV 75 m ahead is untouched (round %d)" % round)
 		for e in [near, far]:
 			if is_instance_valid(e):
@@ -58,11 +58,11 @@ func test_a_crawler_at_50_meters_dies() -> void:
 		world.add_enemy(crawler)
 		_breath(tank, _toward(tank, crawler))
 		await frames(70)
-		dead += 1 if not is_instance_valid(crawler) or crawler.dead or crawler.burning > 0.0 else 0
+		dead += 1 if not is_instance_valid(crawler) or crawler.dead else 0
 		if is_instance_valid(crawler):
 			crawler.queue_free()
 		await frames(2)
-	check_eq(dead, 5, "a crawler 50 m out burns or dies every time")
+	check_eq(dead, 5, "a crawler 50 m out dies every time")
 
 
 func test_flyers_in_the_cone_catch_fire_and_others_do_not() -> void:
@@ -89,6 +89,8 @@ func test_the_jet_pours_out_over_a_third_of_a_second_and_reaches_60_meters() -> 
 	var forward := -tank.global_basis.z
 	var start := tank.model.muzzle.global_position
 	seed(3)
+	var inside := _ugv_at(world, tank, DragonBreath.RANGE - 1.0)
+	var outside := _ugv_at(world, tank, DragonBreath.RANGE + 15.0)
 	_breath(tank, forward)
 	var breath: DragonBreath = world.get_children().filter(func(n: Node) -> bool: return n is DragonBreath)[0]
 	var emitted: Array[int] = []
@@ -109,6 +111,9 @@ func test_the_jet_pours_out_over_a_third_of_a_second_and_reaches_60_meters() -> 
 	check(emitted[2] > 0 and emitted[2] < DragonBreath.FLAMES / 2, "after three frames only part of the jet is out (%d of %d)" % [emitted[2], DragonBreath.FLAMES])
 	check(done_at >= 19 and done_at <= 25, "the last flame leaves at about 0.35 s (frame %d)" % done_at)
 	check(farthest >= 50.0, "flames reach at least 50 m (%.1f)" % farthest)
+	check(not is_instance_valid(inside) or inside.dead or inside.burning > 0.0, "the jet reaches its 60 m boundary from inside")
+	check(is_instance_valid(outside) and not outside.dead and outside.burning <= 0.0 and outside.hp == outside.max_hp, "the jet stops beyond its 60 m boundary")
+	check(DragonBreath.RANGE == 60.0, "the nominal jet boundary remains 60 m")
 	check(peak < Fx.SOFT_CAP, "no particle pool passes the soft cap (%d of %d)" % [peak, Fx.SOFT_CAP])
 	print("DRAGON peak pool ", peak, " total ", total, " farthest ", farthest, " done ", done_at)
 
