@@ -82,3 +82,24 @@ func test_player_cannon_plays_on_the_flat_gun_channel() -> void:
 	Game.silent = true
 	check(Sfx._guns.has("cannon"), "the tank's own cannon shot goes through the non-positional gun player")
 	Game.silent = previous_silent
+
+
+func test_music_crossfades_between_tracks() -> void:
+	# Master stays muted from the silent setup, so nothing is heard while the players run.
+	Game.silent = false
+	Sfx.play_music("res://assets/music/stage_a.ogg")
+	var first := Sfx.music
+	check(first.playing and first.volume_db == 0.0, "the first track starts at full volume")
+	Sfx.play_music("res://assets/music/stage_b.ogg")
+	var second := Sfx.music
+	check(second != first and second.playing, "the next track starts on the other player")
+	check(first.playing, "the old track keeps playing while it fades")
+	check(second.volume_db < -20.0, "the new track fades in rather than cutting in")
+	await get_tree().create_timer(Sfx.MUSIC_FADE_OUT + 0.3).timeout
+	check(not first.playing, "the old track stops once faded")
+	check_near(second.volume_db, 0.0, 0.5, "the new track ends at full volume")
+	Sfx.play_music("res://assets/music/stage_b.ogg")
+	check(Sfx.music == second, "asking for the playing track again does not restart it")
+	Sfx.stop_music()
+	check(not first.playing and not second.playing, "stopping silences both players")
+	Game.silent = true

@@ -58,8 +58,13 @@ var _ui := AudioStreamPlayer.new()
 var _combat := AudioStreamPlayer.new()
 var _last_hit_sound := -100
 var _guns := {} ## Sound name -> its own non-positional player, so different guns overlap.
-var music := AudioStreamPlayer.new()
+var music := AudioStreamPlayer.new() ## The track playing now.
 var _music_path := ""
+var _fading := AudioStreamPlayer.new() ## The track being crossfaded out, if any.
+var _fade_tween: Tween
+
+const MUSIC_FADE_IN := 0.8
+const MUSIC_FADE_OUT := 1.6
 
 
 func _ready() -> void:
@@ -69,9 +74,10 @@ func _ready() -> void:
 	_combat.bus = &"SFX"
 	_combat.max_polyphony = 4
 	add_child(_combat)
-	music.bus = &"Music"
-	add_child(music)
-	for player in [_ui, _combat, music]:
+	for player in [music, _fading]:
+		player.bus = &"Music"
+		add_child(player)
+	for player in [_ui, _combat, music, _fading]:
 		_release_on_exit(player)
 
 
@@ -225,6 +231,7 @@ func loop(name: String, parent: Node3D, volume_db := 0.0) -> AudioStreamPlayer3D
 	return player
 
 
+## Starts a track, crossfading from whatever plays now so sections never cut abruptly.
 func play_music(path: String, loop := true, volume_db := 0.0) -> void:
 	if Game.silent:
 		stop_music()
@@ -232,18 +239,37 @@ func play_music(path: String, loop := true, volume_db := 0.0) -> void:
 	if path == _music_path and music.playing:
 		return
 	_music_path = path
+	var playing := music.playing
+	if _fade_tween:
+		_fade_tween.kill()
+	_fading.stop()
+	if playing:
+		# The old track dies away on the spare player; `music` takes the new one.
+		var old := music
+		music = _fading
+		_fading = old
+		_fade_tween = create_tween()
+		_fade_tween.tween_property(old, "volume_db", -60.0, MUSIC_FADE_OUT).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_SINE)
 	if path.is_empty() or not ResourceLoader.exists(path):
 		music.stop()
+		if playing:
+			_fade_tween.tween_callback(_fading.stop)
 		return
 	var stream_value: AudioStream = load(path).duplicate()
 	if stream_value is AudioStreamOggVorbis:
 		(stream_value as AudioStreamOggVorbis).loop = loop
 	music.stream = stream_value
-	music.volume_db = volume_db
+	music.volume_db = -40.0 if playing else volume_db
 	music.play()
+	if playing:
+		_fade_tween.parallel().tween_property(music, "volume_db", volume_db, MUSIC_FADE_IN).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE)
+		_fade_tween.tween_callback(_fading.stop)
 
 
 func stop_music() -> void:
 	_music_path = ""
-	music.stop()
-	music.stream = null
+	if _fade_tween:
+		_fade_tween.kill()
+	for player in [music, _fading]:
+		player.stop()
+		player.stream = null
