@@ -60,11 +60,11 @@ func test_stage_2_starts_fitted_after_stage_1() -> void:
 	check_eq(world.rail.d, 0.0, "the run starts at the beginning")
 
 
-func test_stage_2_geography_scrolls_without_scripted_encounters() -> void:
-	check(Stage2.new().events(true).is_empty() and Stage2.new().events(false).is_empty(), "stage 2 scripts no encounters yet")
+func test_stage_2_geography_scrolls_through_the_quiet_opening() -> void:
+	check(not Stage2.new().events(true).is_empty() and not Stage2.new().events(false).is_empty(), "stage 2 has normal and hard encounters")
 	var world := stage("", false, 2)
 	world.player.invulnerable = true
 	await frames(180)
 	check(world.rail.d > 20.0, "the rail runs (d = %.0f)" % world.rail.d)
-	check(world.director.events.is_empty(), "the world package adds no scripted encounters")
-	check_eq(world.rail.mode, Rail.Mode.RAIL, "the rail never stops")
+	check(world.enemies.is_empty(), "the opening gives time to read the flooded street")
+	check_eq(world.rail.mode, Rail.Mode.RAIL, "the opening does not hold the rail")

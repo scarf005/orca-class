@@ -4,6 +4,7 @@ extends TestCase
 var _saved_bests := {}
 var _saved_path := ""
 var _results: Results
+var _screen: GameScreen
 
 
 func begin(name: String) -> void:
@@ -21,6 +22,10 @@ func cleanup() -> void:
 		remove_child(_results)
 		_results.queue_free()
 		_results = null
+	if is_instance_valid(_screen):
+		remove_child(_screen)
+		_screen.queue_free()
+		_screen = null
 	DirAccess.remove_absolute(Game.bests_path)
 	Game.bests = _saved_bests
 	Game.bests_path = _saved_path
@@ -136,6 +141,81 @@ func test_city_results_store_only_city_bests_and_offer_retry_and_title() -> void
 	for item: Menu.Item in _results._menu.items:
 		item.action.call()
 	check_eq(actions, ["retry", "title"], "both final-stage menu actions reach their flow signals")
+
+
+func test_opening_hunter_is_outside_cover_and_cannot_fire_through_it() -> void:
+	var world := stage("", false, 2)
+	world.director.set_process(false)
+	var event: Dictionary = Stage2.new().events(false).filter(func(e: Dictionary) -> bool: return e.type == "wave")[0]
+	world.rail.d = event.d
+	world.player._place(event.d)
+	world.director.scenery.stream(event.d, 100000)
+	var hunter := world.director.spawn_wave(event)[0] as Abel
+	check(world.director.scenery.line_blocked(world.player.hit_center(), hunter.hit_center()), "first LOSAT hunter starts behind a building")
+	check(not world.director.scenery.line_blocked(hunter.hit_center(), hunter.hit_center()), "hunter is not embedded in the building")
+	var shots := world.projectiles.size()
+	hunter._attack_timer = 0.0
+	hunter.behave(0.01)
+	check(not hunter.telegraphing(), "hunter waits for a peek instead of painting through the facade")
+	check_eq(world.projectiles.size(), shots, "cover blocks the first attack")
+
+
+func test_boss_deaths_resume_then_clear_when_sibling_scripts_exist() -> void:
+	for type in ["midboss", "boss"]:
+		var event: Dictionary = Stage2.new().events(false).filter(func(e: Dictionary) -> bool: return e.type == type)[0]
+		if not Director.ENEMY_SCRIPTS.has(event.kind) or not ResourceLoader.exists(Director.ENEMY_SCRIPTS.get(event.kind, "")):
+			print("PENDING city %s: sibling boss script is unavailable" % event.kind)
+			continue
+		var world := stage("", false, 2)
+		world.director.set_process(false)
+		world.rail.d = event.d
+		var clears := [0]
+		world.stage_cleared.connect(func() -> void: clears[0] += 1)
+		world.director._fire(event)
+		check_eq(world.rail.mode, Rail.Mode.HOLD if type == "midboss" else Rail.Mode.ARENA, "boss event switches movement mode")
+		check(world.boss != null, "boss is announced to the HUD")
+		world.boss.died.emit(world.boss)
+		await frames(100)
+		if type == "midboss":
+			check_eq(world.rail.mode, Rail.Mode.RAIL, "midboss death resumes the course")
+			check_eq(clears[0], 0, "midboss cannot clear the stage")
+		else:
+			check_eq(clears[0], 1, "boss death clears the stage once")
+
+
+func test_city_clear_screen_retries_the_same_stage_or_returns_to_title() -> void:
+	_screen = GameScreen.new()
+	_screen.stage = 2
+	add_child(_screen)
+	_screen.world.director.set_process(false)
+	_screen.world.player.invulnerable = true
+	var actions := []
+	_screen.restart.connect(func(checkpoint: String) -> void: actions.append(["retry", checkpoint, Game.stage]))
+	_screen.quit_to_title.connect(func() -> void: actions.append(["title"]))
+	_screen.world.stage_cleared.emit()
+	check(await wait_until(func() -> bool: return _screen._results != null, 180), "clear signal reaches the results screen")
+	if _screen._results == null:
+		return
+	check(not _screen._results.has_next_stage, "city clear cannot start unsupported stage three")
+	_screen._results._process(4.0)
+	for item: Menu.Item in _screen._results._menu.items:
+		item.action.call()
+	check_eq(actions, [["retry", "", 2], ["title"]], "clear retry starts the whole city; title uses the title flow")
+
+
+func test_stage_one_results_keep_the_next_stage_action() -> void:
+	Game.stage = 1
+	_results = Results.new()
+	_results.stats = RunStats.new()
+	_results.has_next_stage = true
+	add_child(_results)
+	_results._process(4.0)
+	check_eq(_results._menu.items.size(), 3, "stage one still offers next stage, retry and title")
+	var next := [false]
+	_results.next_stage.connect(func() -> void: next[0] = true)
+	_results._menu.items[0].action.call()
+	check(next[0], "next-stage menu action reaches its flow signal")
+	check_eq(_results.clear_heading(), tr("STAGE_CLEAR"), "stage-one heading is unchanged")
 
 
 func test_checkpoint_results_do_not_save_bests() -> void:

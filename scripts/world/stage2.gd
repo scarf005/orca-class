@@ -125,4 +125,73 @@ func fog_distance(d: float) -> float:
 
 
 func music(section: int) -> String:
-	return "res://assets/music/stage_b.ogg" if section in [Section.VIADUCT, Section.CANYON] else "res://assets/music/stage_a.ogg"
+	match section:
+		Section.BAY:
+			return ""
+		Section.PLAZA:
+			return "res://assets/music/stage2_hovercraft.ogg"
+		Section.CANYON:
+			return "res://assets/music/stage2_canyon.ogg"
+	return "res://assets/music/stage2_boulevard.ogg"
+
+
+func events(hard: bool) -> Array[Dictionary]:
+	var e: Array[Dictionary] = []
+	var wave := func(d: float, kind: String, extra: Dictionary) -> void:
+		var event := {"d": d, "type": "wave", "kind": kind, "hard_scale": 1.0}
+		event.merge(extra)
+		e.append(event)
+
+	# Boulevard: time to read the flooded street, then one LOSAT hunter behind the 336 m building.
+	e.append({"d": 160.0, "type": "pickup", "id": "heat", "ahead": 30.0})
+	wave.call(240.0, "abel", {"u": 25.0, "ahead": 120.0, "drop": "coax"})
+	e.append({"d": 520.0, "type": "pickup", "id": "apfsds"})
+
+	# Viaduct: the deck shooters make looking up matter; mines leave a gap down the road.
+	wave.call(720.0, "kain", {"u": -42.0, "ahead": 80.0, "height": 30.3})
+	wave.call(870.0, "sea_mine", {"count": 2, "u": -12.0, "spacing": 4.0, "ahead": 45.0})
+	wave.call(970.0, "rooftop_battery", {"u": 42.0, "ahead": 80.0})
+	e.append({"d": 1070.0, "type": "pickup", "id": "atgm"})
+	wave.call(1140.0, "hind", {"u": -16.0, "height": 7.0, "ahead": 90.0, "drop": "micro"})
+	wave.call(1330.0, "kain", {"u": 10.0, "ahead": 80.0})
+	wave.call(1350.0, "adam", {"u": 4.0, "ahead": 35.0, "drop": "heat"})
+	e.append({"d": 1390.0, "type": "hold", "at": 1405.0, "timeout": 30.0, "reward": "atgm"})
+	e.append({"d": 1480.0, "type": "pickup", "id": "micro", "u": -4.0})
+
+	# Plaza: missiles are an option, not the only supply. Direct rounds bypass its missile defense.
+	e.append({"d": 1660.0, "type": "checkpoint", "name": "midboss"})
+	e.append({"d": 1680.0, "type": "pickup", "id": "repair", "u": 4.0, "ahead": 25.0})
+	e.append({"d": 1720.0, "type": "pickup", "id": "heat", "u": -4.0, "ahead": 20.0})
+	e.append({"d": 1750.0, "type": "pickup", "id": "apfsds", "ahead": 15.0})
+	e.append({"d": PLAZA_D - 110.0, "type": "midboss", "kind": "hovercraft", "hold": PLAZA_D - 56.0, "music": "res://assets/music/stage2_hovercraft.ogg"})
+
+	# Canyon: paired hunters use opposite buildings, then an Adam screens the gun carrier.
+	e.append({"d": 2180.0, "type": "pickup", "id": "era"})
+	wave.call(2240.0, "abel", {"count": 2, "formation": "sides", "spacing": 23.0, "ahead": 144.0})
+	wave.call(2260.0, "hind", {"u": 16.0, "height": 7.0, "ahead": 85.0})
+	wave.call(2440.0, "sea_mine", {"count": 2, "u": 12.0, "spacing": 4.0, "ahead": 45.0})
+	# Release 2440-2660, with a round to answer the next pair.
+	e.append({"d": 2540.0, "type": "pickup", "id": "apfsds"})
+	wave.call(2660.0, "kain", {"u": -8.0, "ahead": 70.0})
+	wave.call(2670.0, "adam", {"u": -4.0, "ahead": 40.0})
+	wave.call(2710.0, "helicopter", {"u": 16.0, "height": 14.0, "ahead": 90.0, "drop": "airburst"})
+	wave.call(2880.0, "abel", {"count": 2, "formation": "sides", "spacing": 23.0, "ahead": 132.0})
+	wave.call(2900.0, "hind", {"u": -16.0, "height": 7.0, "ahead": 112.0})
+	wave.call(3000.0, "sea_mine", {"count": 2, "u": -12.0, "spacing": 4.0, "ahead": 45.0})
+	e.append({"d": 3040.0, "type": "hold", "at": 3055.0, "timeout": 35.0, "reward": "repair"})
+
+	# Bay: a long release to refit, then the all-range fight. Phase two owns its own music.
+	e.append({"d": 3260.0, "type": "pickup", "id": "era", "u": -4.0})
+	e.append({"d": 3330.0, "type": "pickup", "id": "heat", "u": 4.0})
+	e.append({"d": 3390.0, "type": "checkpoint", "name": "boss"})
+	e.append({"d": 3450.0, "type": "pickup", "id": "repair", "u": -4.0, "ahead": 20.0})
+	e.append({"d": 3490.0, "type": "pickup", "id": "apfsds", "ahead": 15.0})
+	e.append({"d": BAY_D - 110.0, "type": "boss", "kind": "landsword", "height": 0.0, "music": "res://assets/music/stage2_boss.ogg"})
+
+	if hard:
+		# Pressure from the other deck and an extra flanker, never during an opening or release.
+		wave.call(990.0, "rooftop_battery", {"u": -42.0, "ahead": 80.0})
+		wave.call(2300.0, "kain", {"u": -10.0, "ahead": 80.0})
+		wave.call(2940.0, "helicopter", {"u": 16.0, "height": 14.0, "ahead": 90.0})
+	e.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.d < b.d)
+	return e

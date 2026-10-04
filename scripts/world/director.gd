@@ -63,6 +63,7 @@ static var PURSUIT_FILL := 1.5 ## Seconds of slowness before the first group lau
 static var PURSUIT_GROUP := 2 ## Drones in the first group; each later group of the same spell has one more, up to 4.
 static var PURSUIT_INTERVAL := 2.5 ## Seconds between groups while the tank stays slow.
 const PURSUIT_MAX := 10 ## Pursuers alive at once, so a long crawl cannot bury the tank.
+const PURSUIT_STAGES := [1] ## City cover fights need time to aim without drawing drone swarms.
 
 var events: Array[Dictionary] = []
 var slow_meter := 0.0 ## 0..1: fills while the tank is slow on the rail, drains while it is fast.
@@ -96,8 +97,17 @@ func begin(checkpoint: String) -> void:
 	# Load every enemy script and music track now so first appearances do not hitch.
 	for path: String in ENEMY_SCRIPTS.values():
 		load(path)
-	for track in ["stage_a", "stage_b", "boss"]:
-		load("res://assets/music/%s.ogg" % track)
+	var tracks := {}
+	for i in Course.stage.section_starts.size():
+		tracks[Course.stage.music(i)] = true
+	for event in events:
+		if event.type == "boss":
+			tracks[event.get("music", "res://assets/music/boss.ogg")] = true
+		if event.type == "music" or event.has("music"):
+			tracks[event.get("music", event.get("path", ""))] = true
+	for track: String in tracks:
+		if not track.is_empty():
+			load(track)
 	world.add_child(scenery)
 	scenery.build()
 	scenery.stream(world.rail.d, 100000)
@@ -156,7 +166,7 @@ func _process(delta: float) -> void:
 ## Only the rail running (never a hold, the duel or the arena) counts the tank's speed.
 func _update_pursuit(delta: float) -> void:
 	var world := World.current
-	if Game.difficulty == Game.Difficulty.EASY or world.rail.mode != Rail.Mode.RAIL or world.player.dead:
+	if Course.stage.number not in PURSUIT_STAGES or Game.difficulty == Game.Difficulty.EASY or world.rail.mode != Rail.Mode.RAIL or world.player.dead:
 		slow_meter = 0.0
 		_pursuit_groups = 0
 		return
@@ -351,6 +361,8 @@ func _start_midboss(event: Dictionary) -> void:
 	world.add_enemy(boss)
 	world.boss = boss
 	world.boss_changed.emit(boss)
+	if event.has("music"):
+		Sfx.play_music(event.music)
 	boss.died.connect(func(_e: Entity) -> void:
 		world.boss = null
 		world.boss_changed.emit(null)
@@ -361,11 +373,11 @@ func _start_boss(event: Dictionary) -> void:
 	var world := World.current
 	world.rail.mode = Rail.Mode.ARENA
 	var boss: Enemy = load(ENEMY_SCRIPTS[event.kind]).new()
-	boss.position = Course.stage.boss_position()
+	boss.position = Course.ground_at(Course.stage.arena_center_d + event.get("ahead", 70.0), event.get("u", 0.0)) + Vector3.UP * float(event.height) if event.has("height") else Course.stage.boss_position()
 	world.add_enemy(boss)
 	world.boss = boss
 	world.boss_changed.emit(boss)
 	boss.died.connect(func(_e: Entity) -> void:
 		world.boss_changed.emit(null)
 		get_tree().create_timer(BOSS_CLEAR_DELAY).timeout.connect(world.stage_cleared.emit))
-	Sfx.play_music("res://assets/music/boss.ogg")
+	Sfx.play_music(event.get("music", "res://assets/music/boss.ogg"))
