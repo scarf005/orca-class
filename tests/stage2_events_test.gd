@@ -1,5 +1,5 @@
 extends TestCase
-## City pacing, loadout choices and stage-local results, without depending on pending bosses.
+## City pacing, loadout choices, boss flow and stage-local results.
 
 var _saved_bests := {}
 var _saved_path := ""
@@ -34,7 +34,7 @@ func cleanup() -> void:
 	super.cleanup()
 
 
-func test_events_are_ordered_and_kinds_are_available_or_pending() -> void:
+func test_events_are_ordered_and_kinds_are_available() -> void:
 	for hard in [false, true]:
 		var previous := -INF
 		var events := Stage2.new().events(hard)
@@ -42,7 +42,7 @@ func test_events_are_ordered_and_kinds_are_available_or_pending() -> void:
 		for event in events:
 			check(event.d >= previous and event.d < Stage2.LENGTH, "events advance within the course")
 			previous = event.d
-			if event.has("kind") and event.kind not in ["hovercraft", "landsword"]:
+			if event.has("kind"):
 				check(Director.ENEMY_SCRIPTS.has(event.kind), "%s is registered" % event.kind)
 				if Director.ENEMY_SCRIPTS.has(event.kind):
 					check(ResourceLoader.exists(Director.ENEMY_SCRIPTS[event.kind]), "%s script exists" % event.kind)
@@ -160,12 +160,9 @@ func test_opening_hunter_is_outside_cover_and_cannot_fire_through_it() -> void:
 	check_eq(world.projectiles.size(), shots, "cover blocks the first attack")
 
 
-func test_boss_deaths_resume_then_clear_when_sibling_scripts_exist() -> void:
+func test_boss_deaths_resume_then_clear() -> void:
 	for type in ["midboss", "boss"]:
 		var event: Dictionary = Stage2.new().events(false).filter(func(e: Dictionary) -> bool: return e.type == type)[0]
-		if not Director.ENEMY_SCRIPTS.has(event.kind) or not ResourceLoader.exists(Director.ENEMY_SCRIPTS.get(event.kind, "")):
-			print("PENDING city %s: sibling boss script is unavailable" % event.kind)
-			continue
 		var world := stage("", false, 2)
 		world.director.set_process(false)
 		world.rail.d = event.d
@@ -216,6 +213,62 @@ func test_stage_one_results_keep_the_next_stage_action() -> void:
 	_results._menu.items[0].action.call()
 	check(next[0], "next-stage menu action reaches its flow signal")
 	check_eq(_results.clear_heading(), tr("STAGE_CLEAR"), "stage-one heading is unchanged")
+
+
+func test_checkpoint_unlock_selection_and_game_over_retry_stay_in_city() -> void:
+	for checkpoint in ["midboss", "boss"]:
+		_screen = GameScreen.new()
+		_screen.stage = 2
+		add_child(_screen)
+		_screen.world.process_mode = Node.PROCESS_MODE_DISABLED
+		_screen.world.director._fire({"type": "checkpoint", "name": checkpoint})
+		check(Game.is_checkpoint_unlocked(checkpoint, 2), "reached city checkpoint is unlocked")
+		check(not Game.is_checkpoint_unlocked(checkpoint, 1), "city unlock does not leak to stage one")
+		var select := StageSelect.new()
+		select.selected_stage = 2
+		var selected := []
+		select.selected.connect(func(_difficulty: Game.Difficulty, name: String, number: int) -> void: selected.append([name, number]))
+		select._activate_checkpoint(select._checkpoints().find(checkpoint))
+		check_eq(selected, [[checkpoint, 2]], "stage selection starts the unlocked city checkpoint")
+		select.free()
+		var retries := []
+		_screen.restart.connect(func(name: String) -> void: retries.append(name))
+		_screen.world.game_over.emit()
+		check(await wait_until(func() -> bool: return _screen._overlay != null, 180), "game over offers checkpoint retry")
+		if _screen._overlay != null:
+			_screen._overlay.items[0].action.call()
+			check_eq(retries, [checkpoint], "continue retries the reached checkpoint")
+			_screen._close_overlay()
+		get_tree().paused = false
+		remove_child(_screen)
+		_screen.queue_free()
+		_screen = null
+		await frames(1)
+		var world := stage(checkpoint, false, 2)
+		check_near(world.rail.d, 1660.0 if checkpoint == "midboss" else 3390.0, 0.01, "retry loads the city approach")
+		check(world.player.coax_tier >= 2 and world.player.modules.laser_online(), "retry restores the city loadout")
+		check(not world.stats.ranked, "retry remains unranked")
+
+
+func test_city_checkpoint_clear_retries_the_selected_checkpoint() -> void:
+	for checkpoint in ["midboss", "boss"]:
+		_screen = GameScreen.new()
+		_screen.stage = 2
+		_screen.checkpoint = checkpoint
+		add_child(_screen)
+		_screen.world.process_mode = Node.PROCESS_MODE_DISABLED
+		var retries := []
+		_screen.restart.connect(func(name: String) -> void: retries.append(name))
+		_screen.world.stage_cleared.emit()
+		check(await wait_until(func() -> bool: return _screen._results != null, 180), "checkpoint clear reaches results")
+		if _screen._results != null:
+			_screen._results._process(4.0)
+			_screen._results._menu.items[0].action.call()
+			check_eq(retries, [checkpoint], "results retry preserves the checkpoint sortie")
+		remove_child(_screen)
+		_screen.queue_free()
+		_screen = null
+		await frames(1)
 
 
 func test_checkpoint_results_do_not_save_bests() -> void:

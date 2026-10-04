@@ -51,6 +51,27 @@ func test_roof_battery_uses_actual_rectangle_and_unstreamed_deck() -> void:
 	check_near(edge.position.y, Course.height_at(edge.position), 0.01, "outside the rectangular deck cannot count as its roof")
 
 
+func test_hunter_reaches_rectangular_city_cover_then_peeks_into_line_of_sight() -> void:
+	var world := stage("", false, 2)
+	world.process_mode = Node.PROCESS_MODE_DISABLED
+	world.player.global_position = Course.ground_at(20.0, -25.0)
+	var hunter := Abel.new()
+	hunter.position = Course.ground_at(90.0, -25.0)
+	world.add_enemy(hunter)
+	hunter._attack_timer = INF
+	check(hunter.seek_cover(world.player), "a real city facade provides cover")
+	var goal := hunter._cover_goal
+	check(not BipedMech.line_blocked(goal + Vector3.UP * (hunter.radius + 0.1), goal + Vector3.UP * (hunter.radius + 0.1), hunter.radius), "hide goal is outside the real padded rectangular footprint")
+	for _i in 900:
+		hunter.behave(1.0 / 60.0)
+		if hunter._peek:
+			break
+	check(hunter._peek, "hunter reaches shelter and starts its peek rather than stalling")
+	for _i in 600:
+		hunter.behave(1.0 / 60.0)
+	check(not BipedMech.line_blocked(world.player.hit_center(), hunter.hit_center()), "real city firing edge restores sight")
+
+
 func test_boss_start_uses_active_stage_theme_before_any_deferred_call() -> void:
 	var silent := Game.silent
 	Game.silent = false
