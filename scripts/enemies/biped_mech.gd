@@ -168,7 +168,7 @@ func walk_to(goal: Vector3, speed: float, delta: float) -> void:
 	global_position.y = CityCover.surface_at(next, next.y + 1.0)
 
 
-func move_hunter(tank: Tank, delta: float, planted: bool, keep := 65.0) -> void:
+func move_hunter(tank: Tank, delta: float, planted: bool, keep := 52.0) -> void:
 	var toward := tank.global_position - global_position
 	model.rotation.y = lerp_angle(model.rotation.y, atan2(-toward.x, -toward.z), minf(delta * 4.0, 1.0))
 	if toppled:

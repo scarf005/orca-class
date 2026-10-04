@@ -96,7 +96,7 @@ func behave(delta: float) -> void:
 	var tank := player()
 	if tank == null:
 		return
-	move_hunter(tank, delta, _wind > 0.0 or _burst > 0, 80.0)
+	move_hunter(tank, delta, _wind > 0.0 or _burst > 0, 58.0)
 	if toppled or is_staggered():
 		_cancel()
 		return

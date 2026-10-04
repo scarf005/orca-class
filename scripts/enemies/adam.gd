@@ -3,8 +3,8 @@ extends BipedMech
 ## Construction biped that stands between the tank and its allies. The breaker marks one patch;
 ## the carried I-beam sweeps a wider arc. Exposed hydraulic hoses stop the breaker, legs stop both.
 
-const SLAM_RADIUS := 5.0
-const BEAM_REACH := 9.0
+const SLAM_RADIUS := 7.5 ## Arm and beam are drawn 1.6 times larger than their model-space layout, and reach as far.
+const BEAM_REACH := 13.0
 
 var hose_hp := 35.0
 var disarmed := false
@@ -102,7 +102,7 @@ func guard_spot(tank: Tank) -> Vector3:
 		if distance < best:
 			ally = enemy
 			best = distance
-	var spot := tank.global_position + (global_position - tank.global_position).normalized() * 10.0
+	var spot := tank.global_position + (global_position - tank.global_position).normalized() * 9.0
 	if ally != null:
 		spot = ally.global_position + (tank.global_position - ally.global_position).normalized() * (ally.radius + radius + 3.0)
 	spot.y = Course.height_at(spot)
@@ -138,7 +138,7 @@ func behave(delta: float) -> void:
 			_follow = 0.4
 		return
 	_attack_timer -= delta
-	if _attack_timer <= 0.0 and global_position.distance_to(tank.global_position) < (8.0 if _next_breaker and not disarmed else 12.0):
+	if _attack_timer <= 0.0 and global_position.distance_to(tank.global_position) < (13.0 if _next_breaker and not disarmed else 16.0):
 		_breaker = _next_breaker and not disarmed
 		_wind = (0.9 if _breaker else 1.1) * Game.telegraph_scale()
 		_attack_timer = 2.0 if _hard else 2.8

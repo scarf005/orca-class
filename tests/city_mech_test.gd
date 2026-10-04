@@ -342,7 +342,7 @@ func test_boosted_losat_can_be_zapped_during_real_flight() -> void:
 
 
 func test_adam_beam_hits_front_but_not_behind_or_out_of_reach() -> void:
-	for offset in [Vector3(0, 0, -7), Vector3(0, 0, 7), Vector3(0, 0, -11)]:
+	for offset in [Vector3(0, 0, -10), Vector3(0, 0, 10), Vector3(0, 0, -15)]:
 		var world := await _setup()
 		var adam := Adam.new()
 		_spawn(world, adam)
@@ -351,7 +351,7 @@ func test_adam_beam_hits_front_but_not_behind_or_out_of_reach() -> void:
 		world.player.global_position = adam.global_position + offset
 		var hp := world.player.hp
 		adam._land_attack(world.player)
-		check_eq(world.player.hp < hp, offset.z == -7.0, "I-beam only lands inside its forward sweep at %s" % offset)
+		check_eq(world.player.hp < hp, offset.z == -10.0, "I-beam only lands inside its forward sweep at %s" % offset)
 
 
 func test_tail_stab_interrupts_city_hunters() -> void:
