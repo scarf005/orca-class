@@ -53,6 +53,7 @@ const PROPS := {
 	"city_pier": [3.0, 24.0, 200.0, false, false, 0, false, false],
 	"city_deck": [12.0, 1.8, 200.0, false, false, 0, false, false],
 	"container": [7.0, 2.8, 200.0, false, false, 0, false, false],
+	"ship": [8.0, 8.0, 200.0, false, false, 0, false, false],
 }
 
 ## The highway crossing overhead: piers standing in the valley (lateral offsets) and deck spans
@@ -69,7 +70,7 @@ const VEHICLES := ["car", "truck", "infested_car", "cultivator"]
 const FALLING := ["pole", "plane_tree", "persimmon", "cordyceps"]
 
 ## Solid buildings and structures: the tank breaks them but is slowed hard (Rail.jolt).
-const HARD := ["house", "infested_house", "hall", "church_nave", "church_tower", "church_spire", "school_wing", "school_center", "gas_station", "overpass_pier", "overpass_deck", "gate", "rock", "fungal_spire", "zelkova_trunk", "city_building", "city_pier", "city_deck", "container"]
+const HARD := ["house", "infested_house", "hall", "church_nave", "church_tower", "church_spire", "school_wing", "school_center", "gas_station", "overpass_pier", "overpass_deck", "gate", "rock", "fungal_spire", "zelkova_trunk", "city_building", "city_pier", "city_deck", "container", "ship"]
 
 ## Plain props that spawn overgrown more often the deeper the stage goes.
 const INFESTED := {"house": "infested_house", "car": "infested_car"}
@@ -194,9 +195,43 @@ func _city() -> void:
 		var spec := add(structure.kind, structure.d, structure.u, structure.yaw, structure.variant)
 		spec.size = structure.size
 		spec.set_meta("y", structure.y)
+	var stage := Course.stage as Stage2
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20261004
+	for d in range(100, int(Stage2.LENGTH) - 300, 36):
+		if stage.in_arena(float(d), 40.0):
+			continue
+		var side := -1.0 if (d / 36) % 2 == 0 else 1.0
+		add_decor(CityKit.decor("streetlamp"), float(d), side * 11.5, 0.0 if side < 0.0 else PI, stage.height(float(d), side * 11.5))
+	for d in range(180, int(Stage2.LENGTH) - 300, 140):
+		if stage.in_arena(float(d), 60.0):
+			continue
+		add_decor(CityKit.decor("traffic_light"), float(d), 11.0, PI, stage.height(float(d), 11.0))
+		add_decor(CityKit.decor("road_sign", d % 4), float(d) + 55.0, -11.5, 0.0, stage.height(float(d), -11.5))
+	for d in range(150, int(Stage2.LENGTH) - 300, 95):
+		if stage.in_arena(float(d), 40.0):
+			continue
+		var u := rng.randf_range(-12.0, 12.0)
+		add_decor(CityKit.decor("raft", rng.randi_range(0, 5)), float(d), u, rng.randf() * TAU, Stage2.WATER_LEVEL + 0.02)
+	for d in range(220, int(Stage2.LENGTH) - 300, 210):
+		if stage.in_arena(float(d), 50.0):
+			continue
+		var u := rng.randf_range(-7.0, 7.0)
+		add_decor(CityKit.decor("bus_wreck"), float(d), u, rng.randf_range(-0.4, 0.4), Stage2.WATER_LEVEL - 0.9)
+	for d in range(330, int(Stage2.LENGTH) - 300, 260):
+		if stage.in_arena(float(d), 50.0):
+			continue
+		add_decor(CityKit.decor("barricade"), float(d), rng.randf_range(-6.0, 6.0), rng.randf_range(-0.3, 0.3), stage.height(float(d), 0.0))
+		add_decor(CityKit.decor("rubble", d % 4), float(d) + 20.0, 11.0 if d % 2 == 0 else -11.0, rng.randf() * TAU, stage.height(float(d), 11.0))
+	for i in 5:
+		var side := -1.0 if i % 2 == 0 else 1.0
+		add_decor(CityKit.decor("crane"), Stage2.BAY_D - 110.0 + i * 55.0, side * 158.0, PI * 0.5 * side, Stage2.WATER_LEVEL - 4.0)
+	for i in 14:
+		var angle := TAU * i / 14.0 + 0.2
+		add_decor(CityKit.decor("raft", i % 6), Stage2.BAY_D + sin(angle) * 70.0, cos(angle) * 70.0, angle, Stage2.WATER_LEVEL + 0.02)
 	for d in range(100, 1600, 110):
 		add("car", float(d), -6.5 if d % 3 else 6.5, 0.15, d % 5)
-		add_decor(_gantry_mesh(), float(d) + 45.0, 0.0)
+		add_decor(CityKit.decor("gantry"), float(d) + 45.0, 0.0)
 	for d in range(2250, 3150, 180):
 		add("truck", float(d), 8.0, 0.0, 1)
 

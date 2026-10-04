@@ -1,0 +1,265 @@
+class_name CityKit
+extends RefCounted
+## Street furniture and wreckage for the Submerged City, plus the facades of its towers.
+## Decor meshes are cached by kind; towers vary by size and variant.
+
+static var _cache := {}
+
+const FACADES := [Palette.CONCRETE, Palette.STONE, Palette.SKY, Palette.ASH, Palette.TEAL, Palette.MIST, Palette.BLUSH, Palette.PEACH]
+const AWNINGS := [Palette.CORAL, Palette.TEAL, Palette.BUTTER, Palette.LILAC, Palette.MINT]
+
+
+static func decor(kind: String, variant := 0) -> Mesh:
+	var key := "%s:%d" % [kind, variant]
+	if not _cache.has(key):
+		var rng := RandomNumberGenerator.new()
+		rng.seed = hash(key)
+		_cache[key] = Callable(CityKit, "_" + kind).call(variant, rng)
+	return _cache[key]
+
+
+static func _xf(pos: Vector3, yaw := 0.0, pitch := 0.0, roll := 0.0) -> Transform3D:
+	return Transform3D(Basis.from_euler(Vector3(pitch, yaw, roll)), pos)
+
+
+static func _streetlamp(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.prism(_xf(Vector3.ZERO), 0.22, 0.5, 6, Palette.STONE, 0.18)
+	b.prism(_xf(Vector3(0, 0.5, 0)), 0.11, 8.0, 6, Palette.ASH, 0.08)
+	b.box(_xf(Vector3(1.0, 8.4, 0), 0, 0, -0.08), Vector3(2.4, 0.16, 0.16), Palette.ASH)
+	b.box(_xf(Vector3(2.0, 8.25, 0)), Vector3(0.9, 0.22, 0.4), Palette.STONE)
+	b.glow = true
+	b.box(_xf(Vector3(2.0, 8.1, 0)), Vector3(0.7, 0.08, 0.28), Palette.BUTTER)
+	return b.mesh()
+
+
+static func _traffic_light(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.prism(_xf(Vector3.ZERO), 0.16, 6.2, 6, Palette.SLATE, 0.12)
+	b.box(_xf(Vector3(-2.2, 6.0, 0)), Vector3(4.6, 0.18, 0.18), Palette.SLATE)
+	for i in 2:
+		var x := -1.6 - i * 2.0
+		b.box(_xf(Vector3(x, 5.5, 0)), Vector3(0.5, 1.4, 0.5), Palette.INK)
+		b.glow = true
+		b.box(_xf(Vector3(x, 5.9, 0.27)), Vector3(0.28, 0.28, 0.04), Palette.RED)
+		b.box(_xf(Vector3(x, 5.5, 0.27)), Vector3(0.28, 0.28, 0.04), Palette.BUTTER)
+		b.box(_xf(Vector3(x, 5.1, 0.27)), Vector3(0.28, 0.28, 0.04), Palette.NANITE if i == 0 else Palette.INK)
+		b.glow = false
+	return b.mesh()
+
+
+static func _road_sign(variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.prism(_xf(Vector3.ZERO), 0.08, 4.0, 5, Palette.ASH)
+	var face: Color = [Palette.PERIWINKLE, Palette.MINT, Palette.BUTTER, Palette.CORAL][variant % 4]
+	b.box(_xf(Vector3(0, 4.0, 0.1)), Vector3(2.4, 1.2, 0.1), face)
+	b.box(_xf(Vector3(0, 4.0, 0.17)), Vector3(1.8, 0.14, 0.03), Palette.WHITE)
+	b.box(_xf(Vector3(-0.3, 3.7, 0.17)), Vector3(1.0, 0.1, 0.03), Palette.WHITE)
+	return b.mesh()
+
+
+## A city bus on its side in the water, the roof and one flank above the surface.
+static func _bus_wreck(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	var tilt := 0.35
+	b.box(_xf(Vector3(0, 0.9, 0), 0, 0, tilt), Vector3(2.5, 2.6, 11.0), Palette.CORAL)
+	b.box(_xf(Vector3(0, 1.0, 0), 0, 0, tilt), Vector3(2.58, 0.4, 11.08), Palette.CREAM)
+	for z in range(-4, 5, 2):
+		b.box(_xf(Vector3(1.0, 1.7, float(z)), 0, 0, tilt), Vector3(0.1, 0.8, 1.2), Palette.SLATE)
+	b.box(_xf(Vector3(0, 2.45, 0), 0, 0, tilt), Vector3(1.8, 0.2, 10.0), Palette.MIST)
+	for z in [-3.6, 3.6]:
+		b.prism(_xf(Vector3(-1.5, 0.5, z), 0, 0, PI * 0.5 + tilt), 0.55, 0.4, 8, Palette.INK)
+	return b.mesh()
+
+
+## A jersey-barrier line with a stripe, askew in the current.
+static func _barricade(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	for i in 4:
+		var xf := _xf(Vector3(i * 2.1 - 3.2, 0.5, i * 0.12), 0.1 * i)
+		b.box(xf, Vector3(2.0, 1.0, 0.7), Palette.MIST)
+		b.box(xf * Transform3D(Basis(), Vector3(0, 0.15, 0.36)), Vector3(1.9, 0.25, 0.03), Palette.CORAL)
+	return b.mesh()
+
+
+## Planks, drums and a tyre bobbing together on the surface.
+static func _raft(variant: int, rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	for i in 4 + variant % 3:
+		b.box(_xf(Vector3(rng.randf_range(-2, 2), 0.05, rng.randf_range(-1.5, 1.5)), rng.randf() * TAU), Vector3(rng.randf_range(2.0, 3.5), 0.12, 0.35), Palette.WOOD)
+	for i in 1 + variant % 3:
+		var c: Color = [Palette.CORAL, Palette.TEAL, Palette.BUTTER][i % 3]
+		b.prism(_xf(Vector3(rng.randf_range(-1.5, 1.5), 0.0, rng.randf_range(-1.2, 1.2))), 0.4, 0.9, 8, c)
+	b.prism(_xf(Vector3(rng.randf_range(-1, 1), 0.0, rng.randf_range(-1, 1))), 0.6, 0.25, 10, Palette.INK)
+	b.box(_xf(Vector3(1.5, 0.1, 1.0), 0.6), Vector3(1.2, 0.5, 0.8), Palette.WHITE)
+	return b.mesh()
+
+
+static func _rubble(variant: int, rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	for i in 5 + variant % 4:
+		var color: Color = [Palette.CONCRETE, Palette.STONE, Palette.ASH][i % 3]
+		var r := rng.randf_range(0.6, 1.6)
+		b.blob(_xf(Vector3(rng.randf_range(-2.5, 2.5), r * 0.2, rng.randf_range(-2.5, 2.5))), r, color, 0, 0.35, i + variant)
+	b.box(_xf(Vector3(0.5, 1.0, -0.5), 0.5, 0.2, 0.3), Vector3(0.18, 2.2, 0.18), Palette.RED)
+	return b.mesh()
+
+
+## A road-wide gantry with the drowned route's signs.
+static func _gantry(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	for x in [-14.5, 14.5]:
+		b.box(_xf(Vector3(x, 4.5, 0)), Vector3(0.6, 9.0, 0.6), Palette.ASH)
+	b.box(_xf(Vector3(0, 9.0, 0)), Vector3(30.0, 0.6, 0.6), Palette.ASH)
+	b.box(_xf(Vector3(-6.0, 7.4, 0.35)), Vector3(8.0, 2.4, 0.15), Palette.MINT)
+	b.box(_xf(Vector3(6.0, 7.4, 0.35)), Vector3(8.0, 2.4, 0.15), Palette.PERIWINKLE)
+	for x in [-9.0, -6.0, -3.0, 3.0, 6.0, 9.0]:
+		b.box(_xf(Vector3(x, 7.7, 0.45)), Vector3(2.0, 0.28, 0.04), Palette.WHITE)
+		b.box(_xf(Vector3(x, 7.0, 0.45)), Vector3(1.2, 0.2, 0.04), Palette.WHITE)
+	return b.mesh()
+
+
+## Foam collar around a pier or a building base: a ring of pale flat quads on the water.
+static func foam(size: Vector3) -> Array:
+	var rects := []
+	var margin := 1.2
+	rects.append([Vector2(-size.x * 0.5 - margin, -size.z * 0.5 - margin), Vector2(size.x * 0.5 + margin, -size.z * 0.5)])
+	rects.append([Vector2(-size.x * 0.5 - margin, size.z * 0.5), Vector2(size.x * 0.5 + margin, size.z * 0.5 + margin)])
+	rects.append([Vector2(-size.x * 0.5 - margin, -size.z * 0.5), Vector2(-size.x * 0.5, size.z * 0.5)])
+	rects.append([Vector2(size.x * 0.5, -size.z * 0.5), Vector2(size.x * 0.5 + margin, size.z * 0.5)])
+	return rects
+
+
+## A tower: size is the exact collision box. Facade, windows, ground-floor shops, waterline stain and roof clutter vary by variant.
+static func tower(size: Vector3, variant: int) -> Mesh:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([size, variant])
+	var b := LowPoly.new()
+	var wall: Color = FACADES[variant % FACADES.size()]
+	var trim: Color = wall.lightened(0.35)
+	var dark: Color = wall.darkened(0.35)
+	b.box(_xf(Vector3(0, size.y * 0.5, 0)), size, wall)
+	var floors := int(size.y / 3.6)
+	var style := variant % 3 # 0 punched windows, 1 ribbon strips, 2 tall slits
+	var cols_x := maxi(2, int(size.x / 3.4))
+	var cols_z := maxi(2, int(size.z / 3.4))
+	# Vertical piers, floor bands and a cornice read as concrete frame, not a painted box.
+	for sx in [-1.0, 1.0]:
+		for sz in [-1.0, 1.0]:
+			b.box(_xf(Vector3(sx * (size.x * 0.5 - 0.35), size.y * 0.5, sz * (size.z * 0.5 - 0.35))), Vector3(0.9, size.y + 0.1, 0.9), trim)
+	for floor_index in range(2, floors, 3):
+		b.box(_xf(Vector3(0, floor_index * 3.6, 0)), Vector3(size.x + 0.25, 0.3, size.z + 0.25), trim)
+	b.box(_xf(Vector3(0, size.y + 0.3, 0)), Vector3(size.x + 0.8, 0.6, size.z + 0.8), trim)
+	# Windows on all four faces: [face center, along-axis, outward sign, columns, face width]
+	var faces := [
+		[Vector3(0, 0, size.z * 0.5 + 0.02), Vector3.RIGHT, 1.0, cols_x, size.x],
+		[Vector3(0, 0, -size.z * 0.5 - 0.02), Vector3.RIGHT, -1.0, cols_x, size.x],
+		[Vector3(size.x * 0.5 + 0.02, 0, 0), Vector3.BACK, -1.0, cols_z, size.z],
+		[Vector3(-size.x * 0.5 - 0.02, 0, 0), Vector3.BACK, 1.0, cols_z, size.z],
+	]
+	for face in faces:
+		var columns: int = face[3]
+		var width: float = face[4]
+		for floor_index in range(1, floors):
+			var y := 1.8 + floor_index * 3.6
+			for c in columns:
+				var offset := (float(c) + 0.5) / columns * (width - 3.0) - (width - 3.0) * 0.5
+				var lit := rng.randf() < 0.18
+				var out := rng.randf() < 0.05
+				var color: Color = Palette.BUTTER if lit else (Palette.INK if out else Palette.SLATE)
+				b.glow = lit
+				var half := (0.55 if style == 2 else (1.3 if style == 1 else 0.85))
+				var pos: Vector3 = face[0] + (face[1] as Vector3) * offset + Vector3(0, y, 0)
+				_window(b, pos, (face[1] as Vector3) * half, color, face[0].normalized(), 0.55 if style == 2 else (0.4 if style == 1 else 0.85))
+		b.glow = false
+		# Ground floor: dark glass, a coloured awning and a flooded waterline stain.
+		var awning: Color = AWNINGS[(variant + int(width)) % AWNINGS.size()]
+		for c in columns:
+			var offset := (float(c) + 0.5) / columns * (width - 3.0) - (width - 3.0) * 0.5
+			var pos: Vector3 = face[0] + (face[1] as Vector3) * offset
+			var out_dir := Vector3(face[0].x, 0, face[0].z).normalized()
+			_window(b, pos + Vector3(0, 1.9, 0), (face[1] as Vector3) * 1.2, Palette.INK, out_dir, 1.0)
+			b.box(Transform3D(Basis(), pos + Vector3(0, 3.0, 0) + out_dir * 0.7), (face[1] as Vector3).abs() * 2.8 + out_dir.abs() * 1.4 + Vector3(0, 0.12, 0), awning)
+	b.box(_xf(Vector3(0, 0.8, 0)), Vector3(size.x * 1.01, 1.6, size.z * 1.01), dark)
+	# Roof clutter.
+	b.box(_xf(Vector3(-size.x * 0.25, size.y + 1.1, -size.z * 0.2)), Vector3(4, 2.2, 3), Palette.SLATE)
+	b.prism(_xf(Vector3(size.x * 0.2, size.y + 0.6, size.z * 0.25)), 1.4, 2.4, 8, Palette.TEAL)
+	b.prism(_xf(Vector3(size.x * 0.2, size.y + 3.0, size.z * 0.25)), 1.6, 0.5, 8, Palette.STONE, 0.1)
+	for leg in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+		b.box(_xf(Vector3(size.x * 0.2 + leg.x, size.y + 1.4, size.z * 0.25 + leg.y)), Vector3(0.12, 2.8, 0.12), Palette.STONE)
+	if variant % 2 == 0:
+		b.box(_xf(Vector3(0, size.y + 4.5, 0)), Vector3(0.18, 8.0, 0.18), Palette.ASH)
+		b.glow = true
+		b.box(_xf(Vector3(0, size.y + 8.6, 0)), Vector3(0.4, 0.4, 0.4), Palette.HOT)
+		b.glow = false
+	else:
+		b.box(_xf(Vector3(0, size.y + 3.0, size.z * 0.5 - 0.6)), Vector3(size.x * 0.5, 3.0, 0.3), Palette.CORAL if variant % 4 == 1 else Palette.PERIWINKLE)
+		b.glow = true
+		b.box(_xf(Vector3(0, size.y + 3.0, size.z * 0.5 - 0.4)), Vector3(size.x * 0.4, 1.6, 0.05), Palette.CREAM)
+		b.glow = false
+	# A scar of broken windows and bare concrete where something hit the corner.
+	if variant % 3 != 1:
+		var y := rng.randf_range(0.5, 0.8) * size.y
+		b.box(_xf(Vector3(size.x * 0.5 - 0.1, y, size.z * 0.3)), Vector3(0.3, 5.0, 4.0), dark)
+	return b.mesh()
+
+
+## A shipping container: corrugated sides, door end and a painted stripe; the colour varies.
+static func container(size: Vector3, variant: int) -> Mesh:
+	var b := LowPoly.new()
+	var color: Color = [Palette.CORAL, Palette.TEAL, Palette.BUTTER, Palette.PERIWINKLE, Palette.MINT, Palette.LILAC][variant % 6]
+	b.box(_xf(Vector3(0, size.y * 0.5, 0)), size, color)
+	var along_x := size.x >= size.z
+	var length := size.x if along_x else size.z
+	for i in range(-int(length * 0.5) + 1, int(length * 0.5), 1):
+		for side in [-1.0, 1.0]:
+			var at := Vector3(float(i), size.y * 0.5, side * (size.z * 0.5 + 0.03)) if along_x else Vector3(side * (size.x * 0.5 + 0.03), size.y * 0.5, float(i))
+			b.box(_xf(at), Vector3(0.14, size.y - 0.3, 0.06) if along_x else Vector3(0.06, size.y - 0.3, 0.14), color.darkened(0.2))
+	b.box(_xf(Vector3(0, size.y + 0.03, 0)), Vector3(size.x - 0.4, 0.06, size.z - 0.4), color.lightened(0.2))
+	return b.mesh()
+
+
+## A grounded freighter: hull, deck cargo, bridge house, funnel and a derrick; long axis along x.
+static func ship(size: Vector3, variant: int) -> Mesh:
+	var b := LowPoly.new()
+	b.box(_xf(Vector3(0, size.y * 0.5, 0)), size, Palette.SLATE)
+	b.box(_xf(Vector3(0, size.y * 0.5 - size.y * 0.12, 0)), Vector3(size.x + 0.1, size.y * 0.3, size.z + 0.1), Palette.CORAL.darkened(0.2))
+	b.box(_xf(Vector3(0, size.y + 0.1, 0)), Vector3(size.x - 1.0, 0.2, size.z - 1.0), Palette.ASH)
+	for i in 5:
+		var color: Color = [Palette.CORAL, Palette.TEAL, Palette.BUTTER, Palette.PERIWINKLE, Palette.MINT][(i + variant) % 5]
+		b.box(_xf(Vector3(-size.x * 0.4 + i * 6.0, size.y + 1.5, 0)), Vector3(5.2, 2.8, size.z - 3.0), color)
+	b.box(_xf(Vector3(size.x * 0.34, size.y + 4.0, 0)), Vector3(8.0, 8.0, size.z - 4.0), Palette.WHITE)
+	for r in 3:
+		b.glow = r == 1
+		b.box(_xf(Vector3(size.x * 0.34, size.y + 2.4 + r * 2.2, 0)), Vector3(8.1, 0.9, size.z - 3.0), Palette.INK if r != 1 else Palette.BUTTER)
+	b.glow = false
+	b.prism(_xf(Vector3(size.x * 0.34 + 2.0, size.y + 8.0, 0)), 1.3, 3.5, 8, Palette.RED, 1.0)
+	b.box(_xf(Vector3(-size.x * 0.1, size.y + 6.0, 0)), Vector3(0.5, 10.0, 0.5), Palette.ASH)
+	b.box(_xf(Vector3(-size.x * 0.1 - 5.0, size.y + 11.0, 0), 0, 0, 0.6), Vector3(12.0, 0.3, 0.3), Palette.ASH)
+	return b.mesh()
+
+
+## A quay crane: legs, boom and a hanging spreader, for the harbour skyline.
+static func _crane(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	for x in [-6.0, 6.0]:
+		for z in [-5.0, 5.0]:
+			b.box(_xf(Vector3(x, 14.0, z)), Vector3(1.0, 28.0, 1.0), Palette.CORAL)
+	b.box(_xf(Vector3(0, 28.5, 0)), Vector3(14.0, 1.4, 12.0), Palette.CORAL)
+	b.box(_xf(Vector3(0, 32.0, 0), 0, 0.0), Vector3(2.0, 7.0, 2.0), Palette.CORAL)
+	b.box(_xf(Vector3(0, 30.5, -18.0)), Vector3(1.6, 1.6, 52.0), Palette.CREAM)
+	b.box(_xf(Vector3(0, 21.0, -26.0)), Vector3(2.4, 0.5, 5.0), Palette.INK)
+	b.box(_xf(Vector3(0, 25.8, -26.0)), Vector3(0.1, 9.5, 0.1), Palette.INK)
+	b.glow = true
+	b.box(_xf(Vector3(0, 34.0, 0)), Vector3(0.6, 0.6, 0.6), Palette.HOT)
+	return b.mesh()
+
+
+static func _window(b: LowPoly, center: Vector3, half_width: Vector3, color: Color, outward: Vector3, half_height: float) -> void:
+	var up := Vector3.UP * half_height
+	var a := center - half_width - up
+	var c := center + half_width - up
+	var e := center + half_width + up
+	var f := center - half_width + up
+	b.tri(a, c, e, color, outward)
+	b.tri(a, e, f, color, outward)

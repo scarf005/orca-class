@@ -60,13 +60,32 @@ func _init() -> void:
 	# Broken spans lie in the harbour, with space to circle either end.
 	_structure("city_deck", 3590.0, -45.0, Vector3(58.0, 1.8, 14.0), 0.8)
 	_structure("city_pier", 3580.0, -65.0, Vector3(4.0, 6.0, 4.0), -1.5)
+	# A sunken container yard on both flanks, stacked two high, and two grounded freighters as cover.
 	for d in [3530.0, 3570.0, 3710.0, 3750.0]:
 		for u in [-85.0, 85.0]:
-			_structure("container", d, u, Vector3(12.0, 2.8, 5.0), -1.3)
+			var tint := int(d / 10.0 + u) % 6
+			_structure("container", d, u, Vector3(12.0, 2.8, 5.0), -1.3, tint)
+			if tint % 2 == 0:
+				_structure("container", d, u + 0.4, Vector3(12.0, 2.8, 5.0), 1.5, tint + 1)
+	_structure("ship", BAY_D + 26.0, -104.0, Vector3(64.0, 7.0, 16.0), -3.5, 1)
+	_structure("ship", BAY_D - 52.0, 108.0, Vector3(54.0, 6.0, 14.0), -3.0, 3)
 
 
+## Towers keep their inner face where it was and vary in size, so no two neighbours match.
+## Local x is across the road and local z along it.
 func _building(d: float, u: float, variant: int) -> void:
-	_structure("city_building", d, u, Vector3(18.0, 18.0 + variant * 3.6, 24.0), height(d, u), variant)
+	var h := hash(Vector2(d, u))
+	var across := 18.0 + float((h >> 4) % 9)
+	var along := 20.0 + float(h % 5)
+	var centre := signf(u) * (absf(u) - 9.0 + across * 0.5) if u != 0.0 else u
+	_structure("city_building", d, centre, Vector3(across, 18.0 + variant * 3.6 + float((h >> 9) % 4), along), height(d, centre), variant + int((h >> 13) % 8))
+
+
+func in_arena(d: float, margin := 0.0) -> bool:
+	for arena in arenas:
+		if absf(d - arena.d) < arena.radius + margin:
+			return true
+	return false
 
 
 func _structure(kind: String, d: float, u: float, size: Vector3, y: float, variant := 0) -> void:
@@ -113,9 +132,37 @@ func water_mesh() -> ArrayMesh:
 			var c := Course.to_world(d + 20.0, float(u), WATER_LEVEL)
 			var e := Course.to_world(d + 20.0, u + 10.0, WATER_LEVEL)
 			var f := Course.to_world(float(d), u + 10.0, WATER_LEVEL)
-			var color := Palette.SKY if absf(u + 5.0) < 10.0 or section_at(float(d)) == Section.BAY else Palette.TEAL
+			var color := Color(Palette.SKY if absf(u + 5.0) < 10.0 or section_at(float(d)) == Section.BAY else Palette.SLATE.lerp(Palette.TEAL, 0.5), 0.85)
 			b.tri(a, c, e, color, Vector3.UP)
 			b.tri(a, e, f, color, Vector3.UP)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 77
+	for structure in structures:
+		if structure.kind == "city_deck":
+			continue
+		for rect: Array in CityKit.foam(structure.size):
+			var lo: Vector2 = rect[0]
+			var hi: Vector2 = rect[1]
+			var centre := Course.to_world(structure.d, structure.u, WATER_LEVEL + 0.03)
+			var yaw: float = Course.yaw_at(structure.d) + float(structure.yaw)
+			var basis := Basis(Vector3.UP, yaw)
+			var corners := [Vector3(lo.x, 0, lo.y), Vector3(hi.x, 0, lo.y), Vector3(hi.x, 0, hi.y), Vector3(lo.x, 0, hi.y)]
+			var p: Array[Vector3] = []
+			for corner: Vector3 in corners:
+				p.append(centre + basis * corner)
+			b.tri(p[0], p[1], p[2], Palette.CREAM, Vector3.UP)
+			b.tri(p[0], p[2], p[3], Palette.CREAM, Vector3.UP)
+	# Current streaks: pale slivers drifting along the street, so the flood reads as moving water.
+	for i in 3200:
+		var d := rng.randf_range(0.0, LENGTH)
+		var u := rng.randf_range(-70.0, 70.0)
+		if height(d, u) >= WATER_LEVEL - 0.1:
+			continue
+		var length := rng.randf_range(4.0, 14.0)
+		var a := Course.to_world(d, u, WATER_LEVEL + 0.02)
+		var c := Course.to_world(d + length, u, WATER_LEVEL + 0.02)
+		var side := Course.right(d) * 0.22
+		b.tri(a - side, c, a + side, Palette.WHITE, Vector3.UP)
 	return b.mesh()
 
 

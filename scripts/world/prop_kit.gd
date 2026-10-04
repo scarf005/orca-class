@@ -75,27 +75,12 @@ static func structure_mesh(kind: String, size: Vector3, variant: int) -> Mesh:
 	var key := "%s:%s:%d" % [kind, size, variant]
 	if _cache.has(key):
 		return _cache[key]
+	if kind in ["city_building", "container", "ship"]:
+		_cache[key] = Callable(CityKit, "tower" if kind == "city_building" else kind).call(size, variant)
+		return _cache[key]
 	var b := LowPoly.new()
-	var color: Color = [Palette.CONCRETE, Palette.STONE, Palette.SKY, Palette.ASH, Palette.TEAL, Palette.MIST][variant % 6]
-	b.box(_xf(Vector3(0, size.y * 0.5, 0)), size, color if kind == "city_building" else Palette.STONE)
-	if kind == "city_building":
-		for floor_index in int(size.y / 3.6):
-			var y := 1.8 + floor_index * 3.6
-			for side in [-1.0, 1.0]:
-				for x in [-6.0, -2.0, 2.0, 6.0]:
-					b.glow = (floor_index + int(x) + variant) % 5 == 0
-					_window(b, Vector3(x, y, side * (size.z * 0.5 + 0.02)), Vector3.RIGHT * 1.15, Palette.BUTTER if b.glow else Palette.SLATE, side)
-				for z in [-8.0, -4.0, 0.0, 4.0, 8.0]:
-					b.glow = (floor_index + int(z) + variant) % 7 == 0
-					_window(b, Vector3(side * (size.x * 0.5 + 0.02), y, z), Vector3.BACK * 1.15, Palette.CREAM if b.glow else Palette.SLATE, -side)
-		b.glow = false
-		for side in [-1.0, 1.0]:
-			b.box(_xf(Vector3(side * (size.x * 0.5 - 0.2), size.y + 0.4, 0)), Vector3(0.4, 0.8, size.z), Palette.MIST)
-			b.box(_xf(Vector3(0, size.y + 0.4, side * (size.z * 0.5 - 0.2))), Vector3(size.x, 0.8, 0.4), Palette.MIST)
-		b.box(_xf(Vector3(-3, size.y + 0.8, -5)), Vector3(4, 1.6, 3), Palette.SLATE)
-		b.box(_xf(Vector3(4, size.y + 1.5, 6)), Vector3(3, 3, 4), Palette.CONCRETE)
-		b.prism(_xf(Vector3(-5, size.y + 0.5, 7)), 1.5, 2.0, 8, Palette.TEAL)
-	elif kind == "city_deck":
+	b.box(_xf(Vector3(0, size.y * 0.5, 0)), size, Palette.STONE)
+	if kind == "city_deck":
 		var along_x := size.x >= size.z
 		for side in [-1.0, 1.0]:
 			var at := Vector3(0, size.y + 0.4, side * (size.z * 0.5 - 0.2)) if along_x else Vector3(side * (size.x * 0.5 - 0.2), size.y + 0.4, 0)
@@ -106,10 +91,6 @@ static func structure_mesh(kind: String, size: Vector3, variant: int) -> Mesh:
 			b.box(_xf(at), Vector3(5, 0.03, 0.22) if along_x else Vector3(0.22, 0.03, 5), Palette.CREAM)
 	elif kind == "city_pier":
 		b.box(_xf(Vector3(0, size.y - 0.4, 0)), Vector3(size.x + 1.0, 0.8, size.z + 1.0), Palette.CONCRETE)
-	else:
-		for x in range(-int(size.x * 0.5) + 1, int(size.x * 0.5), 1):
-			for side in [-1.0, 1.0]:
-				b.box(_xf(Vector3(float(x), size.y * 0.5, side * size.z * 0.5)), Vector3(0.12, size.y - 0.2, 0.1), Palette.TEAL)
 	_cache[key] = b.mesh()
 	return _cache[key]
 

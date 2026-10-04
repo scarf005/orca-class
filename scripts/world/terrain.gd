@@ -51,8 +51,9 @@ func _ready() -> void:
 		_water.mesh = mesh
 		var material := water_material(Course.stage.number == 2)
 		if Course.stage.number == 2:
-			material.roughness = 0.55
-			material.metallic_specular = 0.25
+			material.roughness = 0.75
+			material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			material.metallic_specular = 0.12
 		_water.material_override = material
 		add_child(_water)
 
