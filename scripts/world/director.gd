@@ -98,11 +98,13 @@ func begin(checkpoint: String) -> void:
 	for path: String in ENEMY_SCRIPTS.values():
 		load(path)
 	var tracks := {}
+	for phase in 3:
+		tracks[Course.stage.boss_music(phase)] = true
 	for i in Course.stage.section_starts.size():
 		tracks[Course.stage.music(i)] = true
 	for event in events:
 		if event.type == "boss":
-			tracks[event.get("music", "res://assets/music/boss.ogg")] = true
+			tracks[event.get("music", Course.stage.boss_music())] = true
 		if event.type == "music" or event.has("music"):
 			tracks[event.get("music", event.get("path", ""))] = true
 	for track: String in tracks:
@@ -380,4 +382,4 @@ func _start_boss(event: Dictionary) -> void:
 	boss.died.connect(func(_e: Entity) -> void:
 		world.boss_changed.emit(null)
 		get_tree().create_timer(BOSS_CLEAR_DELAY).timeout.connect(world.stage_cleared.emit))
-	Sfx.play_music(event.get("music", "res://assets/music/boss.ogg"))
+	Sfx.play_music(event.get("music", Course.stage.boss_music()))

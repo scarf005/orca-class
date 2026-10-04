@@ -172,9 +172,7 @@ func _add_mesh(parent: Node3D, mesh: Mesh) -> void:
 
 
 func music_track() -> String:
-	if Course.stage.has_method("boss_music"):
-		return Course.stage.call("boss_music", phase)
-	return "res://assets/music/stage2_boss.ogg" if phase == Phase.SKATER else "res://assets/music/stage2_boss_phase2.ogg"
+	return Course.stage.boss_music(phase)
 
 
 func _play_music() -> void:

@@ -190,6 +190,10 @@ func music(section: int) -> String:
 	return "res://assets/music/stage2_boulevard.ogg"
 
 
+func boss_music(phase := 0) -> String:
+	return "res://assets/music/stage2_boss.ogg" if phase == 0 else "res://assets/music/stage2_boss_phase2.ogg"
+
+
 func events(hard: bool) -> Array[Dictionary]:
 	var e: Array[Dictionary] = []
 	var wave := func(d: float, kind: String, extra: Dictionary) -> void:
