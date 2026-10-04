@@ -8,6 +8,9 @@ class TestMain extends "res://scripts/main.gd":
 
 
 func _check_defaults(user_config: ConfigFile = null) -> void:
+	if not TestCase.is_isolated():
+		skip("persistent tuning checks require isolated test storage")
+		return
 	DirAccess.remove_absolute(USER_PATH)
 	if user_config != null:
 		check_eq(user_config.save(USER_PATH), OK, "save isolated user settings")
