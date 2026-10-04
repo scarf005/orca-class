@@ -6,7 +6,7 @@ extends Enemy
 ## Nose and flank plates protect the hull: a full charge or a HEAT round pops one, a plain shell only
 ## cracks it. A few bare-airframe cannon hits empty the hull, and a full charge counts as two.
 ## Every weapon and rotor is its own module with its own health: hitting one hurts only it (a rotor
-## takes three cannon hits, anything else two), and wrecking it tears it off the airframe and
+## takes three full charges, each weapon one), and wrecking it tears it off the airframe and
 ## silences that attack. One rotor lost lowers and banks the craft. Only the last phase can crash:
 ## earlier, losing both rotors or the hull makes it recover into the next phase instead. Weapons: two shoulder gatlings, a nose cannon, a chin ATGM drum,
 ## two wing rocket racks and a belly bomb bay. The three phases add flares, drone calls and the
@@ -22,7 +22,7 @@ const SHELL_WINDOW := 0.3 ## Seconds in which a shell's direct hit and its blast
 const AREA_ROUNDS := ["airburst", "canister"] ## Their hits, like every machine-gun round and fragment, glance off its armor.
 const SIDE_RATE := 16.0 ## Most hull per second that everything but the main gun and the machine guns takes together (wreck and chain blasts, rams, the tail, a dragon's breath).
 const ROTOR_HITS := 3 ## Full-charge hits that wreck a rotor.
-const MODULE_HITS := 2 ## Full-charge hits that wreck any other module.
+const MODULE_QUICK_HITS := 4 ## Quick shells that wreck a weapon; a full charge wrecks it outright.
 const COAX_MODULE := 0.2 ## Share of a machine-gun round's damage a weapon takes; the airframe and plates shrug it off.
 const PHASE_MARKS := [0.7, 0.34] ## Hull fraction at which the next phase begins.
 const ERA_HP := 100.0 ## A full charge or HEAT pops a plate, a plain shell cracks half of it; machine guns glance off.
@@ -472,7 +472,7 @@ func _cannon_strike(hit: Hit, splash: bool) -> float:
 	var struck := _struck_part(hit.position)
 	var plate := _plate_facing(model.to_local(hit.position))
 	if struck and struck.module:
-		struck.hp -= MODULE_HP[struck.name] / float(ROTOR_HITS if struck.name in ROTORS else MODULE_HITS) * weight
+		struck.hp -= MODULE_HP[struck.name] * (weight / float(ROTOR_HITS) if struck.name in ROTORS else 1.0 if charged else 1.0 / float(MODULE_QUICK_HITS))
 		world.fx.sparks(hit.position, -hit.direction, 10, Palette.BUTTER, 12.0)
 		if struck.hp <= 0.0:
 			_lose_part(struck, hit.direction)
