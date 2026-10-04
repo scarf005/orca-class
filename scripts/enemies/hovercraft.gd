@@ -64,12 +64,40 @@ func _init() -> void:
 
 func build() -> void:
 	var b := LowPoly.new()
-	# Wide rubber skirt, stepped deck, clipped bow and raised rear fan supports.
+	# Wide rubber skirt in hazard-banded fingers, a stepped deck, a clipped bow and an overbuilt bridge:
+	# this hull carries every weapon its builders could bolt on.
 	for z in [-4.8, -1.6, 1.6, 4.8]:
 		b.prism(Transform3D(Basis(Vector3.RIGHT, PI * 0.5).scaled(Vector3(1, 0.15, 1)), Vector3(0, 0.9, z)), 5.8 if z > -4.0 else 4.6, 3.2, 8, Palette.INK, 5.2)
-	b.box(Transform3D(Basis(), Vector3(0, 1.6, 0)), Vector3(10.0, 1.2, 13.0), Palette.ASH)
-	b.box(Transform3D(Basis(), Vector3(0, 2.4, 1)), Vector3(4.0, 0.8, 5.0), Palette.MIST)
-	b.box(Transform3D(Basis(), Vector3(0, 2.9, 0.4)), Vector3(3.3, 0.18, 2.0), Palette.BUTTER)
+	for i in 14:
+		var z := -6.0 + i * 0.95
+		for side in [-1.0, 1.0]:
+			b.box(Transform3D(Basis(), Vector3(side * 5.1, 1.0, z)), Vector3(0.12, 0.5, 0.48), Palette.BUTTER if i % 2 == 0 else Palette.INK)
+	b.box(Transform3D(Basis(), Vector3(0, 1.6, 0)), Vector3(10.0, 1.2, 13.0), Palette.CONCRETE, Palette.MIST)
+	b.box(Transform3D(Basis(Vector3.RIGHT, 0.35), Vector3(0, 1.75, -6.6)), Vector3(9.6, 0.9, 2.6), Palette.CONCRETE)
+	for side in [-1.0, 1.0]:
+		b.box(Transform3D(Basis(), Vector3(side * 5.05, 1.9, 0)), Vector3(0.1, 0.4, 11.5), Palette.CORAL)
+	# Bridge: two tiers of glazing, a radar scanner, a mast with a beacon and stowed searchlights.
+	b.box(Transform3D(Basis(), Vector3(0, 3.1, 2.0)), Vector3(4.6, 1.8, 3.4), Palette.MIST, Palette.WHITE)
+	b.box(Transform3D(Basis(), Vector3(0, 4.45, 2.2)), Vector3(3.2, 1.0, 2.4), Palette.WHITE, Palette.CREAM)
+	b.glow = true
+	b.box(Transform3D(Basis(Vector3.RIGHT, 0.0), Vector3(0, 3.25, 0.28)), Vector3(4.2, 0.5, 0.06), Palette.CYAN)
+	b.box(Transform3D(Basis(), Vector3(0, 4.55, 0.96)), Vector3(2.9, 0.4, 0.06), Palette.CYAN)
+	b.box(Transform3D(Basis(), Vector3(0, 6.9, 2.2)), Vector3(0.3, 0.3, 0.3), Palette.HOT)
+	b.glow = false
+	b.box(Transform3D(Basis(), Vector3(0, 6.0, 2.2)), Vector3(0.14, 3.0, 0.14), Palette.ASH)
+	b.box(Transform3D(Basis(), Vector3(0, 5.2, 2.2)), Vector3(3.4, 0.1, 0.5), Palette.INK)
+	b.box(Transform3D(Basis(), Vector3(0, 5.5, 2.2)), Vector3(0.5, 0.5, 0.5), Palette.DUSK)
+	for side in [-1.0, 1.0]:
+		b.box(Transform3D(Basis(), Vector3(side * 2.0, 4.1, 0.9)), Vector3(0.5, 0.4, 0.6), Palette.ASH)
+	# Missile cells in two banks on the deck, a gun-director dome and ammunition crates.
+	for side in [-1.0, 1.0]:
+		for ix in 3:
+			for iz in 4:
+				b.box(Transform3D(Basis(), Vector3(side * (3.0 + ix * 0.55), 2.4, -1.0 + iz * 0.6)), Vector3(0.46, 0.22, 0.5), Palette.DUSK)
+				b.box(Transform3D(Basis(), Vector3(side * (3.0 + ix * 0.55), 2.52, -1.0 + iz * 0.6)), Vector3(0.34, 0.04, 0.38), Palette.CORAL)
+	b.blob(Transform3D(Basis(), Vector3(-2.8, 2.7, 3.2)), 0.7, Palette.WHITE)
+	b.box(Transform3D(Basis(), Vector3(2.6, 2.5, 4.0)), Vector3(1.4, 0.8, 1.2), Palette.BUTTER)
+	b.box(Transform3D(Basis(), Vector3(0, 2.5, -3.0)), Vector3(2.4, 0.6, 1.4), Palette.ASH)
 	for x in [-4.5, 4.5]:
 		b.box(Transform3D(Basis(), Vector3(x, 2.25, 0)), Vector3(0.4, 0.2, 11.0), Palette.BUTTER)
 	_add_mesh(model, b.mesh())
@@ -131,9 +159,14 @@ func _weapon(at: Vector3, barrels: int, length: float) -> Node3D:
 	node.position = at
 	model.add_child(node)
 	var b := LowPoly.new()
-	b.box(Transform3D(), Vector3(2.4, 0.8, 1.6), Palette.STONE)
+	b.prism(Transform3D(Basis(), Vector3(0, -0.55, 0)), 0.9, 0.35, 8, Palette.DUSK)
+	b.box(Transform3D(), Vector3(2.4, 0.9, 1.7), Palette.MIST, Palette.WHITE)
+	b.box(Transform3D(Basis(Vector3.RIGHT, -0.3), Vector3(0, 0.1, -0.95)), Vector3(2.2, 0.8, 0.3), Palette.WHITE)
+	b.box(Transform3D(Basis(), Vector3(0, 0.5, 0.2)), Vector3(1.4, 0.15, 1.0), Palette.CORAL)
 	for i in barrels:
-		b.tube(Transform3D(Basis(Vector3.UP, PI), Vector3((i - (barrels - 1) * 0.5) * 0.35, 0, -0.8)), 0.14, length, 6, Palette.INK)
+		var x := (i - (barrels - 1) * 0.5) * 0.4
+		b.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(x, 0, -0.8)), 0.15, length, 6, Palette.INK)
+		b.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(x, 0, -0.8 - length * 0.9)), 0.2, length * 0.14, 6, Palette.ASH)
 	_add_mesh(node, b.mesh())
 	var muzzle := Node3D.new()
 	muzzle.name = "Muzzle"

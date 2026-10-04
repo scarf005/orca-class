@@ -81,6 +81,13 @@ func _building(d: float, u: float, variant: int) -> void:
 	_structure("city_building", d, centre, Vector3(across, 18.0 + variant * 3.6 + float((h >> 9) % 4), along), height(d, centre), variant + int((h >> 13) % 8))
 
 
+func _in_any_arena(d: float, u: float) -> bool:
+	for arena in arenas:
+		if Vector2(d - arena.d, u).length() < arena.radius + 8.0:
+			return true
+	return section_at(d) == Section.BAY
+
+
 func in_arena(d: float, margin := 0.0) -> bool:
 	for arena in arenas:
 		if absf(d - arena.d) < arena.radius + margin:
@@ -132,7 +139,7 @@ func water_mesh() -> ArrayMesh:
 			var c := Course.to_world(d + 20.0, float(u), WATER_LEVEL)
 			var e := Course.to_world(d + 20.0, u + 10.0, WATER_LEVEL)
 			var f := Course.to_world(float(d), u + 10.0, WATER_LEVEL)
-			var color := Color(Palette.SKY if absf(u + 5.0) < 10.0 or section_at(float(d)) == Section.BAY else Palette.SLATE.lerp(Palette.TEAL, 0.5), 0.85)
+			var color := Color(Palette.SKY if absf(u + 5.0) < 10.0 or _in_any_arena(d + 10.0, u + 5.0) else Palette.SLATE.lerp(Palette.TEAL, 0.5), 0.85)
 			b.tri(a, c, e, color, Vector3.UP)
 			b.tri(a, e, f, color, Vector3.UP)
 	var rng := RandomNumberGenerator.new()
