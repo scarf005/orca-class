@@ -103,6 +103,10 @@ func test_crippled_walker_and_collapsed_quad_still_go_down() -> void:
 	var world := stage()
 	var walker := _spawn(world, Walker.new(), 60.0) as Walker
 	walker.take_hit(Hit.make(Hit.Kind.SHELL, walker.legs_hp + 1.0, walker.global_position + Vector3.UP * 0.6))
+	# Keep stage movement from ramming the stationary walker while its collapse animates.
+	world.director.set_process(false)
+	world.player.set_process(false)
+	world.set_process(false)
 	var quad := _spawn(world, QuadMech.new(), 70.0) as QuadMech
 	for corner in [Vector2(-1, -1), Vector2(1, 1)]:
 		var at: Vector3 = quad._body.global_transform * Vector3(corner.x * 1.8, -1.5, corner.y * 1.4)

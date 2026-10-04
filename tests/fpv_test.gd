@@ -1,8 +1,8 @@
 extends TestCase
-## FPV drones from behind: they die only to what kills them or to their own detonation on the hull.
+## FPVs hit slow tanks; an outrun dive times out quietly without awarding a kill.
 
 
-func test_drones_from_behind_reach_the_tank_instead_of_blowing_up_alone() -> void:
+func test_drones_from_behind_reach_a_braking_tank_instead_of_timing_out() -> void:
 	var world := stage("", false)
 	world.director.events.clear()
 	world.player.tail.destroyed = true
@@ -14,6 +14,7 @@ func test_drones_from_behind_reach_the_tank_instead_of_blowing_up_alone() -> voi
 	for drone in drones:
 		drone.invulnerable = true # Only its own AI can remove it.
 	for _i in 60 * 8:
+		world.rail.speed = Rail.BRAKE
 		await frames(1)
 		for drone in drones:
 			if is_instance_valid(drone):
@@ -21,7 +22,7 @@ func test_drones_from_behind_reach_the_tank_instead_of_blowing_up_alone() -> voi
 	for drone in drones:
 		check(not is_instance_valid(drone), "the drone is gone after its dive")
 	for distance: float in last.values():
-		check(distance < world.player.radius + 1.5, "it went off on the hull, not alone short of it (%.1f m away)" % distance)
+		check(distance < world.player.radius + 1.5, "it contacted the hull instead of timing out short of it (%.1f m away)" % distance)
 	check(not lost.is_empty(), "the rear has no reactive armor: the hit is fatal")
 
 
@@ -101,7 +102,7 @@ func test_the_patterns_look_different() -> void:
 	check(widest[FpvDrone.Pattern.SPIRAL] < 8.0 and highest[FpvDrone.Pattern.SPIRAL] > 6.0, "the spiral winds around the axis")
 
 
-func test_each_pattern_hits_a_tank_at_cruise() -> void:
+func test_each_pattern_hits_a_braking_tank() -> void:
 	for kind in FpvDrone.Pattern.values():
 		var world := _pursuit_stage()
 		await frames(5)
@@ -114,13 +115,14 @@ func test_each_pattern_hits_a_tank_at_cruise() -> void:
 			check(Course.to_course(drone.global_position).x < world.rail.d, "pattern %d starts behind the tank" % kind)
 		var last := [INF]
 		for _i in 60 * 14:
+			world.rail.speed = Rail.BRAKE
 			await frames(1)
 			for i in sent.size():
 				if is_instance_valid(sent[i]):
 					last[i] = world.player.hit_center().distance_to(sent[i].hit_center())
 		check(not lost.is_empty(), "pattern %d reaches the hull" % kind)
 		for distance: float in last:
-			check(distance < world.player.radius + 1.5, "pattern %d ends on the tank, not short of it (%.1f m)" % [kind, distance])
+			check(distance < world.player.radius + 1.5, "pattern %d contacts the hull instead of timing out short of it (%.1f m)" % [kind, distance])
 		world.queue_free()
 		await frames(2)
 

@@ -20,21 +20,21 @@ func _shell(tank: Tank, enemy: Enemy, power: float) -> Hit:
 	return hit
 
 
-## An 8 mm round arriving along `direction`.
-func _coax(tank: Tank, enemy: Enemy, direction: Vector3) -> Hit:
-	var spec: Dictionary = Armament.GUNS[8]
+## A coax round arriving along `direction`.
+func _coax(tank: Tank, enemy: Enemy, direction: Vector3, caliber := 8) -> Hit:
+	var spec: Dictionary = Armament.GUNS[caliber]
 	var hit := Hit.make(Hit.Kind.BULLET, spec.damage, enemy.hit_center(), direction)
-	hit.caliber = 8
+	hit.caliber = caliber
 	hit.source = tank
 	return hit
 
 
-## Seconds the tier-1 coax needs to kill `enemy` with rounds arriving along `direction`.
+## Seconds the penetrating coax needs to kill `enemy` with rounds arriving along `direction`.
 func _coax_kill_time(tank: Tank, enemy: Enemy, direction: Vector3) -> float:
-	var spec: Dictionary = Armament.GUNS[8]
+	var spec: Dictionary = Armament.GUNS[15]
 	var rounds := 0
 	while not enemy.dead and rounds < 10000:
-		enemy.take_hit(_coax(tank, enemy, direction))
+		enemy.take_hit(_coax(tank, enemy, direction, 15))
 		rounds += 1
 	return rounds * spec.interval
 
@@ -100,23 +100,34 @@ func test_front_arc_boundaries() -> void:
 	check_eq(ugv.frontal_armor(rise, 0.25), 1.0, "a round straight from above has no front")
 
 
-func test_coax_needs_three_seconds_from_the_front_and_little_from_the_side() -> void:
+func test_penetrating_coax_takes_longer_against_the_front_plate() -> void:
 	var world := stage()
 	var tank := world.player
 	var front := _coax_kill_time(tank, _spawn(world, Ugv.new()), Vector3.BACK)
 	var side := _coax_kill_time(tank, _spawn(world, Ugv.new()), Vector3.RIGHT)
 	var walker_front := _coax_kill_time(tank, _spawn(world, Walker.new()), Vector3.BACK)
-	print("UGV tier-1 coax kill: front %.2f s, side %.2f s; walker front %.2f s" % [front, side, walker_front])
-	check(front >= 3.0, "the coax from straight ahead takes at least 3 s (%.2f)" % front)
-	check(side <= 1.5, "from the side at most 1.5 s (%.2f)" % side)
-	check(walker_front >= 3.0, "the walker's front plate holds the same (%.2f)" % walker_front)
+	check(front > side * 3.5 and front < side * 4.5, "the front plate takes about four times as many penetrating rounds")
+	check(side > 0.0 and side < 5.0, "15 mm can kill from the side within five seconds")
+	check(walker_front > side and walker_front < front, "the walker's thinner armor still benefits from its front plate")
+	for enemy: Enemy in [_spawn(world, Ugv.new()), _spawn(world, Walker.new())]:
+		for direction in [Vector3.BACK, Vector3.RIGHT]:
+			var hp := enemy.hp
+			var hit := _coax(tank, enemy, direction)
+			check(enemy.glances(hit), "8 mm glances from front and side")
+			enemy.take_hit(hit)
+			check_eq(enemy.hp, hp, "tier-1 coax cannot penetrate")
 
 
 func test_front_plate_leaves_module_damage_alone() -> void:
 	var world := stage()
 	var ugv := _spawn(world, Ugv.new()) as Ugv
-	var hit := _coax(world.player, ugv, Vector3.BACK)
-	hit.position = ugv.global_position + Vector3.UP * 0.3
+	var glance := _coax(world.player, ugv, Vector3.BACK)
+	glance.position = ugv.global_position + Vector3.UP * 0.3
+	ugv.take_hit(glance)
+	check_eq(ugv.hp, ugv.max_hp, "a glance spares the hull")
+	check_eq(ugv.tracks_hp, 6.0, "a glance spares the tracks too")
+	var hit := _coax(world.player, ugv, Vector3.BACK, 15)
+	hit.position = glance.position
 	ugv.take_hit(hit)
-	check_near(ugv.hp, ugv.max_hp - hit.damage * 0.25, 0.001, "the hull gets a quarter")
-	check_near(ugv.tracks_hp, 6.0 - hit.damage, 0.001, "the tracks take it all")
+	check_near(ugv.hp, ugv.max_hp - 0.375, 0.001, "armor blunts the round, then the front quarters hull damage")
+	check_near(ugv.tracks_hp, 4.5, 0.001, "module damage is armor-blunted but not quartered by the front plate")

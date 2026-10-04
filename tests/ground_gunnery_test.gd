@@ -108,7 +108,7 @@ func test_gunners_miss_a_tank_that_reverses_after_the_telegraph() -> void:
 		var misses := _burst(world, _gunner(world, "gun", walker, STRAFE), STRAFE, -STRAFE)
 		print("%s reversed: %d rounds, miss %.2f..%.2f m" % ["walker" if walker else "UGV", misses.size(), _best(misses), _worst(misses)])
 		check(misses.size() >= 5, "the burst fires")
-		check(_best(misses) >= 6.0, "no round is re-aimed: all pass 6 m or more wide (%.2f)" % _best(misses))
+		check(_best(misses) > world.player.radius + 1.0, "every committed round clears the hull after reversal (%.2f m)" % _best(misses))
 
 
 func test_aim_point_stays_fixed_through_the_burst() -> void:

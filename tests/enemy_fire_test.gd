@@ -88,8 +88,10 @@ func test_ugv_gun_and_launcher_fire_along_the_barrel() -> void:
 func test_ugv_barrel_turns_onto_the_tank_during_the_telegraph() -> void:
 	var world := stage("", false)
 	var tank := world.player
+	tank.set_process(false) # Hold the target still; this test measures turret slew, not rail movement.
 	var ugv := Ugv.new()
 	_spawn(world, ugv, 40.0, 8.0)
+	ugv.immobile = true # Hold the platform still; only the barrel should move.
 	ugv._attack_timer = INF
 	await frames(90) # The turret ring swings round first.
 	# Point the gun well away from the tank, then let the AI start a telegraph.

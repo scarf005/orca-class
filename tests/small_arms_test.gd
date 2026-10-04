@@ -337,9 +337,13 @@ func test_the_roof_rule_is_for_bullets_only() -> void:
 	check(tank.facing_of(shallow) != "top", "a 5 degree descent is no roof hit")
 
 
-## The glancing tracers now flying.
-func _tracers(world: World) -> Array:
-	return world.fx._transients.filter(func(t: Dictionary) -> bool: return t.has("velocity"))
+## Deliver a real round: glances tumble the projectile, not a separate FX tracer.
+func _round(world: World, target: Entity, hit: Hit) -> Projectile:
+	var round := world.spawn_projectile(Entity.Team.ENEMY if target is Tank else Entity.Team.PLAYER, hit.position, hit.direction * 100.0, "bullet")
+	round.hit = hit
+	round.interceptable = true
+	round.detonate(hit.position, target)
+	return round
 
 
 func test_a_glancing_round_leaves_one_harmless_tracer() -> void:
@@ -347,24 +351,28 @@ func test_a_glancing_round_leaves_one_harmless_tracer() -> void:
 	var tank := world.player
 	await frames(2)
 	seed(6)
-	var shots := world.projectiles.size()
 	for side in [-tank.global_basis.z, tank.global_basis.x, -tank.global_basis.x]:
 		var hit := _strike(tank, side, 15)
-		hit.speed = 100.0
-		var before := _tracers(world).size()
 		var hp := tank.hp
-		tank.take_hit(hit)
-		var tracers := _tracers(world)
-		check_eq(tracers.size(), before + 1, "exactly one tracer per glance")
-		var tracer: Dictionary = tracers[-1]
+		var shots := world.projectiles.size()
+		var round := _round(world, tank, hit)
+		check_eq(world.projectiles.size(), shots + 1, "the same round tumbles, with no duplicate projectile")
+		check(round._glanced and not round.is_queued_for_deletion(), "the glanced round remains visible")
+		check(not round.interceptable, "it is no longer a CIWS target")
 		var normal := (hit.position - tank.hit_center()).normalized()
-		check((tracer.velocity as Vector3).normalized().dot(normal) > 0.1, "it leaves the armor")
-		check((tracer.velocity as Vector3).length() >= 40.0 and (tracer.velocity as Vector3).length() <= 60.0, "at 40-60%% of the round's speed (%.1f)" % (tracer.velocity as Vector3).length())
-		check_eq(tank.hp, hp, "the glance still does no damage")
-	check_eq(world.projectiles.size(), shots, "a tracer is no projectile: no CIWS target, no threat arrow, no collisions")
-	var tracer: Dictionary = _tracers(world)[-1]
-	check(await wait_until(func() -> bool: return _tracers(world).is_empty(), 30), "the tracers are gone within 0.5 s")
-	check(not is_instance_valid(tracer.node), "and freed")
+		check(round.velocity.normalized().dot(normal) > 0.1, "it leaves the armor")
+		check(round.velocity.length() >= 85.0 and round.velocity.length() <= 110.0, "at nearly its incoming speed")
+		check_eq(tank.hp, hp, "the glance does no damage")
+		var victim := Ugv.new()
+		victim.position = round.global_position + round.velocity.normalized() * 2.0
+		world.add_enemy(victim)
+		var victim_hp := victim.hp
+		for _i in 40:
+			if round.is_queued_for_deletion():
+				break
+			round.step(1.0 / 60.0)
+		check_eq(victim.hp, victim_hp, "a tumbling round no longer collides or damages")
+		check(round.is_queued_for_deletion(), "it expires within 0.6 seconds")
 
 
 func test_glancing_tracers_scatter_and_a_damaging_hit_leaves_none() -> void:
@@ -374,16 +382,15 @@ func test_glancing_tracers_scatter_and_a_damaging_hit_leaves_none() -> void:
 	seed(8)
 	var directions := []
 	for i in 6:
-		tank.take_hit(_strike(tank, -tank.global_basis.z, 15))
-		directions.append((_tracers(world)[-1].velocity as Vector3).normalized())
+		var round := _round(world, tank, _strike(tank, -tank.global_basis.z, 15))
+		directions.append(round.velocity.normalized())
 	check(directions.any(func(d: Vector3) -> bool: return d.distance_to(directions[0]) > 0.05), "the scatter varies from shot to shot")
-	await wait_until(func() -> bool: return _tracers(world).is_empty(), 60)
-	tank.invuln = 0.0
-	tank.take_hit(_strike(tank, tank.global_basis.z, 40))
-	check_eq(_tracers(world).size(), 0, "a 40 mm round that damages the hull glances off nothing")
-	tank.invuln = 0.0
-	tank.take_hit(_strike(tank, Vector3(0.2, 1.0, 0.1), 30))
-	check_eq(_tracers(world).size(), 0, "nor does a roof hit that punches through")
+	for hit in [_strike(tank, tank.global_basis.z, 40), _strike(tank, Vector3(0.2, 1.0, 0.1), 30)]:
+		tank.invuln = 0.0
+		var hp := tank.hp
+		var round := _round(world, tank, hit)
+		check(not round._glanced and round.is_queued_for_deletion(), "a penetrating round is spent, not tumbled")
+		check(tank.hp < hp, "a penetrating hull or roof hit damages")
 
 
 func test_armor_that_stops_a_round_outright_shows_it_too() -> void:
@@ -392,12 +399,13 @@ func test_armor_that_stops_a_round_outright_shows_it_too() -> void:
 	var ugv: Ugv = load("res://scripts/enemies/ugv.gd").new()
 	ugv.position = Course.ground_at(world.rail.d + 60.0, 0.0)
 	world.add_enemy(ugv)
-	ugv.armor = 1.0
+	ugv.armor = 8.0
 	var hit := Hit.make(Hit.Kind.BULLET, 3.0, ugv.hit_center() + Vector3(0, 0, 1.0), Vector3(0, 0, -1))
 	hit.caliber = 8
-	ugv.take_hit(hit)
-	check_eq(_tracers(world).size(), 1, "a round stopped by armor leaves a tracer")
+	var stopped := _round(world, ugv, hit)
+	check(stopped._glanced and not stopped.is_queued_for_deletion(), "equal-caliber armor turns the visible round")
 	check_eq(ugv.hp, ugv.max_hp, "and does nothing")
 	ugv.armor = 0.0
-	ugv.take_hit(hit)
-	check_eq(_tracers(world).size(), 1, "an unarmored hit leaves none")
+	var accepted := _round(world, ugv, hit)
+	check(not accepted._glanced and accepted.is_queued_for_deletion(), "an unarmored hit is spent, not turned")
+	check_eq(ugv.hp, ugv.max_hp - 3.0, "unarmored damage is accepted")

@@ -9,7 +9,7 @@ func test_segment_sphere() -> void:
 	check_eq(Entity.segment_sphere(Vector3(0.5, 0, 0), Vector3(5, 0, 0), Vector3.ZERO, 1.0), 0.0, "starting inside hits at 0")
 
 
-func test_small_calibers_barely_scratch_ugv_armor() -> void:
+func test_small_calibers_glance_or_overmatch_millimeter_armor() -> void:
 	var world := stage()
 	var ugv := Ugv.new()
 	ugv.position = Course.ground_at(world.rail.d + 60.0, 0.0)
@@ -20,13 +20,34 @@ func test_small_calibers_barely_scratch_ugv_armor() -> void:
 	hit15.caliber = 15
 	var heat := Hit.make(Hit.Kind.SHELL, 10.0, ugv.hit_center())
 	heat.pierce = true
+	ugv.armor = 0.0
 	check_near(ugv.damage_multiplier(hit8), 1.0, 0.001, "an unarmored UGV takes full coax damage")
-	ugv.armor = 0.5
-	check_near(ugv.damage_multiplier(hit8), 0.5, 0.001, "armor stops its share of 8 mm")
-	check_near(ugv.damage_multiplier(hit15), 0.75, 0.001, "armor stops half its share of 15 mm")
+	ugv.armor = 12.0
+	check(ugv.glances(hit8), "8 mm cannot penetrate 12 mm")
+	check_eq(ugv.damage_multiplier(hit8), 0.0, "a glance does no damage")
+	check_near(ugv.damage_multiplier(hit15), 0.2, 0.001, "15 mm overmatches with one fifth of its damage")
+	var piercing := hit8.copy()
+	piercing.pierce = true
+	check(not ugv.glances(piercing), "piercing bypasses the glance gate")
+	check_eq(ugv.damage_multiplier(piercing), 1.0, "piercing bypasses armor blunting")
 	check_near(ugv.damage_multiplier(heat), 1.0, 0.001, "HEAT ignores armor")
 	var thrown := Hit.make(Hit.Kind.THROWN, 10.0, ugv.hit_center())
 	check_near(ugv.damage_multiplier(thrown), 1.5, 0.001, "thrown wrecks are extra effective")
+
+
+func test_heavy_enemies_blunt_area_rounds_not_ordinary_bullets() -> void:
+	var world := stage()
+	var enemy := Enemy.new()
+	world.add_enemy(enemy)
+	enemy.heavy = true
+	var fragment := Hit.make(Hit.Kind.FRAGMENT, 100.0, enemy.hit_center())
+	fragment.caliber = 30
+	check_near(enemy.damage_multiplier(fragment), 0.08, 0.001, "heavy hide blunts fragments")
+	var pellet := Hit.make(Hit.Kind.BULLET, 100.0, enemy.hit_center())
+	pellet.weapon = "canister"
+	check_near(enemy.damage_multiplier(pellet), 0.08, 0.001, "heavy hide blunts canister")
+	pellet.weapon = "coax"
+	check_eq(enemy.damage_multiplier(pellet), 1.0, "ordinary coax is not an area round")
 
 
 func test_tank_frontal_armor_and_weak_rear() -> void:

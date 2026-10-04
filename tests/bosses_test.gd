@@ -126,12 +126,14 @@ func test_colossus_ignored_hits_do_not_damage_caps_or_confirm_hits() -> void:
 	_hit_part_with(boss, node, hit)
 	boss.invulnerable = false
 	check(confirmations.is_empty(), "ignored hits do not emit hit confirmation")
-	hit.position = boss.global_position + Vector3.UP * 50.0
-	boss.take_hit(hit)
-	check_eq(node.cap, Colossus.CAP_HP, "zero, negative, invulnerable and off-target hits spare the cap")
+	check_eq(node.cap, Colossus.CAP_HP, "zero, negative and invulnerable hits spare the cap")
 	check_eq(node.hp, Colossus.NODE_HP, "ignored hits spare the node")
 	check_eq(boss.hp, boss.max_hp, "ignored hits leave the health bar full")
-	check_eq(confirmations, [false], "a hit on the mass away from any weak point still confirms")
+	hit.position = boss.global_position + Vector3.UP * 50.0
+	boss.take_hit(hit)
+	check_near(boss.hp, boss.max_hp - Colossus.ROUND_DAMAGE * 0.5, 0.01, "off-target shell reaches the nearest weak point at half damage")
+	check_eq(boss.parts.filter(func(p: Colossus.Part) -> bool: return p.cap < Colossus.CAP_HP).size(), 1, "only the nearest cap takes that hit")
+	check_eq(confirmations, [false], "a mass hit confirms accepted nonlethal damage once")
 
 
 func test_colossus_core_opens_then_dies() -> void:
@@ -957,21 +959,21 @@ func test_gunship_ignores_zero_damage_and_invulnerable_hits() -> void:
 	check(boss._live("rotor_l"), "invulnerability protects modules")
 
 
-func test_colossus_plain_shells_halve_on_unburnt_nodes_but_fire_and_full_charges_do_not() -> void:
+func test_colossus_plain_and_partial_shells_keep_their_round_damage() -> void:
 	var world := stage()
 	var boss := _colossus(world)
 	var node: Colossus.Part = boss.parts[0]
 	_hit_part_with(boss, node, _round())
-	check_near(node.cap, Colossus.CAP_HP - Colossus.ROUND_DAMAGE * 0.5, 0.01, "a plain round is worth half on an unburnt node")
+	check_near(node.cap, Colossus.CAP_HP - Colossus.ROUND_DAMAGE, 0.01, "a plain round takes a whole round on an unburnt node")
 	node.burn = Colossus.BURN_TIME
 	_hit_part_with(boss, node, _round())
-	check_near(node.cap, Colossus.CAP_HP - Colossus.ROUND_DAMAGE * 1.5, 0.01, "a burning node takes the whole round")
+	check_near(node.cap, Colossus.CAP_HP - Colossus.ROUND_DAMAGE * 2.0, 0.01, "burn does not change cannon round damage")
 	var other: Colossus.Part = boss.parts[1]
 	_hit_part_with(boss, other, _round(1.0))
 	check_near(other.cap, Colossus.CAP_HP - Colossus.ROUND_DAMAGE * 2.0, 0.01, "a full charge is two whole rounds on an unburnt node")
 	var third: Colossus.Part = boss.parts[2]
 	_hit_part_with(boss, third, _round(0.5))
-	check_near(third.cap, Colossus.CAP_HP - Colossus.ROUND_DAMAGE * 1.5 * 0.5, 0.01, "a half charge is no full charge")
+	check_near(third.cap, Colossus.CAP_HP - Colossus.ROUND_DAMAGE * 1.5, 0.01, "a half charge counts as one and a half rounds")
 
 
 func test_colossus_core_takes_rounds_and_a_full_charge_counts_double() -> void:
@@ -1109,5 +1111,5 @@ func test_gunship_machine_guns_and_fragments_glance_off_its_body() -> void:
 	boss.take_hit(coax)
 	boss.take_hit(fragment)
 	check_eq(boss.hp, boss.max_hp, "20 mm coax and 30 mm fragments do nothing to the body")
-	check(boss.armor >= 40.0, "its armor is 40 mm")
+	check_eq(boss.armor, 40.0, "its armor is 40 mm")
 

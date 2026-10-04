@@ -130,7 +130,7 @@ func test_cached_dither_parameters_follow_settings_and_hitstop() -> void:
 	var strength: float = Game.settings.dither
 	Game.settings.dither = 0.25
 	view._process(0.0)
-	check_near(view.material.get_shader_parameter("strength"), 0.25, 0.00001, "changing settings updates the shader")
+	check_near(view.material.get_shader_parameter("strength"), 0.25 * DitherView.SCENERY_DITHER, 0.00001, "changing settings updates the shader")
 	view.flash(Color.RED, 0.8)
 	view._process(0.0)
 	check_eq(view.material.get_shader_parameter("flash"), Color(1, 0, 0, 0.8), "a hitstop frame still uploads a new flash")

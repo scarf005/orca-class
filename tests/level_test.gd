@@ -86,7 +86,7 @@ func test_air_hunters_and_gunship_boss_on_both_difficulties() -> void:
 		check_eq(bosses[0].kind, "gunship", "stage ends with the new gunship")
 
 
-func test_ordinary_helicopter_dies_to_twelve_basic_coax_hits() -> void:
+func test_ordinary_helicopter_coax_hits_account_for_its_armor() -> void:
 	var world := stage()
 	var spawned := world.director.spawn_wave({"d": 0.0, "kind": "helicopter", "height": 14.0, "ahead": 100.0})
 	var heli := spawned[0] as Helicopter
@@ -97,13 +97,13 @@ func test_ordinary_helicopter_dies_to_twelve_basic_coax_hits() -> void:
 	var hit := Hit.make(Hit.Kind.BULLET, Armament.GUNS[8].damage, heli.hit_center())
 	hit.caliber = 8
 	hit.source = world.player
-	var needed := ceili(heli.max_hp / Armament.GUNS[8].damage)
+	var needed := ceili(heli.max_hp / (hit.damage * heli.damage_multiplier(hit)))
 	for i in needed - 1:
 		heli.take_hit(hit)
 	check(not heli.dead, "helicopter survives %d basic bullets" % (needed - 1))
 	heli.take_hit(hit)
 	check(heli.dead, "bullet %d destroys it" % needed)
-	check_eq(needed, 12, "a tier-1 coax needs twelve bullets")
+	check_eq(needed, 48, "6 mm armor blunts tier-1 coax to a quarter")
 	check_eq(world.stats.kills, 1, "ordinary helicopter counts as a normal kill")
 	check_eq(world.rail.mode, Rail.Mode.RAIL, "ordinary kill keeps the stage scrolling")
 

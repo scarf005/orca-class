@@ -138,7 +138,9 @@ func test_tiltrotor_flies_in_hovers_drops_a_squad_and_sweeps() -> void:
 	check(rotor._line_a.distance_to(rotor._line_b) > 10.0, "the line spans the road")
 	var fired := await wait_until(func() -> bool: return world.projectiles.size() > rounds, 60 * 3)
 	check(fired, "then it sweeps")
-	var gone_forward := await wait_until(gone(rotor), 60 * 14)
+	var departing := await wait_until(func() -> bool: return rotor.state == Tiltrotor.State.DEPART, 60 * 5)
+	check(departing, "the hover ends with departure")
+	var gone_forward := await wait_until(gone(rotor), 60 * 12)
 	check(gone_forward, "and tilts forward and leaves")
 
 
@@ -150,7 +152,7 @@ func test_a_lost_nacelle_spins_the_tiltrotor_down() -> void:
 	var tip := rotor.model.to_global(Vector3(Tiltrotor.NACELLE_X, 1.8, 0.0))
 	check_eq(rotor.nacelle_at(tip), 1, "the right wing tip is the right nacelle")
 	check_eq(rotor.nacelle_at(rotor.hit_center()), -1, "the fuselage is not a nacelle")
-	var hit := Hit.make(Hit.Kind.BULLET, Tiltrotor.NACELLE_HP + 1.0, tip, Vector3.LEFT)
+	var hit := Hit.make(Hit.Kind.SHELL, Tiltrotor.NACELLE_HP + 1.0, tip, Vector3.LEFT)
 	hit.source = world.player
 	rotor.take_hit(hit)
 	check_eq(rotor.state, Tiltrotor.State.CRASH, "losing a nacelle starts the crash")

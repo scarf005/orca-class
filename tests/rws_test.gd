@@ -110,16 +110,16 @@ func test_losing_a_life_loses_the_rws() -> void:
 	check_eq(tank.modules.state("fcs"), TankModules.State.OK, "including the FCS")
 
 
-func test_a_spare_pickup_turns_into_an_rws_when_it_is_missing() -> void:
+func test_a_spare_pickup_prioritizes_repairs_and_weapons_not_an_rws() -> void:
 	var world := stage("", false)
 	var tank := world.player
 	await frames(2)
 	tank.set_coax_tier(0)
 	check_eq(tank.useful_pickup("rws"), "rws", "asked for directly")
-	check_eq(tank.useful_pickup("repair"), "rws", "a wasted repair becomes one")
+	check_eq(tank.useful_pickup("repair"), "coax", "a wasted repair becomes a coax upgrade")
 	check_eq(tank.useful_pickup("coax"), "coax", "a wanted coax upgrade is left alone")
 	tank.set_coax_tier(Armament.COAX_TIERS.size() - 1)
-	check_eq(tank.useful_pickup("coax"), "rws", "a maxed coax becomes one, ahead of the coax upgrade fallback")
+	check(Armament.round_from_id(tank.useful_pickup("coax")) in Armament.OFFERED, "a maxed coax becomes an offered special round")
 	check_eq(tank.useful_pickup("apfsds"), "apfsds", "rounds are never wasted")
 	tank.modules.damage("track_l", 999.0)
 	check_eq(tank.useful_pickup("coax"), "repair", "repair comes first")
@@ -130,9 +130,9 @@ func test_a_spare_pickup_turns_into_an_rws_when_it_is_missing() -> void:
 	tank.tail.damage(1000.0)
 	check_eq(tank.useful_pickup("coax"), "tail", "then the tail")
 	tank.tail.regrow()
-	check_eq(tank.useful_pickup("coax"), "rws", "and then the RWS")
+	check(Armament.round_from_id(tank.useful_pickup("coax")) in Armament.OFFERED, "then an offered round, never an automatic RWS")
 	tank.set_coax_tier(0)
-	check_eq(tank.useful_pickup("era"), "rws", "before the coax upgrade")
+	check_eq(tank.useful_pickup("era"), "coax", "the coax upgrade comes next")
 
 
 func test_a_spare_pickup_is_never_an_rws_when_it_is_mounted() -> void:
@@ -145,8 +145,7 @@ func test_a_spare_pickup_is_never_an_rws_when_it_is_mounted() -> void:
 			check(tank.useful_pickup(id) != "rws", "%s never turns into an RWS" % id)
 
 
-func test_four_rws_pickups_lie_along_the_stage() -> void:
+func test_stage_keeps_the_ciws_off_the_tank() -> void:
 	var world := stage()
 	var spots := world.director.scenery.specs.filter(func(s: Scenery.Spec) -> bool: return s.pickup == "rws").map(func(s: Scenery.Spec) -> Vector2: return Vector2(s.d, s.u))
-	check_eq(spots, [Vector2(60, 0), Vector2(1200, -4), Vector2(2150, 5), Vector2(2820, 0)], "where the stage puts them")
-	check(not spots.is_empty() and spots[0].x < 90.0, "the first is before the first FPV wave")
+	check(spots.is_empty(), "the current stage places no RWS pickups")

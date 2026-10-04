@@ -35,48 +35,39 @@ func test_shell_and_its_blast_tear_buildings_apart() -> void:
 		hit.caliber = 100
 		check_eq(house.collapse_style(hit), Prop.CollapseStyle.TORN, "100 mm direct and splash tear apart")
 		hit.caliber = 99
-		check_eq(house.collapse_style(hit), Prop.CollapseStyle.SINK, "smaller shell and blast sink")
+		check_eq(house.collapse_style(hit), Prop.CollapseStyle.TORN, "smaller shell and blast still tear ordinary buildings apart")
 
 
-func test_coax_and_chain_blast_sink_in_smoke_with_roof_first() -> void:
+func test_coax_and_chain_blast_tear_roof_and_walls_into_flying_pieces() -> void:
 	var world := _scene()
 	var house := _prop(world)
 	var hit := Hit.make(Hit.Kind.BULLET, 100.0, house.hit_center())
 	hit.caliber = 8
-	check_eq(house.collapse_style(hit), Prop.CollapseStyle.SINK, "coax kill sinks")
+	check_eq(house.collapse_style(hit), Prop.CollapseStyle.TORN, "coax kill tears apart")
 	var chain := Hit.make(Hit.Kind.BLAST, 250.0, house.hit_center())
 	chain.weapon = "collateral"
-	check_eq(house.collapse_style(chain), Prop.CollapseStyle.SINK, "heavy chain blast is not a main-gun shell")
+	check_eq(house.collapse_style(chain), Prop.CollapseStyle.TORN, "chain blast tears apart too")
+	var before := Wreck._live.size()
 	house.take_hit(hit)
-	var motion := _motion(world)
-	check(motion != null, "dead prop leaves an animated visual")
-	if motion == null:
-		return
-	motion._process(0.2)
-	check(motion.pieces.any(func(p: MeshInstance3D) -> bool: return p.position.y < -0.1), "upper chunks cave first")
-	check(motion.pieces.any(func(p: MeshInstance3D) -> bool: return p.position.y == 0.0), "walls have not caved with the roof")
-	check(world.fx._pools[Fx.Kind.GLOW].size() > 0, "base and window smoke emitted")
-	motion._process(1.0)
-	check(motion.is_queued_for_deletion(), "sink finishes in 1.2 seconds")
+	var pieces := Wreck._live.slice(before)
+	check(pieces.size() > 1, "roof and walls detach into multiple pieces")
+	check(pieces.all(func(w: Wreck) -> bool: return w.velocity.y > 0.0), "pieces launch upward")
+	check_eq(pieces.filter(func(w: Wreck) -> bool: return w.explodes).size(), 1, "only the largest piece explodes on landing")
+	check(_motion(world) == null, "a torn building has flying wrecks, not a sinking animation")
 
 
-func test_ram_flattens_along_travel_and_throws_debris_ahead() -> void:
+func test_ram_tears_buildings_and_throws_pieces_ahead() -> void:
 	var world := _scene()
 	var house := _prop(world)
 	var hit := Hit.make(Hit.Kind.RAM, 100.0, house.hit_center(), Vector3.RIGHT)
 	hit.speed = 22.0
-	check_eq(house.collapse_style(hit), Prop.CollapseStyle.RAM, "speed ram flattens")
+	check_eq(house.collapse_style(hit), Prop.CollapseStyle.TORN, "speed ram tears buildings apart")
+	var before := Wreck._live.size()
 	house.take_hit(hit)
-	var motion := _motion(world)
-	check(motion != null, "ram has an animated visual")
-	if motion == null:
-		return
-	var start := motion.global_position
-	motion._process(0.3)
-	check(motion.global_position.x > start.x, "building moves along travel, not its own forward axis")
-	check(motion.global_basis.y.length() < 0.8, "building compresses while it falls")
-	var shards: Array = world.fx._pools[Fx.Kind.SOLID]
-	check(shards.any(func(p: Fx.Particle) -> bool: return p.velocity.x > 12.0), "ram debris flies ahead")
+	var pieces := Wreck._live.slice(before)
+	check(pieces.size() > 1, "ram separates roof and walls")
+	check(pieces.all(func(w: Wreck) -> bool: return w.velocity.x > 0.0), "all pieces fly along the tank's travel")
+	check(pieces.any(func(w: Wreck) -> bool: return w.velocity.x > 12.0), "ram throws large pieces ahead")
 
 
 func test_tall_props_topple_but_shell_and_fire_override() -> void:
@@ -91,17 +82,15 @@ func test_tall_props_topple_but_shell_and_fire_override() -> void:
 		hit.kind = Hit.Kind.FIRE
 		check_eq(prop.collapse_style(hit), Prop.CollapseStyle.BURN, "%s fire wins over height" % kind)
 	var pier := _prop(world, "overpass_pier")
+	var felled: Array[Prop] = []
+	pier.felled.connect(func(p: Prop) -> void: felled.append(p))
+	var before := Wreck._live.size()
 	pier.take_hit(Hit.make(Hit.Kind.RAM, 99999.0, pier.hit_center(), Vector3.RIGHT))
-	var motion := _motion(world)
-	check(motion != null, "overkill still topples the pier")
-	if motion == null:
-		return
-	motion._process(0.6)
-	check(motion.global_basis.y.x > 0.2, "topples in the push direction")
-	check_near(motion.global_basis.y.length(), 1.0, 0.001, "rigid body is not flattened")
-	motion._process(0.6)
-	check(motion.is_queued_for_deletion(), "breaks on impact")
-	check(not world.fx._transients.is_empty(), "ground shock ring emitted")
+	var pieces := Wreck._live.slice(before)
+	check_eq(felled, [pier], "toppling signals immediate support loss")
+	check(not pieces.is_empty(), "overkill knocks the pier's pieces flying")
+	check(pieces.all(func(w: Wreck) -> bool: return w.velocity.x > 0.0 and not w.explodes), "low toppling pieces follow the push and do not explode")
+	check(pieces.all(func(w: Wreck) -> bool: return w.spin.z < 0.0), "pieces tumble toward the blow")
 
 
 func test_fire_burns_before_collapsing_and_leaves_a_heap() -> void:
@@ -169,7 +158,7 @@ func test_hitstop_and_death_callbacks_do_not_wait_for_animation() -> void:
 	house.score = 50
 	var callbacks: Array[Entity] = []
 	house.died.connect(func(e: Entity) -> void: callbacks.append(e))
-	house.take_hit(Hit.make(Hit.Kind.BULLET, 100.0, house.hit_center()))
+	house.take_hit(Hit.make(Hit.Kind.FIRE, 1000.0, house.hit_center()))
 	check_eq(callbacks.size(), 1, "loot/death callback happens immediately once")
 	check(house.dead and house not in world.props.in_radius(house.global_position, 1.0), "dead building is no longer a collision target")
 	var motion := _motion(world)

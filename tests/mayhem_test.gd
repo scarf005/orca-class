@@ -94,13 +94,14 @@ func test_a_shell_kill_throws_the_wreck_on_along_the_shot() -> void:
 	world.add_enemy(ugv)
 	await frames(2)
 	var shot_dir := Course.right(world.rail.d + 60.0)
-	# Just enough to kill: an overkill would leave no wreck at all.
+	# A shell kill dismembers even below the overkill threshold.
 	var shot := Hit.make(Hit.Kind.SHELL, ugv.max_hp * 2.0, ugv.hit_center(), shot_dir)
 	shot.caliber = 100
 	shot.source = world.player
 	ugv.take_hit(shot)
 	var wrecks := world.get_children().filter(func(n: Node) -> bool: return n is Wreck)
-	check_eq(wrecks.size(), 2, "hull and turret fly off as separate wrecks")
+	check(wrecks.size() > 2, "the hull, turret and other model pieces fly separately")
+	check_eq(wrecks.filter(func(w: Wreck) -> bool: return w.explodes).size(), 1, "only the biggest piece explodes on landing")
 	var hull: Wreck = wrecks.filter(func(w: Wreck) -> bool: return w.explodes)[0]
 	check(Vector3(hull.velocity.x, 0, hull.velocity.z).dot(shot_dir) > 8.0, "the hull is thrown on along the shot")
 	check(wrecks.any(func(w: Wreck) -> bool: return not w.explodes), "the turret is a piece that just crashes")
@@ -153,8 +154,11 @@ func test_shot_pole_still_topples() -> void:
 	pole.falls = true
 	var shot := Hit.make(Hit.Kind.SHELL, 50.0, pole.global_position, Vector3.RIGHT)
 	shot.source = world.player
+	var before := Wreck._live.size()
 	pole.take_hit(shot)
-	check(not pole.dead and pole.is_falling(), "a hit short of overkill snaps it and it goes over")
+	check(pole.dead, "the snapped pole stops being a collision target immediately")
+	var pieces := Wreck._live.slice(before)
+	check(not pieces.is_empty() and pieces.all(func(w: Wreck) -> bool: return w.velocity.x > 0.0 and not w.explodes), "pole pieces topple along the blow without exploding")
 
 
 func test_overkill_hurls_wrecks_and_shatters_the_rest() -> void:
@@ -190,9 +194,9 @@ func test_overkill_hurls_wrecks_and_shatters_the_rest() -> void:
 	check_eq(world.props.get_child_count(), before, "an overkilled building leaves no rubble")
 	var house := _prop(world, "house", world.player.global_position + Vector3(0, 0, -60.0), 100.0)
 	house.rubble_mesh = PropKit.mesh("rubble", 0)
-	before = world.props.get_child_count()
+	before = Wreck._live.size()
 	house.take_hit(Hit.make(Hit.Kind.SHELL, 299.0, house.global_position))
-	check_eq(world.props.get_child_count(), before + 1, "a plain kill leaves rubble")
+	check(Wreck._live.size() > before + 1, "a plain building kill also tears off its roof and walls")
 
 
 func test_shards_scale_with_the_size_of_what_broke() -> void:

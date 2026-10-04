@@ -93,9 +93,19 @@ func test_wind_up_states_report_telegraphing() -> void:
 	var quad := QuadMech.new()
 	quad._stomp = 0.3
 	check(quad.telegraphing(), "a quad stomp wind-up is")
-	check(not Crawler.new().telegraphing(), "enemies without a wind-up never are")
-	for node: Node in [fpv, walker, quad]:
+	var crawler := Crawler.new()
+	check(not crawler.telegraphing(), "enemies without a wind-up never are")
+	# Constructors allocate pivots before _ready can parent them; take ownership explicitly in this
+	# off-tree state test so they do not remain as orphan ObjectDB nodes at shutdown.
+	var owned := Node3D.new()
+	add_child(owned)
+	for pivot: Node3D in [fpv.model, walker.model, walker._body, walker._arm, walker._muzzle,
+		walker._pod, walker._pod_muzzle, walker._pod_lid, quad.model, quad._body, quad._turret,
+		quad._gun, quad._barrels, quad._muzzle, crawler.model]:
+		owned.add_child(pivot)
+	for node: Node in [fpv, walker, quad, crawler]:
 		node.free()
+	owned.free()
 
 
 func test_demolition_style_is_halved() -> void:

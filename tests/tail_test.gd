@@ -25,11 +25,10 @@ func test_tail_stabs_small_enemies_instead_of_grabbing() -> void:
 	crawler.stagger = 10.0
 	tank.auto_tail()
 	check_eq(tank.tail.state, Tail.State.STAB, "the claw stabs it")
-	var hp := crawler.hp
-	await wait_until(func() -> bool: return tank.tail.state != Tail.State.STAB, 120)
-	check(not crawler.dead, "a stab does not kill a small enemy")
-	check_eq(crawler.hp, hp, "and does no damage")
-	check(crawler.stagger >= 1.4 - 0.1, "it staggers the target")
+	var deaths: Array[int] = []
+	crawler.died.connect(func(_enemy: Entity) -> void: deaths.append(1))
+	await wait_until(gone(crawler), 120)
+	check_eq(deaths.size(), 1, "a stab kills a small enemy once")
 	check(not is_instance_valid(tank.tail.held), "nothing is carried")
 
 
@@ -41,11 +40,12 @@ func test_stab_interrupts_a_telegraphing_enemy() -> void:
 	drone.position = tank.tail.mount.global_position + tank.global_basis.x * 4.0 + Vector3.UP * 2.0
 	world.add_enemy(drone)
 	drone.state = FpvDrone.State.TELEGRAPH
+	drone.hp = 100.0 # Survive the claw so interruption can be observed independently of death.
 	tank._grab_target = drone
 	tank.tail.set_state(Tail.State.STAB)
 	tank._on_tail_arrived()
 	check_eq(drone.state, FpvDrone.State.APPROACH, "the stab breaks off the dive wind-up")
-	check(not drone.dead, "and does not kill")
+	check(not drone.dead and drone.hp < 100.0, "a surviving target still takes claw damage")
 
 
 func test_swat_bats_a_diving_drone_away_without_a_kill() -> void:
