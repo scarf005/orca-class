@@ -51,6 +51,8 @@ func test_all_keys_translated() -> void:
 
 	for i in 6:
 		_assert_translation(table, "SECTION_%d" % i, "section family")
+	for i in Stage2.SECTION_STARTS.size():
+		_assert_translation(table, "S2_SECTION_%d" % i, "stage 2 section family")
 	for id in Pickup.IDS:
 		_assert_translation(table, "PICKUP_" + id.to_upper(), "pickup family")
 	for round_id in Armament.ROUND_IDS.values():

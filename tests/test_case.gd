@@ -53,14 +53,15 @@ func skip(reason: String) -> void:
 
 
 ## A running stage with the player, as the game creates it. Input is disabled so tests drive it.
-## The game starts without an RWS; tests get one unless they are about picking it up.
-func stage(checkpoint := "", rws := true) -> World:
+## Stage 1 starts without an RWS; tests get one unless they are about picking it up.
+func stage(checkpoint := "", rws := true, number := 1) -> World:
 	# A method may construct several scenarios without an await between them. Queue every
 	# previous scenario before making the next one so stale worlds cannot process against the
 	# new World.current or clear it during their later teardown.
 	_queue_owned_worlds()
 	_world = World.new()
 	_worlds.append(_world)
+	_world.stage_number = number
 	add_child(_world)
 	_world.start_stage(checkpoint)
 	_world.player.input_enabled = false
@@ -104,6 +105,7 @@ func gone(object: Object) -> Callable:
 func cleanup(restore_environment := false) -> void:
 	_queue_owned_worlds()
 	Engine.time_scale = 1.0
+	Course.use(1)
 	_release_input()
 	if restore_environment:
 		_restore_environment()
@@ -115,6 +117,8 @@ func _queue_owned_worlds() -> void:
 		worlds.append(_world)
 	for world: World in worlds:
 		if is_instance_valid(world):
+			if world.get_parent() == self:
+				remove_child(world) # Let terrain worker tasks finish before changing the course.
 			world.queue_free()
 	_worlds.clear()
 	_world = null

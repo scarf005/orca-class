@@ -103,15 +103,16 @@ var _groups: Array[Dictionary] = [] ## Compound id -> {piece index: Prop}, fille
 
 func build() -> void:
 	_rng.seed = 20260928
-	_farm()
-	_village()
-	_school()
-	_reservoir()
-	_overpass()
-	_arena()
-	_wires()
-	_spires()
-	_boom()
+	if Course.stage.number == 1:
+		_farm()
+		_village()
+		_school()
+		_reservoir()
+		_overpass()
+		_arena()
+		_wires()
+		_spires()
+		_boom()
 	specs.sort_custom(func(a: Spec, b: Spec) -> bool: return a.d < b.d)
 	_prewarm()
 

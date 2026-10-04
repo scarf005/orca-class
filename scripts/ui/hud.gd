@@ -75,7 +75,7 @@ func _ready() -> void:
 		_sensor_warning = tr("WARN_FCS_LOST" if name == "fcs" else "WARN_RWS_LOST")
 		_sensor_warning_time = SENSOR_WARNING_TIME
 		Sfx.ui("warn", -10.0))
-	world.director.section_changed.connect(func(section: int) -> void: banner(tr("SECTION_%d" % section)))
+	world.director.section_changed.connect(func(section: int) -> void: banner(tr(Game.string_key("SECTION_%d" % section, world.stage_number))))
 	world.director.checkpoint_reached.connect(func(_name: String) -> void: banner(tr("CHECKPOINT")))
 
 
