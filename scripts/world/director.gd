@@ -27,6 +27,7 @@ const ENEMY_SCRIPTS := {
 	"sea_mine": "res://scripts/enemies/sea_mine.gd",
 	"tiltrotor": "res://scripts/enemies/tiltrotor.gd",
 	"gunship": "res://scripts/enemies/gunship.gd",
+	"landsword": "res://scripts/enemies/landsword.gd",
 }
 
 const MIDBOSS_RESUME := 0.6 ## Seconds after the mid-boss dies before the rail runs again.

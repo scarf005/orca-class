@@ -50,6 +50,8 @@ func run() -> int:
 			_stage_mechs(world, scene)
 		"hovercraft":
 			_stage_hovercraft(world, args.get("phase", "1") == "2")
+		"landsword":
+			_stage_landsword(world, int(args.get("phase", "0")))
 		"hind", "rooftop_battery", "sea_mine":
 			_stage_city_hunter(world, scene)
 		"fungus":
@@ -76,6 +78,28 @@ func run() -> int:
 			get_viewport().get_texture().get_image().save_png("%s/%s_%d.png" % [out, scene, index])
 			index += 1
 	return 0
+
+
+func _stage_landsword(world: World, phase: int) -> void:
+	world.rail.d = Stage2.BAY_D
+	world.rail.mode = Rail.Mode.ARENA
+	world.director.scenery.stream(Stage2.BAY_D, 100000)
+	var boss := Landsword.new()
+	boss.position = Course.ground_at(Stage2.BAY_D, 0.0)
+	world.add_enemy(boss)
+	world.boss = boss
+	world.boss_changed.emit(boss)
+	world.player.global_position = boss.global_position + Vector3(0, 0, -40)
+	if phase > 0:
+		var hit := Hit.make(Hit.Kind.SHELL, boss.max_hp * (0.72 if phase == 2 else 0.36), boss.hit_center(), Vector3.BACK)
+		hit.caliber = 100
+		boss.take_hit(hit)
+	boss.stagger = 0.0
+	boss._begin_attack(Landsword.Attack.STOMP if phase == 2 else Landsword.Attack.MISSILES if phase == 1 else Landsword.Attack.GUN)
+	var camera := world.camera
+	camera.set_process(false)
+	camera.global_position = boss.global_position + (Vector3(42, 24, -10) if phase == 2 else Vector3(22, 13, -27))
+	camera.look_at(boss.hit_center() + (Vector3(0, 0, -20) if phase == 2 else Vector3.ZERO), Vector3.UP)
 
 
 func _stage_mechs(world: World, kind: String) -> void:
