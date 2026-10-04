@@ -4,6 +4,8 @@ extends RefCounted
 ## behind the wall and the flood after it breaks. Effects and units ask here instead of assuming
 ## one water level.
 
+const DEEP := 0.8 ## Water deeper than this slows the tank and its overdrive refill.
+
 
 ## The height of the water surface at `p`'s x and z, or -INF when there is no water there.
 static func surface_at(p: Vector3) -> float:

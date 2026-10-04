@@ -14,6 +14,7 @@ func _init() -> void:
 	plan = PLAN
 	section_starts.assign(SECTION_STARTS)
 	start_rws = true
+	water_slows = true
 	coax_tiers = {"": 2}
 	arena_center_d = LENGTH
 	arena_radius = 85.0

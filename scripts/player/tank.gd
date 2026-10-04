@@ -61,6 +61,9 @@ static var PITCH_RATE := 9.0 ## Radians per second the gun elevates.
 static var HIT_WEIGHT := 1.0 ## Scales the freeze, shake and flash a cannon hit lands with.
 const RESPAWN_DELAY := 1.8
 const RESPAWN_INVULN := 2.6
+const WADE_SPEED := 0.85 ## Strafe speed and acceleration in shallow water.
+const DEEP_SPEED := 0.65 ## In deep water.
+const DEEP_REFILL := 0.5 ## How fast the overdrive meter refills in deep water.
 const CRUSH_SPEED := 5.0 ## Ground speed above which the tank runs down ground enemies.
 const RAM_DAMAGE := 150.0
 const RAM_COOLDOWN := 0.6 ## Seconds between crushing hits on the same enemy, matching dash recovery.
@@ -80,6 +83,7 @@ var modules := TankModules.new()
 
 var course_u := 0.0
 var course_offset := 4.0 ## Distance ahead of the rail position.
+var water_depth := 0.0 ## Water over the ground under the hull; 0 on dry ground or where the stage does not slow the tank.
 var local_velocity := Vector2.ZERO ## (lateral, forward) in the rail frame, or world XZ in the arena.
 var lateral_velocity := 0.0
 var velocity := Vector3.ZERO
@@ -283,9 +287,29 @@ func _input_vector() -> Vector2:
 	return Input.get_vector("move_left", "move_right", "move_back", "move_forward")
 
 
+## Samples the water under the hull for this frame's driving.
+func _update_terrain() -> void:
+	water_depth = 0.0
+	if not Course.stage.water_slows:
+		return
+	var c := Course.to_course(global_position)
+	var surface := Course.stage.water_surface(c)
+	if surface > -INF:
+		water_depth = maxf(surface - Course.height(c.x, c.y), 0.0)
+
+
+## Strafe speed and acceleration scale: 1 on dry ground, less wading.
+func water_factor() -> float:
+	if water_depth > Water.DEEP:
+		return DEEP_SPEED
+	return WADE_SPEED if water_depth > 0.0 else 1.0
+
+
 func _update_movement(delta: float) -> void:
 	var world := World.current
 	var rail := world.rail
+	_update_terrain()
+	var refill := modules.meter_refill_factor() * (DEEP_REFILL if water_depth > Water.DEEP else 1.0)
 	var input := _input_vector()
 	_read_dash(input)
 	# W and S double as the throttle: pushing forward boosts the rail, pulling back brakes it.
@@ -296,14 +320,14 @@ func _update_movement(delta: float) -> void:
 		command = -1
 	if rail.mode == Rail.Mode.ARENA:
 		_move_arena(delta, input)
-		rail.advance(delta, 0, modules.meter_refill_factor())
+		rail.advance(delta, 0, refill)
 		return
 	rail.wading = _wet or TrackMarks.over_fungus(global_position)
 	_wade_spray(delta)
-	rail.advance(delta, command, modules.meter_refill_factor())
-	var hold := _lock_move_factor()
+	rail.advance(delta, command, refill)
+	var hold := _lock_move_factor() * water_factor()
 	var target := Vector2(input.x * MOVE_SPEED.x * hold, input.y * MOVE_SPEED.y) * modules.move_factor()
-	local_velocity = local_velocity.move_toward(target, ACCEL * delta)
+	local_velocity = local_velocity.move_toward(target, ACCEL * water_factor() * delta)
 	local_velocity.x = clampf(local_velocity.x, -MOVE_SPEED.x * hold, MOVE_SPEED.x * hold)
 	if _drift > 0.0:
 		_drift -= delta
@@ -433,9 +457,9 @@ func _move_arena(delta: float, input: Vector2) -> void:
 	forward.y = 0.0
 	forward = forward.normalized()
 	var right := forward.cross(Vector3.UP)
-	var wish := (right * input.x + forward * input.y) * ARENA_SPEED * modules.move_factor() * _lock_move_factor()
+	var wish := (right * input.x + forward * input.y) * ARENA_SPEED * modules.move_factor() * _lock_move_factor() * water_factor()
 	var current := Vector3(local_velocity.x, 0, local_velocity.y)
-	current = current.move_toward(wish, ACCEL * delta)
+	current = current.move_toward(wish, ACCEL * water_factor() * delta)
 	if _drift > 0.0:
 		_drift -= delta
 		current = right * _drift_dir * DASH_SPEED * (_drift / DASH_TIME) if absf(_drift_dir) > 0.0 else current

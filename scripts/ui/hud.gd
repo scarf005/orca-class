@@ -176,6 +176,7 @@ func _draw() -> void:
 	_draw_score()
 	_draw_speed()
 	_draw_progress()
+	_draw_wading()
 	_draw_boss()
 	_draw_banner()
 	_draw_shout()
@@ -426,6 +427,25 @@ func _draw_progress() -> void:
 		draw_rect(Rect2(origin + Vector2(width * start / Course.stage.arena_center_d, -3), Vector2(2, 9)), Palette.MIST)
 	var k := clampf(world.rail.d / Course.stage.arena_center_d, 0.0, 1.0)
 	draw_rect(Rect2(origin + Vector2(width * k - 3, -3), Vector2(6, 9)), Palette.FUNGUS)
+
+
+## What the tank is driving through: 0 dry, 1 shallow water, 2 deep water.
+func terrain_glyph() -> int:
+	var depth := world.player.water_depth
+	return 2 if depth > Water.DEEP else (1 if depth > 0.0 else 0)
+
+
+## A small glyph above the throttle: waves for water, two lines deep and one shallow.
+func _draw_wading() -> void:
+	var glyph := terrain_glyph()
+	if glyph == 0:
+		return
+	var origin := Vector2(480.0, 476.0)
+	for row in glyph:
+		var points := PackedVector2Array()
+		for i in 9:
+			points.append(origin + Vector2(-12 + i * 3.0, row * 5.0 - 3.0 + sin(_time * 4.0 + i * 1.2 + row) * 1.5))
+		draw_polyline(points, Palette.SKY if glyph == 1 else Palette.TEAL, 2.0)
 
 
 func _draw_boss() -> void:
