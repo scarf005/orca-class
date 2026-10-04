@@ -3,3 +3,4 @@
 /builds/
 *.translation
 /screenshots/
+__pycache__/

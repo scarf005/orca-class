@@ -1,8 +1,9 @@
 """Synthesizes the game's extra sound effects and music.
 
-Run: uv run --with numpy tools/audio.py
+Run: uv run --with numpy --with pyfluidsynth tools/audio.py [sfx|music|stage2|stage2sfx|stage2music]
 Writes WAV effects to assets/audio/synth/ and OGG music to assets/music/ (via ffmpeg).
-Everything is generated here from scratch, so no third-party samples are involved.
+Everything is generated here from scratch, except stage 2's piano, which FluidSynth renders from the FluidR3 GM soundfont
+(see assets/audio/ATTRIBUTION.md).
 """
 
 import os
@@ -1000,77 +1001,6 @@ def stage2_sfx():
     put("mine_beep", pad([(i * 0.22, tone(1760, 0.1) * env(int(0.1 * RATE), 0.003, 0.035)) for i in range(2)], 0.35), 0.5)
 
 
-@lru_cache(None)
-def piano(m, seconds):
-    """Hammer-struck, slightly detuned strings; stretched upper partials decay before the singing root."""
-    t = t_axis(seconds + 1.8)
-    f = freq(m)
-    out = np.zeros_like(t)
-    for h in range(1, 13):
-        partial = f * h * np.sqrt(1 + 0.00008 * h * h)
-        if partial > RATE / 2.4:
-            break
-        decay = np.exp(-t * (0.75 + h * 0.38 + max(0, m - 72) * 0.018))
-        string = np.sin(2 * np.pi * partial * t) + 0.35 * np.sin(2 * np.pi * partial * 1.0009 * t)
-        out += string * decay / h ** 1.65
-    hammer = np.sin(2 * np.pi * f * 7.13 * t) * np.exp(-t * 120) * 0.12
-    return (out + hammer) * (1 - np.exp(-t * 900)) * env(len(t), 0.002, 0.25)
-
-
-def stage2_music():
-    # Eight-bar melodies breathe across bar lines; the break is edited independently of the piano.
-    themes = {
-        "street": "E5:2 C5:1 B4:1 A4:3 -:1 G4:1 B4:1 D5:2 E5:3 D5:1 C5:2 E5:1 G5:1 F5:3 E5:1 D5:2 C5:1 B4:1 G#4:2 B4:1 -:1",
-        "canyon": "A5:2 F5:1 E5:1 D5:3 A4:1 C5:1 E5:1 G5:2 A5:2 G5:1 E5:1 F5:2 A5:1 C6:1 Bb5:3 A5:1 G5:2 F5:1 E5:1 C#5:2 E5:1 -:1",
-        "hover": "B4:2 E5:1 G5:1 F#5:3 E5:1 D5:1 B4:1 G4:2 A4:2 C5:2 B4:1 E5:1 G5:2 A5:3 G5:1 F#5:2 E5:1 D5:1 D#5:3 -:1",
-        "boss": "A4:1 D5:1 F5:2 E5:3 D5:1 C5:1 A4:1 F4:2 G4:2 Bb4:2 A4:1 D5:1 F5:2 G5:3 F5:1 E5:2 D5:1 C5:1 C#5:3 -:1",
-    }
-    tracks = (
-        ("stage2_boulevard", 174, 32, "street", ("Am7", "Fmaj7", "Cmaj7", "G", "Am", "Fmaj7", "Dm7", "E7"), 0.0),
-        ("stage2_canyon", 176, 32, "canyon", ("Dm7", "Bbmaj7", "Fmaj7", "C", "Dm", "Bbmaj7", "Gm7", "A7"), 0.35),
-        ("stage2_hovercraft", 178, 24, "hover", ("Em7", "Cmaj7", "G", "Dm", "Em", "Cmaj7", "Am7", "B7"), 0.5),
-        ("stage2_boss", 180, 32, "boss", ("Dm", "Bbmaj7", "Fmaj7", "C", "Dm", "Bbmaj7", "Gm7", "A7"), 0.2),
-        ("stage2_boss_phase2", 180, 32, "boss", ("Dm", "Bbmaj7", "Fmaj7", "C", "Dm", "Bbmaj7", "Gm7", "A7"), 0.85),
-    )
-    for name, bpm, bars, theme, chords, intensity in tracks:
-        song = Song(bpm, bars)
-        # Separate seeds leave all stage 1 renders and both boss piano performances unchanged.
-        global rng
-        previous = rng
-        rng = np.random.default_rng(202)
-        br = Break(song)
-        rng = previous
-        edits = np.random.default_rng(204)
-        for bar in range(bars):
-            section = min(3, bar // 8)
-            drive = min(1.0, intensity + section * (0.3 if name == "stage2_boulevard" else 0.18))
-            chord = chords[bar % 8]
-            notes = chord_notes(chord, 3)
-            step = 1.0 if name == "stage2_boulevard" and bar < 8 else 0.5
-            arp = notes + [notes[-1] + 12] + notes[-2:0:-1]
-            for i in range(int(4 / step)):
-                song.add(bar * 4 + i * step, piano(arp[i % len(arp)], song.beat * 1.5), -0.35, 0.18 if i % 2 == 0 else 0.13, "wet")
-            # A clean sine sub leaves space for hammer attacks and the snare's body.
-            if bar >= 4 or intensity > 0:
-                for beat, duration in ((0, 2.3), (2.5, 1.4)):
-                    sig = tone(freq(root_of(chord, 1)), duration * song.beat)
-                    song.add(bar * 4 + beat, sig * env(len(sig), 0.012, 0.06), 0, 0.34)
-            program = chopped(edits, bar % 4, drive)
-            sparse = name == "stage2_boulevard" and bar < 8
-            if sparse:
-                program = [event if i in (0, 4, 10, 12) else None for i, event in enumerate(program)]
-            if bar % 4 == 3:
-                program = roll(program, 14 if drive < 0.4 else 12 if drive < 0.7 else 8, 7)
-            # Only the sampler stutters; the lyrical melody never suffers a whole-mix glitch.
-            gain = 0.12 if sparse else 0.2 + drive * 0.9 if name == "stage2_boulevard" else 0.16 + drive * 0.65
-            br.bar(bar, program, gain, 1600 if sparse else None)
-        for phrase in range(bars // 8):
-            for beat, beats, note in melody(themes[theme]):
-                if note is not None:
-                    song.add(phrase * 32 + beat, piano(note, beats * song.beat), 0.12, 0.62, "wet")
-        song.render(name, 0.75, 0.32, 0.16, pump=0, pedal=True)
-
-
 if __name__ == "__main__":
     import sys
     parts = sys.argv[1:] or ["sfx", "music", "stage2"]
@@ -1084,6 +1014,8 @@ if __name__ == "__main__":
         cannon()
     if "music" in parts:
         music()
-    if "stage2" in parts:
+    if "stage2" in parts or "stage2sfx" in parts:
         stage2_sfx()
+    if "stage2" in parts or "stage2music" in parts:
+        from city_music import stage2_music
         stage2_music()

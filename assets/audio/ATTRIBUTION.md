@@ -12,6 +12,8 @@ The Freesound records below are marked **CC0** on their source pages. The checke
 - `wood.ogg` — dorian.mastin, [snd_ImpactSmallWood01.wav](https://freesound.org/people/dorian.mastin/sounds/381617/), CC0. Full 0.625 s impact recording.
 - `skid.ogg` — audible-edge, [Chrysler LHS tire squeal 02](https://freesound.org/people/audible-edge/sounds/71737/), CC0. 1.3 s squeal excerpt from the 11.142 s preview.
 
+Stage 2's piano (`assets/music/stage2_*.ogg`) is rendered by FluidSynth from the Acoustic Grand Piano of the FluidR3 GM soundfont by Frank Wen, which its license lets anyone use and redistribute, including in a derived work such as this recording. `tools/city_music.py` composes the notes; the drums and bass are synthesized in `tools/audio.py`.
+
 CC0 license text: https://creativecommons.org/publicdomain/zero/1.0/
 
 These files were copied from [`scarf005/orca-class`](https://github.com/scarf005/orca-class) `assets/audio/`.
