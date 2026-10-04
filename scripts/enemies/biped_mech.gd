@@ -115,13 +115,20 @@ func peek_spot(tank: Tank) -> Vector3:
 	var spot := Vector3.INF
 	var toward := tank.global_position - _cover.global_position
 	toward.y = 0.0
+	var sideways := Vector3(-toward.z, 0.0, toward.x).normalized()
 	for step in 12:
 		var direction := toward.rotated(Vector3.UP, TAU * step / 12.0)
 		var candidate := CityCover.outside_point(_cover, direction, radius + 2.0)
 		candidate.y = CityCover.surface_at(candidate, global_position.y + 1.0)
 		if hard_blocker(candidate + Vector3.UP * (radius + 0.1), candidate + Vector3.UP * (radius + 0.2), radius) != null:
 			continue
-		if line_blocked(tank.hit_center(), candidate + Vector3.UP * center_height):
+		# Both shoulders must see the tank, so a gun on either arm can fire from the spot.
+		var clear := true
+		for shoulder in [-1.0, 0.0, 1.0]:
+			if line_blocked(tank.hit_center(), candidate + Vector3.UP * center_height + sideways * (shoulder * radius * 1.7)):
+				clear = false
+				break
+		if not clear:
 			continue
 		var distance := global_position.distance_to(candidate)
 		if distance < best:

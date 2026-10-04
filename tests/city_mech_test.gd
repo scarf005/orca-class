@@ -120,11 +120,18 @@ func test_hunters_seek_hard_cover_then_peek_and_relocate() -> void:
 	check(abel._peek, "after sheltering it moves to a firing edge")
 	check(not BipedMech.line_blocked(tank.hit_center(), abel.hit_center()), "the peek position restores LOS: at %s, goal %s, building %s" % [abel.global_position, abel._cover_goal, prop.global_position])
 	var side := abel._side
-	abel._attack_timer = 0.0
-	_run(abel, 1.1)
-	check_eq(abel._side, side, "one volley is followed by a second from the same edge")
-	abel._attack_timer = 0.0
-	_run(abel, 2.4)
+	var warnings := 0
+	var warned := false
+	for _i in 60 * 14:
+		if abel._stance == BipedMech.Stance.EXPOSED:
+			abel._attack_timer = minf(abel._attack_timer, 0.0)
+		abel.behave(STEP)
+		if abel.telegraphing() and not warned:
+			warnings += 1
+		warned = abel.telegraphing()
+		if abel._side != side:
+			break
+	check(warnings >= 2, "it fires twice from its firing edge before moving (%d)" % warnings)
 	check_eq(abel._side, -side, "two completed volleys pick the other edge for relocation")
 	prop.dead = true
 	check(not BipedMech.line_blocked(tank.hit_center(), cover_goal + Vector3.UP * abel.center_height), "a destroyed blocker no longer conceals the hunter")

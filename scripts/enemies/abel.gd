@@ -119,6 +119,14 @@ func behave(delta: float) -> void:
 		return
 	aim_barrel(_launcher, tank.hit_center(), 3.0, delta)
 	aim_barrel(_gun, _aim if _burst > 0 else Gunnery.sensor_lead(tank, _muzzle.global_position, MG_SPEED), 3.0, delta)
+	if _wind <= 0.0 and _burst == 0 and not disarmed:
+		# Pick the weapon that has a line from this spot: the other arm may still be behind the corner.
+		var gun_clear := not line_blocked(_muzzle.global_position, tank.hit_center())
+		var launcher_clear := not line_blocked(_launch_muzzle.global_position, tank.hit_center())
+		if _losat and not launcher_clear and gun_clear:
+			_losat = false
+		elif not _losat and not gun_clear and launcher_clear and global_position.distance_to(tank.global_position) >= LOSAT_MIN_FIRE:
+			_losat = true
 	if line_blocked(_muzzle.global_position if _burst > 0 or not _losat else _launch_muzzle.global_position, tank.hit_center()):
 		_cancel()
 		return
