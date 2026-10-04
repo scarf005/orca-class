@@ -2,6 +2,11 @@ class_name BipedMech
 extends Enemy
 ## Shared feet, breakable legs and hard-cover movement for the city bipeds.
 
+enum Stance { ADVANCE, COVER, HIDE, PEEK, EXPOSED }
+
+const HIDE_TIME := 1.1 ## Seconds behind cover before it peeks.
+const EXPOSE_TIME := 4.5 ## Seconds in the open before it ducks away again.
+
 var legs_hp := 30.0
 var toppled := false
 var _hard := false
@@ -11,6 +16,9 @@ var _cover: Prop
 var _cover_goal := Vector3.INF
 var _cover_wait := 0.0
 var _peek := false
+var _avoid: Prop ## The cover it just left.
+var _stance := Stance.ADVANCE
+var _stance_time := 0.0
 var _side := 1.0
 var _search := 0.0
 var _walk := 0.0
@@ -78,7 +86,7 @@ func seek_cover(tank: Tank) -> bool:
 	var best := INF
 	_cover = null
 	for prop: Prop in World.current.props.in_radius(global_position, 45.0):
-		if not prop.hard or prop.dead or prop.global_position.y + prop.height < global_position.y + center_height + 1.0:
+		if prop == _avoid or not prop.hard or prop.dead or prop.global_position.y + prop.height < global_position.y + center_height + 1.0:
 			continue
 		var away := prop.global_position - tank.global_position
 		away.y = 0.0
@@ -90,16 +98,48 @@ func seek_cover(tank: Tank) -> bool:
 			_cover = prop
 			_cover_goal = goal
 	_peek = false
-	_cover_wait = 0.65
+	_cover_wait = HIDE_TIME
+	_stance = Stance.COVER if _cover != null else Stance.ADVANCE
+	_stance_time = 0.0
 	return _cover != null
 
 
+## The nearest spot around the cover, outside its footprint, that sees the tank; INF when none does.
+func peek_spot(tank: Tank) -> Vector3:
+	var best := INF
+	var spot := Vector3.INF
+	var toward := tank.global_position - _cover.global_position
+	toward.y = 0.0
+	for step in 12:
+		var direction := toward.rotated(Vector3.UP, TAU * step / 12.0)
+		var candidate := CityCover.outside_point(_cover, direction, radius + 2.0)
+		candidate.y = CityCover.surface_at(candidate, global_position.y + 1.0)
+		if hard_blocker(candidate + Vector3.UP * (radius + 0.1), candidate + Vector3.UP * (radius + 0.2), radius) != null:
+			continue
+		if line_blocked(tank.hit_center(), candidate + Vector3.UP * center_height):
+			continue
+		var distance := global_position.distance_to(candidate)
+		if distance < best:
+			best = distance
+			spot = candidate
+	return spot
+
+
+## Leaves the current cover for another one, never straight back to it.
 func relocate() -> void:
 	_side = -_side
+	_avoid = _cover
 	_cover = null
 	_cover_goal = Vector3.INF
 	_search = 0.0
 	_peek = false
+	_stance = Stance.ADVANCE
+	_stance_time = 0.0
+
+
+## Called when the hunter steps into a firing position: an attack should follow at once.
+func on_exposed() -> void:
+	pass
 
 
 ## Walk around a footprint, keeping the current deck without climbing overhead roofs.
@@ -142,23 +182,48 @@ func move_hunter(tank: Tank, delta: float, planted: bool, keep := 65.0) -> void:
 	if toward.length() < 25.0:
 		walk_to(global_position - toward.normalized() * 12.0, 9.0 if _hard else 7.0, delta)
 		return
-	_search -= delta
-	if not is_instance_valid(_cover) or _cover.dead:
-		_cover = null
-		if _search <= 0.0:
-			seek_cover(tank)
-			_search = 1.5
-	if _cover != null:
-		walk_to(_cover_goal, 8.0, delta)
-		if global_position.distance_to(_cover_goal) < 1.0:
-			_cover_wait -= delta
-			if not _peek and _cover_wait <= 0.0:
-				var away := (_cover.global_position - tank.global_position).normalized()
-				var side := Vector3(-away.z, 0, away.x) * _side
-				_cover_goal = CityCover.outside_point(_cover, side, radius + 3.0)
-				_cover_goal.y = CityCover.surface_at(_cover_goal, global_position.y + 1.0)
-				_peek = true
-		return
+	_stance_time += delta
+	if _stance != Stance.ADVANCE and (not is_instance_valid(_cover) or _cover.dead):
+		relocate()
+	match _stance:
+		Stance.ADVANCE:
+			_search -= delta
+			if _search <= 0.0:
+				_search = 1.2
+				if seek_cover(tank):
+					return
+				_avoid = null
+		Stance.COVER:
+			walk_to(_cover_goal, 8.0, delta)
+			if global_position.distance_to(_cover_goal) < 1.0 or _stance_time > 8.0:
+				_stance = Stance.HIDE
+				_stance_time = 0.0
+			return
+		Stance.HIDE:
+			if _stance_time >= HIDE_TIME:
+				var spot := peek_spot(tank)
+				if spot == Vector3.INF:
+					relocate()
+				else:
+					_cover_goal = spot
+					_peek = true
+					_stance = Stance.PEEK
+					_stance_time = 0.0
+			return
+		Stance.PEEK:
+			walk_to(_cover_goal, 8.5, delta)
+			if not line_blocked(hit_center(), tank.hit_center()):
+				_stance = Stance.EXPOSED
+				_stance_time = 0.0
+				on_exposed()
+			elif global_position.distance_to(_cover_goal) < 1.0 or _stance_time > 4.0:
+				relocate()
+			return
+		Stance.EXPOSED:
+			# Stand and fight; a hunter that cannot see the tank any more, or has fought long enough, moves on.
+			if _stance_time > EXPOSE_TIME or line_blocked(hit_center(), tank.hit_center()):
+				relocate()
+			return
 	var here := Course.to_course(global_position)
 	var target_d := World.current.rail.d + tank.course_offset + keep
 	if World.current.rail.mode == Rail.Mode.ARENA:

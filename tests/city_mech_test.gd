@@ -127,6 +127,23 @@ func test_hunters_seek_hard_cover_then_peek_and_relocate() -> void:
 	check(not BipedMech.line_blocked(tank.hit_center(), cover_goal + Vector3.UP * abel.center_height), "a destroyed blocker no longer conceals the hunter")
 
 
+func test_a_hunter_that_peeks_out_fires_before_it_ducks_away() -> void:
+	for kind: GDScript in [Abel, Kain]:
+		var world := await _setup()
+		var hunter: BipedMech = kind.new()
+		_spawn(world, hunter, 40.0)
+		var tank := world.player
+		_blocker(world, tank.global_position + Vector3(8, 0, -30))
+		check(hunter.seek_cover(tank), "a tall hard building is useful cover")
+		var warned := false
+		for _i in 60 * 14:
+			hunter.behave(STEP)
+			if hunter.telegraphing():
+				warned = true
+				break
+		check(warned, "%s winds up an attack from behind its cover within 14 s" % kind.get_global_name())
+
+
 func test_light_props_do_not_hide_hunters_and_cover_cancels_fire() -> void:
 	var world := await _setup()
 	var abel := Abel.new()

@@ -180,6 +180,11 @@ func aim_parts() -> Dictionary:
 	return {"turret": [_turret.global_position + Vector3.UP * 0.3 * SCALE, 1.3 * SCALE, tr("ENEMY_KAIN")]}
 
 
+func on_exposed() -> void:
+	if is_finite(_attack_timer):
+		_attack_timer = minf(_attack_timer, 0.6)
+
+
 func telegraphing() -> bool:
 	return _wind > 0.0
 

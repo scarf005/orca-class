@@ -193,6 +193,11 @@ func on_damaged(hit: Hit, amount: float) -> void:
 			World.current.award(150, global_position, false)
 
 
+func on_exposed() -> void:
+	if is_finite(_attack_timer):
+		_attack_timer = minf(_attack_timer, 0.5)
+
+
 func telegraphing() -> bool:
 	return _wind > 0.0
 
