@@ -5,8 +5,10 @@ extends Enemy
 enum Stance { ADVANCE, COVER, HIDE, PEEK, EXPOSED }
 
 const HIDE_TIME := 1.1 ## Seconds behind cover before it peeks.
-const EXPOSE_TIME := 4.5 ## Seconds in the open before it ducks away again.
+const EXPOSE_TIME := 8.0 ## Seconds in the open before it ducks away again.
+const VOLLEYS_PER_PEEK := 2 ## Attacks it makes from one firing position before it moves.
 
+var min_range := 0.0 ## Nearest it will stand to the tank when picking cover.
 var legs_hp := 30.0
 var toppled := false
 var _hard := false
@@ -19,6 +21,7 @@ var _peek := false
 var _avoid: Prop ## The cover it just left.
 var _stance := Stance.ADVANCE
 var _stance_time := 0.0
+var _volleys := 0
 var _side := 1.0
 var _search := 0.0
 var _walk := 0.0
@@ -93,6 +96,8 @@ func seek_cover(tank: Tank) -> bool:
 		var goal := CityCover.outside_point(prop, away, radius + 1.0)
 		goal.y = CityCover.surface_at(goal, global_position.y + 1.0)
 		var distance := global_position.distance_to(goal)
+		if goal.distance_to(tank.global_position) < min_range:
+			continue
 		if distance < best and line_blocked(tank.hit_center(), goal + Vector3.UP * center_height):
 			best = distance
 			_cover = prop
@@ -137,6 +142,14 @@ func relocate() -> void:
 	_stance_time = 0.0
 
 
+## An attack finished: it fires again from the same spot, then moves on.
+func volley_done() -> void:
+	_volleys += 1
+	if _volleys >= VOLLEYS_PER_PEEK:
+		_volleys = 0
+		relocate()
+
+
 ## Called when the hunter steps into a firing position: an attack should follow at once.
 func on_exposed() -> void:
 	pass
@@ -179,7 +192,7 @@ func move_hunter(tank: Tank, delta: float, planted: bool, keep := 52.0) -> void:
 		_legs[i].rotation.x = sin(_walk * 1.4 + i * PI) * 0.18
 	if planted or is_staggered():
 		return
-	if toward.length() < 25.0:
+	if toward.length() < maxf(25.0, min_range * 0.7):
 		walk_to(global_position - toward.normalized() * 12.0, 9.0 if _hard else 7.0, delta)
 		return
 	_stance_time += delta

@@ -5,7 +5,7 @@ extends Projectile
 const MIN_RANGE := 25.0
 const LAUNCH_SPEED := 70.0
 const MAX_SPEED := 700.0
-const DAMAGE := 240.0
+const DAMAGE := 110.0
 const CIWS_RANGE := 9.0
 
 

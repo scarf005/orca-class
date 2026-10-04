@@ -118,7 +118,7 @@ func behave(delta: float) -> void:
 			_burst -= 1
 			_shot_timer = 0.1
 			if _burst == 0:
-				relocate()
+				volley_done()
 		return
 	if _wind > 0.0:
 		_wind -= delta
@@ -127,7 +127,7 @@ func behave(delta: float) -> void:
 		if _wind <= 0.0:
 			if _shell:
 				_fire_shell()
-				relocate()
+				volley_done()
 			else:
 				_burst = 10 if _hard else 6
 				_shot_timer = 0.0
@@ -136,7 +136,7 @@ func behave(delta: float) -> void:
 	_attack_timer -= delta
 	if _attack_timer <= 0.0 and global_position.distance_to(tank.global_position) < 140.0:
 		_wind = 1.0 * Game.telegraph_scale()
-		_attack_timer = 2.6 if _hard else 3.6
+		_attack_timer = 2.2 if _hard else 3.0
 		_aim = tank.global_position + tank.velocity * 0.8
 		_aim.y = Course.height_at(_aim)
 		_flight = clampf(global_position.distance_to(_aim) / 45.0, 1.2, 2.4)

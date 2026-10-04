@@ -103,10 +103,10 @@ func test_losat_ciws_only_engages_inside_nine_metres() -> void:
 func test_hunters_seek_hard_cover_then_peek_and_relocate() -> void:
 	var world := await _setup()
 	var abel := Abel.new()
-	_spawn(world, abel, 40.0)
+	_spawn(world, abel, 85.0)
 	abel._attack_timer = INF
 	var tank := world.player
-	var prop := _blocker(world, tank.global_position + Vector3(8, 0, -30))
+	var prop := _blocker(world, tank.global_position + Vector3(8, 0, -65))
 	check(abel.seek_cover(tank), "a tall hard building is useful cover")
 	var cover_goal := abel._cover_goal
 	check(BipedMech.line_blocked(tank.hit_center(), cover_goal + Vector3.UP * abel.center_height), "the chosen hiding point actually breaks tank LOS")
@@ -122,7 +122,10 @@ func test_hunters_seek_hard_cover_then_peek_and_relocate() -> void:
 	var side := abel._side
 	abel._attack_timer = 0.0
 	_run(abel, 1.1)
-	check_eq(abel._side, -side, "a completed volley picks the other edge for relocation")
+	check_eq(abel._side, side, "one volley is followed by a second from the same edge")
+	abel._attack_timer = 0.0
+	_run(abel, 2.4)
+	check_eq(abel._side, -side, "two completed volleys pick the other edge for relocation")
 	prop.dead = true
 	check(not BipedMech.line_blocked(tank.hit_center(), cover_goal + Vector3.UP * abel.center_height), "a destroyed blocker no longer conceals the hunter")
 
@@ -131,9 +134,9 @@ func test_a_hunter_that_peeks_out_fires_before_it_ducks_away() -> void:
 	for kind: GDScript in [Abel, Kain]:
 		var world := await _setup()
 		var hunter: BipedMech = kind.new()
-		_spawn(world, hunter, 40.0)
+		_spawn(world, hunter, 85.0)
 		var tank := world.player
-		_blocker(world, tank.global_position + Vector3(8, 0, -30))
+		_blocker(world, tank.global_position + Vector3(8, 0, -65))
 		check(hunter.seek_cover(tank), "a tall hard building is useful cover")
 		var warned := false
 		for _i in 60 * 14:

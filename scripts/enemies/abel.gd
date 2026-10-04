@@ -18,6 +18,7 @@ var _barrels := Node3D.new()
 var _muzzle := Node3D.new()
 
 
+const LOSAT_MIN_FIRE := 45.0 ## Closer than this the dart has not gained its speed, so the gatling answers instead.
 const SCALE := 1.45 ## The whole frame is drawn this much larger than its model-space layout.
 
 
@@ -25,6 +26,7 @@ func _init() -> void:
 	super()
 	radius *= SCALE
 	center_height *= SCALE
+	min_range = 55.0
 	max_hp = 2600.0
 	hp = max_hp
 	score = 800
@@ -130,7 +132,7 @@ func behave(delta: float) -> void:
 			_burst -= 1
 			_shot_timer = 0.07
 			if _burst == 0:
-				relocate()
+				volley_done()
 		return
 	if _wind > 0.0:
 		_wind -= delta
@@ -143,7 +145,7 @@ func behave(delta: float) -> void:
 		if _wind <= 0.0:
 			if _losat and not disarmed:
 				_fire_losat(tank)
-				relocate()
+				volley_done()
 			else:
 				_aim = Gunnery.sensor_lead(tank, _muzzle.global_position, MG_SPEED)
 				_burst = 12 if _hard else 8
@@ -152,9 +154,9 @@ func behave(delta: float) -> void:
 		return
 	_attack_timer -= delta
 	if _attack_timer <= 0.0 and global_position.distance_to(tank.global_position) < 150.0:
-		_losat = _losat and not disarmed
+		_losat = _losat and not disarmed and global_position.distance_to(tank.global_position) >= LOSAT_MIN_FIRE
 		_wind = (1.0 if _losat else 0.65) * Game.telegraph_scale()
-		_attack_timer = 2.4 if _hard else 3.2
+		_attack_timer = 2.0 if _hard else 2.6
 		Sfx.play("warn", global_position, -4.0)
 
 
