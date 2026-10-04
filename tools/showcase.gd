@@ -48,6 +48,8 @@ func run() -> int:
 			_stage_vfx(world)
 		"abel", "kain", "adam", "mechs":
 			_stage_mechs(world, scene)
+		"hind", "rooftop_battery", "sea_mine":
+			_stage_city_hunter(world, scene)
 		"fungus":
 			world.player.model.visible = true
 		"church":
@@ -84,6 +86,28 @@ func _stage_mechs(world: World, kind: String) -> void:
 	var spot := Course.ground_at(base + (8.0 if kind == "adam" else 32.0), 0.0)
 	cam.global_position = spot + Vector3(15, 8, 17)
 	cam.look_at(spot + Vector3.UP * 2.0, Vector3.UP)
+
+
+func _stage_city_hunter(world: World, kind: String) -> void:
+	var base := world.rail.d + world.player.course_offset
+	var enemy: Enemy = load(Director.ENEMY_SCRIPTS[kind]).new()
+	enemy.position = Course.ground_at(base + 30.0, -30.0 if kind == "sea_mine" else 0.0) + Vector3.UP * (7.0 if kind == "hind" else 0.0)
+	if kind == "sea_mine":
+		enemy.position.y = maxf(enemy.position.y, Water.surface_at(enemy.position))
+	if kind == "rooftop_battery":
+		for node in world.props.get_children():
+			var roof := node as Prop
+			if roof != null and not roof.dead and roof.kind in Prop.BUILDINGS and roof.height >= 3.0 and roof.global_position.distance_to(enemy.position) < 35.0:
+				enemy.position = roof.global_position
+				break
+	world.add_enemy(enemy)
+	if enemy is Hind:
+		(enemy as Hind)._next_attack()
+		(enemy as Hind)._attack_timer = 0.0
+	var camera := world.camera
+	camera.set_process(false)
+	camera.global_position = enemy.global_position + (Vector3(6, 4, 8) if kind == "sea_mine" else Vector3(16, 10, 22))
+	camera.look_at(enemy.hit_center(), Vector3.UP)
 
 
 func _stage_vfx(world: World) -> void:

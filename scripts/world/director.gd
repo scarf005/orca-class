@@ -21,6 +21,9 @@ const ENEMY_SCRIPTS := {
 	"adam": "res://scripts/enemies/adam.gd",
 	"colossus": "res://scripts/enemies/colossus.gd",
 	"helicopter": "res://scripts/enemies/helicopter.gd",
+	"hind": "res://scripts/enemies/hind.gd",
+	"rooftop_battery": "res://scripts/enemies/rooftop_battery.gd",
+	"sea_mine": "res://scripts/enemies/sea_mine.gd",
 	"tiltrotor": "res://scripts/enemies/tiltrotor.gd",
 	"gunship": "res://scripts/enemies/gunship.gd",
 }
@@ -35,8 +38,11 @@ const DUEL_D := 100.0
 const DUEL_RESPAWN := 2.5
 ## How many of each hunter a duel round sends, tuned live in the duel mode.
 static var duel_round := Armament.Round.APHE ## The round every duel refit loads (picked in the duel panel).
-static var duel_counts := {"helicopter": 0, "tiltrotor": 1, "walker": 2, "uav": 0, "quad": 0, "ugv": 0, "fpv": 0, "abel": 0, "kain": 0, "adam": 0}
+static var duel_counts := {"helicopter": 0, "tiltrotor": 1, "walker": 2, "uav": 0, "quad": 0, "ugv": 0, "fpv": 0, "abel": 0, "kain": 0, "adam": 0, "hind": 0, "rooftop_battery": 0, "sea_mine": 0}
 const DUEL := {
+	"hind": {"height": 7.0, "ahead": 65.0, "u": -8.0, "spacing": 20.0},
+	"rooftop_battery": {"ahead": 65.0, "u": 12.0, "spacing": 12.0},
+	"sea_mine": {"ahead": 25.0, "spacing": 4.0},
 	"helicopter": {"height": 13.0, "ahead": 90.0, "u": -8.0, "formation": "line", "spacing": 20.0},
 	"tiltrotor": {"height": 10.0, "ahead": 150.0, "u": 16.0, "formation": "line", "spacing": 20.0},
 	"walker": {"formation": "sides", "spacing": 9.0, "ahead": 60.0},
