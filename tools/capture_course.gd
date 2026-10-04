@@ -10,6 +10,8 @@ func run() -> int:
 	var out: String = args.get("out", "builds/shots")
 	DirAccess.make_dir_recursive_absolute(out.get_base_dir() if args.has("square") else out)
 	var output_size := int(args.get("size", "256"))
+	if args.has("benchmark"):
+		return await _benchmark(int(args.get("stage", "2")))
 	var view := DitherView.new()
 	add_child(view)
 	# Keep the game's native 960x540 view and shader grid. A square is a crop of the
@@ -42,6 +44,11 @@ func run() -> int:
 			world.camera.look_at(Course.ground_at(d + 30.0, 0.0) + Vector3.UP * 1.5)
 		for _i in 30:
 			await get_tree().process_frame
+		if args.has("profile"):
+			var profile_start := Time.get_ticks_usec()
+			for _i in 120:
+				await get_tree().process_frame
+			print("RENDER stage=%d d=%.0f props=%d fps=%.1f frame=%.2fms" % [world.stage_number, d, world.props.get_child_count(), 120000000.0 / (Time.get_ticks_usec() - profile_start), (Time.get_ticks_usec() - profile_start) / 120000.0])
 		await RenderingServer.frame_post_draw
 		var image := get_viewport().get_texture().get_image()
 		assert(image.get_size() == DitherView.RESOLUTION, "Capture must use the native displayed frame")
@@ -57,4 +64,39 @@ func run() -> int:
 			image.save_png("%s/course_%04d.png" % [out, int(d)])
 			view.viewport.get_texture().get_image().save_png("%s/raw_%04d.png" % [out, int(d)])
 		print("saved ", d)
+	return 0
+
+
+## CPU timings of the actual city stream, hull sweep and twelve hunter cover queries, not rendered FPS.
+func _benchmark(number: int) -> int:
+	var world := World.new()
+	world.stage_number = number
+	add_child(world)
+	world.set_process(false)
+	var scenery := Scenery.new()
+	world.add_child(scenery)
+	scenery.build()
+	scenery.set_process(false)
+	scenery.stream(0.0, 100000)
+	var samples: Array[float] = []
+	var peak := 0
+	var last := Course.ground_at(0.0, 0.0)
+	for frame in 8000:
+		var d := frame * 0.5
+		world.rail.d = d
+		var start := Time.get_ticks_usec()
+		world.terrain.stream(d)
+		scenery.stream(d)
+		var next := Course.ground_at(d, 0.0)
+		last = scenery.drive_position(last, next, Tank.HULL_RADIUS)
+		for i in 12:
+			scenery.line_blocked(Course.to_world(d + 30.0 + i * 4.0, -25.0 if i % 2 else 25.0, 5.0), last + Vector3.UP * 2.0)
+		samples.append((Time.get_ticks_usec() - start) / 1000.0)
+		peak = maxi(peak, scenery._live.size())
+		if frame % 120 == 0:
+			await get_tree().process_frame
+	samples.sort()
+	print("BENCH city_stage%d plan=%d peak_live=%d median=%.3fms p95=%.3fms p99=%.3fms max=%.3fms samples=%d" % [number,
+		scenery.specs.size(), peak, samples[samples.size() / 2], samples[int(samples.size() * 0.95)], samples[int(samples.size() * 0.99)], samples[-1], samples.size()])
+	world.free()
 	return 0

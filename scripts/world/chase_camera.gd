@@ -86,7 +86,7 @@ func follow(delta: float) -> void:
 		_initialized = true
 	_eye = _eye.lerp(eye, k)
 	_look = _look.lerp(look, k)
-	global_position = _eye
+	global_position = world.director.scenery.camera_position(player.hit_center(), _eye) if world.director else _eye
 	look_at(_look, Vector3.UP)
 	_fade_occluders(player.hit_center())
 	rotate_object_local(Vector3.FORWARD, roll)

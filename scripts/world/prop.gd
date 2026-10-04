@@ -10,6 +10,7 @@ signal felled(prop: Prop) ## It started to topple.
 var kind := ""
 var footprint := 1.0
 var height := 2.0
+var box_size := Vector3.ZERO ## Measured city structure; older props keep their cylinder footprint.
 var crushable := false
 var hard := false ## A solid building: the tank breaks it but loses most of its speed doing so.
 var debris: Array = [Fx.Debris.WOOD, Fx.Debris.CONCRETE] ## Fx.Debris materials it breaks into.
@@ -303,6 +304,8 @@ func set_see_through(enabled: bool) -> void:
 
 
 func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
+	if box_size != Vector3.ZERO:
+		return box_hit(global_transform, box_size, from, to, extra_radius)
 	# Intersect the horizontal cylinder interval with its height interval, including roof entry.
 	var base := global_position
 	var r := footprint + extra_radius
@@ -330,6 +333,28 @@ func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 	elif from.y < base.y - 0.5 or from.y > base.y + height:
 		return -1.0
 	return enter * from.distance_to(to) if enter <= leave else -1.0
+
+
+## Segment against a rotated box, including rays entering through the roof or starting inside.
+static func box_hit(pose: Transform3D, size: Vector3, from: Vector3, to: Vector3, pad := 0.0) -> float:
+	var a := pose.affine_inverse() * from
+	var delta := pose.basis.inverse() * (to - from)
+	var low := Vector3(-size.x * 0.5, 0, -size.z * 0.5) - Vector3.ONE * pad
+	var high := low + size + Vector3.ONE * pad * 2.0
+	var enter := 0.0
+	var leave := 1.0
+	for axis in 3:
+		if absf(delta[axis]) < 0.00001:
+			if a[axis] < low[axis] or a[axis] > high[axis]:
+				return -1.0
+		else:
+			var first := (low[axis] - a[axis]) / delta[axis]
+			var last := (high[axis] - a[axis]) / delta[axis]
+			enter = maxf(enter, minf(first, last))
+			leave = minf(leave, maxf(first, last))
+			if enter > leave:
+				return -1.0
+	return enter * from.distance_to(to)
 
 
 ## Driven over: one of a squashed hulk left behind, the whole car knocked flying in one wrecked

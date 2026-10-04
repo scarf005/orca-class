@@ -49,6 +49,10 @@ const PROPS := {
 	"plane_tree": [0.9, 9.0, 22.5, true, true, 10, false, false],
 	"overpass_pier": [1.6, 15.0, 200.0, false, false, 300, false, false],
 	"overpass_deck": [11.0, 2.6, 150.0, false, false, 200, false, false],
+	"city_building": [15.0, 36.0, 200.0, false, false, 0, false, false],
+	"city_pier": [3.0, 24.0, 200.0, false, false, 0, false, false],
+	"city_deck": [12.0, 1.8, 200.0, false, false, 0, false, false],
+	"container": [7.0, 2.8, 200.0, false, false, 0, false, false],
 }
 
 ## The highway crossing overhead: piers standing in the valley (lateral offsets) and deck spans
@@ -65,7 +69,7 @@ const VEHICLES := ["car", "truck", "infested_car", "cultivator"]
 const FALLING := ["pole", "plane_tree", "persimmon", "cordyceps"]
 
 ## Solid buildings and structures: the tank breaks them but is slowed hard (Rail.jolt).
-const HARD := ["house", "infested_house", "hall", "church_nave", "church_tower", "church_spire", "school_wing", "school_center", "gas_station", "overpass_pier", "overpass_deck", "gate", "rock", "fungal_spire", "zelkova_trunk"]
+const HARD := ["house", "infested_house", "hall", "church_nave", "church_tower", "church_spire", "school_wing", "school_center", "gas_station", "overpass_pier", "overpass_deck", "gate", "rock", "fungal_spire", "zelkova_trunk", "city_building", "city_pier", "city_deck", "container"]
 
 ## Plain props that spawn overgrown more often the deeper the stage goes.
 const INFESTED := {"house": "infested_house", "car": "infested_car"}
@@ -92,6 +96,7 @@ class Spec:
 	var group := -1 ## Compound this piece belongs to.
 	var rests_on := -1 ## Index within the group of the piece holding this one up.
 	var index := 0
+	var size := Vector3.ZERO
 
 var specs: Array[Spec] = []
 var _rng := RandomNumberGenerator.new()
@@ -113,6 +118,9 @@ func build() -> void:
 		_wires()
 		_spires()
 		_boom()
+	else:
+		_city()
+	process_priority = 90 # Resolve solid scenery after driving, before the chase camera.
 	specs.sort_custom(func(a: Spec, b: Spec) -> bool: return a.d < b.d)
 	_prewarm()
 
@@ -121,13 +129,16 @@ func build() -> void:
 func _prewarm() -> void:
 	for spec in specs:
 		if not spec.decor and spec.pickup.is_empty():
-			PropKit.mesh(spec.kind, spec.variant)
+			if spec.size != Vector3.ZERO:
+				PropKit.structure_mesh(spec.kind, spec.size, spec.variant)
+			else:
+				PropKit.mesh(spec.kind, spec.variant)
 			if PROPS[spec.kind][7]:
 				PropKit.mesh("rubble", spec.variant)
 
 
 func add(kind: String, d: float, u: float, yaw := INF, variant := -1) -> Spec:
-	if INFESTED.has(kind) and _rng.randf() < clampf((d - 300.0) / 2400.0, 0.1, 0.75):
+	if Course.stage.number == 1 and INFESTED.has(kind) and _rng.randf() < clampf((d - 300.0) / 2400.0, 0.1, 0.75):
 		kind = INFESTED[kind]
 	var spec := Spec.new()
 	spec.kind = kind
@@ -176,6 +187,106 @@ func add_decor(mesh: Mesh, d: float, u: float, yaw := 0.0, y := INF) -> Spec:
 		spec.set_meta("y", y)
 	specs.append(spec)
 	return spec
+
+
+func _city() -> void:
+	for structure in Course.stage.structures:
+		var spec := add(structure.kind, structure.d, structure.u, structure.yaw, structure.variant)
+		spec.size = structure.size
+		spec.set_meta("y", structure.y)
+	for d in range(100, 1600, 110):
+		add("car", float(d), -6.5 if d % 3 else 6.5, 0.15, d % 5)
+		add_decor(_gantry_mesh(), float(d) + 45.0, 0.0)
+	for d in range(2250, 3150, 180):
+		add("truck", float(d), 8.0, 0.0, 1)
+
+
+var _last_tank := Vector3.INF
+
+
+func _process(_delta: float) -> void:
+	var world := World.current
+	if not world or not world.player or Course.stage.structures.is_empty():
+		return
+	var tank := world.player
+	var to := tank.global_position
+	var from := _last_tank if _last_tank != Vector3.INF and _last_tank.distance_to(to) < 200.0 else to
+	if world.rail.mode == Rail.Mode.ARENA:
+		to = arena_position(to, world.rail.d, 6.0)
+	var corrected := drive_position(from, to, Tank.HULL_RADIUS)
+	if not corrected.is_equal_approx(tank.global_position):
+		var c := Course.to_course(corrected)
+		tank.course_u = c.y
+		if world.rail.mode == Rail.Mode.ARENA:
+			tank._set_pose(Course.ground_at(c.x, c.y), tank.hull_yaw)
+		else:
+			tank._place(world.rail.d)
+	_last_tank = tank.global_position
+
+
+## A swept hull is sent sideways, not stopped inside a broad building or tunneled through it.
+func drive_position(from: Vector3, to: Vector3, radius: float) -> Vector3:
+	var result := to
+	var d := Course.to_course(to).x
+	for pass_index in 8:
+		var moved := false
+		var travel := from.distance_to(result)
+		for structure in Course.structure_boxes:
+			var pose: Transform3D = structure.pose
+			var reach: float = structure.size.length() * 0.5 + radius + travel
+			if Vector2(result.x - pose.origin.x, result.z - pose.origin.z).length_squared() > reach * reach:
+				continue
+			var distance := Prop.box_hit(pose, structure.size, from, result, radius)
+			if distance < 0.0:
+				continue
+			var contact := from.lerp(result, distance / maxf(from.distance_to(result), 0.0001))
+			var side := -signf(structure.u) if structure.u != 0.0 else (1.0 if Course.to_course(result).y >= 0.0 else -1.0)
+			var right := Course.right(structure.d) * side
+			var local := pose.affine_inverse() * contact
+			var dir := pose.basis.inverse() * right
+			var shift := INF
+			for axis in [0, 2]:
+				if absf(dir[axis]) > 0.0001:
+					var edge: float = structure.size[axis] * 0.5 + radius + 0.1
+					shift = minf(shift, (edge * signf(dir[axis]) - local[axis]) / dir[axis])
+			result += right * maxf(shift, 0.1)
+			result = Course.to_world(d, Course.to_course(result).y, result.y)
+			moved = true
+		# The old position may itself have been inside (e.g. a checkpoint or a teleport).
+		from = result
+		if not moved:
+			break
+	return result
+
+
+## Pull the eye toward the hull before it enters a deck underside or a facade.
+func camera_position(target: Vector3, eye: Vector3) -> Vector3:
+	var reach := target.distance_to(eye)
+	var clear := reach
+	for structure in Course.structure_boxes:
+		var distance := Prop.box_hit(structure.pose, structure.size, target, eye, 0.8)
+		if distance >= 0.0:
+			clear = minf(clear, maxf(distance - 0.2, 0.0))
+	return target.lerp(eye, clear / maxf(reach, 0.0001))
+
+
+func arena_position(point: Vector3, d: float, margin := 0.0) -> Vector3:
+	var arena := Course.stage.arena_at(d)
+	var center := Course.to_world(arena.d, 0.0)
+	var offset := Vector2(point.x - center.x, point.z - center.z).limit_length(maxf(arena.radius - margin, 0.0))
+	return Vector3(center.x + offset.x, point.y, center.z + offset.y)
+
+
+## HARD cover, including streamed-out city boxes; destroyed ordinary props no longer block sight.
+func line_blocked(from: Vector3, to: Vector3) -> bool:
+	for structure in Course.structure_boxes:
+		if Prop.box_hit(structure.pose, structure.size, from, to) >= 0.0:
+			return true
+	if World.current:
+		for prop: Prop in World.current.props.near(from, to, 24.0):
+			if prop.hard and not prop.dead and prop.hit_test(from, to) >= 0.0:
+				return true
+	return false
 
 
 func _clear(d: float, u: float, r: float) -> bool:
@@ -498,7 +609,12 @@ func _instantiate(spec: Spec) -> void:
 	else:
 		var cfg: Array = PROPS[spec.kind]
 		var prop := Prop.new()
-		prop.setup(spec.kind, PropKit.mesh(spec.kind, spec.variant), cfg[0], cfg[1], cfg[2])
+		if spec.size != Vector3.ZERO:
+			prop.setup(spec.kind, PropKit.structure_mesh(spec.kind, spec.size, spec.variant), minf(spec.size.x, spec.size.z) * 0.5, spec.size.y, cfg[2])
+			prop.box_size = spec.size
+			prop.invulnerable = true
+		else:
+			prop.setup(spec.kind, PropKit.mesh(spec.kind, spec.variant), cfg[0], cfg[1], cfg[2])
 		prop.crushable = cfg[3]
 		prop.burnable = cfg[4]
 		prop.score = cfg[5]

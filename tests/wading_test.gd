@@ -9,6 +9,9 @@ const D := 300.0
 
 ## Stage 2's road with a shallow sheet to the right and a deep one to the left; the road itself is dry.
 class Flooded extends Stage2:
+	func height(_d: float, _u: float) -> float:
+		return 0.0
+
 	func water_surface(c: Vector2) -> float:
 		if c.y > 10.0:
 			return 0.4

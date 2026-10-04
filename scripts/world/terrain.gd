@@ -49,7 +49,11 @@ func _ready() -> void:
 	if mesh:
 		_water = MeshInstance3D.new()
 		_water.mesh = mesh
-		_water.material_override = water_material()
+		var material := water_material(Course.stage.number == 2)
+		if Course.stage.number == 2:
+			material.roughness = 0.55
+			material.metallic_specular = 0.25
+		_water.material_override = material
 		add_child(_water)
 
 

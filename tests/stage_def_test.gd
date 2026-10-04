@@ -60,11 +60,11 @@ func test_stage_2_starts_fitted_after_stage_1() -> void:
 	check_eq(world.rail.d, 0.0, "the run starts at the beginning")
 
 
-func test_stage_2_is_an_empty_rail_that_scrolls() -> void:
+func test_stage_2_geography_scrolls_without_scripted_encounters() -> void:
 	check(Stage2.new().events(true).is_empty() and Stage2.new().events(false).is_empty(), "stage 2 scripts no encounters yet")
 	var world := stage("", false, 2)
 	world.player.invulnerable = true
 	await frames(180)
 	check(world.rail.d > 20.0, "the rail runs (d = %.0f)" % world.rail.d)
-	check(world.enemies.is_empty(), "nothing attacks on the empty rail")
+	check(world.director.events.is_empty(), "the world package adds no scripted encounters")
 	check_eq(world.rail.mode, Rail.Mode.RAIL, "the rail never stops")

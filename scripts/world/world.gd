@@ -96,6 +96,11 @@ func start_stage(checkpoint := "") -> void:
 
 
 func _process(delta: float) -> void:
+	environment.fog_depth_end = Course.stage.fog_distance(rail.d)
+	if rail.mode == Rail.Mode.ARENA and not Course.stage.arenas.is_empty():
+		var arena := Course.stage.arena_at(rail.d)
+		Course.stage.arena_center_d = arena.d
+		Course.stage.arena_radius = arena.radius
 	if _hitstop > 0.0:
 		_hitstop -= delta / maxf(Engine.time_scale, 0.001)
 		if _hitstop <= 0.0:

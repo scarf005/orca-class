@@ -21,6 +21,7 @@ static var _headings := PackedFloat32Array()
 static var _curvature := PackedFloat32Array()
 static var _map_origin := Vector2.ZERO
 static var _map_size := Vector2i.ZERO
+static var structure_boxes: Array[Dictionary] = [] ## World-space solids, rebuilt with the road.
 ## A coarse world grid holding the nearest course d of each cell, seeding `to_course`.
 static var _map := _build()
 
@@ -58,6 +59,9 @@ static func _build() -> PackedFloat32Array:
 		var mid := heading + raw[i] * STEP * 0.5
 		at += Vector2(sin(mid), -cos(mid)) * STEP
 		heading += raw[i] * STEP
+	points.append(at)
+	headings.append(heading)
+	raw.append(0.0)
 	# Rasterize the valley ribbon into the lookup grid, nearer-to-road samples winning.
 	var low := Vector2.INF
 	var high := -Vector2.INF
@@ -91,6 +95,11 @@ static func _build() -> PackedFloat32Array:
 	_curvature = raw
 	_map_origin = origin
 	_map_size = size
+	structure_boxes.clear()
+	for structure in stage.structures:
+		var box := structure.duplicate()
+		box.pose = Transform3D(Basis(Vector3.UP, yaw_at(structure.d) + structure.yaw), to_world(structure.d, structure.u, structure.y))
+		structure_boxes.append(box)
 	return map
 
 
@@ -172,6 +181,21 @@ static func _nearest_sample(flat: Vector2) -> float:
 			best_distance = distance
 			best = i
 	return stage.plan_start + best * STEP
+
+
+## Top of the highest walkable deck or roof; ground driving still uses `height`.
+static func surface_height(d: float, u: float) -> float:
+	var top := height(d, u)
+	if flat:
+		return top
+	var point := to_world(d, u)
+	for structure in structure_boxes:
+		var pose: Transform3D = structure.pose
+		var local := pose.affine_inverse() * point
+		var size: Vector3 = structure.size
+		if absf(local.x) <= size.x * 0.5 and absf(local.z) <= size.z * 0.5:
+			top = maxf(top, structure.y + size.y)
+	return top
 
 
 static func height_at(p: Vector3) -> float:

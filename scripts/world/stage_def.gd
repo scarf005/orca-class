@@ -14,6 +14,8 @@ var water_slows := false ## Whether wading changes how the tank drives.
 var midboss_d := 0.0
 var arena_center_d := 0.0
 var arena_radius := 0.0
+var arenas: Array[Dictionary] = [] ## Bounded all-range spaces: {d, radius}.
+var structures: Array[Dictionary] = [] ## Solid boxes in the road frame: {kind, d, u, size, y, yaw, variant}.
 
 ## The sky, fog and sun.
 var sky_top := Color.WHITE
@@ -39,6 +41,17 @@ func section_at(d: float) -> int:
 	for i in section_starts.size():
 		if d >= section_starts[i]:
 			result = i
+	return result
+
+
+## The all-range space nearest the current rail hold; stage 1 keeps its original single arena.
+func arena_at(d: float) -> Dictionary:
+	var result := {"d": arena_center_d, "radius": arena_radius}
+	var nearest := INF
+	for arena in arenas:
+		if absf(arena.d - d) < nearest:
+			nearest = absf(arena.d - d)
+			result = arena
 	return result
 
 
@@ -83,6 +96,10 @@ func events(_hard: bool) -> Array[Dictionary]:
 ## Music track for a section; empty leaves the current music (the boss event starts its own).
 func music(_section: int) -> String:
 	return ""
+
+
+func fog_distance(_d: float) -> float:
+	return fog_end
 
 
 ## Where the boss appears: above the far side of the arena.
