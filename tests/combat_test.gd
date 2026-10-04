@@ -100,6 +100,58 @@ func test_explosive_wreck_rammed_by_player_spares_player() -> void:
 	check_eq(tank.hp, hp, "tank unharmed by a wreck it set off")
 
 
+func test_blast_only_projectile_hurts_its_direct_target() -> void:
+	var world := stage()
+	var tank := world.player
+	var point := tank.hit_center() - tank.global_basis.z * tank.radius
+	var rocket := world.spawn_projectile(Entity.Team.ENEMY, point, tank.global_basis.z * 34.0, "rocket")
+	rocket.hit = Hit.make(Hit.Kind.SHELL, 0.0, point)
+	rocket.blast_radius = 2.4
+	rocket.blast_damage = 12.0
+	rocket.detonate(point, tank)
+	check_near(tank.hp, Tank.MAX_ARMOR - 12.0 * 0.6, 0.001, "a frontal rocket direct hit deals its blast damage through armor")
+
+
+func test_projectile_direct_damage_is_not_added_to_splash() -> void:
+	var world := stage()
+	var target := Entity.new()
+	target.hp = 100.0
+	world.add_child(target)
+	var shot := world.spawn_projectile(Entity.Team.PLAYER, target.hit_center(), Vector3.FORWARD, "shell")
+	shot.hit = Hit.make(Hit.Kind.SHELL, 10.0, target.hit_center())
+	shot.blast_radius = 4.0
+	shot.blast_damage = 20.0
+	shot.detonate(target.hit_center(), target)
+	check_eq(target.hp, 90.0, "a damaging direct hit does not also receive splash")
+
+
+func test_blast_only_warhead_consumes_one_era_block() -> void:
+	var world := stage()
+	var tank := world.player
+	var point := tank.hit_center() - tank.global_basis.z * tank.radius
+	var rocket := world.spawn_projectile(Entity.Team.ENEMY, point, tank.global_basis.z * 32.0, "atgm")
+	rocket.hit = Hit.make(Hit.Kind.SHELL, 0.0, point)
+	rocket.hit.warhead = true
+	rocket.blast_radius = 2.8
+	rocket.blast_damage = 30.0
+	rocket.detonate(point, tank)
+	check_eq(tank.hp, Tank.MAX_ARMOR, "ERA stops the entire direct warhead hit")
+	check_eq(tank.modules.era["front"], TankModules.ERA["front"] - 1, "one impact consumes only one ERA block")
+
+
+func test_blast_only_projectile_hurts_nearby_tank() -> void:
+	var world := stage()
+	var tank := world.player
+	var point := tank.hit_center() - tank.global_basis.z * (tank.radius + 0.5)
+	var rocket := world.spawn_projectile(Entity.Team.ENEMY, point, tank.global_basis.z * 34.0, "rocket")
+	rocket.hit = Hit.make(Hit.Kind.SHELL, 0.0, point)
+	rocket.blast_radius = 2.4
+	rocket.blast_damage = 12.0
+	rocket.detonate(point, null)
+	var falloff := lerpf(1.0, 0.3, 0.5 / 2.4)
+	check_near(tank.hp, Tank.MAX_ARMOR - 12.0 * falloff * 0.6, 0.001, "a near miss still deals distance-scaled blast damage")
+
+
 func test_projectile_hits_ground() -> void:
 	var world := stage()
 	var tank := world.player
