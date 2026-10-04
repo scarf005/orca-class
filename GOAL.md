@@ -2,7 +2,8 @@
 
 A Star Fox-style action shooter in pastel, ditherpunk 3D. You play Ha Yoon (하윤), driver of the tank
 *Orca-class*, pushing through a fungus-infested, abandoned Korean countryside. This goal covers one complete,
-polished **Stage 1**, with enemies, a mid-boss, a final boss, power-ups, scoring and a results screen.
+polished stages, **Stage 1** and **Stage 2**, each with enemies, a mid-boss, a final boss, power-ups, scoring and a
+results screen.
 
 **Why this game exists:** in anime and shooting games the tank is the firework that fighters and walking mechs
 blow up on their way past. Here the tank wins. The enemies are the hunters that usually prey on tanks (helicopters,
@@ -193,6 +194,29 @@ that attack. It fights in three phases, each with new patterns and visible damag
 
 Readable patterns, fair dodge windows, and no damage-sponge phases.
 
+## Stage 2: Submerged City (물에 잠긴 시가지)
+
+A downtown drowned to the second floor, at dawn. The road is a shallow lane between 5-10 storey towers that cannot be
+crossed (the tank is shoved around them, like the Stage 1 overpass piers); viaducts run above the street and carry
+enemies. Few enemies, each deadly, and each uses cover: it hides behind a tower, peeks out, fires, and moves. The
+tank starts with the RWS fitted and the coax at tier 2, whether it follows Stage 1 or is picked on its own. Wading
+slows strafing (see Stage 1's water rules); deep water also halves the overdrive refill.
+
+Sections: **Boulevard** (quiet opening, stalled traffic, the first LOSAT hunter), **Viaduct** (deck gunners, mines,
+the first Hind), **Plaza** (mid-boss arena), **Canyon** (the heaviest wave between towers), **Bay** (boss arena).
+Music is lyrical solo piano over chopped breakcore, one track per section, and the boss theme changes at phase two.
+
+| Enemy | Behavior | Telegraph | Counter |
+| --- | --- | --- | --- |
+| Abel (police-labor biped) | Peeks out of cover, fires a LOSAT kinetic dart or a 20 mm gatling burst, then moves; the dart's damage grows with its speed, so it is deadly at range and harmless under 25 m | Laser line from the right arm, then launch | Close in, shoot the three tubes off, a charged shell or two quick shells |
+| Kain (reverse-joint gun carrier) | Lobs a 100 mm low-pressure shell at a marked patch from behind cover, with a 20 mm coax | Turret swivels; impact circle | Legs and rear; the turret's front is armored |
+| Adam (construction biped) | Body-blocks the lane in front of other hunters; hydraulic breaker slam or an I-beam sweep | Impact circle; arm rears back | Shoot the hose bundle on the arm or the legs |
+| Hind (attack helicopter) | Flies the canyon low, hides behind towers, pops up to fire a gatling burst, a rocket ripple or an ATGM | Chin sight beam; pods open; ATGM flare | Airburst, a few coax hits to the tail rotor; CIWS catches rockets and the ATGM |
+| Rooftop battery | Rocket ripples from a roof or viaduct deck | Ground circles | A shell or heavy coax |
+| Sea mine | Floats toward the tank and detonates, chains with others | Beeping speeds up | Shoot it, swat with the tail |
+| Hovercraft (mid-boss) | All-range in the plaza: twin lasers that shoot down player ATGM and micro-missiles, autocannons, a bow shell, a ram, and a rear rocket rack after half hull | Laser heat, circles, a ram line | Direct rounds bypass the lasers; overlapping missile salvos overheat them; shells break the lift fans and emitters |
+| Landsword (boss) | All-range in the bay: a four-legged wheeled machine that skates and hops over cover; guns, a missile rack, a heavy rail shot, a drift charge, a stomp and a leg sweep over three phases | Laser line, impact circles | Heavy shells tear off wheels and plates; two lost wheels force it to crawl |
+
 ## Presentation
 
 ### Art direction
@@ -296,5 +320,5 @@ stage goes on.
 
 ## Out of scope
 
-Stages 2+, a story campaign, online features, a loadout or shop screen, and voice acting (unless decided
+Stages 3+, a story campaign, online features, a loadout or shop screen, and voice acting (unless decided
 otherwise).
