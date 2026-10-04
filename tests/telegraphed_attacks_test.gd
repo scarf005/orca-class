@@ -129,12 +129,15 @@ func test_spore_shells_leave_a_pale_trail() -> void:
 	check(Spitter.SPORE_TRAIL.get_luminance() > 0.8, "and the trail is pale")
 
 
-func _ground_impact(projectile: Projectile) -> Vector3:
+func _ground_impact(projectile: Projectile) -> Variant:
 	var from := projectile.global_position
 	var velocity := projectile.velocity
+	var max_time := minf(projectile.life, 3.0)
+	if max_time <= 0.0:
+		return null
 	var previous_t := 0.0
-	for i in range(1, 601):
-		var next_t := i * 0.01
+	for i in range(1, ceili(max_time / 0.01) + 1):
+		var next_t := minf(i * 0.01, max_time)
 		var next := from + velocity * next_t + Vector3.DOWN * 0.5 * projectile.gravity * next_t * next_t
 		if next.y <= Course.height_at(next):
 			var low := previous_t
@@ -148,7 +151,7 @@ func _ground_impact(projectile: Projectile) -> Vector3:
 					high = middle
 			return from + velocity * high + Vector3.DOWN * 0.5 * projectile.gravity * high * high
 		previous_t = next_t
-	return from + velocity * previous_t + Vector3.DOWN * 0.5 * projectile.gravity * previous_t * previous_t
+	return null
 
 
 func test_helicopter_strafing_run_walks_its_sight_down_the_lane_then_fires() -> void:
@@ -180,8 +183,12 @@ func test_helicopter_strafing_run_walks_its_sight_down_the_lane_then_fires() -> 
 		for projectile: Projectile in world.projectiles.slice(before):
 			if projectile.shape != "orb":
 				continue
-			var intended := Course.to_course(heli._strafe_point())
-			var actual := Course.to_course(_ground_impact(projectile))
+			var intended: Vector2 = Course.to_course(heli._strafe_point())
+			var impact: Variant = _ground_impact(projectile)
+			if not (impact is Vector3) or not (impact as Vector3).is_finite():
+				check(false, "each fired trajectory has a ground intersection before projectile expiry")
+				continue
+			var actual: Vector2 = Course.to_course(impact as Vector3)
 			target_ds.append(actual.x)
 			target_us.append(actual.y)
 			check(actual.distance_to(intended) <= 1.5, "each fired trajectory reaches its intended sight point within the 0.8 m targeting jitter")
