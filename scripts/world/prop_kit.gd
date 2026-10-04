@@ -75,31 +75,130 @@ static func _xf(pos: Vector3, yaw := 0.0) -> Transform3D:
 
 
 static func house(variant: int, rng: RandomNumberGenerator) -> Mesh:
-	return _house(LowPoly.new(), variant, rng).mesh()
+	return _house(LowPoly.new(), variant, Vector2(rng.randf_range(7.0, 9.0), rng.randf_range(5.0, 6.0))).mesh()
 
 
-static func _house(b: LowPoly, variant: int, rng: RandomNumberGenerator) -> LowPoly:
-	var wall := WALL_COLORS[variant % WALL_COLORS.size()]
-	var roof := ROOF_COLORS[variant % ROOF_COLORS.size()]
-	var w := rng.randf_range(7.0, 9.0)
-	var d := rng.randf_range(5.0, 6.0)
+static func _house(b: LowPoly, variant: int, size: Vector2) -> LowPoly:
+	if variant % 4 in [1, 3]:
+		return _flat_house(b, variant, size)
+	var wall: Color = [Palette.CREAM, Palette.CONCRETE, Palette.MIST][variant % 3]
+	var roof: Color = [Palette.SLATE, Palette.CORAL, Palette.TEAL, Palette.SKY, Palette.STONE, Palette.SAGE][variant % 6]
+	var w := size.x
+	var d := size.y
+	var front := d * 0.5 + 0.65
 	b.box(_xf(Vector3(0, 0.3, 0)), Vector3(w + 0.3, 0.6, d + 0.3), Palette.STONE)
 	b.box(_xf(Vector3(0, 1.8, 0)), Vector3(w, 2.6, d), wall)
-	b.gable(_xf(Vector3(0, 3.1, 0)), Vector3(w + 1.2, 1.7, d + 1.4), roof, wall)
-	# Front porch (마루), door and windows.
-	b.box(_xf(Vector3(0, 0.75, d * 0.5 + 0.6)), Vector3(w * 0.6, 0.2, 1.2), Palette.WOOD)
-	b.box(_xf(Vector3(-w * 0.15, 1.5, d * 0.5 + 0.01)), Vector3(1.1, 2.0, 0.05), Palette.WOOD)
-	for x in [w * 0.2, w * 0.36]:
-		b.box(_xf(Vector3(x, 1.9, d * 0.5 + 0.01)), Vector3(1.0, 0.9, 0.05), Palette.DUSK)
-	b.box(_xf(Vector3(-w * 0.35, 1.9, -d * 0.5 - 0.01)), Vector3(1.2, 0.8, 0.05), Palette.DUSK)
-	if variant % 3 == 0:
-		# ㄱ-shaped wing.
-		b.box(_xf(Vector3(w * 0.5 + 1.5, 1.6, d * 0.2)), Vector3(3.0, 2.2, d * 0.7), wall)
-		b.gable(_xf(Vector3(w * 0.5 + 1.5, 2.7, d * 0.2), PI * 0.5), Vector3(d * 0.7 + 0.8, 1.2, 3.8), roof, wall)
-	# Chimney and a satellite dish.
-	b.box(_xf(Vector3(w * 0.3, 4.3, -d * 0.2)), Vector3(0.5, 1.4, 0.5), Palette.STONE)
-	b.prism(Transform3D(Basis(Vector3.RIGHT, 1.2), Vector3(-w * 0.4, 3.3, d * 0.5 + 0.3)), 0.45, 0.1, 6, Palette.WHITE)
+	# A renovated farmhouse: metal roof over the old body, glazed-in 툇마루 below the eaves.
+	_farm_roof(b, Vector3(0, 3.1, 0), Vector3(w + 1.2, 1.1, d + 1.6), roof, variant % 3 == 2)
+	b.box(_xf(Vector3(0, 0.65, d * 0.5 + 0.35)), Vector3(w * 0.84, 0.3, 0.9), Palette.CONCRETE)
+	b.box(_xf(Vector3(0, 1.65, front - 0.35)), Vector3(w * 0.84, 1.9, 0.7), wall)
+	b.box(_xf(Vector3(w * 0.12, 1.85, front + 0.01)), Vector3(w * 0.48, 1.25, 0.06), Palette.SLATE)
+	for y in [1.2, 1.85, 2.5]:
+		b.box(_xf(Vector3(w * 0.12, y, front + 0.06)), Vector3(w * 0.5, 0.07, 0.06), Palette.MIST)
+	for x in [-0.12, 0.0, 0.12, 0.24, 0.36]:
+		b.box(_xf(Vector3(w * x, 1.85, front + 0.07)), Vector3(0.07, 1.35, 0.07), Palette.ASH)
+	var door := -w * 0.28
+	b.box(_xf(Vector3(door, 1.65, front + 0.02)), Vector3(1.05, 1.9, 0.07), Palette.ASH)
+	b.box(_xf(Vector3(door, 1.9, front + 0.07)), Vector3(0.85, 1.15, 0.06), Palette.SLATE)
+	b.box(_xf(Vector3(door + 0.33, 1.45, front + 0.12)), Vector3(0.06, 0.25, 0.08), Palette.INK)
+	for step in 2:
+		b.box(_xf(Vector3(door, 0.15 + step * 0.15, front + 0.7 - step * 0.2)), Vector3(1.5, 0.3, 1.0 - step * 0.4), Palette.CONCRETE)
+	b.box(_xf(Vector3(0, 2.68, front - 0.25)), Vector3(w * 0.9, 0.12, 1.0), roof)
+	# Broad sliding windows on the sides, with a small sill and metal frames.
+	for side in [-1.0, 1.0]:
+		b.box(_xf(Vector3(side * (w * 0.5 + 0.02), 1.85, -0.4)), Vector3(0.06, 1.25, 2.1), Palette.ASH)
+		b.box(_xf(Vector3(side * (w * 0.5 + 0.06), 1.85, -0.4)), Vector3(0.05, 1.08, 1.94), Palette.SLATE)
+		b.box(_xf(Vector3(side * (w * 0.5 + 0.1), 1.85, -0.4)), Vector3(0.06, 1.16, 0.07), Palette.MIST)
+		b.box(_xf(Vector3(side * (w * 0.5 + 0.08), 1.18, -0.4)), Vector3(0.22, 0.12, 2.25), Palette.CONCRETE)
+		if variant % 3 == 1:
+			# Exposed masonry along the lower wall; keep it broad enough to survive dithering.
+			b.box(_xf(Vector3(side * (w * 0.5 + 0.01), 0.88, 0)), Vector3(0.04, 0.55, d), Palette.OCHRE)
+			for y in [0.7, 0.9, 1.1]:
+				b.box(_xf(Vector3(side * (w * 0.5 + 0.04), y, 0)), Vector3(0.03, 0.025, d), Palette.CONCRETE)
+	# Gutter and downpipe replace the oversized chimney on the ridge.
+	b.box(_xf(Vector3(0, 3.08, d * 0.5 + 0.81)), Vector3(w + 1.3, 0.12, 0.12), Palette.ASH)
+	b.prism(_xf(Vector3(w * 0.46, 0.6, d * 0.5 + 0.81)), 0.07, 2.5, 6, Palette.ASH)
+	if variant % 2 == 0:
+		b.prism(Transform3D(Basis(Vector3.RIGHT, 1.2), Vector3(-w * 0.4, 3.2, -d * 0.4)), 0.35, 0.08, 6, Palette.WHITE)
 	return b
+
+
+## Masonry village houses with a usable, green waterproofed concrete rooftop.
+static func _flat_house(b: LowPoly, variant: int, size: Vector2) -> LowPoly:
+	b.vivid = true
+	var w := size.x
+	var d := size.y
+	var brick := variant % 4 == 1
+	var two_storeys := variant % 8 == 1
+	var roof_y := 4.5 if two_storeys else 3.1
+	var wall := Palette.OCHRE if brick else Palette.CONCRETE
+	var front := d * 0.5
+	b.box(_xf(Vector3(0, 0.3, 0)), Vector3(w + 0.25, 0.6, d + 0.25), Palette.STONE)
+	b.box(_xf(Vector3(0, (roof_y + 0.6) * 0.5, 0)), Vector3(w, roof_y - 0.6, d), wall)
+	if brick:
+		# Staggered mortar joints on the actual facade, without a texture or extra material.
+		for side in [-1.0, 1.0]:
+			for axis in 2:
+				var length := w if axis == 0 else d
+				var face := Transform3D(Basis(Vector3.UP, PI * 0.5 * axis), Vector3(0, 0, side * (d * 0.5 + 0.01)) if axis == 0 else Vector3(side * (w * 0.5 + 0.01), 0, 0))
+				for row in int((roof_y - 0.6) / 0.25):
+					var y := 0.6 + row * 0.25
+					b.quad(face * Vector3(-length * 0.5, y, 0), face * Vector3(length * 0.5, y, 0), face * Vector3(length * 0.5, y + 0.025, 0), face * Vector3(-length * 0.5, y + 0.025, 0), Palette.STONE, face.basis.z * side)
+					for column in range(1, int(length / 0.7)):
+						var x := -length * 0.5 + column * 0.7 + (row % 2) * 0.35
+						b.quad(face * Vector3(x, y, 0), face * Vector3(x + 0.025, y, 0), face * Vector3(x + 0.025, y + 0.25, 0), face * Vector3(x, y + 0.25, 0), Palette.STONE, face.basis.z * side)
+	# The roof is an inset green plane, not a green pitched roof.
+	b.box(_xf(Vector3(0, roof_y + 0.05, 0)), Vector3(w + 0.35, 0.2, d + 0.35), Palette.CONCRETE)
+	b.box(_xf(Vector3(0, roof_y + 0.16, 0)), Vector3(w - 0.25, 0.04, d - 0.25), Palette.PINE)
+	for side in [-1.0, 1.0]:
+		b.box(_xf(Vector3(0, roof_y + 0.32, side * d * 0.5)), Vector3(w + 0.2, 0.35, 0.2), wall, Palette.CONCRETE)
+		b.box(_xf(Vector3(side * w * 0.5, roof_y + 0.32, 0)), Vector3(0.2, 0.35, d), wall, Palette.CONCRETE)
+	if two_storeys:
+		b.box(_xf(Vector3(0, 2.7, 0)), Vector3(w + 0.12, 0.16, d + 0.12), Palette.CREAM)
+	else:
+		# Rooftop access room on the lower houses; taller houses keep their roof unobstructed.
+		b.box(_xf(Vector3(-w * 0.28, 4.05, -d * 0.25)), Vector3(1.45, 1.6, 1.35), wall)
+		b.box(_xf(Vector3(-w * 0.28, 4.9, -d * 0.25)), Vector3(1.65, 0.1, 1.55), Palette.CONCRETE, Palette.PINE)
+		b.box(_xf(Vector3(-w * 0.28, 4.0, -d * 0.25 + 0.69)), Vector3(0.65, 1.4, 0.05), Palette.DUSK)
+	var door := -w * 0.28
+	b.box(_xf(Vector3(door, 1.6, front + 0.03)), Vector3(1.1, 2.0, 0.08), Palette.CONCRETE)
+	b.box(_xf(Vector3(door, 1.6, front + 0.08)), Vector3(0.9, 1.85, 0.06), Palette.DUSK)
+	b.box(_xf(Vector3(door, 2.1, front + 0.12)), Vector3(0.65, 0.65, 0.05), Palette.SLATE)
+	b.box(_xf(Vector3(door, 2.7, front + 0.35)), Vector3(1.5, 0.12, 0.8), Palette.CONCRETE)
+	for step in 2:
+		b.box(_xf(Vector3(door, 0.15 + step * 0.15, front + 0.65 - step * 0.2)), Vector3(1.4, 0.3, 0.95 - step * 0.4), Palette.CONCRETE)
+	for y in ([1.85, 3.65] if two_storeys else [1.85]):
+		for x in ([door, 0.0, w * 0.28] if y > 3.0 else [0.0, w * 0.28]):
+			b.box(_xf(Vector3(x, y, front + 0.03)), Vector3(1.55, 1.25, 0.08), Palette.CONCRETE)
+			b.box(_xf(Vector3(x, y, front + 0.08)), Vector3(1.35, 1.05, 0.06), Palette.SLATE)
+			b.box(_xf(Vector3(x, y, front + 0.12)), Vector3(0.06, 1.1, 0.06), Palette.MIST)
+		for side in [-1.0, 1.0]:
+			b.box(_xf(Vector3(side * (w * 0.5 + 0.03), y, 0)), Vector3(0.08, 1.25, 2.0), Palette.CONCRETE)
+			b.box(_xf(Vector3(side * (w * 0.5 + 0.08), y, 0)), Vector3(0.06, 1.05, 1.8), Palette.SLATE)
+			b.box(_xf(Vector3(side * (w * 0.5 + 0.12), y, 0)), Vector3(0.06, 1.1, 0.06), Palette.MIST)
+	return b
+
+
+## Shallow corrugated roof, hipped on older bodies and gabled on simpler renovations.
+static func _farm_roof(b: LowPoly, p: Vector3, size: Vector3, color: Color, gabled: bool) -> void:
+	var x := size.x * 0.5
+	var z := size.z * 0.5
+	var ridge := x if gabled else x - z * 0.65
+	var left := p + Vector3(-ridge, size.y, 0)
+	var right := p + Vector3(ridge, size.y, 0)
+	b.box(_xf(p), Vector3(size.x, 0.14, size.z), color)
+	for side in [-1.0, 1.0]:
+		var a := p + Vector3(-x, 0, side * z)
+		var c := p + Vector3(x, 0, side * z)
+		b.quad(a, c, right, left, color, Vector3(0, z, side * size.y))
+		var end := p + Vector3(side * x, 0, 0)
+		b.tri(end + Vector3(0, 0, -z), end + Vector3(0, 0, z), right if side > 0 else left, color, Vector3(side, 1, 0))
+		# Raised seams, not a high-frequency texture that aliases through the dither pass.
+		for i in range(-int(ridge / 0.65), int(ridge / 0.65) + 1):
+			var seam := p + Vector3(i * 0.65, 0.025, side * z)
+			var top := p + Vector3(i * 0.65, size.y + 0.025, 0)
+			b.quad(seam, seam + Vector3.RIGHT * 0.035, top + Vector3.RIGHT * 0.035, top, Palette.ASH, Vector3.UP)
+	b.box(_xf(p + Vector3(0, size.y, 0)), Vector3(ridge * 2.0 + 0.15, 0.12, 0.18), color)
 
 
 static func rubble(variant: int, rng: RandomNumberGenerator) -> Mesh:
@@ -533,15 +632,18 @@ static func _cordyceps_into(b: LowPoly, at: Vector3, stalks: int, scale: float, 
 
 ## A village house with the fungus bursting through its roof and windows.
 static func infested_house(variant: int, rng: RandomNumberGenerator) -> Mesh:
-	var b := _house(LowPoly.new(), variant, rng)
-	_flesh_mass(b, Vector3(rng.randf_range(-1.5, 1.5), 3.2, 0), 1.1, rng)
+	var size := Vector2(rng.randf_range(7.0, 9.0), rng.randf_range(5.0, 6.0))
+	var b := _house(LowPoly.new(), variant, size)
+	var roof_y := 4.5 if variant % 8 == 1 else 3.1
+	_flesh_mass(b, Vector3(rng.randf_range(-1.5, 1.5), roof_y + 0.1, 0), 1.1, rng)
 	b.flesh = true
-	# Strands spilling out of the windows and down the walls.
-	for x in [-2.0, 1.5, 2.8]:
-		b.box(Transform3D(Basis(Vector3.RIGHT, 0.12), Vector3(x, 1.0, 2.9)), Vector3(0.7, 1.9, 0.12), Palette.BLUSH)
-		b.blob(Transform3D(Basis(), Vector3(x, 0.2, 3.2)), 0.45, Palette.MAUVE, 0, 0.3, rng.randi())
+	# Strands follow the renovated door and windows, outside the glazed porch.
+	var front := size.y * 0.5 + (0.2 if variant % 4 in [1, 3] else 0.8)
+	for x in [-0.28, 0.0, 0.24]:
+		b.box(Transform3D(Basis(Vector3.RIGHT, 0.12), Vector3(x * size.x, 1.0, front)), Vector3(0.7, 1.9, 0.12), Palette.BLUSH)
+		b.blob(Transform3D(Basis(), Vector3(x * size.x, 0.2, front + 0.3)), 0.45, Palette.MAUVE, 0, 0.3, rng.randi())
 	b.flesh = false
-	_cordyceps_into(b, Vector3(-3.0, 3.4, -1.0), 2, 0.8, rng)
+	_cordyceps_into(b, Vector3(-3.0, roof_y + 0.3, -1.0), 2, 0.8, rng)
 	return b.mesh()
 
 

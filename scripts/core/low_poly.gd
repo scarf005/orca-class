@@ -13,6 +13,7 @@ static var flesh_glow_material: ShaderMaterial = _make_flesh(true)
 static var vivid_lit_material: StandardMaterial3D = _make_material(false, true)
 static var vivid_glow_material: StandardMaterial3D = _make_material(true, true)
 
+var vivid := false ## Read vertex colors as sRGB when a model needs its actual material colors.
 var glow := false ## When true, following primitives go to the unshaded surface.
 var flesh := false ## When true, following primitives pulse (combines with `glow`).
 var _surfaces := {} ## (glow, flesh) key -> [points, colors, normals]
@@ -156,7 +157,7 @@ func blob(xf: Transform3D, radius: float, color: Color, detail := 0, lumpy := 0.
 
 func mesh() -> ArrayMesh:
 	var result := ArrayMesh.new()
-	var materials: Array[Material] = [lit_material, glow_material, flesh_material, flesh_glow_material]
+	var materials: Array[Material] = [vivid_lit_material if vivid else lit_material, vivid_glow_material if vivid else glow_material, flesh_material, flesh_glow_material]
 	for key in 4:
 		if _surfaces.has(key):
 			_add_surface(result, _surfaces[key][0], _surfaces[key][1], _surfaces[key][2], materials[key])
