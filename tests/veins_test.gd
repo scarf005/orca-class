@@ -32,6 +32,7 @@ func test_driving_over_veins_crushes_them_and_leaves_a_stain() -> void:
 	var tank := world.player
 	await frames(2)
 	var on_path := _veins(world, world.rail.d + tank.course_offset + 12.0, tank.course_u)
+	var expected_position := on_path.global_position
 	var beside := _veins(world, world.rail.d + tank.course_offset + 12.0, tank.course_u + 12.0)
 	var stains := _stains(world).size()
 	var particles := world.fx.particle_count()
@@ -45,7 +46,8 @@ func test_driving_over_veins_crushes_them_and_leaves_a_stain() -> void:
 	check(is_instance_valid(beside) and not beside.dead, "veins well to the side are left alone")
 	check_eq(_stains(world).size(), stains + 1, "one flattened stain is left behind")
 	var stain: MeshInstance3D = _stains(world)[-1]
-	check(stain.scale.y < 0.3 and absf(stain.global_position.x - on_path.global_position.x) < 0.01 if is_instance_valid(on_path) else true, "flat where it grew")
+	check(stain.scale.y < 0.3, "the stain is flat")
+	check(stain.global_position.distance_to(expected_position) < 0.01, "the stain remains at the vein's saved position")
 	check(burst > 4, "spores and flesh bits burst out (%d particles)" % burst)
 	check(not world.props.in_radius(stain.global_position, 1.0).any(func(p: Prop) -> bool: return p.kind == "veins"), "the stain is not a prop: nothing can hit it")
 

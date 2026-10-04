@@ -1,8 +1,10 @@
 extends TestCase
 ## Every translation key used by the code exists in Korean and English.
 
-## Keys built by concatenation (e.g. "PICKUP_" + id) end in "_" and are checked explicitly below.
-const KEY_PATTERNS := ["tr\\(\"([A-Z0-9_]*[A-Z0-9])\"", "\"title\", \"([A-Z_]+)\"", "\"key\": \"([A-Z_]+)\""]
+## Families built by concatenation (e.g. "PICKUP_" + id) are checked explicitly below.
+const KEY_PATTERNS := ["\"title\", \"([A-Z0-9_]+)\"", "\"key\": \"([A-Z0-9_]+)\""]
+const TR_LITERAL := "\"([A-Z][A-Z0-9_]*)\""
+const STYLE_LITERAL_PATTERNS := ["style_event\\(\"([A-Z0-9_]+)\"", "trick\\s*=\\s*\"([A-Z0-9_]+)\""]
 
 
 func test_all_keys_translated() -> void:
@@ -14,13 +16,28 @@ func test_all_keys_translated() -> void:
 		if row.size() >= 3 and not row[0].is_empty():
 			table[row[0]] = row
 	var used := {}
+	var style_names := {}
 	for path in _scripts("res://scripts"):
 		var text := FileAccess.get_file_as_string(path)
 		for pattern in KEY_PATTERNS:
 			var regex := RegEx.create_from_string(pattern)
 			for m in regex.search_all(text):
 				used[m.get_string(1)] = path
+		# Extract every literal inside a tr(...) expression, including both arms of conditionals.
+		var tr_regex := RegEx.create_from_string("tr\\(([^\\)]*)\\)")
+		var literal_regex := RegEx.create_from_string(TR_LITERAL)
+		for expression in tr_regex.search_all(text):
+			for literal in literal_regex.search_all(expression.get_string(1)):
+				used[literal.get_string(1)] = path
+		for pattern in STYLE_LITERAL_PATTERNS:
+			var style_regex := RegEx.create_from_string(pattern)
+			for m in style_regex.search_all(text):
+				style_names[m.get_string(1)] = path
+	for style in style_names:
+		used["STYLE_" + style] = style_names[style]
 	for key in used:
+		if key.ends_with("_"):
+			continue # A concatenated family is checked from its authoritative IDs below.
 		check(table.has(key), "%s used in %s is missing" % [key, used[key]])
 		if table.has(key):
 			check(not table[key][1].is_empty() and not table[key][2].is_empty(), "%s has both languages" % key)

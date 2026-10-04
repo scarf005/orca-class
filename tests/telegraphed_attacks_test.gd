@@ -26,14 +26,24 @@ func test_a_ugv_the_tank_has_passed_winds_up_and_rams() -> void:
 		ugv.behave(0.02)
 	check(ugv._ram > 0.0 and ugv._ram_wind <= 0.0, "the charge starts after 0.6 s")
 	var hurt := [0.0]
-	tank.damaged.connect(func(_e: Entity, hit: Hit) -> void: hurt[0] += hit.damage if hit.kind == Hit.Kind.RAM else 0.0)
+	var ram_hit := [false]
+	tank.damaged.connect(func(_e: Entity, hit: Hit) -> void:
+		if hit.kind == Hit.Kind.RAM:
+			hurt[0] += hit.damage
+			ram_hit[0] = true)
+	var before_hp := tank.hp
+	var before_stats := world.stats.damage_taken
 	tank.invulnerable = false
+	tank.invuln = 0.0
 	for _i in 120:
 		if ugv._ram <= 0.0:
 			break
 		ugv.behave(1.0 / 60.0)
 		tank.global_position = tank.global_position # The tank holds its place.
-	check(hurt[0] >= Ugv.RAM_DAMAGE or ugv._ram_cooldown > 0.0, "the charge lands as a ram hit")
+	check(ram_hit[0], "the collision emits a RAM damage hit")
+	check_eq(hurt[0], Ugv.RAM_DAMAGE, "the ram reports its configured damage")
+	check(tank.hp < before_hp and world.stats.damage_taken > before_stats, "the vulnerable tank loses HP and records ram damage")
+	check(ugv._ram_cooldown > 0.0, "a landed ram starts its cooldown separately")
 
 
 func test_a_ugv_does_not_ram_from_the_wrong_place() -> void:
@@ -66,10 +76,20 @@ func test_walker_missiles_come_as_a_four_ripple_after_the_pod_opens() -> void:
 		walker.behave(0.02)
 	check(walker._pod_lid.rotation.x > 0.5, "the pod's lid swings open during the wind-up")
 	check_eq(world.projectiles.size(), 0, "nothing flies yet")
-	for _i in 60:
+	var launch_steps: Array[int] = []
+	var previous_count := 0
+	var missiles: Array = []
+	for step in 60:
 		walker.behave(0.02)
-	var missiles := world.projectiles.filter(func(p: Projectile) -> bool: return p.homing_target == tank)
+		missiles = world.projectiles.filter(func(p: Projectile) -> bool: return p.homing_target == tank)
+		if missiles.size() > previous_count:
+			check_eq(missiles.size(), previous_count + 1, "the ripple launches one missile at a time")
+			launch_steps.append(step)
+		previous_count = missiles.size()
 	check_eq(missiles.size(), Walker.RIPPLE, "four missiles leave one after another")
+	check(launch_steps.size() == Walker.RIPPLE, "each ripple launch was observed")
+	for i in range(1, launch_steps.size()):
+		check(launch_steps[i] - launch_steps[i - 1] >= ceili(Walker.RIPPLE_GAP / 0.02), "ripple launches are separated by the burst gap")
 	check(missiles.all(func(p: Projectile) -> bool: return p.homing_lead and p.trail.a > 0.0), "each leads the tank")
 	check_eq(walker._burst, 0, "and the ripple ends")
 
@@ -130,7 +150,22 @@ func test_helicopter_strafing_run_walks_its_sight_down_the_lane_then_fires() -> 
 	var walked := start - Course.to_course(heli._strafe_point()).x
 	check(walked > 20.0, "the sight walks toward the tank during the telegraph (%.0f m)" % walked)
 	check_eq(world.projectiles.size(), 0, "and nothing is fired yet")
+	var targets: Array[Vector3] = []
 	for _i in 200:
+		var before := world.projectiles.size()
 		heli.behave(0.02)
-	check(world.projectiles.size() >= Helicopter.STRAFE_ROUNDS - 2, "then the rounds follow it down the lane (%d)" % world.projectiles.size())
+		for projectile: Projectile in world.projectiles.slice(before):
+			if projectile.shape != "orb":
+				continue
+			var target := heli._strafe_point()
+			targets.append(target)
+			check(projectile.velocity.normalized().dot((target - projectile.global_position).normalized()) > 0.995, "each round is aimed at its strafing sight")
+	check_eq(targets.size(), Helicopter.STRAFE_ROUNDS, "the strafing run fires its complete round count")
+	var target_ds: Array[float] = []
+	for target in targets:
+		var target_course := Course.to_course(target)
+		target_ds.append(target_course.x)
+		check_near(target_course.y, lane.y, 1.0, "each round targets the selected lane")
+	for i in range(1, target_ds.size()):
+		check(target_ds[i] < target_ds[i - 1], "successive strafing rounds walk downrange toward the tank")
 	check(not heli._strafing and heli._rockets == false and heli._burst == 0, "and the cycle goes back to the gun")

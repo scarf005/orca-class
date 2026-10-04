@@ -59,7 +59,8 @@ func test_flood_is_water_only_inside_its_current_reach() -> void:
 	check_eq(Water.surface_at(_flood_point(1.2)), -INF, "beyond the reach it is dry")
 	var behind := dam.to_global(Vector3(dam._gap.x, 0.0, dam._spill_at(dam._landing_time(), 0.0).z - 3.0))
 	check_eq(Water.surface_at(behind), -INF, "the ground under the wall's foot is not flooded")
-	var beyond_far_side := dam.to_global(Vector3(dam._gap.x - 100.0, 0.0, _flood_point(0.5).z))
+	var inside_local := dam.to_local(_flood_point(0.5))
+	var beyond_far_side := dam.to_global(Vector3(dam._gap.x - 100.0, 0.0, inside_local.z))
 	check_eq(Water.surface_at(beyond_far_side), -INF, "well off to the side it is dry")
 	var later := _flood_point(0.5)
 	dam._clock = Dam.FLOOD_DELAY + 5.0

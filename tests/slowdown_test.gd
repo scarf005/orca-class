@@ -81,8 +81,8 @@ func test_a_light_prop_costs_no_speed() -> void:
 
 
 func test_hard_kinds_are_the_landmarks_and_solid_structures() -> void:
-	for kind in ["house", "hall", "church_nave", "church_tower", "church_spire", "school_wing", "school_center", "overpass_pier"]:
-		check(kind in Scenery.HARD, "%s is hard" % kind)
+	var expected := ["house", "infested_house", "hall", "church_nave", "church_tower", "church_spire", "school_wing", "school_center", "gas_station", "overpass_pier", "overpass_deck", "gate", "rock", "fungal_spire", "zelkova_trunk"]
+	check_eq(Scenery.HARD, expected, "the hard-scenery inventory is exact")
 	for kind in ["wall", "jars", "bale", "car", "truck", "crate", "greenhouse", "reeds", "mushroom"]:
 		check(kind not in Scenery.HARD, "%s stays crushable at speed" % kind)
 

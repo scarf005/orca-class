@@ -41,6 +41,7 @@ func test_serial_stream_cancels_obsolete_work_and_loading_finishes_it() -> void:
 
 func test_loading_joins_already_pending_workers() -> void:
 	if not OS.has_feature("threads"):
+		skip("worker threads unavailable")
 		return
 	var terrain := Terrain.new()
 	add_child(terrain)

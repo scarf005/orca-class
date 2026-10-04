@@ -45,7 +45,34 @@ func _volley(world: World, strafe: float, lead := true) -> float:
 func test_rockets_hit_a_tank_holding_course() -> void:
 	seed(3)
 	var share := await _volley(stage("", false), 0.0)
-	check(share >= 0.7, "at least 70%% of rockets hit a tank holding course (%.2f)" % share)
+	check(share >= 0.7, "at least 70%% of rockets geometrically reach a tank holding course (%.2f)" % share)
+
+
+func test_a_fired_walker_rocket_damages_a_vulnerable_tank() -> void:
+	var world := stage("", false)
+	var tank := world.player
+	var walker := Walker.new()
+	walker.weapon = "missile"
+	walker.position = Course.ground_at(world.rail.d + tank.course_offset + Walker.KEEP_AHEAD, 0.0)
+	world.add_enemy(walker)
+	await frames(2)
+	walker.aim_barrel(walker._pod, walker._pod_aim(tank), 100.0, 1.0)
+	tank.invulnerable = false
+	tank.invuln = 0.0
+	tank.hp = Tank.MAX_ARMOR
+	var before_hp := tank.hp
+	var before_stats := world.stats.damage_taken
+	var hit_kind := [null]
+	var hit_damage := [0.0]
+	tank.damaged.connect(func(_entity: Entity, hit: Hit) -> void:
+		hit_kind[0] = hit.kind
+		hit_damage[0] = hit.damage)
+	walker._fire_missile(tank)
+	var reached := await wait_until(func() -> bool: return hit_kind[0] != null or world.projectiles.is_empty(), 400)
+	check(reached and hit_kind[0] == Hit.Kind.SHELL, "the fired walker rocket reaches the tank as a shell hit")
+	check(tank.hp < before_hp, "a vulnerable tank loses HP to the rocket")
+	check_near(hit_damage[0], 12.0, 0.001, "the blast-only rocket applies its configured direct damage")
+	check(world.stats.damage_taken > before_stats, "the rocket damage reaches run stats (%.1f -> %.1f)" % [before_stats, world.stats.damage_taken])
 
 
 func test_rockets_without_lead_overfly_a_tank_holding_course() -> void:

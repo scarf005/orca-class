@@ -268,6 +268,7 @@ func test_roof_hits_are_weak_and_reach_the_top_modules() -> void:
 	var world := stage()
 	var tank := world.player
 	await frames(2)
+	seed(6)
 	var hit := _strike(tank, Vector3(0.2, 1.0, 0.1), 30)
 	check_near(tank.damage_multiplier(hit), 1.4, 0.001, "the roof is as weak as the rear")
 	var struck := {}
@@ -313,14 +314,17 @@ func test_light_rounds_from_above_still_glance_off() -> void:
 	await frames(2)
 	seed(5)
 	for caliber in [8, 15, 19]:
+		var landed := 0
 		for i in 20:
 			var hit := _shot(tank, _from_above(tank, true), Vector3(1.0, 0.5, 1.0), caliber)
 			if hit == null:
 				continue
+			landed += 1
 			tank.invuln = 0.0
 			var hp := tank.hp
 			tank.take_hit(hit)
 			check_eq(tank.hp, hp, "a %d mm round from above glances off" % caliber)
+		check(landed >= 10, "enough %d mm roof attempts landed (%d)" % [caliber, landed])
 
 
 func test_the_roof_rule_is_for_bullets_only() -> void:

@@ -58,9 +58,28 @@ func test_canister_fires_a_pellet_cone() -> void:
 	var world := stage()
 	var tank := world.player
 	tank.load_round(Armament.Round.CANISTER)
+	seed(7)
+	var muzzle := tank.model.muzzle.global_position
+	var aim := -tank.model.barrel.global_basis.z
 	var before := world.projectiles.size()
-	tank.fire_cannon()
-	check(world.projectiles.size() - before >= 20, "canister spawns many pellets")
+	tank.fire_cannon(muzzle, aim, Armament.STAGE_1)
+	var pellets: Array[Projectile] = world.projectiles.slice(before).filter(func(p: Projectile) -> bool: return p.hit.weapon == "canister")
+	check_eq(pellets.size(), 50, "canister emits its full pellet payload")
+	var directions: Array[Vector3] = []
+	for pellet in pellets:
+		var direction := pellet.velocity.normalized()
+		directions.append(direction)
+		check_eq(pellet.team, Entity.Team.PLAYER, "canister pellets are player projectiles")
+		check_eq(pellet.hit.kind, Hit.Kind.BULLET, "canister pellets are bullets")
+		check_eq(pellet.hit.caliber, 20, "canister pellets use 20 mm penetration")
+		check_near(pellet.hit.damage, 90.0, 0.001, "canister pellets carry damaging payload")
+		check(aim.dot(direction) >= cos(Armament.CANISTER_SPREAD) - 0.001, "canister pellet points into its cone")
+	var separated := false
+	for i in directions.size():
+		for j in range(i + 1, directions.size()):
+			if directions[i].angle_to(directions[j]) > Armament.CANISTER_SPREAD * 0.5:
+				separated = true
+	check(separated, "canister pellets spread across the cone")
 
 
 func test_airburst_flies_slowly_and_bursts_at_max_range_not_the_reticle() -> void:
@@ -123,7 +142,10 @@ func test_airburst_bursts_on_passing_a_uav_off_its_line() -> void:
 func test_airburst_proximity_reaches_5_m_but_not_7_m() -> void:
 	var world := stage()
 	var plain := await _burst_beside_uav(world, 60.0, 7.0, 120.0, 0.0)
-	check(plain[0].distance_to(plain[1]) > 100.0, "a UAV 7 m off the line is out of the 6 m fuse (burst %.0f m out)" % plain[0].distance_to(plain[1]))
+	check(plain[1].is_finite(), "a UAV 7 m off the line still reaches the end-range fuse")
+	if plain[1].is_finite():
+		var end_distance: float = plain[0].distance_to(plain[1])
+		check(end_distance > 100.0 and end_distance < Armament.SHELL_RANGE, "the out-of-range proximity shot bursts at a finite terminal range (%.0f m)" % end_distance)
 	var inside := await _burst_beside_uav(world, 60.0, 5.0, 120.0, Armament.STAGE_1)
 	check_near(inside[0].distance_to(inside[1]), 60.0, 6.0, "a special-round snap shot bursts beside an enemy inside 6 m")
 
@@ -187,10 +209,29 @@ func test_aphe_wrecks_its_target_and_its_neighbor_not_the_wave() -> void:
 	check_eq(dead, [true, true, false], "APHE kills what it hits and what is right beside it")
 
 
+func _cannon_damage(round: Armament.Round) -> float:
+	var world := stage()
+	var tank := world.player
+	var target := Ugv.new()
+	target.position = Course.ground_at(world.rail.d + 60.0, 0.0)
+	target.immobile = true
+	world.add_enemy(target)
+	await frames(1)
+	target.max_hp = 100000.0
+	target.hp = target.max_hp
+	tank.load_round(round)
+	tank.fire_cannon(target.hit_center() + Vector3.UP * 20.0, Vector3.DOWN, 0.99)
+	land(world, 0)
+	return target.max_hp - target.hp
+
+
 func test_heat_hits_harder_and_wider_than_aphe() -> void:
 	var world := stage()
 	var dead: Array = await _cannon_volley(world, Armament.Round.HEAT, 7.0, 14.0)
 	check_eq(dead, [true, true, false], "HEAT's blast reaches past APHE's")
+	var aphe_damage := await _cannon_damage(Armament.Round.APHE)
+	var heat_damage := await _cannon_damage(Armament.Round.HEAT)
+	check(heat_damage > aphe_damage, "HEAT's direct hit carries more accepted damage (%.1f vs %.1f)" % [heat_damage, aphe_damage])
 
 
 func test_the_stage_hands_out_no_heat_or_apfsds() -> void:
@@ -199,11 +240,12 @@ func test_the_stage_hands_out_no_heat_or_apfsds() -> void:
 	var placed: Array = world.director.scenery.specs.map(func(spec: Scenery.Spec) -> String: return spec.pickup).filter(func(id: String) -> bool: return not id.is_empty())
 	check(not placed.is_empty(), "the stage places pickups")
 	check(not placed.any(func(id: String) -> bool: return id in held_back), "no HEAT or APFSDS crate is placed")
+	check(not Armament.OFFERED.any(func(round: Armament.Round) -> bool: return Armament.ROUND_IDS[round] in held_back), "held-back rounds are absent from the offered set")
 	var tank := world.player
 	tank.set_coax_tier(Armament.COAX_TIERS.size() - 1)
-	# With nothing else needed, a spare pickup turns into a special round.
-	check(tank.useful_pickup("coax") in Armament.ROUND_IDS.values(), "a spare coax turns into a round")
-	for i in 40:
-		var id := tank.useful_pickup("coax" if i % 2 == 0 else "repair")
-		check(id not in held_back, "a spare pickup never becomes %s" % id)
-		tank.load_round(Armament.round_from_id(id))
+	for offered: Armament.Round in Armament.OFFERED:
+		tank.load_round(offered)
+		var id := tank.useful_pickup("coax")
+		check(id in Armament.ROUND_IDS.values(), "a spare coax becomes a known round")
+		check(id not in held_back, "a spare pickup cannot become %s" % id)
+		check(id != Armament.ROUND_IDS[offered], "a spare pickup does not repeat the loaded round")
