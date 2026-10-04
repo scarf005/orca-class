@@ -321,9 +321,6 @@ func _flesh_hit(hit: Hit) -> void:
 	world.fx.debris(hit.position, 10 if heavy else 3, debris, 12.0 if heavy else 7.0, 0.5 if heavy else 0.3, out)
 	world.fx.spores(hit.position, 12 if heavy else 3, 1.5 if heavy else 0.5)
 	Sfx.play("squelch", hit.position, 4.0 if heavy else -6.0, randf_range(0.7, 1.1))
-	if hit.by_player():
-		world.hit_confirmed.emit(false)
-		Sfx.confirm_hit(false)
 	if hit.kind == Hit.Kind.SHELL and hit.caliber >= 100:
 		world.fx.explosion(hit.position, 2.5, [Palette.WHITE, Palette.BLUSH, Palette.FUNGUS, Palette.LILAC], hit.direction)
 		world.hitstop(0.07)
