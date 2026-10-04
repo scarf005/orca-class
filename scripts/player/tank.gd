@@ -1222,6 +1222,7 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 
 		at = charge_lock.hit_center() if at == Vector3.INF else at
 		shell.velocity = (at - muzzle).normalized() * shell.velocity.length()
 		shell.sure_target = charge_lock
+		shell.homing_part = charge_part
 	var reach := Armament.SHELL_RANGE * (lerpf(Armament.APFSDS_RANGE.x, Armament.APFSDS_RANGE.y, table) if round == Armament.Round.APFSDS else 1.0)
 	var end := shell.resolve_now(reach)
 	world.fx.beam(muzzle, end, Palette.WHITE, 0.5, 0.1)

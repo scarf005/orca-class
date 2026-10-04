@@ -235,7 +235,8 @@ func resolve_now(max_range: float) -> Vector3:
 func _sweep(from: Vector3, to: Vector3) -> bool:
 	var world := World.current
 	if is_instance_valid(sure_target) and not sure_target.dead:
-		var t := sure_target.hit_test(from, to, maxf(radius, 1.0))
+		var part: Array = sure_target.aim_parts().get(homing_part, [])
+		var t := Entity.segment_sphere(from, to, part[0], part[1]) if not part.is_empty() else sure_target.hit_test(from, to, maxf(radius, 1.0))
 		if t < 0.0:
 			return false # Through terrain, props and other enemies on its way.
 		var struck := sure_target
