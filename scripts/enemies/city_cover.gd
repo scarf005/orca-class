@@ -35,8 +35,18 @@ static func shelter(at: Vector3, threat: Vector3) -> Vector3:
 	return spot
 
 
-static func surface_at(at: Vector3) -> float:
-	var height := Course.height_at(at)
+static func outside_point(prop: Prop, direction: Vector3, clearance: float) -> Vector3:
+	var outward := direction.normalized()
+	var reach := prop.footprint + clearance
+	if prop.box_size != Vector3.ZERO:
+		var local := prop.global_basis.inverse() * outward
+		reach = minf((prop.box_size.x * 0.5 + clearance) / maxf(absf(local.x), 0.0001), (prop.box_size.z * 0.5 + clearance) / maxf(absf(local.z), 0.0001))
+	return prop.global_position + outward * reach
+
+
+static func surface_at(at: Vector3, ceiling := INF) -> float:
+	var c := Course.to_course(at)
+	var height := Course.surface_height(c.x, c.y, ceiling)
 	for node in World.current.props.get_children():
 		var prop := node as Prop
 		if prop == null or prop.dead:
@@ -44,6 +54,8 @@ static func surface_at(at: Vector3) -> float:
 		if prop.kind not in Prop.BUILDINGS and not prop.hard:
 			continue
 		var local := prop.to_local(at)
-		if Vector2(local.x, local.z).length() <= prop.footprint:
-			height = maxf(height, prop.global_position.y + prop.height)
+		var inside := absf(local.x) <= prop.box_size.x * 0.5 and absf(local.z) <= prop.box_size.z * 0.5 if prop.box_size != Vector3.ZERO else Vector2(local.x, local.z).length() <= prop.footprint
+		var roof := prop.global_position.y + prop.height
+		if inside and roof <= ceiling:
+			height = maxf(height, roof)
 	return height

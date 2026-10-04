@@ -69,7 +69,7 @@ func test_hunter_reaches_rectangular_city_cover_then_peeks_into_line_of_sight() 
 	check(hunter._peek, "hunter reaches shelter and starts its peek rather than stalling")
 	for _i in 600:
 		hunter.behave(1.0 / 60.0)
-	check(not BipedMech.line_blocked(world.player.hit_center(), hunter.hit_center()), "real city firing edge restores sight")
+	check(not BipedMech.line_blocked(world.player.hit_center(), hunter.hit_center()), "real city firing edge restores sight: at %s, goal %s, blocker %s" % [hunter.global_position, hunter._cover_goal, BipedMech.hard_blocker(world.player.hit_center(), hunter.hit_center())])
 
 
 func test_boss_start_uses_active_stage_theme_before_any_deferred_call() -> void:

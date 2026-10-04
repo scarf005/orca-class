@@ -184,7 +184,7 @@ static func _nearest_sample(flat: Vector2) -> float:
 
 
 ## Top of the highest walkable deck or roof; ground driving still uses `height`.
-static func surface_height(d: float, u: float) -> float:
+static func surface_height(d: float, u: float, ceiling := INF) -> float:
 	var top := height(d, u)
 	if flat:
 		return top
@@ -193,8 +193,9 @@ static func surface_height(d: float, u: float) -> float:
 		var pose: Transform3D = structure.pose
 		var local := pose.affine_inverse() * point
 		var size: Vector3 = structure.size
-		if absf(local.x) <= size.x * 0.5 and absf(local.z) <= size.z * 0.5:
-			top = maxf(top, structure.y + size.y)
+		var roof: float = structure.y + size.y
+		if roof <= ceiling and absf(local.x) <= size.x * 0.5 and absf(local.z) <= size.z * 0.5:
+			top = maxf(top, roof)
 	return top
 
 

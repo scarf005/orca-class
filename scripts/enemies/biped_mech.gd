@@ -78,12 +78,12 @@ func seek_cover(tank: Tank) -> bool:
 	var best := INF
 	_cover = null
 	for prop: Prop in World.current.props.in_radius(global_position, 45.0):
-		if not prop.hard or prop.dead or prop.height < center_height + 1.0:
+		if not prop.hard or prop.dead or prop.global_position.y + prop.height < global_position.y + center_height + 1.0:
 			continue
 		var away := prop.global_position - tank.global_position
 		away.y = 0.0
-		var goal := prop.global_position + away.normalized() * (prop.footprint + radius + 1.0)
-		goal.y = Course.height_at(goal)
+		var goal := CityCover.outside_point(prop, away, radius + 1.0)
+		goal.y = CityCover.surface_at(goal, global_position.y + 1.0)
 		var distance := global_position.distance_to(goal)
 		if distance < best and line_blocked(tank.hit_center(), goal + Vector3.UP * center_height):
 			best = distance
@@ -102,25 +102,30 @@ func relocate() -> void:
 	_peek = false
 
 
-## Walk around a footprint, never through it; both feet follow the active stage's ground height.
+## Walk around a footprint, keeping the current deck without climbing overhead roofs.
 func walk_to(goal: Vector3, speed: float, delta: float) -> void:
 	var offset := goal - global_position
 	offset.y = 0.0
 	var step := offset.limit_length(speed * delta)
 	var next := global_position + step
-	var blocker := hard_blocker(global_position + Vector3.UP, next + Vector3.UP, radius)
+	var clearance := Vector3.UP * (radius + 0.1)
+	var blocker := hard_blocker(global_position + clearance, next + clearance, radius)
 	if blocker != null:
 		var radial := global_position - blocker.global_position
 		radial.y = 0.0
 		var tangent := Vector3(-radial.z, 0, radial.x).normalized()
+		if blocker.box_size != Vector3.ZERO:
+			var local := blocker.to_local(global_position)
+			var half := blocker.box_size * 0.5 + Vector3.ONE * radius
+			tangent = blocker.global_basis.z if absf(local.x) / half.x > absf(local.z) / half.z else blocker.global_basis.x
 		if tangent.dot(offset) < 0.0:
 			tangent = -tangent
 		next = global_position + tangent * step.length()
-		if line_blocked(global_position + Vector3.UP, next + Vector3.UP, radius):
+		if line_blocked(global_position + clearance, next + clearance, radius):
 			next = global_position
 	_walk += global_position.distance_to(next)
 	global_position = next
-	global_position.y = Course.height_at(next)
+	global_position.y = CityCover.surface_at(next, next.y + 1.0)
 
 
 func move_hunter(tank: Tank, delta: float, planted: bool, keep := 65.0) -> void:
@@ -150,8 +155,8 @@ func move_hunter(tank: Tank, delta: float, planted: bool, keep := 65.0) -> void:
 			if not _peek and _cover_wait <= 0.0:
 				var away := (_cover.global_position - tank.global_position).normalized()
 				var side := Vector3(-away.z, 0, away.x) * _side
-				_cover_goal = _cover.global_position + side * (_cover.footprint + radius + 3.0)
-				_cover_goal.y = Course.height_at(_cover_goal)
+				_cover_goal = CityCover.outside_point(_cover, side, radius + 3.0)
+				_cover_goal.y = CityCover.surface_at(_cover_goal, global_position.y + 1.0)
 				_peek = true
 		return
 	var here := Course.to_course(global_position)
