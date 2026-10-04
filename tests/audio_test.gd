@@ -51,7 +51,8 @@ const STAGE2_SOUNDS := ["losat_lase", "losat_launch", "losat_hit", "mech_step", 
 var _levels := {}
 
 
-## Decode without playing or relying on a sound device. Spectral bands separate sub and break energy.
+## Decode the exported Vorbis directly: playback.mix_audio() inserts a resampler startup ramp.
+## ffmpeg is already required by just audio; tests never play through a sound device.
 func _music_levels(name: String) -> Dictionary:
 	if _levels.has(name):
 		return _levels[name]
@@ -60,10 +61,17 @@ func _music_levels(name: String) -> Dictionary:
 		check(false, "%s exists" % path)
 		return {}
 	var audio := load(path) as AudioStreamOggVorbis
-	var playback := audio.instantiate_playback()
-	playback.start()
-	var rate := float(AudioServer.get_mix_rate())
-	var count := roundi(audio.get_length() * rate)
+	var decoded := ProjectSettings.globalize_path("user://audio-test-%d.f32" % OS.get_process_id())
+	var output: Array = []
+	var status := OS.execute("ffmpeg", ["-y", "-v", "error", "-i", ProjectSettings.globalize_path(path), "-f", "f32le", "-ar", "44100", decoded], output, true)
+	check(status == 0, "%s decodes with ffmpeg: %s" % [name, str(output)])
+	if status != 0:
+		return {}
+	var samples := FileAccess.get_file_as_bytes(decoded).to_float32_array()
+	DirAccess.remove_absolute(decoded)
+	var rate := 44100.0
+	var count := samples.size() / 2
+	check_near(count / rate, audio.get_length(), 0.001, "%s decoded duration matches its imported stream" % name)
 	var energy := 0.0
 	var sub := 0.0
 	var treble := 0.0
@@ -72,30 +80,31 @@ func _music_levels(name: String) -> Dictionary:
 	var last := Vector2.ZERO
 	var low := Vector2.ZERO
 	var mid := Vector2.ZERO
+	var high_low := Vector2.ZERO
 	var sections := [0.0, 0.0, 0.0, 0.0]
+	var edges := [0.0, 0.0]
+	var edge_frames := 44 # 1 ms: longer windows compare the new downbeat with the preceding release.
 	var a := 1.0 - exp(-TAU * 140.0 / rate)
 	var b := 1.0 - exp(-TAU * 2500.0 / rate)
-	var at := 0
-	while at < count:
-		var frames := playback.mix_audio(1.0, mini(4096, count - at))
-		if frames.is_empty():
-			check(count - at < 1024, "%s decodes to its advertised duration" % name)
-			break
-		for frame: Vector2 in frames:
-			if at == 0:
-				first = frame
-			last = frame
-			peak = maxf(peak, maxf(absf(frame.x), absf(frame.y)))
-			energy += frame.length_squared() * 0.5
-			low += a * (frame - low)
-			mid += b * (frame - mid)
-			sub += low.length_squared() * 0.5
-			var high := (frame - mid).length_squared() * 0.5
-			treble += high
-			sections[mini(3, at * 4 / count)] += high / (count / 4.0)
-			at += 1
-	playback.stop()
-	var result := {"length": audio.get_length(), "db": linear_to_db(sqrt(energy / count)), "peak": peak, "seam": maxf(absf(first.x - last.x), absf(first.y - last.y)), "sub": sub / energy, "high": treble / energy, "sections": sections}
+	for at in count:
+		var frame := Vector2(samples[at * 2], samples[at * 2 + 1])
+		if at == 0:
+			first = frame
+		last = frame
+		peak = maxf(peak, maxf(absf(frame.x), absf(frame.y)))
+		energy += frame.length_squared() * 0.5
+		if at < edge_frames:
+			edges[0] += frame.length_squared() / (2.0 * edge_frames)
+		if at >= count - edge_frames:
+			edges[1] += frame.length_squared() / (2.0 * edge_frames)
+		low += a * (frame - low)
+		mid += b * (frame - mid)
+		high_low += b * (frame - mid - high_low)
+		sub += low.length_squared() * 0.5
+		var high := (frame - mid - high_low).length_squared() * 0.5
+		treble += high
+		sections[mini(3, at * 4 / count)] += high / (count / 4.0)
+	var result := {"length": audio.get_length(), "db": linear_to_db(sqrt(energy / count)), "peak": peak, "seam": maxf(absf(first.x - last.x), absf(first.y - last.y)), "sub": sub / energy, "high": treble / energy, "sections": sections, "edge_db": [linear_to_db(sqrt(edges[0])), linear_to_db(sqrt(edges[1]))]}
 	_levels[name] = result
 	print("AUDIO %s %s" % [name, result])
 	return result
@@ -112,7 +121,8 @@ func test_stage2_music_levels_and_loop_boundaries() -> void:
 		check_near(stats.db, reference.db, 1.0, "%s matches stage 1 loudness" % name)
 		check(stats.peak < 0.98, "%s has codec headroom" % name)
 		check(stats.seam < 0.035, "%s has no loop-boundary click" % name)
-		check(stats.sub > 0.02 and stats.high > 0.005, "%s carries sub bass and bright breaks" % name)
+		check(absf(stats.edge_db[0] - stats.edge_db[1]) < 6.0, "%s has no loop-boundary level dropout" % name)
+		check(stats.sub > 0.02 and stats.high > 0.001, "%s carries sub bass and bright breaks" % name)
 
 
 func test_stage2_breaks_build_and_boss_phase_changes() -> void:
@@ -133,6 +143,8 @@ func test_stage2_effects_are_registered_and_click_free() -> void:
 		if not FileAccess.file_exists(path):
 			check(false, "%s exists" % path)
 			continue
+		if Sfx.SOUNDS.has(name):
+			check_eq(Sfx.SOUNDS[name][0], path, "%s resolves to its own synthesized report" % name)
 		var audio := load(path) as AudioStreamWAV
 		check(audio != null and not audio.stereo and audio.mix_rate == 44100, "%s imports as mono 44.1 kHz" % name)
 		var samples := _samples(path)
@@ -142,9 +154,13 @@ func test_stage2_effects_are_registered_and_click_free() -> void:
 			peak = maxf(peak, absf(value))
 			energy += value * value
 		check(peak > 0.25 and peak < 0.96, "%s has unclipped level" % name)
-		check(linear_to_db(sqrt(energy / samples.size())) > -35.0, "%s is not mostly silence" % name)
+		var db := linear_to_db(sqrt(energy / samples.size()))
+		print("AUDIO %s length %.3f s rms %.3f dBFS peak %.4f seam %.6f" % [name, audio.get_length(), db, peak, absf(samples[0] - samples[-1])])
+		check(db > -35.0, "%s is not mostly silence" % name)
 		check(absf(samples[0] - samples[-1]) < 0.02, "%s has a clean boundary" % name)
 		check(audio.get_length() >= 0.1 and audio.get_length() <= 4.0, "%s has a bounded duration" % name)
+	var step := _samples("res://assets/audio/synth/mech_step.wav")
+	check(step != _samples("res://assets/audio/synth/mech_step_2.wav") and step != _samples("res://assets/audio/synth/mech_step_3.wav"), "heavy footsteps have distinct performances rather than copied files")
 
 
 func test_stage2_boss_variant_crossfades_and_hover_loop_stops() -> void:
@@ -158,8 +174,21 @@ func test_stage2_boss_variant_crossfades_and_hover_loop_stops() -> void:
 	Sfx.play_music("res://assets/music/stage2_boss_phase2.ogg")
 	check(first.playing and Sfx.music != first and Sfx.music.playing, "boss phase transition overlaps both variants")
 	check((Sfx.music.stream as AudioStreamOggVorbis).loop, "boss variant loops through the existing music API")
+	await get_tree().create_timer(Sfx.MUSIC_FADE_OUT + 0.3).timeout
+	check(not first.playing, "old boss phase stops after the crossfade")
+	check_near(Sfx.music.volume_db, 0.0, 0.5, "new boss phase settles at full volume")
 	var fan := Sfx.loop("hover_fan", world.player)
 	check(fan != null and (fan.stream as AudioStreamWAV).loop_mode == AudioStreamWAV.LOOP_FORWARD, "hover turbine uses the existing attached loop API")
+	var playback := fan.stream.instantiate_playback()
+	playback.start()
+	playback.mix_audio(1.0, roundi(fan.stream.get_length() * AudioServer.get_mix_rate()) - 32)
+	var boundary := playback.mix_audio(1.0, 64)
+	var jump := 0.0
+	for i in range(1, boundary.size()):
+		jump = maxf(jump, absf(boundary[i].x - boundary[i - 1].x))
+	playback.stop()
+	print("AUDIO imported hover_fan loop-window max step %.6f" % jump)
+	check(boundary.size() == 64 and jump < 0.08, "imported turbine loops without a compression-boundary click")
 	Game.silent = true
 	Sfx.stop_all()
 	check(not fan.playing and fan.stream == null, "stopping releases the hover turbine loop")

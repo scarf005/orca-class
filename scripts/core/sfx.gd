@@ -46,6 +46,21 @@ const SOUNDS := {
 	"shout": ["res://assets/audio/synth/shout.wav", -2.0],
 	"combo": ["res://assets/audio/synth/combo.wav", -8.0],
 	"roar": ["res://assets/audio/synth/roar.wav", 0.0],
+	"losat_lase": ["res://assets/audio/synth/losat_lase.wav", -8.0],
+	"losat_launch": ["res://assets/audio/synth/losat_launch.wav", -3.0],
+	"losat_hit": ["res://assets/audio/synth/losat_hit.wav", -2.0],
+	"mech_step": ["res://assets/audio/synth/mech_step.wav", -5.0],
+	"mech_step_2": ["res://assets/audio/synth/mech_step_2.wav", -5.0],
+	"mech_step_3": ["res://assets/audio/synth/mech_step_3.wav", -5.0],
+	"hydraulic_slam": ["res://assets/audio/synth/hydraulic_slam.wav", -3.0],
+	"gatling_spin": ["res://assets/audio/synth/gatling_spin.wav", -9.0],
+	"cannon_lowpressure": ["res://assets/audio/synth/cannon_lowpressure.wav", -3.0],
+	"rocket_ripple": ["res://assets/audio/synth/rocket_ripple.wav", -4.0],
+	"atgm_launch": ["res://assets/audio/synth/atgm_launch.wav", -4.0],
+	"heli_gatling": ["res://assets/audio/synth/heli_gatling.wav", -8.0],
+	"hover_fan": ["res://assets/audio/synth/hover_fan.wav", -9.0],
+	"hover_laser": ["res://assets/audio/synth/hover_laser.wav", -5.0],
+	"mine_beep": ["res://assets/audio/synth/mine_beep.wav", -8.0],
 }
 
 const POOL_SIZE := 40

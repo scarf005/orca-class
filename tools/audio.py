@@ -373,7 +373,7 @@ class Song:
             out = np.resize(piece, n)
         x[s:s + n] = out
 
-    def render(self, name, echo_beats=0.75, feedback=0.3, wet_mix=0.28, pump=0.45):
+    def render(self, name, echo_beats=0.75, feedback=0.3, wet_mix=0.28, pump=0.45, pedal=False):
         os.makedirs(MUSIC_DIR, exist_ok=True)
         dl, dr = self.buses["dry"]
         pl, pr = self.buses["pump"]
@@ -386,6 +386,14 @@ class Song:
             src_l, src_r = (wr, wl) if i % 2 else (wl, wr)
             el += np.roll(lowpass(src_l, 3500), delay * i) * g
             er += np.roll(lowpass(src_r, 3500), delay * i) * g
+        if pedal:
+            # Diffuse piano soundboard/pedal reflections, wrapped rather than faded at the seam.
+            tail = int(0.1 * RATE)
+            dark_l = lowpass(np.concatenate([wl[-tail:], wl]), 2400)[tail:]
+            dark_r = lowpass(np.concatenate([wr[-tail:], wr]), 2400)[tail:]
+            for seconds, gain in ((0.037, 0.13), (0.071, 0.11), (0.113, 0.09), (0.179, 0.07), (0.293, 0.05), (0.467, 0.035), (0.739, 0.02)):
+                el += np.roll(dark_r, int(seconds * RATE)) * gain
+                er += np.roll(dark_l, int(seconds * RATE)) * gain
         # Sidechain-style pump: the pad bus dips on every beat and swells back.
         t = (np.arange(len(pl)) / RATE) % self.beat
         duck = 1 - pump * np.minimum(t / 0.004, 1) * np.exp(-t / 0.12)
@@ -393,12 +401,18 @@ class Song:
         for edit in self.edits:
             self._edit(left, *edit)
             self._edit(right, *edit)
-        stereo = np.stack([highpass(left, 30), highpass(right, 30)], axis=1)
-        # Normalize, a soft-knee saturator as the bus compressor, then settle at about -15 dBFS RMS
-        # so the music sits under the effects instead of fighting them.
+        if pedal:
+            tail = int(0.1 * RATE)
+            left = highpass(np.concatenate([left[-tail:], left]), 30)[tail:]
+            right = highpass(np.concatenate([right[-tail:], right]), 30)[tail:]
+            stereo = np.stack([left, right], axis=1)
+        else:
+            stereo = np.stack([highpass(left, 30), highpass(right, 30)], axis=1)
+        # Normalize and soft-limit under the effects. Piano's brighter spectrum needs 1 dB less RMS
+        # to match stage 1's perceived loudness (about -14 LUFS).
         stereo /= np.percentile(np.abs(stereo), 99.9) or 1.0
         stereo = np.tanh(stereo * 1.1) / np.tanh(1.1)
-        stereo *= min(0.89 / np.max(np.abs(stereo)), 10 ** (-15 / 20) / np.sqrt(np.mean(stereo ** 2)))
+        stereo *= min(0.89 / np.max(np.abs(stereo)), 10 ** ((-16 if pedal else -15) / 20) / np.sqrt(np.mean(stereo ** 2)))
         data = (np.clip(stereo, -1, 1) * 32767).astype(np.int16)
         tmp = os.path.join(MUSIC_DIR, name + ".tmp.wav")
         with wave.open(tmp, "wb") as f:
@@ -937,9 +951,129 @@ def music():
     song.render("clear", 0.5)
 
 
+# --- Submerged City ------------------------------------------------------------------------
+
+
+def stage2_sfx():
+    """Elite hunters: distinct mechanical wind-ups and reports, quieter than the tank's main gun."""
+    os.makedirs(SFX_DIR, exist_ok=True)
+    local = np.random.default_rng(207)
+
+    def grit(seconds, cutoff):
+        return lowpass(local.uniform(-1, 1, int(seconds * RATE)), cutoff)
+
+    def report(seconds, pitch, metal=0.0):
+        t = t_axis(seconds)
+        body = sweep(pitch, pitch * 0.32, seconds, curve=0.35) * np.exp(-t * 9)
+        blast = grit(seconds, 2300) * np.exp(-t * 24) * 2.0
+        ring = sum(np.sin(2 * np.pi * f * t) * np.exp(-t * 15) for f in (731, 1283, 2197)) * metal
+        return np.tanh(body + blast + ring) * env(len(t), 0.001, 0.04)
+
+    def put(name, sig, peak=0.85):
+        write_wav(name, sig * env(len(sig), 0.001, 0.015), peak)
+
+    t = t_axis(1.2)
+    whine = sweep(460, 2300, 1.2) + sweep(465, 2310, 1.2) * 0.25
+    put("losat_lase", whine * env(len(t), 0.12, 0.15) * (0.8 + 0.2 * np.sin(2 * np.pi * 17 * t)), 0.55)
+    put("losat_launch", pad([(0, report(0.45, 210)), (0.03, grit(0.7, 6000) * env(int(0.7 * RATE), 0.01, 0.6))], 0.8))
+    put("losat_hit", report(0.55, 280, 0.6) + highpass(grit(0.55, 14000), 4000) * np.exp(-t_axis(0.55) * 140), 0.92)
+    for name, pitch in (("mech_step", 76), ("mech_step_2", 69), ("mech_step_3", 83)):
+        put(name, pad([(0, report(0.7, pitch, 0.3)), (0.09, report(0.3, pitch * 2.3, 0.15) * 0.3)], 0.8))
+    put("hydraulic_slam", pad([(0, report(0.7, 65, 0.35)), (0.04, grit(0.6, 1800) * env(int(0.6 * RATE), 0.06, 0.45))], 0.8))
+    t = t_axis(1.1)
+    spin = sweep(45, 160, 1.1, "saw") * 0.2 + sweep(270, 960, 1.1) * 0.45
+    put("gatling_spin", spin * (0.6 + 0.4 * sweep(8, 42, 1.1)) * env(len(t), 0.25, 0.1), 0.55)
+    put("cannon_lowpressure", report(1.2, 90) + grit(1.2, 380) * np.exp(-t_axis(1.2) * 4), 0.92)
+    put("rocket_ripple", pad([(i * 0.14, report(0.32, 170 + i * 13) * 0.8) for i in range(4)], 0.85))
+    put("atgm_launch", pad([(0, report(0.22, 120)), (0.11, grit(0.75, 4200) * env(int(0.75 * RATE), 0.06, 0.6))], 0.95))
+    put("heli_gatling", pad([(i * 0.065, report(0.16, 180) * (0.85 + i % 2 * 0.15)) for i in range(8)], 0.65))
+    # Integer-cycle turbine and blade modulation, with circularly filtered noise: a true 2 s loop.
+    t = t_axis(2.0)
+    air = local.uniform(-1, 1, len(t))
+    tail = int(0.1 * RATE)
+    air = lowpass(np.concatenate([air[-tail:], air]), 1400)[tail:]
+    fan = (tone(65, 2.0) * 0.55 + tone(390, 2.0) * 0.12 + tone(1560, 2.0) * 0.04 + air * 0.6) * (0.8 + 0.2 * np.cos(2 * np.pi * 13 * t))
+    # Bridge just the boundary noise (not a silence gap); preserve the turbine's periodic waveform.
+    fan[-128:] += np.linspace(0, fan[0] - fan[-1], 128)
+    write_wav("hover_fan", fan, 0.6)
+    put("hover_laser", pad([(0, sweep(1800, 340, 0.5) * env(int(0.5 * RATE), 0.005, 0.35)), (0, grit(0.5, 7000) * np.exp(-t_axis(0.5) * 35) * 0.8)], 0.6))
+    put("mine_beep", pad([(i * 0.22, tone(1760, 0.1) * env(int(0.1 * RATE), 0.003, 0.035)) for i in range(2)], 0.35), 0.5)
+
+
+@lru_cache(None)
+def piano(m, seconds):
+    """Hammer-struck, slightly detuned strings; stretched upper partials decay before the singing root."""
+    t = t_axis(seconds + 1.8)
+    f = freq(m)
+    out = np.zeros_like(t)
+    for h in range(1, 13):
+        partial = f * h * np.sqrt(1 + 0.00008 * h * h)
+        if partial > RATE / 2.4:
+            break
+        decay = np.exp(-t * (0.75 + h * 0.38 + max(0, m - 72) * 0.018))
+        string = np.sin(2 * np.pi * partial * t) + 0.35 * np.sin(2 * np.pi * partial * 1.0009 * t)
+        out += string * decay / h ** 1.65
+    hammer = np.sin(2 * np.pi * f * 7.13 * t) * np.exp(-t * 120) * 0.12
+    return (out + hammer) * (1 - np.exp(-t * 900)) * env(len(t), 0.002, 0.25)
+
+
+def stage2_music():
+    # Eight-bar melodies breathe across bar lines; the break is edited independently of the piano.
+    themes = {
+        "street": "E5:2 C5:1 B4:1 A4:3 -:1 G4:1 B4:1 D5:2 E5:3 D5:1 C5:2 E5:1 G5:1 F5:3 E5:1 D5:2 C5:1 B4:1 G#4:2 B4:1 -:1",
+        "canyon": "A5:2 F5:1 E5:1 D5:3 A4:1 C5:1 E5:1 G5:2 A5:2 G5:1 E5:1 F5:2 A5:1 C6:1 Bb5:3 A5:1 G5:2 F5:1 E5:1 C#5:2 E5:1 -:1",
+        "hover": "B4:2 E5:1 G5:1 F#5:3 E5:1 D5:1 B4:1 G4:2 A4:2 C5:2 B4:1 E5:1 G5:2 A5:3 G5:1 F#5:2 E5:1 D5:1 D#5:3 -:1",
+        "boss": "A4:1 D5:1 F5:2 E5:3 D5:1 C5:1 A4:1 F4:2 G4:2 Bb4:2 A4:1 D5:1 F5:2 G5:3 F5:1 E5:2 D5:1 C5:1 C#5:3 -:1",
+    }
+    tracks = (
+        ("stage2_boulevard", 174, 32, "street", ("Am7", "Fmaj7", "Cmaj7", "G", "Am", "Fmaj7", "Dm7", "E7"), 0.0),
+        ("stage2_canyon", 176, 32, "canyon", ("Dm7", "Bbmaj7", "Fmaj7", "C", "Dm", "Bbmaj7", "Gm7", "A7"), 0.35),
+        ("stage2_hovercraft", 178, 24, "hover", ("Em7", "Cmaj7", "G", "Dm", "Em", "Cmaj7", "Am7", "B7"), 0.5),
+        ("stage2_boss", 180, 32, "boss", ("Dm", "Bbmaj7", "Fmaj7", "C", "Dm", "Bbmaj7", "Gm7", "A7"), 0.2),
+        ("stage2_boss_phase2", 180, 32, "boss", ("Dm", "Bbmaj7", "Fmaj7", "C", "Dm", "Bbmaj7", "Gm7", "A7"), 0.85),
+    )
+    for name, bpm, bars, theme, chords, intensity in tracks:
+        song = Song(bpm, bars)
+        # Separate seeds leave all stage 1 renders and both boss piano performances unchanged.
+        global rng
+        previous = rng
+        rng = np.random.default_rng(202)
+        br = Break(song)
+        rng = previous
+        edits = np.random.default_rng(204)
+        for bar in range(bars):
+            section = min(3, bar // 8)
+            drive = min(1.0, intensity + section * (0.3 if name == "stage2_boulevard" else 0.18))
+            chord = chords[bar % 8]
+            notes = chord_notes(chord, 3)
+            step = 1.0 if name == "stage2_boulevard" and bar < 8 else 0.5
+            arp = notes + [notes[-1] + 12] + notes[-2:0:-1]
+            for i in range(int(4 / step)):
+                song.add(bar * 4 + i * step, piano(arp[i % len(arp)], song.beat * 1.5), -0.35, 0.18 if i % 2 == 0 else 0.13, "wet")
+            # A clean sine sub leaves space for hammer attacks and the snare's body.
+            if bar >= 4 or intensity > 0:
+                for beat, duration in ((0, 2.3), (2.5, 1.4)):
+                    sig = tone(freq(root_of(chord, 1)), duration * song.beat)
+                    song.add(bar * 4 + beat, sig * env(len(sig), 0.012, 0.06), 0, 0.34)
+            program = chopped(edits, bar % 4, drive)
+            sparse = name == "stage2_boulevard" and bar < 8
+            if sparse:
+                program = [event if i in (0, 4, 10, 12) else None for i, event in enumerate(program)]
+            if bar % 4 == 3:
+                program = roll(program, 14 if drive < 0.4 else 12 if drive < 0.7 else 8, 7)
+            # Only the sampler stutters; the lyrical melody never suffers a whole-mix glitch.
+            gain = 0.12 if sparse else 0.2 + drive * 0.9 if name == "stage2_boulevard" else 0.16 + drive * 0.65
+            br.bar(bar, program, gain, 1600 if sparse else None)
+        for phrase in range(bars // 8):
+            for beat, beats, note in melody(themes[theme]):
+                if note is not None:
+                    song.add(phrase * 32 + beat, piano(note, beats * song.beat), 0.12, 0.62, "wet")
+        song.render(name, 0.75, 0.32, 0.16, pump=0, pedal=True)
+
+
 if __name__ == "__main__":
     import sys
-    parts = sys.argv[1:] or ["sfx", "music"]
+    parts = sys.argv[1:] or ["sfx", "music", "stage2"]
     if "sfx" in parts:
         sfx()
         guns()
@@ -950,3 +1084,6 @@ if __name__ == "__main__":
         cannon()
     if "music" in parts:
         music()
+    if "stage2" in parts:
+        stage2_sfx()
+        stage2_music()
