@@ -29,7 +29,7 @@ static var _map := _build()
 static func use(number: int) -> void:
 	if number == stage.number:
 		return
-	stage = Stage1.new() if number == 1 else Stage2.new()
+	stage = StageDef.of(number)
 	_map = _build()
 
 

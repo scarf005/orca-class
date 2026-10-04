@@ -14,6 +14,15 @@ func test_course_use_switches_the_active_stage() -> void:
 	check(Course.stage is Stage1, "as the stage 1 class")
 
 
+func test_stage_lookup_gives_each_number_its_own_definition() -> void:
+	for number in range(1, Game.STAGE_COUNT + 1):
+		check_eq(StageDef.of(number).number, number, "stage %d is looked up by its number" % number)
+	check(StageDef.of(1) is Stage1 and StageDef.of(2) is Stage2, "each number maps to its class")
+	check(StageDef.of(1) != StageDef.of(1), "every lookup is a fresh definition")
+	check(StageDef.of(1).checkpoints.has("midboss") and StageDef.of(1).checkpoints.has("boss"), "stage 1 defines its two checkpoints")
+	check(not StageDef.of(2).checkpoints.has("midboss"), "the stage 2 placeholder defines none")
+
+
 func test_the_road_follows_the_active_stage() -> void:
 	var bend := func() -> Vector3: return Course.to_world(1200.0, 0.0)
 	Course.use(1)

@@ -28,6 +28,11 @@ var sun_color := Color.WHITE
 var sun_energy := 1.0
 
 
+## The definition of stage `number` (1-based).
+static func of(number: int) -> StageDef:
+	return Stage1.new() if number == 1 else Stage2.new()
+
+
 func section_at(d: float) -> int:
 	var result := 0
 	for i in section_starts.size():
