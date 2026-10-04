@@ -661,8 +661,8 @@ func test_gunship_phases_follow_hull() -> void:
 func test_gunship_modules_change_the_fight() -> void:
 	var world := stage("boss")
 	var boss := _gunship(world)
-	_cannon_on(boss, "chin", Gunship.MODULE_HITS)
-	check(not boss._live("chin"), "two shells wreck the chin drum")
+	_cannon_on(boss, "chin", 1)
+	check(not boss._live("chin"), "one full charge wrecks the chin drum")
 	boss.phase = Gunship.Phase.STRIPPED
 	var chosen := {}
 	for i in 60:
@@ -714,14 +714,41 @@ func test_gunship_rotor_takes_three_cannon_hits() -> void:
 	check(not boss._live("rotor_l"), "the third wrecks it")
 
 
-func test_gunship_other_modules_take_two_cannon_hits() -> void:
-	var world := stage("boss")
-	var boss := _gunship(world)
-	for part in ["nose_gun", "chin", "pod_l", "pod_r", "bay"]:
+func test_gunship_every_weapon_takes_one_full_charge() -> void:
+	for part in ["nose_gun", "chin", "pod_l", "pod_r", "gatling_l", "gatling_r", "bay"]:
+		var world := stage("boss")
+		var boss := _gunship(world)
 		_cannon_on(boss, part, 1)
-		check(boss._live(part), "%s survives one cannon hit" % part)
-		_cannon_on(boss, part, 1)
-		check(not boss._live(part), "%s falls to the second" % part)
+		check(not boss._live(part), "%s falls to one full charge" % part)
+		check_near(boss.max_hp - boss.hp, boss.max_hp * Gunship.CANNON_SHARE, 0.5, "wrecking %s still takes only one hull share" % part)
+		cleanup()
+
+
+func test_gunship_quick_shells_still_take_four_hits_per_weapon() -> void:
+	for part in ["nose_gun", "chin", "pod_l", "pod_r", "gatling_l", "gatling_r", "bay"]:
+		var world := stage("boss")
+		var boss := _gunship(world)
+		for i in 3:
+			boss.take_hit(_shell(_on(boss, boss.parts[part].offset)))
+		check(boss._live(part), "%s survives three quick shells" % part)
+		check_near(boss.parts[part].hp, Gunship.MODULE_HP[part] * 0.25, 0.01, "%s has one quick hit left" % part)
+		boss.take_hit(_shell(_on(boss, boss.parts[part].offset)))
+		check(not boss._live(part), "%s falls to the fourth quick shell" % part)
+		cleanup()
+
+
+func test_gunship_real_locked_aphe_wrecks_every_weapon_in_one_full_charge() -> void:
+	for part in ["nose_gun", "chin", "pod_l", "pod_r", "gatling_l", "gatling_r", "bay"]:
+		var world := stage("boss")
+		var boss := _hovering(world)
+		var tank := world.player
+		tank.charge_lock = boss
+		tank.charge_part = part
+		var from := boss.global_position + Vector3(0, 0, 30.0)
+		tank.fire_cannon(from, (_on(boss, boss.parts[part].offset) - from).normalized(), 1.0)
+		check(not boss._live(part), "a real locked full-charge APHE wrecks %s" % part)
+		check_near(boss.max_hp - boss.hp, boss.max_hp * Gunship.CANNON_SHARE, 0.5, "its direct hit and blast take only one hull share")
+		cleanup()
 
 
 func test_gunship_coax_silences_a_weapon_slowly_and_never_touches_the_rest() -> void:
