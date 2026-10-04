@@ -245,6 +245,7 @@ func test_checkpoint_unlock_selection_and_game_over_retry_stay_in_city() -> void
 		_screen = null
 		await frames(1)
 		var world := stage(checkpoint, false, 2)
+		world.process_mode = Node.PROCESS_MODE_DISABLED
 		check_near(world.rail.d, 1660.0 if checkpoint == "midboss" else 3390.0, 0.01, "retry loads the city approach")
 		check(world.player.coax_tier >= 2 and world.player.modules.laser_online(), "retry restores the city loadout")
 		check(not world.stats.ranked, "retry remains unranked")

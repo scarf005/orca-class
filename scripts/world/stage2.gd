@@ -20,7 +20,8 @@ func _init() -> void:
 	section_starts.assign(SECTION_STARTS)
 	start_rws = true
 	water_slows = true
-	coax_tiers = {"": 2}
+	checkpoints = {"": 0.0, "midboss": 1660.0, "boss": 3390.0}
+	coax_tiers = {"": 2, "midboss": 2, "boss": 2}
 	midboss_d = PLAZA_D
 	arena_center_d = BAY_D
 	arena_radius = BAY_RADIUS

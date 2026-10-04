@@ -20,7 +20,7 @@ func test_stage_lookup_gives_each_number_its_own_definition() -> void:
 	check(StageDef.of(1) is Stage1 and StageDef.of(2) is Stage2, "each number maps to its class")
 	check(StageDef.of(1) != StageDef.of(1), "every lookup is a fresh definition")
 	check(StageDef.of(1).checkpoints.has("midboss") and StageDef.of(1).checkpoints.has("boss"), "stage 1 defines its two checkpoints")
-	check(not StageDef.of(2).checkpoints.has("midboss"), "the stage 2 placeholder defines none")
+	check(StageDef.of(2).checkpoints.has("midboss") and StageDef.of(2).checkpoints.has("boss"), "stage 2 defines its city checkpoints")
 
 
 func test_the_road_follows_the_active_stage() -> void:

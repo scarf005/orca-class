@@ -159,7 +159,7 @@ func test_mouse_cards_and_checkpoints_follow_the_focused_stage() -> void:
 	check(select._checkpoints().is_empty(), "stage one's unlock does not expose stage two's checkpoints")
 	Game.stage = 2
 	Game.unlock_checkpoint("midboss")
-	check(select._checkpoints().is_empty(), "an unlock stage two does not define is not offered")
+	check_eq(select._checkpoints(), ["midboss"], "stage two exposes only its own unlocked checkpoint")
 	select._unhandled_input(_pad(JOY_BUTTON_DPAD_LEFT))
 	check_eq(select.selected_stage, 1, "d-pad left focuses stage one")
 	await frames(2)

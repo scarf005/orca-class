@@ -138,7 +138,7 @@ func _on_cleared() -> void:
 	_results = Results.new()
 	_results.stats = world.stats
 	_results.has_next_stage = stage < Game.STAGE_COUNT
-	_results.retry.connect(func() -> void: restart.emit(""))
+	_results.retry.connect(func() -> void: restart.emit(checkpoint))
 	_results.next_stage.connect(func() -> void:
 		Game.stage = stage + 1
 		restart.emit(""))
