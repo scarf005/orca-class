@@ -344,7 +344,7 @@ static func projectile_visual(shape: String, color: Color, hostile := false) -> 
 		mesh.mesh = meshes[i]
 		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		mesh.layers |= ActorLayer.LAYER | (ActorLayer.HOSTILE_SHOT if hostile else 0)
-		mesh.material_override = [_core_material, _halo_material, _ink_material][i]
+		mesh.material_override = _halo_material.duplicate() if i == 1 and hostile else [_core_material, _halo_material, _ink_material][i]
 		result.append(mesh)
 	return result
 

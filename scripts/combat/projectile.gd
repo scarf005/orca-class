@@ -83,7 +83,7 @@ func step(delta: float) -> void:
 	elif halo:
 		# A hard on/off blink, not a soft shimmer, so every enemy round catches the eye.
 		var on := sin(_age * FLICKER_RATE + _phase) > -0.2
-		halo.set_instance_shader_parameter(&"instance_alpha", 1.0 if on else 0.3)
+		halo.material_override.set_shader_parameter(&"instance_alpha", 1.0 if on else 0.3)
 		halo.scale = Vector3.ONE * (1.5 if on else 0.9)
 		if core:
 			core.scale = Vector3.ONE * (1.25 if on else 1.0)
@@ -391,7 +391,7 @@ func _glance(point: Vector3, target: Entity) -> void:
 	_glanced = true
 	global_position = point + normal * 0.3
 	if halo:
-		halo.set_instance_shader_parameter(&"instance_alpha", 0.5)
+		halo.material_override.set_shader_parameter(&"instance_alpha", 0.5)
 	Sfx.play("hit_confirm", point, -6.0, randf_range(1.7, 2.1)) # The armor's ping.
 
 

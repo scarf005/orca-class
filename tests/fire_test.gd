@@ -126,7 +126,7 @@ func test_a_fire_zone_has_a_ground_glow_that_ramps_in_pulses_and_cools() -> void
 	zone.life = 0.4
 	await frames(2)
 	var dying := zone.ground_glow()
-	check_near(zone._rim.get_instance_shader_parameter("instance_alpha"), dying * 0.7, 0.001, "drawn with that brightness")
+	check_near(zone._rim.material_override.get_shader_parameter("instance_alpha"), dying * 0.7, 0.001, "drawn with that brightness")
 	check(dying < middle * 0.5, "it dies down over the last seconds (%.2f then %.2f)" % [middle, dying])
 	check(middle < young + 0.15, "and cools as it ages")
 	var seen := {}

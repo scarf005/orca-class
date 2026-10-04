@@ -4,8 +4,8 @@ shader_type spatial;
 // dark smoke and the ball erodes away in chunks, from the rim inward.
 render_mode unshaded, cull_back, depth_draw_opaque;
 
-instance uniform float progress = 0.0;
-instance uniform float seed = 0.0;
+uniform float progress = 0.0;
+uniform float seed = 0.0;
 uniform vec3 hot : source_color = vec3(1.0, 0.98, 0.86);
 uniform vec3 yellow : source_color = vec3(1.0, 0.84, 0.25);
 uniform vec3 orange : source_color = vec3(1.0, 0.5, 0.12);

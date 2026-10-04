@@ -67,7 +67,7 @@ func _ready() -> void:
 	for layer in [[_rim, "fire_ground_rim", Palette.HOSTILE_SHOT_RIM, 0.06], [_core, "fire_ground_core", Palette.AMBER, 0.1]]:
 		var glow: MeshInstance3D = layer[0]
 		glow.mesh = Fx._cached(layer[1], layer[2], func(b: LowPoly, c: Color) -> void: _patch(b, c))
-		glow.material_override = Fx._glow_material
+		glow.material_override = Fx._glow_material.duplicate()
 		glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		glow.position.y = layer[3] + 0.25 # Above the smooth ground by more than the terrain mesh strays from it.
 		add_child(glow)
@@ -102,8 +102,8 @@ func _budget() -> float:
 
 func _glow(level: float) -> void:
 	# The rim fades out first as it cools and the core last, so the hot patch shrinks to its middle.
-	_rim.set_instance_shader_parameter("instance_alpha", level * 0.7)
-	_core.set_instance_shader_parameter("instance_alpha", level * level * 0.9)
+	_rim.material_override.set_shader_parameter("instance_alpha", level * 0.7)
+	_core.material_override.set_shader_parameter("instance_alpha", level * level * 0.9)
 	_rim.scale = Vector3(1, 1, 1) * RADIUS * (0.7 + 0.3 * level)
 	_core.scale = Vector3(1, 1, 1) * RADIUS * 0.5 * (0.7 + 0.3 * level)
 	_rim.visible = level > 0.02

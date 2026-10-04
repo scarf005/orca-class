@@ -341,7 +341,7 @@ func _update_transients(delta: float) -> void:
 	var keep: Array[Dictionary] = []
 	for t in _transients:
 		t.age += delta
-		var node: Node3D = t.node
+		var node: MeshInstance3D = t.node
 		var k: float = t.age / t.life
 		if k >= 1.0:
 			node.queue_free()
@@ -351,10 +351,10 @@ func _update_transients(delta: float) -> void:
 		if t.grow != Vector2.ONE:
 			node.scale = Vector3.ONE * lerpf(t.grow.x, t.grow.y, 1.0 - pow(1.0 - k, 3.0))
 		if t.has("fireball"):
-			node.set_instance_shader_parameter("progress", k)
+			node.material_override.set_shader_parameter("progress", k)
 			node.position.y += delta * 1.5
 		else:
-			node.set_instance_shader_parameter("instance_alpha", 1.0 - smoothstep(t.fade_from, 1.0, k))
+			node.material_override.set_shader_parameter("instance_alpha", 1.0 - smoothstep(t.fade_from, 1.0, k))
 		keep.append(t)
 	_transients = keep
 
@@ -380,10 +380,10 @@ func fireball(position: Vector3, start: float, end: float, life: float) -> void:
 	node.mesh = mesh
 	node.position = position
 	node.rotation = Vector3(randf() * TAU, randf() * TAU, 0.0)
-	node.material_override = _fireball_material
+	node.material_override = _fireball_material.duplicate()
 	node.layers |= ActorLayer.LAYER
 	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	node.set_instance_shader_parameter("seed", randf())
+	node.material_override.set_shader_parameter("seed", randf())
 	add_child(node)
 	_transients.append({"node": node, "age": 0.0, "life": life, "grow": Vector2(start, end), "fade_from": 1.0, "fireball": true})
 
@@ -392,7 +392,8 @@ func _transient(mesh: Mesh, xf: Transform3D, life: float, glow: bool, grow := Ve
 	var node := MeshInstance3D.new()
 	node.mesh = mesh
 	node.transform = xf
-	node.material_override = _flame_material if flame else (_glow_material if glow else _solid_material)
+	# WebGL instance uniforms can fail under load; animate a material local to this effect.
+	node.material_override = (_flame_material if flame else (_glow_material if glow else _solid_material)).duplicate()
 	if flame:
 		node.layers |= ActorLayer.LAYER
 	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -489,8 +490,8 @@ func afterimage(meshes: Array, color: Color, life := 0.45) -> void:
 			continue
 		var ghost := _transient(source.mesh, source.global_transform, life, true, Vector2.ONE, 0.0)
 		ghost.layers |= ActorLayer.LAYER # In true colors, like the tank itself.
-		ghost.set_instance_shader_parameter("instance_tint", Color(color, 0.8))
-		ghost.set_instance_shader_parameter("instance_alpha", 0.8)
+		ghost.material_override.set_shader_parameter("instance_tint", Color(color, 0.8))
+		ghost.material_override.set_shader_parameter("instance_alpha", 0.8)
 
 
 ## Something hits the water: a crown of spray and rings spreading out over the surface.
