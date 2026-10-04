@@ -10,14 +10,16 @@ func _spawn(world: World, enemy: Enemy) -> Enemy:
 	return enemy
 
 
-## A main gun hit as `Tank._fire_shell` makes it; `power` 1 is a full charge.
-func _shell(tank: Tank, enemy: Enemy, power: float) -> Hit:
-	var hit := Hit.make(Hit.Kind.SHELL, Armament.SHELL_DAMAGE * lerpf(Armament.APHE_DAMAGE.x, Armament.APHE_DAMAGE.y, power), enemy.hit_center(), Vector3.BACK)
-	hit.caliber = 100
-	hit.source = tank
-	hit.weapon = "cannon"
-	hit.stagger = 0.4
-	return hit
+## Fire an APHE shell through the same public runtime path as the tank's cannon.
+func _fire_shell(tank: Tank, enemy: Enemy, power: float) -> Projectile:
+	var world := World.current
+	var muzzle := tank.model.muzzle.global_position
+	var before := world.projectiles.size()
+	tank._fire_shell(Armament.Round.APHE, muzzle, (enemy.hit_center() - muzzle).normalized(), power)
+	var shell: Projectile = world.projectiles[before] if world.projectiles.size() > before else null
+	if shell != null and power < 1.0:
+		shell.resolve_now(Armament.SHELL_RANGE)
+	return shell
 
 
 ## A coax round arriving along `direction`.
@@ -45,12 +47,14 @@ func test_plain_shell_kills_the_medium_tier() -> void:
 	var spitter := Spitter.new()
 	for enemy: Enemy in [Ugv.new(), walker, spitter]:
 		_spawn(world, enemy)
-		enemy.take_hit(_shell(world.player, enemy, 0.0))
+		var shell := _fire_shell(world.player, enemy, 0.0)
+		check_eq(shell.hit.damage, 1600.0, "the fired quick shell carries its scaled APHE payload")
 		check(enemy.dead, "%s dies to one plain shell" % enemy.get_script().get_global_name())
 	var supply := Ugv.new()
 	supply.weapon = "supply"
 	_spawn(world, supply)
-	supply.take_hit(_shell(world.player, supply, 0.0))
+	var supply_shell := _fire_shell(world.player, supply, 0.0)
+	check_eq(supply_shell.hit.damage, 1600.0, "the fired supply-UGV shell carries its scaled APHE payload")
 	check(supply.dead, "so does the supply UGV")
 
 
@@ -58,18 +62,20 @@ func test_quad_mech_survives_one_plain_shell() -> void:
 	var world := stage()
 	var tank := world.player
 	var quad := _spawn(world, QuadMech.new()) as QuadMech
-	quad.take_hit(_shell(tank, quad, 0.0))
-	check(not quad.dead, "one plain shell leaves it standing")
-	check_near(quad.hp, 900.0, 0.01, "with 900 of 2400 health left")
-	quad.take_hit(_shell(tank, quad, 0.0))
+	var quick := _fire_shell(tank, quad, 0.0)
+	check_eq(quick.hit.damage, 1600.0, "a quick shell is scaled by the live APHE path")
+	check(not quad.dead, "one quick shell leaves it standing")
+	check_near(quad.hp, 800.0, 0.01, "with 800 of 2400 health left")
+	_fire_shell(tank, quad, 0.0)
 	check(quad.dead, "the second kills it")
 
 
 func test_quad_mech_dies_to_one_full_charge_shell() -> void:
 	var world := stage()
 	var quad := _spawn(world, QuadMech.new()) as QuadMech
-	quad.take_hit(_shell(world.player, quad, 1.0))
-	check(quad.dead, "a 3000 damage shell kills it outright")
+	var shell := _fire_shell(world.player, quad, 1.0)
+	check_eq(shell.hit.damage, 6000.0, "a full shell carries the live 6000 damage payload")
+	check(quad.dead, "a full-charge shell kills it outright")
 
 
 func test_quad_mech_collapses_without_two_legs() -> void:
@@ -93,8 +99,8 @@ func test_front_arc_boundaries() -> void:
 		var from := Vector3.FORWARD.rotated(Vector3.UP, deg_to_rad(case[0]))
 		var hit := _coax(tank, ugv, -from)
 		check_near(ugv.frontal_armor(hit, 0.25), case[1], 0.0001, "%.0f degrees off the nose" % case[0])
-	var shell := _shell(tank, ugv, 0.0)
-	shell.direction = Vector3.BACK
+	var shell := Hit.make(Hit.Kind.SHELL, Armament.SHELL_DAMAGE, ugv.hit_center(), Vector3.BACK)
+	shell.caliber = 100
 	check_eq(ugv.frontal_armor(shell, 0.25), 1.0, "shells ignore it")
 	var rise := _coax(tank, ugv, Vector3.DOWN)
 	check_eq(ugv.frontal_armor(rise, 0.25), 1.0, "a round straight from above has no front")

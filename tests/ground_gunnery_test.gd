@@ -34,27 +34,39 @@ func _miss(round: Projectile, target: Vector3, drift: Vector3) -> float:
 	return (offset + relative * t).length()
 
 
-## Fires a gun burst at a tank moving at `lateral` m/s, which then moves at `after` m/s once the
-## telegraph is over. Returns each round's miss distance against the roof sensor it was aimed at.
-func _burst(world: World, enemy: Enemy, lateral: float, after: float) -> Array[float]:
+## Fires a gun burst at a tank moving at `lateral` m/s. Once aim is committed by `_attack`, the
+## tank switches to `after` immediately. Returns analytic diagnostics plus real-flight completion.
+func _burst(world: World, enemy: Enemy, lateral: float, after: float) -> Dictionary:
 	var tank := _tank_moving(world, lateral)
-	var sensor := tank.model.sensor_position("laser")
 	if enemy is Ugv:
 		enemy._attack()
 	else:
 		enemy._attack(tank)
-	var drift := _tank_moving(world, after).velocity
-	var before := world.projectiles.duplicate()
+	var drift := world.rail.forward() * RAIL_SPEED + tank.global_basis.x * after
+	var reversal_seen := not is_equal_approx(after, lateral)
+	tank.velocity = drift
+	var reversal_velocity := tank.velocity
+	var tracked: Array[Projectile] = []
 	var misses: Array[float] = []
-	for _i in 200:
+	var all_resolved := false
+	for frame in 360: # Six seconds bounds the longest three-second gun flight.
+		tank.invuln = maxf(0.0, tank.invuln - 1.0 / 60.0)
+		tank.global_position += tank.velocity * (1.0 / 60.0)
 		enemy.behave(1.0 / 60.0)
-		for round in world.projectiles:
-			if round not in before and round.hit.source == enemy:
-				before.append(round)
-				misses.append(_miss(round, sensor, drift))
-		if misses.size() >= 5 and enemy.get("_burst") == 0:
+		for round in world.projectiles.duplicate():
+			if round not in tracked and round.hit.source == enemy:
+				tracked.append(round)
+				# Begin each diagnostic at the target's actual position when this round launches.
+				misses.append(_miss(round, tank.model.sensor_position("laser"), drift))
+		var active := false
+		for round in tracked.duplicate():
+			if is_instance_valid(round) and not round.is_queued_for_deletion():
+				active = true
+				round.step(1.0 / 60.0)
+		if enemy.get("_burst") == 0 and not active:
+			all_resolved = true
 			break
-	return misses
+	return {"misses": misses, "reversal_seen": reversal_seen, "reversal_velocity": reversal_velocity, "all_resolved": all_resolved}
 
 
 func _worst(misses: Array[float]) -> float:
@@ -92,23 +104,49 @@ func test_lead_covers_the_flight_time() -> void:
 
 
 func test_gunners_hit_a_tank_that_keeps_its_course() -> void:
-	seed(5)
-	var world := stage()
 	for walker in [false, true]:
-		var misses := _burst(world, _gunner(world, "gun", walker, STRAFE), STRAFE, STRAFE)
+		seed(5)
+		var world := stage()
+		world.player.modules.mount_rws()
+		var modules_before := world.player.modules.hp.duplicate()
+		var misses_result := _burst(world, _gunner(world, "gun", walker, STRAFE), STRAFE, STRAFE)
+		var misses: Array[float] = misses_result["misses"]
 		print("%s steady: %d rounds, miss %.2f..%.2f m" % ["walker" if walker else "UGV", misses.size(), _best(misses), _worst(misses)])
 		check(misses.size() >= 5, "the burst fires")
-		check(_worst(misses) <= 3.0, "every round passes within 3 m of the sensor (%.2f)" % _worst(misses))
+		check(misses_result["all_resolved"], "every steady flight terminates within the bound")
+		check(_best(misses) <= world.player.radius, "a committed round reaches the moving hull trajectory (%.2f)" % _best(misses))
+		check(world.player.hp < world.player.max_hp or world.player.modules.hp != modules_before, "a steady tank is actually affected by the rounds")
+		cleanup()
+		await frames(1)
 
 
 func test_gunners_miss_a_tank_that_reverses_after_the_telegraph() -> void:
-	seed(5)
-	var world := stage()
 	for walker in [false, true]:
-		var misses := _burst(world, _gunner(world, "gun", walker, STRAFE), STRAFE, -STRAFE)
+		seed(5)
+		var world := stage()
+		world.player.modules.mount_rws()
+		var hp_before := world.player.hp
+		var modules_before := world.player.modules.hp.duplicate()
+		var tail_before := world.player.tail.hp
+		var tail_destroyed_before := world.player.tail.destroyed
+		var lives_before := world.stats.lives
+		var damage_before := world.stats.damage_taken
+		var result := _burst(world, _gunner(world, "gun", walker, STRAFE), STRAFE, -STRAFE)
+		var misses: Array[float] = result["misses"]
 		print("%s reversed: %d rounds, miss %.2f..%.2f m" % ["walker" if walker else "UGV", misses.size(), _best(misses), _worst(misses)])
+		check(result["reversal_seen"] and result["reversal_velocity"].dot(world.player.global_basis.x) < -1.0, "the tank reverses immediately after aim commitment")
 		check(misses.size() >= 5, "the burst fires")
-		check(_best(misses) > world.player.radius + 1.0, "every committed round clears the hull after reversal (%.2f m)" % _best(misses))
+		check(result["all_resolved"], "every reversed flight terminates within the bound")
+		check(_best(misses) > world.player.radius, "reversed trajectory clears the moving hull (%.2f m)" % _best(misses))
+		check_eq(world.player.hp, hp_before, "reversal leaves hull health unchanged")
+		check_eq(world.player.modules.hp, modules_before, "reversal leaves every module unchanged")
+		check_eq(world.player.tail.hp, tail_before, "reversal leaves the tail unchanged")
+		check_eq(world.player.tail.destroyed, tail_destroyed_before, "reversal leaves tail state unchanged")
+		check_eq(world.stats.lives, lives_before, "reversal costs no life")
+		print("%s reversed state hp %.1f modules %s tail %.1f/%s lives %d damage %.1f" % ["walker" if walker else "UGV", world.player.hp, world.player.modules.hp, world.player.tail.hp, world.player.tail.destroyed, world.stats.lives, world.stats.damage_taken])
+		check_eq(world.stats.damage_taken, damage_before, "reversal accepts no damage")
+		cleanup()
+		await frames(1)
 
 
 func test_aim_point_stays_fixed_through_the_burst() -> void:

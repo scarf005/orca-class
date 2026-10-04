@@ -56,12 +56,20 @@ func test_demolition_preserves_every_house_triangle_and_material() -> void:
 			check(not pieces.is_empty() and pieces.size() <= PropKit.COLLAPSE_PIECES, "bounded demolition pieces")
 			var source_count := 0
 			var piece_count := 0
-			var materials: Array[Material] = []
+			var source_by_material := {}
+			var piece_by_material := {}
 			for surface in mesh.get_surface_count():
-				source_count += mesh.surface_get_arrays(surface)[Mesh.ARRAY_VERTEX].size()
-				materials.append(mesh.surface_get_material(surface))
+				var source_vertices: PackedVector3Array = mesh.surface_get_arrays(surface)[Mesh.ARRAY_VERTEX]
+				var source_material := mesh.surface_get_material(surface)
+				var source_material_id := source_material.get_instance_id()
+				source_count += source_vertices.size()
+				source_by_material[source_material_id] = source_by_material.get(source_material_id, 0) + source_vertices.size()
 			for piece in pieces:
 				for surface in piece.get_surface_count():
-					piece_count += piece.surface_get_arrays(surface)[Mesh.ARRAY_VERTEX].size()
-					check(piece.surface_get_material(surface) in materials, "plaster and fungal materials survive demolition")
+					var piece_vertices: PackedVector3Array = piece.surface_get_arrays(surface)[Mesh.ARRAY_VERTEX]
+					var piece_material := piece.surface_get_material(surface)
+					var piece_material_id := piece_material.get_instance_id()
+					piece_count += piece_vertices.size()
+					piece_by_material[piece_material_id] = piece_by_material.get(piece_material_id, 0) + piece_vertices.size()
+			check_eq(piece_by_material, source_by_material, "each %s %d material keeps its triangles" % [kind, variant])
 			check_eq(piece_count, source_count, "%s %d loses no roof, window or wall triangles" % [kind, variant])

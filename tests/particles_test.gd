@@ -59,19 +59,23 @@ func test_growth_and_compaction_keep_shader_data_with_the_particle() -> void:
 
 
 func test_warm_effect_geometry_does_not_change_randomness() -> void:
+	# World construction normally warms this cache; force a genuine cold build and restore it.
+	var saved_cache := Fx._mesh_cache.duplicate()
+	Fx._mesh_cache.clear()
 	seed(913)
 	var expected := randi()
 	seed(913)
 	var fx := Fx.new()
 	add_child(fx)
-	check_eq(randi(), expected, "warming deterministic meshes does not consume combat randomness")
+	check_eq(randi(), expected, "cold deterministic meshes do not consume combat randomness")
 	var count := Fx._mesh_cache.size()
 	fx.fireball(Vector3.ZERO, 1.0, 2.0, 1.0)
 	for color in [Palette.WHITE, Palette.BUTTER, Palette.FRIENDLY, Palette.HOSTILE]:
 		for variant in 3:
 			Fx._flash_mesh(variant, color)
-	check_eq(Fx._mesh_cache.size(), count, "first common hits reuse prepared geometry")
+	check_eq(Fx._mesh_cache.size(), count, "common hits reuse the cold-built geometry")
 	fx.free()
+	Fx._mesh_cache = saved_cache
 
 
 func test_capacity_stops_at_the_particle_limit() -> void:

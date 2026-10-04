@@ -97,6 +97,7 @@ func test_a_shell_kill_throws_the_wreck_on_along_the_shot() -> void:
 	# A shell kill dismembers even below the overkill threshold.
 	var shot := Hit.make(Hit.Kind.SHELL, ugv.max_hp * 2.0, ugv.hit_center(), shot_dir)
 	shot.caliber = 100
+	shot.speed = Armament.SHELL_SPEED # A full-charge shell's real impact speed drives its dismemberment focus.
 	shot.source = world.player
 	ugv.take_hit(shot)
 	var wrecks := world.get_children().filter(func(n: Node) -> bool: return n is Wreck)
@@ -175,14 +176,23 @@ func test_overkill_hurls_wrecks_and_shatters_the_rest() -> void:
 	var shot := Hit.make(Hit.Kind.SHELL, Armament.SHELL_DAMAGE, ugv.hit_center(), shot_dir)
 	shot.caliber = 100
 	shot.source = world.player
+	var source_piece_count := ugv.model.find_children("*", "MeshInstance3D", true, false).size()
 	var shards: int = world.fx._pools[Fx.Kind.SOLID].size()
 	ugv.take_hit(shot)
 	check(ugv.overkilled, "more than three times its health is an overkill")
-	var hulls := world.get_children().filter(func(n: Node) -> bool: return n is Wreck and n.explodes)
-	check_eq(hulls.size(), 1, "a vehicle still leaves a wreck to fly and blow up again")
-	if hulls.size() == 1:
-		var hull: Wreck = hulls[0]
-		check(Vector3(hull.velocity.x, 0, hull.velocity.z).dot(shot_dir) > 12.0, "an overkill throws it harder than a plain kill")
+	var pieces := world.get_children().filter(func(n: Node) -> bool: return n is Wreck)
+	check_eq(pieces.size(), source_piece_count, "a shell dismembers every source mesh into its own flying wreck")
+	var explosive := pieces.filter(func(n: Node) -> bool: return (n as Wreck).explodes)
+	check_eq(explosive.size(), 1, "exactly the biggest dismembered piece remains explosive")
+	var push := Enemy.kill_push(shot)
+	for piece_node in pieces:
+		var piece := piece_node as Wreck
+		var launch := Enemy.DISMEMBER_SPEED + push.length() * 6.0
+		# Wreck.launch divides the dismember push by sqrt(size); its random scatter components are bounded by 4 m/s,
+		# and its upward launch component is bounded by 14 m/s.
+		var scatter_bound := 4.0 * sqrt(3.0) + 14.0 / sqrt(maxf(piece._size, 1.0))
+		check(piece.velocity.y > 0.0, "each dismembered piece launches upward")
+		check(piece.velocity.length() >= launch * 0.7 - scatter_bound and piece.velocity.length() <= launch * 1.4 + scatter_bound, "piece speed stays within the source launch range")
 	check(world.fx._pools[Fx.Kind.SOLID].size() > shards + 20, "and tears plenty of shards off it")
 	var wrecks := world.get_children().filter(func(n: Node) -> bool: return n is Wreck).size()
 	drone.take_hit(Hit.make(Hit.Kind.SHELL, Armament.SHELL_DAMAGE, drone.hit_center(), shot_dir))
@@ -197,6 +207,23 @@ func test_overkill_hurls_wrecks_and_shatters_the_rest() -> void:
 	before = Wreck._live.size()
 	house.take_hit(Hit.make(Hit.Kind.SHELL, 299.0, house.global_position))
 	check(Wreck._live.size() > before + 1, "a plain building kill also tears off its roof and walls")
+	# Vary the draw: a real full-charge shell must carry at least one dismembered piece along its shot,
+	# while no single randomly selected hull piece is treated as representative.
+	for extra_seed in [1, 2, 3]:
+		var extra := Ugv.new()
+		var extra_d: float = world.rail.d + 140.0 + extra_seed * 20.0
+		extra.position = Course.ground_at(extra_d, 0.0)
+		world.add_enemy(extra)
+		var extra_dir := Course.right(extra_d)
+		seed(extra_seed)
+		var extra_shot := Hit.make(Hit.Kind.SHELL, extra.max_hp * 2.0, extra.hit_center(), extra_dir)
+		extra_shot.caliber = 100
+		extra_shot.speed = Armament.SHELL_SPEED
+		extra_shot.source = world.player
+		var before_extra := world.get_children().filter(func(n: Node) -> bool: return n is Wreck).size()
+		extra.take_hit(extra_shot)
+		var extra_pieces := world.get_children().filter(func(n: Node) -> bool: return n is Wreck).slice(before_extra)
+		check(extra_pieces.any(func(n: Node) -> bool: return Vector3((n as Wreck).velocity.x, 0.0, (n as Wreck).velocity.z).dot(extra_dir) > 8.0), "varied shell draws carry a dismembered piece along the shot")
 
 
 func test_shards_scale_with_the_size_of_what_broke() -> void:

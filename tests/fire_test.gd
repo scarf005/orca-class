@@ -88,10 +88,12 @@ func test_burning_damage_per_second_is_unchanged() -> void:
 	var enemy := _dummy(world, 40.0)
 	await frames(2)
 	var before := enemy.hp
-	for i in 60:
-		enemy.burning = 3.0
-		await frames(1)
-	check_near(before - enemy.hp, 20.0, 5.0, "about 5 damage per quarter second (%.1f)" % (before - enemy.hp))
+	# Drive the production burn callback at its quarter-second cadence, without frame-window drift.
+	enemy._burn_tick = 0.0
+	for i in 4:
+		enemy.burning = 1.0
+		enemy._burn(0.25)
+	check_near(before - enemy.hp, 20.0, 0.001, "four quarter-second ticks deal exactly 20 damage")
 
 
 func test_a_fire_zone_keeps_its_stats_and_burns_what_stands_in_it() -> void:
@@ -103,9 +105,12 @@ func test_a_fire_zone_keeps_its_stats_and_burns_what_stands_in_it() -> void:
 	var enemy := _dummy(world, 40.0)
 	FireZone.ignite(enemy.global_position)
 	await frames(2)
+	var zone: FireZone = FireZone._zones[-1]
+	zone._tick = 0.0
 	var before := enemy.hp
-	await frames(60)
-	check_near(before - enemy.hp, 31.0, 10.0, "the zone and the fire it sets (31 before the change) (%.1f)" % (before - enemy.hp))
+	zone._process(0.2)
+	check_near(before - enemy.hp, FireZone.DAMAGE_PER_SECOND * 0.2, 0.001, "one zone tick deals its configured damage")
+	check(enemy.burning > 0.0, "the zone also sets the ordinary burning state")
 
 
 func test_a_fire_zone_has_a_ground_glow_that_ramps_in_pulses_and_cools() -> void:

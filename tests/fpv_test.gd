@@ -191,8 +191,9 @@ func test_groups_keep_coming_and_grow_while_the_tank_stays_slow() -> void:
 	world.director.incoming.connect(func(_from: Vector3) -> void:
 		sizes.append(world.stats.spawned - spawned[0])
 		spawned[0] = world.stats.spawned)
+	var old_interval := Director.PURSUIT_INTERVAL
 	Director.PURSUIT_INTERVAL = 1.0
 	await _run_at(world, 5.0, int(60 * (Director.PURSUIT_FILL + 3.5)))
-	Director.PURSUIT_INTERVAL = 2.5
+	Director.PURSUIT_INTERVAL = old_interval
 	check(sizes.size() >= 4, "groups keep coming (%d)" % sizes.size())
 	check_eq(sizes.slice(0, 4), [2, 3, 4, 4], "they grow from 2 to 4 and stay there")

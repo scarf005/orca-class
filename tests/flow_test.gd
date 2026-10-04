@@ -2,6 +2,17 @@ extends TestCase
 ## Stage flow: events, checkpoints, mid-boss hold, game over, stage data sanity.
 
 
+const EXPECTED_DEATH_BLAST_RATE := 19.0
+
+
+class FxSpy extends Fx:
+	var explosion_groups := 0
+
+	func explosion(position: Vector3, damage_radius: float, palette := [Palette.BUTTER, Palette.AMBER, Palette.HOT, Palette.CORAL], push := Vector3.ZERO, ring := 0.0, pops := -1) -> void:
+		explosion_groups += 1
+		super.explosion(position, damage_radius, palette, push, ring, pops)
+
+
 func test_checkpoint_start_is_unranked_and_positioned() -> void:
 	var world := stage("boss")
 	check_near(world.rail.d, Director.CHECKPOINTS["boss"], 0.01, "rail starts at the boss checkpoint")
@@ -69,23 +80,50 @@ func test_midboss_dies_in_about_a_second_and_the_rail_follows() -> void:
 
 func test_midboss_death_throes_stay_dense_and_sink_to_the_same_height() -> void:
 	var world := stage()
+	var old_fx := world.fx
+	world.remove_child(old_fx)
+	old_fx.queue_free()
+	var spy := FxSpy.new()
+	world.fx = spy
+	world.add_child(spy)
 	var boss := Colossus.new()
 	boss.position = Course.ground_at(world.rail.d + 100.0, 0.0)
 	world.add_enemy(boss)
 	await frames(2)
 	seed(4)
 	boss._begin_death()
-	var time := 0.0
+	# At one nineteenth of a second, the independent 19/s contract makes every eligible
+	# production branch emit exactly one dying blast (randf() < 1.0).
+	var dt := 1.0 / EXPECTED_DEATH_BLAST_RATE
+	var dying_blasts := 0
+	var steps := 0
+	var elapsed := 0.0
+	var expected_steps := int(EXPECTED_DEATH_BLAST_RATE * Colossus.DYING_TIME)
 	while boss._dying > 0.0 and not boss.dead:
 		var scale_before := boss.model.scale.y
-		boss.behave(1.0 / 60.0)
-		time += 1.0 / 60.0
+		var groups_before := spy.explosion_groups
+		# Use the exact remaining time for the terminal step so floating-point subtraction does not add a twentieth tick.
+		var step_delta := dt if steps < expected_steps - 1 else boss._dying
+		boss.behave(step_delta)
+		var emitted := spy.explosion_groups - groups_before
+		var terminal := boss.dead or boss._dying <= 0.0
+		if terminal:
+			# One dying group plus the separate final die() group; exclude the latter.
+			check_eq(emitted, 2, "terminal step emits one dying group and one final group")
+			dying_blasts += emitted - 1
+		else:
+			check_eq(emitted, 1, "each preterminal step emits one dying group")
+			dying_blasts += emitted
+		spy._transients.clear()
+		steps += 1
+		elapsed += step_delta
 		check(boss.model.scale.y <= scale_before, "it only sinks")
-		if time > 2.0:
+		if steps > 30:
 			break
-	check_near(time, Colossus.DYING_TIME, 0.05, "it dies in the set time")
+	check_eq(steps, expected_steps, "one controlled step per intended blast")
+	check_near(elapsed, Colossus.DYING_TIME, 0.001, "it dies in the set time")
 	check_near(boss.model.scale.y, 1.0 - Colossus.DEATH_SINK, 0.03, "sunk to the same final height as before")
-	check(Colossus.DEATH_BLAST_RATE * Colossus.DYING_TIME >= 8.0 * 2.4 * 0.95, "with as many blasts as the old 2.4 s of 8 a second")
+	check_eq(dying_blasts, int(EXPECTED_DEATH_BLAST_RATE * Colossus.DYING_TIME), "death throes preserve the intended 19/s blast density")
 
 
 func test_game_over_after_last_life() -> void:
@@ -99,17 +137,23 @@ func test_game_over_after_last_life() -> void:
 
 
 func test_stage_events_are_ordered_and_reach_the_boss() -> void:
-	var events := Stage1.events(false)
+	# Director.begin sorts the runtime event stream; assert that contract rather than source-file order.
+	var world := stage()
+	var events := world.director.events
 	var kinds := {}
-	for e in events:
+	for i in events.size():
+		var e := events[i]
+		check(i == 0 or events[i - 1].d <= e.d, "runtime events are nondecreasing by distance")
 		if e.type == "wave":
 			kinds[e.kind] = true
 			check(Director.ENEMY_SCRIPTS.has(e.kind), "wave kind %s has a script" % e.kind)
 	for kind in ["fpv", "ugv", "uav", "crawler", "spitter", "walker", "quad"]:
 		check(kinds.has(kind), "stage uses %s" % kind)
-	check(events.any(func(e: Dictionary) -> bool: return e.type == "midboss"), "stage has the mid-boss")
-	check(events.any(func(e: Dictionary) -> bool: return e.type == "boss"), "stage has the boss")
-	check(Stage1.events(true).size() > events.size(), "hard adds encounters")
+	var mid := events.find_custom(func(e: Dictionary) -> bool: return e.type == "midboss")
+	var boss := events.find_custom(func(e: Dictionary) -> bool: return e.type == "boss")
+	check(mid >= 0, "stage has the mid-boss")
+	check(boss > mid, "the final boss follows the mid-boss")
+	check(Stage1.events(true).size() > Stage1.events(false).size(), "hard adds encounters")
 
 
 func test_course_maps_both_ways_across_the_valley() -> void:

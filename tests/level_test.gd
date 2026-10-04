@@ -191,14 +191,26 @@ func test_section_budgets_hold() -> void:
 
 
 func test_no_window_of_150m_exceeds_the_cap() -> void:
+	# Ask the production spawner for each effective count instead of copying its hard-mode formula.
 	for hard in [false, true]:
+		var world := stage()
+		world.director._hard = hard
 		var waves := _waves(hard)
-		for w in waves:
-			var count := _total(_within(waves, w.d, 150.0), hard)
+		var effective: Array[int] = []
+		for wave in waves:
+			effective.append(world.director.spawn_wave(wave).size())
+		for i in waves.size():
+			var w := waves[i]
+			var count := 0
+			for j in waves.size():
+				if waves[j].d >= w.d and waves[j].d < w.d + 150.0:
+					count += effective[j]
 			var cap := 30 if hard else 22
 			if _touches_peak(w.d, 150.0):
 				cap = 45 if hard else 30
 			check(count <= cap, "%s: %d enemies in the 150 m from d %d (cap %d)" % ["hard" if hard else "normal", count, w.d, cap])
+		cleanup()
+		await frames(1)
 
 
 func test_off_peak_windows_mix_at_most_two_kinds() -> void:
@@ -250,20 +262,27 @@ func test_first_uav_pass_and_the_quad_duel_stand_alone() -> void:
 func test_telegraphed_blasts_hit_hard_enough_to_matter() -> void:
 	var world := stage()
 	var tank := world.player
-	var uav := Uav.new()
-	world.add_enemy(uav)
-	uav._bomb_run(0.0, tank, 30.0)
-	var quad := QuadMech.new()
-	quad.weapon = "mortar"
-	world.add_enemy(quad)
-	quad._attack(tank)
-	var spitter := Spitter.new()
-	world.add_enemy(spitter)
-	spitter._volley(tank)
-	var damage := world.projectiles.filter(func(p: Projectile) -> bool: return p.blast_damage > 0.0).map(func(p: Projectile) -> float: return p.blast_damage)
-	check(30.0 in damage, "the UAV bomb does 30")
-	check(24.0 in damage, "the quad mortar does 24")
-	check(20.0 in damage, "the spitter spore does 20")
+	tank.invulnerable = false
+	tank._respawn = 0.0
+	tank.invuln = 0.0
+	var attacks := [		[Uav.new(), func(enemy: Enemy) -> void: (enemy as Uav)._bomb_run(0.0, tank, 30.0), 30.0, "UAV bomb"],
+		[QuadMech.new(), func(enemy: Enemy) -> void:
+			(enemy as QuadMech).weapon = "mortar"
+			(enemy as QuadMech)._attack(tank), 24.0, "quad mortar"],
+		[Spitter.new(), func(enemy: Enemy) -> void: (enemy as Spitter)._volley(tank), 20.0, "spitter spore"],
+	]
+	for attack in attacks:
+		var enemy := attack[0] as Enemy
+		world.add_enemy(enemy)
+		(attack[1] as Callable).call(enemy)
+		var projectile: Projectile = world.projectiles.back()
+		check_near(projectile.blast_damage, attack[2], 0.001, "%s keeps its configured warhead" % attack[3])
+		tank.hp = tank.max_hp
+		tank.dead = false
+		tank.invuln = 0.0
+		var before := tank.hp
+		projectile.detonate(tank.hit_center(), tank)
+		check(tank.hp < before, "%s damages a vulnerable tank on direct impact" % attack[3])
 
 
 func test_a_hold_stops_the_rail_until_its_group_is_gone() -> void:
