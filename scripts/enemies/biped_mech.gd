@@ -22,6 +22,8 @@ var _avoid: Prop ## The cover it just left.
 var _stance := Stance.ADVANCE
 var _stance_time := 0.0
 var _volleys := 0
+var _progress := INF ## Nearest it has got to its cover goal, and for how long it has made no headway.
+var _progress_time := 0.0
 var _side := 1.0
 var _search := 0.0
 var _walk := 0.0
@@ -106,10 +108,13 @@ func seek_cover(tank: Tank) -> bool:
 	_cover_wait = HIDE_TIME
 	_stance = Stance.COVER if _cover != null else Stance.ADVANCE
 	_stance_time = 0.0
+	_progress = INF
+	_progress_time = 0.0
 	return _cover != null
 
 
-## The nearest spot around the cover, outside its footprint, that sees the tank; INF when none does.
+## The nearest spot around the cover, outside its footprint, that sees the tank; one where both shoulders see it
+## wins over one where only the body does. INF when none sees it.
 func peek_spot(tank: Tank) -> Vector3:
 	var best := INF
 	var spot := Vector3.INF
@@ -122,17 +127,16 @@ func peek_spot(tank: Tank) -> Vector3:
 		candidate.y = CityCover.surface_at(candidate, global_position.y + 1.0)
 		if hard_blocker(candidate + Vector3.UP * (radius + 0.1), candidate + Vector3.UP * (radius + 0.2), radius) != null:
 			continue
-		# Both shoulders must see the tank, so a gun on either arm can fire from the spot.
-		var clear := true
-		for shoulder in [-1.0, 0.0, 1.0]:
-			if line_blocked(tank.hit_center(), candidate + Vector3.UP * center_height + sideways * (shoulder * radius * 1.7)):
-				clear = false
-				break
-		if not clear:
+		if line_blocked(tank.hit_center(), candidate + Vector3.UP * center_height):
 			continue
-		var distance := global_position.distance_to(candidate)
-		if distance < best:
-			best = distance
+		var wide := true
+		for shoulder in [-1.0, 1.0]:
+			if line_blocked(tank.hit_center(), candidate + Vector3.UP * center_height + sideways * (shoulder * radius * 1.7)):
+				wide = false
+				break
+		var score := global_position.distance_to(candidate) + (0.0 if wide else 1000.0)
+		if score < best:
+			best = score
 			spot = candidate
 	return spot
 
@@ -175,9 +179,26 @@ func walk_to(goal: Vector3, speed: float, delta: float) -> void:
 		radial.y = 0.0
 		var tangent := Vector3(-radial.z, 0, radial.x).normalized()
 		if blocker.box_size != Vector3.ZERO:
-			var local := blocker.to_local(global_position)
-			var half := blocker.box_size * 0.5 + Vector3.ONE * radius
-			tangent = blocker.global_basis.z if absf(local.x) / half.x > absf(local.z) / half.z else blocker.global_basis.x
+			# Round a rectangular building by its corners: head for the corner that gets nearest the goal
+			# along a line the hunter can walk.
+			var half := blocker.box_size * 0.5 + Vector3.ONE * (radius + 1.5)
+			var best := INF
+			var waypoint := Vector3.INF
+			for corner in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+				var point := blocker.to_global(Vector3(corner.x * half.x, 0.0, corner.y * half.z))
+				point.y = global_position.y
+				var cost := global_position.distance_to(point) + point.distance_to(goal)
+				if cost < best and not line_blocked(global_position + clearance, point + clearance, radius * 0.5):
+					best = cost
+					waypoint = point
+			if waypoint != Vector3.INF:
+				var heading := (waypoint - global_position)
+				heading.y = 0.0
+				tangent = heading.normalized()
+				offset = tangent * 1.0 # direction only
+			else:
+				var local := blocker.to_local(global_position)
+				tangent = blocker.global_basis.z if absf(local.x) / half.x > absf(local.z) / half.z else blocker.global_basis.x
 		if tangent.dot(offset) < 0.0:
 			tangent = -tangent
 		next = global_position + tangent * step.length()
@@ -215,9 +236,17 @@ func move_hunter(tank: Tank, delta: float, planted: bool, keep := 52.0) -> void:
 				_avoid = null
 		Stance.COVER:
 			walk_to(_cover_goal, 8.0, delta)
-			if global_position.distance_to(_cover_goal) < 1.0 or _stance_time > 8.0:
+			var left := global_position.distance_to(_cover_goal)
+			if left < 1.0 or _stance_time > 12.0:
 				_stance = Stance.HIDE
 				_stance_time = 0.0
+			elif left < _progress - 1.0:
+				_progress = left
+				_progress_time = 0.0
+			else:
+				_progress_time += delta
+				if _progress_time > 2.5:
+					relocate() # Boxed in on the way: pick another building.
 			return
 		Stance.HIDE:
 			if _stance_time >= HIDE_TIME:
