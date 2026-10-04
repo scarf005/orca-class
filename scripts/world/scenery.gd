@@ -229,8 +229,13 @@ func _city() -> void:
 	for i in 14:
 		var angle := TAU * i / 14.0 + 0.2
 		add_decor(CityKit.decor("raft", i % 6), Stage2.BAY_D + sin(angle) * 70.0, cos(angle) * 70.0, angle, Stage2.WATER_LEVEL + 0.02)
+	# Stalled traffic filling the drowned lanes, thicker in the quiet opening; wrecks wake out at the harbour.
+	for d in range(100, int(Stage2.LENGTH) - 350, 55):
+		if stage.in_arena(float(d), 30.0) or rng.randf() < (0.25 if d > 700 else 0.1):
+			continue
+		var lane := rng.randf_range(-9.0, 9.0)
+		add("car", float(d), lane, rng.randf_range(-0.3, 0.3) + (PI if lane > 0.0 else 0.0), rng.randi_range(0, 11))
 	for d in range(100, 1600, 110):
-		add("car", float(d), -6.5 if d % 3 else 6.5, 0.15, d % 5)
 		add_decor(CityKit.decor("gantry"), float(d) + 45.0, 0.0)
 	for d in range(2250, 3150, 180):
 		add("truck", float(d), 8.0, 0.0, 1)

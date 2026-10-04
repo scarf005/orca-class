@@ -26,15 +26,15 @@ func _init() -> void:
 	arena_center_d = BAY_D
 	arena_radius = BAY_RADIUS
 	arenas = [{"d": PLAZA_D, "radius": PLAZA_RADIUS}, {"d": BAY_D, "radius": BAY_RADIUS}]
-	sky_top = Palette.SLATE
-	sky_horizon = Palette.SKY
+	sky_top = Palette.PERIWINKLE.darkened(0.35)
+	sky_horizon = Palette.BLUSH.lerp(Palette.SKY, 0.45)
 	sky_ground = Palette.STONE
 	ambient = Palette.SKY
 	ambient_energy = 0.7
-	fog_color = Palette.SKY
+	fog_color = Palette.BLUSH.lerp(Palette.SKY, 0.55)
 	fog_begin = 65.0
 	fog_end = 310.0
-	sun_color = Palette.CREAM
+	sun_color = Palette.PEACH.lerp(Palette.CREAM, 0.5)
 	sun_rotation = Vector3(-18.0, 145.0, 0.0)
 	sun_energy = 0.65
 	# Broad sidewalks keep the opening readable; the canyon leaves a narrow driving corridor.
