@@ -126,6 +126,26 @@ func behave(delta: float) -> void:
 	var tank := player()
 	if tank == null or tank.dead:
 		return
+	if Course.stage is Stage2:
+		_height = 5.0
+		var t := Course.to_course(tank.global_position)
+		var c := Course.to_course(global_position)
+		var blocked := BipedMech.line_blocked(World.current.camera.global_position, hit_center()) or BipedMech.line_blocked(_chin_muzzle.global_position, tank.hit_center())
+		if blocked or c.x - t.x < 40.0 or c.x - t.x > 120.0:
+			_telegraph = 0.0
+			_burst = 0
+			_lane = -8.0 if c.y > 0.0 else 8.0
+			var goal := Course.to_world(t.x + 85.0, _lane, maxf(tank.global_position.y, Stage2.WATER_LEVEL) + 5.0)
+			global_position = global_position.move_toward(goal, delta * (World.current.rail.speed + 24.0))
+		else:
+			_lane = clampf(_lane, -12.0, 12.0)
+			super(delta)
+		global_position.y = minf(global_position.y, maxf(tank.global_position.y, Stage2.WATER_LEVEL) + 6.0)
+		for lid in _lids:
+			lid.rotation.x = lerpf(lid.rotation.x, -1.7 if attack == Attack.ROCKETS and (_telegraph > 0.0 or _burst > 0) else 0.0, minf(delta * 12.0, 1.0))
+		for rail in _rails:
+			aim_barrel(rail, tank.hit_center(), BARREL_SLEW, delta)
+		return
 	var cover := CityCover.blocker(_chin_muzzle.global_position, tank.hit_center())
 	if cover != null:
 		_telegraph = 0.0

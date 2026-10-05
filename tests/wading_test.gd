@@ -27,6 +27,7 @@ class Dry extends Flooded:
 
 func _flooded(definition: StageDef) -> World:
 	var world := stage("", true, 2)
+	world.director.events.clear() # Water timing must not include encounter kills and their hitstop.
 	Course.stage = definition # Same road as stage 2, so the world's terrain stays valid.
 	world.player.invulnerable = true
 	return world

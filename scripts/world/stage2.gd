@@ -284,45 +284,62 @@ func events(hard: bool) -> Array[Dictionary]:
 		event.merge(extra)
 		e.append(event)
 
-	# Boulevard: time to read the flooded street, then one LOSAT hunter behind the 336 m building.
-	e.append({"d": 160.0, "type": "pickup", "id": "heat", "ahead": 30.0})
-	wave.call(240.0, "abel", {"u": 75.0, "ahead": 120.0, "drop": "coax"})
-	e.append({"d": 520.0, "type": "pickup", "id": "apfsds"})
+	# All scripted Stage 1 enemies over these ranges, bosses included: 14 / 21 / 9 / 30 / 4.
+	# City totals excluding mines/batteries: 11 / 15 / 7 / 23 / 3.
+	# Each section builds to a mixed squad, then leaves a supply-only release.
+	wave.call(240.0, "abel", {"u": -17.0, "ahead": 85.0, "drop": "coax", "squad": [
+		{"kind": "fpv", "count": 2, "height": 5.0, "spacing": 6.0},
+		{"kind": "ugv", "count": 1, "u": 8.0, "ahead": 70.0},
+		{"kind": "drone_boat", "count": 1, "u": -14.0, "ahead": 60.0}]})
+	wave.call(500.0, "kain", {"u": 21.0, "ahead": 85.0, "peak": true, "squad": [
+		{"kind": "drone_boat", "count": 3, "spacing": 5.0, "ahead": 65.0},
+		{"kind": "ugv", "u": -8.0, "ahead": 80.0, "props": {"weapon": "atgm"}},
+		{"kind": "walker", "u": 6.0, "ahead": 75.0}]})
 
-	# Viaduct: the deck shooters make looking up matter; mines leave a gap down the road.
-	wave.call(720.0, "kain", {"u": -40.0, "ahead": 80.0, "height": 10.5})
-	wave.call(870.0, "sea_mine", {"count": 2, "u": -12.0, "spacing": 4.0, "ahead": 45.0})
-	wave.call(970.0, "rooftop_battery", {"u": -40.0, "ahead": 80.0, "height": 7.5})
+	wave.call(720.0, "kain", {"u": -38.5, "ahead": 65.0, "height": 10.5, "squad": [
+		{"kind": "ugv", "count": 2, "spacing": 12.0, "ahead": 75.0},
+		{"kind": "fpv", "height": 5.0}]})
+	wave.call(840.0, "abel", {"u": -21.0, "ahead": 85.0, "squad": [
+		{"kind": "ugv", "u": -16.0, "ahead": 75.0, "props": {"weapon": "atgm"}},
+		{"kind": "drone_boat", "u": 10.0, "ahead": 65.0}]})
+	wave.call(870.0, "sea_mine", {"count": 2, "u": 12.0, "spacing": 4.0, "ahead": 45.0})
+	wave.call(970.0, "rooftop_battery", {"u": -40.0, "ahead": 80.0, "height": 10.5})
 	e.append({"d": 1070.0, "type": "pickup", "id": "atgm"})
-	wave.call(1140.0, "hind", {"u": -16.0, "height": 7.0, "ahead": 90.0, "drop": "micro"})
-	wave.call(1330.0, "kain", {"u": 10.0, "ahead": 80.0})
-	wave.call(1350.0, "adam", {"u": 4.0, "ahead": 35.0, "drop": "heat"})
-	e.append({"d": 1390.0, "type": "hold", "at": 1405.0, "timeout": 30.0, "reward": "atgm"})
+	wave.call(1140.0, "hind", {"u": 8.0, "height": 5.0, "ahead": 90.0, "drop": "micro", "squad": [
+		{"kind": "fpv", "count": 2, "height": 5.0, "spacing": 7.0},
+		{"kind": "walker", "u": -8.0, "ahead": 75.0, "props": {"weapon": "missile"}}]})
+	wave.call(1370.0, "adam", {"u": 17.0, "ahead": 65.0, "peak": true, "squad": [
+		{"kind": "ugv", "u": 8.0, "ahead": 90.0, "props": {"weapon": "atgm"}},
+		{"kind": "drone_boat", "count": 2, "spacing": 6.0, "ahead": 70.0}]})
 	e.append({"d": 1480.0, "type": "pickup", "id": "micro", "u": -4.0})
 
-	# Plaza: missiles are an option, not the only supply. Direct rounds bypass its missile defense.
 	e.append({"d": 1660.0, "type": "checkpoint", "name": "midboss"})
-	e.append({"d": 1680.0, "type": "pickup", "id": "repair", "u": 4.0, "ahead": 25.0})
-	e.append({"d": 1720.0, "type": "pickup", "id": "heat", "u": -4.0, "ahead": 20.0})
+	wave.call(1665.0, "kain", {"u": -17.0, "ahead": 50.0, "squad": [
+		{"kind": "ugv", "u": -10.0, "ahead": 70.0},
+		{"kind": "drone_boat", "count": 1, "spacing": 6.0, "ahead": 65.0}]})
 	e.append({"d": 1750.0, "type": "pickup", "id": "apfsds", "ahead": 15.0})
-	e.append({"d": PLAZA_D - 110.0, "type": "midboss", "kind": "hovercraft", "hold": PLAZA_D - 56.0, "music": "res://assets/music/stage2_hovercraft.ogg"})
+	e.append({"d": PLAZA_D - 110.0, "type": "midboss", "kind": "hovercraft", "peak": true, "hold": PLAZA_D - 56.0, "music": "res://assets/music/stage2_hovercraft.ogg"})
+	wave.call(2050.0, "abel", {"u": 19.0, "ahead": 45.0, "squad": [
+		{"kind": "walker", "u": 10.0, "ahead": 75.0},
+		{"kind": "drone_boat", "u": -10.0, "ahead": 65.0}]})
 
-	# Canyon: paired hunters use opposite buildings, then an Adam screens the gun carrier.
-	e.append({"d": 2180.0, "type": "pickup", "id": "era"})
-	wave.call(2240.0, "abel", {"count": 2, "formation": "sides", "spacing": 23.0, "ahead": 144.0})
-	wave.call(2260.0, "hind", {"u": 16.0, "height": 7.0, "ahead": 85.0})
+	wave.call(2240.0, "hind", {"u": -8.0, "height": 5.0, "ahead": 85.0, "squad": [
+		{"kind": "fpv", "count": 2, "height": 5.0, "spacing": 7.0},
+		{"kind": "ugv", "count": 2, "spacing": 12.0, "ahead": 75.0, "props": {"weapon": "atgm"}}]})
+	wave.call(2340.0, "adam", {"u": -15.0, "ahead": 65.0, "squad": [
+		{"kind": "walker", "count": 2, "spacing": 10.0, "ahead": 90.0, "props": {"weapon": "missile"}},
+		{"kind": "drone_boat", "count": 3, "spacing": 5.0, "ahead": 70.0}]})
 	wave.call(2440.0, "sea_mine", {"count": 2, "u": 12.0, "spacing": 4.0, "ahead": 45.0})
-	# Release 2440-2660, with a round to answer the next pair.
-	e.append({"d": 2540.0, "type": "pickup", "id": "apfsds"})
-	wave.call(2660.0, "kain", {"u": -8.0, "ahead": 70.0})
-	wave.call(2670.0, "adam", {"u": -4.0, "ahead": 40.0})
-	wave.call(2710.0, "helicopter", {"u": 16.0, "height": 14.0, "ahead": 90.0, "drop": "airburst"})
-	wave.call(2880.0, "abel", {"count": 2, "formation": "sides", "spacing": 23.0, "ahead": 132.0})
-	wave.call(2900.0, "hind", {"u": -16.0, "height": 7.0, "ahead": 112.0})
-	wave.call(3000.0, "sea_mine", {"count": 2, "u": -12.0, "spacing": 4.0, "ahead": 45.0})
-	e.append({"d": 3040.0, "type": "hold", "at": 3055.0, "timeout": 35.0, "reward": "repair"})
+	# Quiet 2440-2690 lets the tank refit before the canyon peak.
+	wave.call(2690.0, "kain", {"u": 14.5, "ahead": 85.0, "squad": [
+		{"kind": "ugv", "count": 2, "spacing": 12.0, "ahead": 80.0, "props": {"weapon": "atgm"}},
+		{"kind": "fpv", "count": 3, "height": 5.0, "spacing": 6.0}]})
+	wave.call(2870.0, "abel", {"u": -10.0, "ahead": 100.0, "peak": true, "squad": [
+		{"kind": "walker", "count": 2, "spacing": 12.0, "ahead": 80.0, "props": {"weapon": "missile"}},
+		{"kind": "drone_boat", "count": 3, "spacing": 5.0, "ahead": 65.0}]})
+	e.append({"d": 3040.0, "type": "hold", "at": 3055.0, "timeout": 25.0, "reward": "repair"})
 
-	# Bay: a long release to refit, then the all-range fight. Phase two owns its own music.
+	wave.call(3240.0, "hind", {"u": 8.0, "height": 5.0, "ahead": 85.0, "peak": true, "squad": [{"kind": "drone_boat", "u": -8.0, "ahead": 65.0}]})
 	e.append({"d": 3260.0, "type": "pickup", "id": "era", "u": -4.0})
 	e.append({"d": 3330.0, "type": "pickup", "id": "heat", "u": 4.0})
 	e.append({"d": 3390.0, "type": "checkpoint", "name": "boss"})
@@ -330,10 +347,26 @@ func events(hard: bool) -> Array[Dictionary]:
 	e.append({"d": 3490.0, "type": "pickup", "id": "apfsds", "ahead": 15.0})
 	e.append({"d": BAY_D - 110.0, "type": "boss", "kind": "hi_mo", "height": 0.0, "music": "res://assets/music/stage2_boss.ogg"})
 
+	var counters := ["heat", "apfsds", "airburst", "heat", "apfsds", "airburst", "canister", "apfsds"]
+	for index in SPLITS.size():
+		var split: Dictionary = SPLITS[index]
+		var lanes := split_lane_centres(index)
+		var rich_left := index % 2 == 0
+		for side in 2:
+			e.append({"d": split.d - 70.0, "ahead": 70.0, "type": "pickup", "u": lanes[side], "id": counters[index] if (side == 0) == rich_left else ("repair" if index % 3 == 0 else "era")})
+
 	if hard:
-		# Pressure from the other deck and an extra flanker, never during an opening or release.
-		wave.call(990.0, "rooftop_battery", {"u": -40.0, "ahead": 80.0})
-		wave.call(2300.0, "kain", {"u": -10.0, "ahead": 80.0})
-		wave.call(2940.0, "helicopter", {"u": 16.0, "height": 14.0, "ahead": 90.0})
+		var pressure := {240.0: {"fpv": 2}, 1140.0: {"fpv": 2}, 1665.0: {"drone_boat": 1}}
+		# Remixed firing lanes and earlier escorts compress the build, not the releases or elite health.
+		for event in e:
+			if event.type != "wave" or not event.has("squad"):
+				continue
+			for member: Dictionary in event.squad:
+				member.count = int(member.get("count", 1)) * (3 if event.d == 3240.0 else 2) + int(pressure.get(event.d, {}).get(member.kind, 0))
+				member.u = -float(member.get("u", 0.0))
+				member.ahead = 50.0 if member.kind == "drone_boat" else 65.0
+				if member.kind == "ugv":
+					member.props = {"weapon": "atgm"}
+		wave.call(990.0, "rooftop_battery", {"u": -40.0, "ahead": 80.0, "height": 10.5})
 	e.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.d < b.d)
 	return e

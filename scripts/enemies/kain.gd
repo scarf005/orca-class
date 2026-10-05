@@ -23,7 +23,7 @@ func _init() -> void:
 	super()
 	radius = 1.8
 	center_height = 2.9
-	max_hp = 2000.0
+	max_hp = lerpf(Armament.QUICK_DAMAGE.x, Armament.QUICK_DAMAGE.y, Armament.STAGE_1) * Armament.SHELL_DAMAGE_SCALE * 0.65 * 1.5
 	hp = max_hp
 	score = 900
 
@@ -32,6 +32,8 @@ func _init() -> void:
 ## with brown blotches so it never reads as the player's grey-green hull.
 func build() -> void:
 	super()
+	if Course.stage is Stage2:
+		_attack_timer = 0.1
 	build_legs(2.35, "bird", Palette.STRAW, Palette.DUSK, 0.95)
 	var b := LowPoly.new()
 	# Hull slice: sides that slope in toward the belly, a raked glacis, a rear engine deck and the hip housings.
@@ -107,7 +109,7 @@ func behave(delta: float) -> void:
 		slew_barrel(_gun, _lob(), 3.0, delta)
 	else:
 		aim_barrel(_gun, Gunnery.sensor_lead(tank, _coax.global_position, MG_SPEED), 3.0, delta)
-	if line_blocked(hit_center(), tank.hit_center()):
+	if (Course.stage is Stage2 and not clear_firing_spot(tank)) or line_blocked(hit_center(), tank.hit_center()):
 		_cancel()
 		return
 	if _burst > 0:
@@ -136,11 +138,13 @@ func behave(delta: float) -> void:
 		return
 	_attack_timer -= delta
 	if _attack_timer <= 0.0 and global_position.distance_to(tank.global_position) < 140.0:
-		_wind = 1.0 * Game.telegraph_scale()
+		_wind = (0.65 if Course.stage is Stage2 else 1.0) * Game.telegraph_scale()
 		_attack_timer = 2.2 if _hard else 3.0
-		_aim = tank.global_position + tank.velocity * 0.8
+		_flight = clampf(global_position.distance_to(tank.global_position) / 45.0, 1.2, 2.4)
+		_aim = tank.global_position + tank.velocity * (_wind + _flight if Course.stage is Stage2 else 0.8)
 		_aim.y = Course.height_at(_aim)
-		_flight = clampf(global_position.distance_to(_aim) / 45.0, 1.2, 2.4)
+		if not Course.stage is Stage2:
+			_flight = clampf(global_position.distance_to(_aim) / 45.0, 1.2, 2.4)
 		if _shell:
 			World.current.fx.marker(_aim, BLAST, _wind + _flight, Palette.HOT)
 		Sfx.play("warn", global_position, -3.0, 0.7)
@@ -154,13 +158,14 @@ func _fire_shell() -> void:
 	muzzle_blast(_muzzle.global_position, velocity_out.normalized(), Muzzle.HEAVY, "mortar")
 	var shell := World.current.spawn_projectile(Team.ENEMY, _muzzle.global_position, velocity_out, "mortar", Palette.HOT)
 	shell.gravity = GRAVITY
-	shell.hit = Hit.make(Hit.Kind.SHELL, 32.0 if _hard else 26.0, _muzzle.global_position)
+	var damage := (130.0 if _hard else 110.0) if Course.stage is Stage2 else (32.0 if _hard else 26.0)
+	shell.hit = Hit.make(Hit.Kind.SHELL, damage, _muzzle.global_position)
 	shell.hit.source = self
 	shell.hit.caliber = 100
 	shell.blast_radius = BLAST
-	shell.blast_damage = 32.0 if _hard else 26.0
+	shell.blast_damage = damage
 	shell.interceptable = true
-	shell.intercept_hp = 1.0
+	shell.intercept_hp = 3.0 if Course.stage is Stage2 else 1.0
 	shell.life = _flight + 1.0
 	shell.trail = Palette.DUSK
 	Sfx.play("launch", _muzzle.global_position, 2.0, 0.6)

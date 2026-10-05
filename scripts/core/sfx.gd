@@ -61,6 +61,9 @@ const SOUNDS := {
 	"hover_fan": ["res://assets/audio/synth/hover_fan.wav", -9.0],
 	"hover_laser": ["res://assets/audio/synth/hover_laser.wav", -5.0],
 	"mine_beep": ["res://assets/audio/synth/mine_beep.wav", -8.0],
+	"boat_motor": ["res://assets/audio/engine.ogg", -10.0, 1.8],
+	"boat_warn": ["res://assets/audio/synth/mine_beep.wav", -6.0, 1.6],
+	"boat_break": ["res://assets/audio/rubble.ogg", -3.0, 1.7],
 }
 
 const POOL_SIZE := 40

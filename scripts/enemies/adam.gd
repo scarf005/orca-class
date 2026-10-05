@@ -21,7 +21,7 @@ var _beam := Node3D.new()
 
 func _init() -> void:
 	super()
-	max_hp = 3000.0
+	max_hp = lerpf(Armament.QUICK_DAMAGE.x, Armament.QUICK_DAMAGE.y, Armament.STAGE_1) * Armament.SHELL_DAMAGE_SCALE * 2.5
 	hp = max_hp
 	radius = 2.3
 	center_height = 3.0

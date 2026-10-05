@@ -25,6 +25,7 @@ const ENEMY_SCRIPTS := {
 	"hind": "res://scripts/enemies/hind.gd",
 	"rooftop_battery": "res://scripts/enemies/rooftop_battery.gd",
 	"sea_mine": "res://scripts/enemies/sea_mine.gd",
+	"drone_boat": "res://scripts/enemies/drone_boat.gd",
 	"tiltrotor": "res://scripts/enemies/tiltrotor.gd",
 	"gunship": "res://scripts/enemies/gunship.gd",
 	"hi_mo": "res://scripts/enemies/hi_mo.gd",
@@ -40,11 +41,12 @@ const DUEL_D := 100.0
 const DUEL_RESPAWN := 2.5
 ## How many of each hunter a duel round sends, tuned live in the duel mode.
 static var duel_round := Armament.Round.APHE ## The round every duel refit loads (picked in the duel panel).
-static var duel_counts := {"helicopter": 0, "tiltrotor": 1, "walker": 2, "uav": 0, "quad": 0, "ugv": 0, "fpv": 0, "abel": 0, "kain": 0, "adam": 0, "hind": 0, "rooftop_battery": 0, "sea_mine": 0}
+static var duel_counts := {"helicopter": 0, "tiltrotor": 1, "walker": 2, "uav": 0, "quad": 0, "ugv": 0, "fpv": 0, "abel": 0, "kain": 0, "adam": 0, "hind": 0, "rooftop_battery": 0, "sea_mine": 0, "drone_boat": 0}
 const DUEL := {
 	"hind": {"height": 7.0, "ahead": 65.0, "u": -8.0, "spacing": 20.0},
 	"rooftop_battery": {"ahead": 65.0, "u": 12.0, "spacing": 12.0},
 	"sea_mine": {"ahead": 25.0, "spacing": 4.0},
+	"drone_boat": {"ahead": 65.0, "spacing": 5.0},
 	"helicopter": {"height": 13.0, "ahead": 90.0, "u": -8.0, "formation": "line", "spacing": 20.0},
 	"tiltrotor": {"height": 10.0, "ahead": 150.0, "u": 16.0, "formation": "line", "spacing": 20.0},
 	"walker": {"formation": "sides", "spacing": 9.0, "ahead": 60.0},
@@ -309,6 +311,9 @@ func spawn_wave(event: Dictionary) -> Array[Enemy]:
 		if slot.z < 0.0:
 			enemy.despawn_behind = maxf(enemy.despawn_behind, -slot.z + 60.0)
 		world.add_enemy(enemy)
+		if enemy is BipedMech or enemy is Hind:
+			var toward := world.player.hit_center() - enemy.hit_center()
+			enemy.model.rotation.y = atan2(-toward.x, -toward.z)
 		if event.has("drop") and i == count - 1:
 			enemy.drop = event.drop
 		spawned.append(enemy)
@@ -318,6 +323,11 @@ func spawn_wave(event: Dictionary) -> Array[Enemy]:
 		for enemy in spawned:
 			center += enemy.position
 		incoming.emit(center / maxf(spawned.size(), 1.0))
+	# A squad is one event: its escorts arrive in the same frame as their elite, including on checkpoint sorties.
+	for member: Dictionary in event.get("squad", []):
+		var escort := member.duplicate(true)
+		escort.merge({"d": event.get("d", world.rail.d), "hard_scale": event.get("hard_scale", 1.0)}, false)
+		spawned.append_array(spawn_wave(escort))
 	return spawned
 
 

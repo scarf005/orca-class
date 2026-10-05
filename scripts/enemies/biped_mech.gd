@@ -28,6 +28,8 @@ var _side := 1.0
 var _search := 0.0
 var _walk := 0.0
 var _hip := 3.0
+var _firing_goal := Vector3.INF
+var _firing_search := 0.0
 
 
 func _init() -> void:
@@ -124,7 +126,69 @@ static func line_blocked(a: Vector3, b: Vector3, pad := 0.0) -> bool:
 	return hard_blocker(a, b, pad) != null
 
 
+## A firing edge must stay on the street ahead, or on the expressway's inner parapet, below the roof line.
+func firing_spot_valid(at: Vector3, tank: Tank) -> bool:
+	if not Course.stage is Stage2:
+		return true
+	var c := Course.to_course(at)
+	var t := Course.to_course(tank.global_position)
+	var surface := maxf(tank.global_position.y, Stage2.WATER_LEVEL)
+	var deck := get_meta("slot", Vector3.ZERO) as Vector3
+	var limit := 40.0 if deck.y > 0.0 else Course.stage.lateral_limit(c.x) - radius
+	var supported := deck.y <= 0.0 or (at.y >= Stage2.WATER_LEVEL + 5.5 and absf(Course.surface_height(c.x, c.y, surface + 6.01) - at.y) < 0.1)
+	return supported and c.x - t.x >= 40.0 and c.x - t.x <= 120.0 and absf(c.y) <= limit and at.y <= surface + 6.01
+
+
+func clear_firing_spot(tank: Tank) -> bool:
+	return firing_spot_valid(global_position, tank) and not line_blocked(hit_center(), tank.hit_center()) and not World.current.director.scenery.line_blocked(World.current.camera.global_position, hit_center())
+
+
+func city_firing_spot(tank: Tank) -> Vector3:
+	if _firing_search > 0.0:
+		return _firing_goal
+	_firing_search = 0.25
+	_firing_goal = Vector3.INF
+	var t := Course.to_course(tank.global_position)
+	var slot := get_meta("slot", Vector3.ZERO) as Vector3
+	var lanes := PackedFloat32Array([signf(slot.x) * 38.5] if slot.y > 0.0 else [clampf(Course.to_course(global_position).y, -12.0, 12.0), -8.0, 8.0, 0.0])
+	for ahead in [65.0, 85.0, 105.0, 115.0]:
+		for u in lanes:
+			var at := Course.to_world(t.x + ahead, u)
+			at.y = CityCover.surface_at(at, maxf(tank.global_position.y, Stage2.WATER_LEVEL) + 6.01)
+			if slot.y > 0.0 and at.y < Stage2.WATER_LEVEL + 5.5:
+				continue
+			if not firing_spot_valid(at, tank) or line_blocked(at + Vector3.UP * center_height, tank.hit_center()) or World.current.director.scenery.line_blocked(World.current.camera.global_position, at + Vector3.UP * center_height):
+				continue
+			_firing_goal = at
+			return at
+	return Vector3.INF
+
+
+func walk_city_firing(goal: Vector3, speed: float, delta: float) -> void:
+	var slot := get_meta("slot", Vector3.ZERO) as Vector3
+	var left := delta
+	while left > 0.00001:
+		var step := minf(left, 1.0 / 30.0)
+		if slot.y > 0.0:
+			var next := global_position + (goal - global_position).limit_length(speed * step)
+			var c := Course.to_course(next)
+			if Course.surface_height(c.x, c.y, Stage2.WATER_LEVEL + 6.01) < Stage2.WATER_LEVEL + 5.5:
+				# A deck gap is not a bridge. Drop into the street rather than walking under the next span.
+				slot.y = 0.0
+				set_meta("slot", slot)
+				_firing_search = 0.0
+				relocate()
+				goal = city_firing_spot(player())
+				if goal == Vector3.INF:
+					return
+				continue
+		walk_to(goal, speed, step)
+		left -= step
+
+
 func seek_cover(tank: Tank) -> bool:
+	if Course.stage is Stage2 and (_volleys > 0 or legs_hp < 30.0 or tank.charge_lock == self or tank.charge_candidate == self):
+		return false
 	var best := INF
 	_cover = null
 	for prop: Prop in World.current.props.in_radius(global_position, 45.0):
@@ -136,6 +200,12 @@ func seek_cover(tank: Tank) -> bool:
 		goal.y = CityCover.surface_at(goal, global_position.y + 1.0)
 		var distance := global_position.distance_to(goal)
 		if goal.distance_to(tank.global_position) < min_range:
+			continue
+		if Course.stage is Stage2 and distance > 10.0:
+			continue
+		if not firing_spot_valid(goal, tank):
+			continue
+		if Course.stage is Stage2 and absf(Course.to_course(prop.global_position).y) > Course.stage.lateral_limit(Course.to_course(prop.global_position).x):
 			continue
 		if distance < best and line_blocked(tank.hit_center(), goal + Vector3.UP * center_height):
 			best = distance
@@ -162,6 +232,10 @@ func peek_spot(tank: Tank) -> Vector3:
 		var direction := toward.rotated(Vector3.UP, TAU * step / 12.0)
 		var candidate := CityCover.outside_point(_cover, direction, radius + 2.0)
 		candidate.y = CityCover.surface_at(candidate, global_position.y + 1.0)
+		if not firing_spot_valid(candidate, tank):
+			continue
+		if Course.stage is Stage2 and line_blocked(World.current.camera.global_position, candidate + Vector3.UP * center_height):
+			continue
 		if hard_blocker(candidate + Vector3.UP * (radius + 0.1), candidate + Vector3.UP * (radius + 0.2), radius) != null:
 			continue
 		if line_blocked(tank.hit_center(), candidate + Vector3.UP * center_height):
@@ -247,6 +321,7 @@ func walk_to(goal: Vector3, speed: float, delta: float) -> void:
 
 
 func move_hunter(tank: Tank, delta: float, planted: bool, keep := 52.0) -> void:
+	_firing_search = maxf(0.0, _firing_search - delta)
 	var toward := tank.global_position - global_position
 	model.rotation.y = lerp_angle(model.rotation.y, atan2(-toward.x, -toward.z), minf(delta * 4.0, 1.0))
 	if toppled:
@@ -255,7 +330,19 @@ func move_hunter(tank: Tank, delta: float, planted: bool, keep := 52.0) -> void:
 		return
 	for i in _legs.size():
 		_legs[i].rotation.x = sin(_walk * 1.4 + i * PI) * 0.18
+	if Course.stage is Stage2 and (not firing_spot_valid(global_position, tank) or (_stance == Stance.ADVANCE and not clear_firing_spot(tank))) and not is_staggered():
+		relocate()
+		var goal := city_firing_spot(tank)
+		if goal != Vector3.INF:
+			walk_city_firing(goal, World.current.rail.speed + 18.0, delta)
+		return
 	if planted or is_staggered():
+		return
+	var slot := get_meta("slot", Vector3.ZERO) as Vector3
+	if Course.stage is Stage2 and slot.y > 0.0:
+		var goal := city_firing_spot(tank)
+		if goal != Vector3.INF:
+			walk_city_firing(goal, World.current.rail.speed + 9.0, delta)
 		return
 	if toward.length() < maxf(25.0, min_range * 0.7):
 		walk_to(global_position - toward.normalized() * 12.0, 9.0 if _hard else 7.0, delta)
@@ -272,7 +359,7 @@ func move_hunter(tank: Tank, delta: float, planted: bool, keep := 52.0) -> void:
 					return
 				_avoid = null
 		Stance.COVER:
-			walk_to(_cover_goal, 8.0, delta)
+			walk_to(_cover_goal, World.current.rail.speed + 18.0 if Course.stage is Stage2 else 8.0, delta)
 			var left := global_position.distance_to(_cover_goal)
 			if left < 1.0 or _stance_time > 12.0:
 				_stance = Stance.HIDE
@@ -286,7 +373,7 @@ func move_hunter(tank: Tank, delta: float, planted: bool, keep := 52.0) -> void:
 					relocate() # Boxed in on the way: pick another building.
 			return
 		Stance.HIDE:
-			if _stance_time >= HIDE_TIME:
+			if _stance_time >= (0.45 if Course.stage is Stage2 else HIDE_TIME):
 				var spot := peek_spot(tank)
 				if spot == Vector3.INF:
 					relocate()
@@ -297,8 +384,8 @@ func move_hunter(tank: Tank, delta: float, planted: bool, keep := 52.0) -> void:
 					_stance_time = 0.0
 			return
 		Stance.PEEK:
-			walk_to(_cover_goal, 8.5, delta)
-			if not line_blocked(hit_center(), tank.hit_center()):
+			walk_to(_cover_goal, World.current.rail.speed + 20.0 if Course.stage is Stage2 else 8.5, delta)
+			if clear_firing_spot(tank):
 				_stance = Stance.EXPOSED
 				_stance_time = 0.0
 				on_exposed()
@@ -314,7 +401,8 @@ func move_hunter(tank: Tank, delta: float, planted: bool, keep := 52.0) -> void:
 	var target_d := World.current.rail.d + tank.course_offset + keep
 	if World.current.rail.mode == Rail.Mode.ARENA:
 		target_d = Course.to_course(tank.global_position).x + keep
-	walk_to(Course.ground_at(target_d, here.y + _side * 6.0), 9.0, delta)
+	var u := clampf(here.y + _side * 6.0, -12.0, 12.0) if Course.stage is Stage2 else here.y + _side * 6.0
+	walk_to(Course.ground_at(target_d, u), World.current.rail.speed + 9.0 if Course.stage is Stage2 else 9.0, delta)
 
 
 func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:

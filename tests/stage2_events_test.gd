@@ -59,7 +59,7 @@ func test_quiet_opening_and_release_keep_the_elite_count_low() -> void:
 	var farm_count := 0
 	for event in waves:
 		city_count += int(event.get("count", 1))
-		check(event.d < 3150.0, "bay approach gives the player breathing room")
+		check(event.d < 3290.0, "final bay squad leaves a long supply-only boss approach")
 	for event in Stage1.new().events(false):
 		if event.type == "wave":
 			farm_count += int(event.get("count", 1))
@@ -112,7 +112,7 @@ func test_hard_adds_flank_pressure_without_filling_releases() -> void:
 	check(hard.size() > normal.size(), "hard remixes the build beats")
 	for event in hard:
 		if event.type == "wave":
-			check(event.d >= 180.0 and event.d < 3150.0, "hard preserves opening and bay release")
+			check(event.d >= 180.0 and event.d < 3290.0, "hard preserves opening and bay release")
 			check_eq(event.get("hard_scale", 1.4), 1.0, "elite formations do not silently double on hard")
 
 
@@ -149,14 +149,16 @@ func test_opening_hunter_is_outside_cover_and_cannot_fire_through_it() -> void:
 	var event: Dictionary = Stage2.new().events(false).filter(func(e: Dictionary) -> bool: return e.type == "wave")[0]
 	world.rail.d = event.d
 	world.player._place(event.d)
+	world.camera.snap()
 	world.director.scenery.stream(event.d, 100000)
+	world.camera.follow(0.0)
 	var hunter := world.director.spawn_wave(event)[0] as Abel
-	check(world.director.scenery.line_blocked(world.player.hit_center(), hunter.hit_center()), "first LOSAT hunter starts behind a building")
+	check(not world.director.scenery.line_blocked(world.player.hit_center(), hunter.hit_center()), "first LOSAT hunter offers a clear shot inside the street")
 	check(not world.director.scenery.line_blocked(hunter.hit_center(), hunter.hit_center()), "hunter is not embedded in the building")
 	var shots := world.projectiles.size()
 	hunter._attack_timer = 0.0
 	hunter.behave(0.01)
-	check(not hunter.telegraphing(), "hunter waits for a peek instead of painting through the facade")
+	check(hunter.telegraphing(), "visible street hunter warns before attacking")
 	check_eq(world.projectiles.size(), shots, "cover blocks the first attack")
 
 

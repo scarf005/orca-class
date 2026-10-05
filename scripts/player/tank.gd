@@ -1782,6 +1782,8 @@ func _is_imminent(entity: Entity) -> bool:
 	var distance := entity.hit_center().distance_to(hit_center())
 	if entity is FpvDrone:
 		return (entity as FpvDrone).state != FpvDrone.State.APPROACH and distance < 9.0
+	if entity is DroneBoat:
+		return (entity as DroneBoat).state != DroneBoat.State.APPROACH and distance < 9.0
 	if entity is Crawler:
 		return (entity as Crawler).state != Crawler.State.RUN and distance < 7.0
 	return false
@@ -1806,7 +1808,11 @@ func swat(start_state := true) -> void:
 			if _is_imminent(entity):
 				world.style_event("DEFLECT", 80.0)
 			var direction: Vector3 = (entity.hit_center() - global_position).normalized()
-			if start_state:
+			if start_state and entity is DroneBoat:
+				var hit := Hit.make(Hit.Kind.TAIL, LASH_DAMAGE, entity.hit_center(), direction)
+				hit.source = self
+				entity.take_hit(hit)
+			elif start_state:
 				_tail_stagger(entity, 0.6)
 				if entity is FpvDrone:
 					(entity as FpvDrone).bat(direction)

@@ -26,7 +26,7 @@ func _init() -> void:
 	radius = 1.5
 	center_height = 3.0
 	min_range = 55.0
-	max_hp = 2600.0
+	max_hp = lerpf(Armament.QUICK_DAMAGE.x, Armament.QUICK_DAMAGE.y, Armament.STAGE_1) * Armament.SHELL_DAMAGE_SCALE * 1.5
 	hp = max_hp
 	score = 800
 
@@ -35,6 +35,8 @@ func _init() -> void:
 ## band, round shoulders, a visor head under a light bar, the LOSAT pod on its right forearm and a gatling on its left.
 func build() -> void:
 	super()
+	if Course.stage is Stage2:
+		_attack_timer = 0.1
 	build_legs(2.15, "knee", Palette.WHITE, Palette.INK, 0.5)
 	var b := LowPoly.new()
 	# Pelvis, a black waist and white hip skirts that swing clear of the thighs.
@@ -126,7 +128,8 @@ func behave(delta: float) -> void:
 	if toppled or is_staggered():
 		_cancel()
 		return
-	aim_barrel(_launcher, tank.hit_center(), 3.0, delta)
+	var dart_aim := tank.hit_center() + tank.velocity * (0.45 if Course.stage is Stage2 else 0.0)
+	aim_barrel(_launcher, dart_aim, 3.0, delta)
 	aim_barrel(_gun, _aim if _burst > 0 else Gunnery.sensor_lead(tank, _muzzle.global_position, MG_SPEED), 3.0, delta)
 	if _wind <= 0.0 and _burst == 0 and not disarmed:
 		# Pick the weapon that has a line from this spot: the other arm may still be behind the corner.
@@ -136,7 +139,7 @@ func behave(delta: float) -> void:
 			_losat = false
 		elif not _losat and not gun_clear and launcher_clear and global_position.distance_to(tank.global_position) >= LOSAT_MIN_FIRE:
 			_losat = true
-	if line_blocked(_muzzle.global_position if _burst > 0 or not _losat else _launch_muzzle.global_position, tank.hit_center()):
+	if (Course.stage is Stage2 and not clear_firing_spot(tank)) or line_blocked(_muzzle.global_position if _burst > 0 or not _losat else _launch_muzzle.global_position, tank.hit_center()):
 		_cancel()
 		return
 	if _burst > 0:
@@ -172,7 +175,7 @@ func behave(delta: float) -> void:
 	_attack_timer -= delta
 	if _attack_timer <= 0.0 and global_position.distance_to(tank.global_position) < 150.0:
 		_losat = _losat and not disarmed and global_position.distance_to(tank.global_position) >= LOSAT_MIN_FIRE
-		_wind = (1.0 if _losat else 0.65) * Game.telegraph_scale()
+		_wind = ((0.65 if Course.stage is Stage2 else 1.0) if _losat else 0.65) * Game.telegraph_scale()
 		_attack_timer = 2.0 if _hard else 2.6
 		Sfx.play("warn", global_position, -4.0)
 
@@ -180,7 +183,7 @@ func behave(delta: float) -> void:
 func _fire_losat(tank: Tank) -> void:
 	var missile := LosatMissile.new()
 	missile.position = _launch_muzzle.global_position
-	missile.velocity = bore_direction(_launch_muzzle, tank.hit_center() - missile.position) * LosatMissile.LAUNCH_SPEED
+	missile.velocity = bore_direction(_launch_muzzle, tank.hit_center() + tank.velocity * (0.45 if Course.stage is Stage2 else 0.0) - missile.position) * LosatMissile.LAUNCH_SPEED
 	missile.hit.source = self
 	World.current.add_child(missile)
 	muzzle_blast(missile.position, missile.velocity.normalized(), Muzzle.HEAVY, "rocket")
