@@ -17,6 +17,9 @@ const TRAIL_MIN_SPEED := 4.0 ## Shards stop trailing once they slow down on the 
 static var BLAST_POPS := 2 ## Most secondary pops a big blast sets off (tuned live in the duel mode).
 static var DEBRIS_LIFE := 3.6 ## Longest a shard lies about before it is gone (tuned live in the duel mode).
 static var DEBRIS_SMOKE_LIFE := 0.5 ## Seconds the smoke a flying shard or wreck leaves hangs in the air (tuned live in the duel mode).
+static var RAIL_SMOKE_SHRINK := 0.9 ## Fraction of its size the railgun smoke loses before vanishing.
+static var RAIL_SMOKE_FADE_SPEED := 1.0 ## Multiplies the railgun smoke's aging rate.
+static var BEAM_SHRINK_SPEED := 0.4 ## Multiplies a hitscan beam's width-collapse rate.
 
 ## SOLID: flat pixel-art debris sprites that face the camera and tumble in the screen plane.
 ## GLOW: unlit puffs (smoke, dust, spores), dithered. FLAME: fire, sparks and flashes, drawn
@@ -348,7 +351,10 @@ func _update_transients(delta: float) -> void:
 			continue
 		if t.has("velocity"):
 			node.position += t.velocity * delta
-		if t.grow != Vector2.ONE:
+		if t.has("beam_basis"):
+			var basis: Basis = t.beam_basis
+			node.basis = basis * Basis.from_scale(Vector3(1.0 - k, 1.0 - k, 1.0))
+		elif t.grow != Vector2.ONE:
 			node.scale = Vector3.ONE * lerpf(t.grow.x, t.grow.y, 1.0 - pow(1.0 - k, 3.0))
 		if t.has("fireball"):
 			node.material_override.set_shader_parameter("progress", k)
@@ -747,7 +753,7 @@ func impact_star(position: Vector3, size: float, color := Palette.WHITE) -> void
 
 
 ## A straight glowing line, used for laser zaps and designator lines.
-func beam(from: Vector3, to: Vector3, color: Color, width := 0.12, life := 0.06) -> void:
+func beam(from: Vector3, to: Vector3, color: Color, width := 0.12, life := 0.06, collapse := false) -> void:
 	var length := from.distance_to(to)
 	if length < 0.01:
 		return
@@ -756,26 +762,28 @@ func beam(from: Vector3, to: Vector3, color: Color, width := 0.12, life := 0.06)
 	var up := Vector3.UP if absf((to - from).normalized().y) < 0.99 else Vector3.RIGHT
 	# Scale in the beam's own frame: `Basis.scaled` would stretch it along world axes instead.
 	var basis := Basis.looking_at(to - from, up) * Basis.from_scale(Vector3(width, width, length))
-	_transient(mesh, Transform3D(basis, from), life, true, Vector2.ONE, 0.5, true)
+	_transient(mesh, Transform3D(basis, from), life / maxf(BEAM_SHRINK_SPEED, 0.1) if collapse else life, true, Vector2.ONE, 0.9 if collapse else 0.5, true)
+	if collapse:
+		_transients[-1].beam_basis = basis
 
 
-## A railgun flash disintegrating into an expanding, twisting helix of cooling motes.
+## A railgun flash leaving a helix of smoke that shrinks, drifts and thins away.
 func rail_beam(from: Vector3, to: Vector3, color: Color, charge_stage := 3) -> void:
 	var thickness := float(maxi(1, charge_stage))
-	beam(from, to, Palette.WHITE, 0.32 * thickness, 0.07)
-	beam(from, to, color, 0.8 * thickness, 0.12)
+	beam(from, to, Palette.WHITE, 0.32 * thickness, 0.07, true)
+	beam(from, to, color, 0.8 * thickness, 0.12, true)
 	var length := from.distance_to(to)
 	if length < 0.01:
 		return
 	var dir := (to - from) / length
 	var side := dir.cross(Vector3.UP if absf(dir.y) < 0.99 else Vector3.RIGHT).normalized()
 	var up := side.cross(dir)
-	for i in int(length / 0.75):
-		var distance := (i + 0.5) * 0.75
+	for i in int(length / 0.5):
+		var distance := (i + 0.5) * 0.5
 		var angle := distance * TAU / 8.0
 		var radial := side * cos(angle) + up * sin(angle)
 		var tangent := -side * sin(angle) + up * cos(angle)
-		spawn(Kind.FLAME, from + dir * distance + radial * 0.6 * thickness, radial * 3.2 + tangent * 2.4, 0.8, 0.45, color, {"end_size": 0.1, "drag": 1.2, "fade": 0.2})
+		spawn(Kind.GLOW, from + dir * distance + radial * 0.6 * thickness, tangent * 0.6 + Vector3.UP * 0.25, 1.3 / maxf(RAIL_SMOKE_FADE_SPEED, 0.1), 1.4, Palette.ASH, {"end_size": 1.4 * (1.0 - clampf(RAIL_SMOKE_SHRINK, 0.0, 1.0)), "drag": 1.1, "fade": 0.15})
 
 
 ## A pulsing ring on the ground that tightens until `time` runs out: where something will land.

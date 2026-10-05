@@ -1152,8 +1152,8 @@ func _fire_canister(muzzle: Vector3, aim_dir: Vector3) -> void:
 		pellet.hit.stagger = 0.4
 		pellet.impacted.connect(_count_pellet, CONNECT_ONE_SHOT)
 		var end := pellet.resolve_now(Armament.CANISTER_RANGE)
-		world.fx.beam(muzzle, end, Palette.WHITE, 0.06, 0.08)
-		world.fx.beam(muzzle, end, Palette.BUTTER, 0.18, 0.14)
+		world.fx.beam(muzzle, end, Palette.WHITE, 0.06, 0.08, true)
+		world.fx.beam(muzzle, end, Palette.BUTTER, 0.18, 0.14, true)
 		world.fx.spawn(Fx.Kind.FLAME, end, Vector3.UP * 2.0, 0.12, 0.5, Palette.BUTTER)
 
 
@@ -1230,9 +1230,9 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 
 	if dart:
 		world.fx.rail_beam(muzzle, end, color, Armament.stage(power))
 		return
-	world.fx.beam(muzzle, end, Palette.WHITE, 0.5, 0.1)
-	world.fx.beam(muzzle, end, color, 1.4, 0.18)
-	world.fx.beam(muzzle, end, color, 2.6, 0.08)
+	world.fx.beam(muzzle, end, Palette.WHITE, 0.5, 0.1, true)
+	world.fx.beam(muzzle, end, color, 1.4, 0.18, true)
+	world.fx.beam(muzzle, end, color, 2.6, 0.08, true)
 	world.fx.light_flash(end, 20.0, color, 30.0)
 	var length := muzzle.distance_to(end)
 	for k in int(length / 6.0):
@@ -1526,8 +1526,8 @@ func _update_ciws(delta: float) -> void:
 	var local := model.turret.global_transform.affine_inverse() * point
 	model.rws.rotation.y = atan2(-local.x, -local.z)
 	var flicker := randf_range(0.7, 1.0)
-	world.fx.beam(origin, point, Palette.WHITE, 0.07 * flicker, 0.04)
-	world.fx.beam(origin, point, Palette.MINT, 0.2 * flicker, 0.04)
+	world.fx.beam(origin, point, Palette.WHITE, 0.07 * flicker, 0.04, true)
+	world.fx.beam(origin, point, Palette.MINT, 0.2 * flicker, 0.04, true)
 	world.fx.spawn(Fx.Kind.FLAME, point, Vector3(randf_range(-2, 2), randf_range(0, 3), randf_range(-2, 2)), 0.1, 0.3, Palette.WHITE)
 	if target is Projectile:
 		if (target as Projectile).laser(CIWS_LASER_DPS * delta):

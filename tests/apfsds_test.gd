@@ -148,19 +148,17 @@ func test_beam_width_is_proportional_to_charge_stage() -> void:
 		var world := _rig()
 		var muzzle := Vector3(40, 30, 0)
 		world.player._fire_shell(Armament.Round.APFSDS, muzzle, Vector3.FORWARD, power)
-		var cores: Array = world.fx._transients.filter(func(t: Dictionary) -> bool: return t.life == 0.07)
-		var glows: Array = world.fx._transients.filter(func(t: Dictionary) -> bool: return t.life == 0.12)
-		check_eq(cores.size(), 1, "one bright beam core")
-		check_eq(glows.size(), 1, "one colored beam envelope")
-		if cores.size() != 1 or glows.size() != 1:
+		var beams := world.fx._transients
+		check_eq(beams.size(), 2, "one bright beam core and one colored envelope")
+		if beams.size() != 2:
 			continue
 		var level := Armament.stage(power)
 		# Mesh basis lengths use float32; allow less than 1e-6 m of rounding.
-		check_near(cores[0].node.basis.x.length(), 0.32 * level, 0.000001, "core width scales 1:2:3 with charge boxes")
-		check_near(glows[0].node.basis.x.length(), 0.8 * level, 0.000001, "envelope width scales 1:2:3 with charge boxes")
+		check_near(beams[0].node.basis.x.length(), 0.32 * level, 0.000001, "core width scales 1:2:3 with charge boxes")
+		check_near(beams[1].node.basis.x.length(), 0.8 * level, 0.000001, "envelope width scales 1:2:3 with charge boxes")
 
 
-func test_beam_fades_into_expanding_spiral_smoke() -> void:
+func test_beam_fades_into_shrinking_spiral_smoke() -> void:
 	var world := _rig()
 	var muzzle := Vector3(40, 30, 0)
 	world.player._fire_shell(Armament.Round.APFSDS, muzzle, Vector3.FORWARD, 1.0)
@@ -179,14 +177,16 @@ func test_beam_fades_into_expanding_spiral_smoke() -> void:
 	var beams := world.fx._transients.duplicate()
 	check_eq(beams.size(), 2, "the free beam consists of its core and envelope")
 	var first: Fx.Particle = spiral[0]
-	var before_radius := Vector2(first.position.x - muzzle.x, first.position.y - muzzle.y).length()
+	var before_position := first.position
+	var elapsed: float = beams.map(func(t: Dictionary) -> float: return t.life).max() + 0.01
 	var trails: Array[Fx.Particle] = []
 	var splashes: Array[Fx.Particle] = []
-	world.fx._advance_pool(Fx.Kind.GLOW, 0.18, trails, splashes)
-	world.fx._update_transients(0.18)
+	world.fx._advance_pool(Fx.Kind.GLOW, elapsed, trails, splashes)
+	world.fx._update_transients(elapsed)
 	check(beams.all(func(t: Dictionary) -> bool: return t.node.is_queued_for_deletion()), "the straight beam disappears before the spiral")
 	check(first.life < first.max_life, "spiral smoke outlives the beam")
 	var smoke_index: int = world.fx._pools[Fx.Kind.GLOW].find(first)
 	if smoke_index >= 0:
-		check(world.fx._buffers[Fx.Kind.GLOW][smoke_index * Fx.STRIDE + 16] > first.size, "rendered smoke swells instead of shrinking like a spark")
-	check(Vector2(first.position.x - muzzle.x, first.position.y - muzzle.y).length() > before_radius, "the helix expands as the beam disintegrates")
+		check(world.fx._buffers[Fx.Kind.GLOW][smoke_index * Fx.STRIDE + 16] < first.size, "rendered smoke shrinks while disappearing")
+		check(world.fx._buffers[Fx.Kind.GLOW][smoke_index * Fx.STRIDE + 15] < 1.0, "smoke loses opacity while shrinking")
+	check(first.position != before_position, "the smoke helix drifts as the beam disappears")

@@ -34,9 +34,11 @@ func test_duel_smoke_sliders_control_rendered_size_and_fade_and_save() -> void:
 		var splashes: Array[Fx.Particle] = []
 		world.fx._advance_pool(Fx.Kind.GLOW, 0.4, trails, splashes)
 		var buffer: PackedFloat32Array = world.fx._buffers[Fx.Kind.GLOW]
-		check(buffer.size() >= Fx.STRIDE, "smoke remains visible during the sampled fade")
-		if buffer.size() >= Fx.STRIDE:
+		var visible: bool = world.fx._multimeshes[Fx.Kind.GLOW].visible_instance_count > 0
+		check(visible, "smoke remains visible during the sampled fade")
+		if visible:
 			samples.append(Vector2(buffer[16], buffer[15]))
+	check_eq(samples.size(), 3, "all slider settings produce observable smoke")
 	if samples.size() == 3:
 		check(samples[1].x < samples[0].x, "more shrink produces smaller rendered smoke")
 		check_eq(samples[1].y, samples[0].y, "shrink amount does not alter opacity")
@@ -61,16 +63,42 @@ func test_duel_beam_speed_changes_narrowing_without_shortening_the_ray() -> void
 		slider.value = speed
 		var before := world.fx._transients.size()
 		world.player._fire_shell(Armament.Round.APFSDS, Vector3(40, 30, 0), Vector3.FORWARD, 1.0)
+		check_eq(world.fx._transients.size() - before, 2, "the dart creates a core and envelope")
+		if world.fx._transients.size() < before + 2:
+			continue
 		var beam: MeshInstance3D = world.fx._transients[before + 1].node
 		var length := beam.basis.z.length()
 		world.fx._update_transients(0.02)
 		widths.append(beam.basis.x.length())
 		# Basis columns use float32; allow 1e-4 m over a 588 m beam.
 		check_near(beam.basis.z.length(), length, 0.0001, "narrowing never shortens a hitscan ray")
-	check(widths[1] < widths[0], "faster slider setting narrows the same beam more quickly")
+	check_eq(widths.size(), 2, "both speed settings produce observable beams")
+	if widths.size() == 2:
+		check(widths[1] < widths[0], "faster slider setting narrows the same beam more quickly")
 	var config := ConfigFile.new()
 	check_eq(config.load(GameTuning.PATH), OK, "beam speed slider saves")
 	check_eq(config.get_value("constants", "Hitscan beam shrink speed (x)"), 2.0, "beam speed persists")
+	panel.queue_free()
+
+
+func test_telegraph_beams_keep_width_and_lifetime_at_any_hitscan_speed() -> void:
+	var world := stage()
+	world.set_process(false)
+	world.director.set_process(false)
+	var panel := _panel()
+	var slider := _slider(panel, "Hitscan beam shrink speed (x)")
+	if slider == null:
+		return
+	for speed in [0.1, 4.0]:
+		slider.value = speed
+		world.fx.beam(Vector3(40, 30, 0), Vector3(40, 30, -20), Palette.RED, 0.3, 2.0)
+		var beam: MeshInstance3D = world.fx._transients[-1].node
+		world.fx._update_transients(0.1)
+		# Basis lengths use float32; allow 1e-6 m of rounding.
+		check_near(beam.basis.x.length(), 0.3, 0.000001, "warning lines retain their width")
+		check(not beam.is_queued_for_deletion(), "a warning line keeps its original lifetime")
+		world.fx._update_transients(1.9)
+		check(beam.is_queued_for_deletion(), "a warning line expires on its original deadline")
 	panel.queue_free()
 
 
