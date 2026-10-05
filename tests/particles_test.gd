@@ -3,6 +3,7 @@ extends TestCase
 
 
 func test_gravity_drag_and_fade_preserve_simulation() -> void:
+	Fx.PARTICLE_LIFE = 8.0 # Exercise the requested particle lifetime without the global age cap.
 	var fx := Fx.new()
 	add_child(fx)
 	fx.spawn(Fx.Kind.GLOW, Vector3(1, 5, 3), Vector3(4, 6, 8), 2.0, 2.0, Color.RED,

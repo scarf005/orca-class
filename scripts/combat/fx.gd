@@ -15,6 +15,8 @@ const RICOCHET_LIFE := Vector2(0.25, 0.4)
 const RICOCHET_SPREAD := 0.35
 const TRAIL_MIN_SPEED := 4.0 ## Shards stop trailing once they slow down on the ground.
 static var BLAST_POPS := 2 ## Most secondary pops a big blast sets off (tuned live in the duel mode).
+static var PARTICLE_LIFE := 1.0 ## Maximum age of fragments and smoke, tuned live in duel mode.
+static var PARTICLE_DISTANCE := 50.0 ## Maximum cumulative travel of fragments and smoke in metres.
 static var DEBRIS_LIFE := 3.6 ## Longest a shard lies about before it is gone (tuned live in the duel mode).
 static var DEBRIS_SMOKE_LIFE := 0.5 ## Seconds the smoke a flying shard or wreck leaves hangs in the air (tuned live in the duel mode).
 static var RAIL_SMOKE_SHRINK := 0.9 ## Fraction of its size the railgun smoke loses before vanishing.
@@ -58,6 +60,7 @@ class Particle:
 	var velocity: Vector3
 	var life := 0.0
 	var max_life := 1.0
+	var travelled := 0.0
 	var size := 0.3
 	var end_size := 0.0
 	var color := Color.WHITE
@@ -264,7 +267,7 @@ func _advance_pool(kind: Kind, delta: float, trails: Array[Particle], splashes: 
 		var p: Particle = pool[read]
 		var age := p.life + delta
 		p.life = age
-		if age >= p.max_life:
+		if age >= p.max_life or (kind != Kind.FLAME and age >= PARTICLE_LIFE):
 			continue
 		var velocity := p.velocity
 		velocity.y -= p.gravity * delta
@@ -278,6 +281,9 @@ func _advance_pool(kind: Kind, delta: float, trails: Array[Particle], splashes: 
 				continue
 			position.y = p.ground
 			velocity = Vector3(velocity.x * 0.5, absf(velocity.y) * 0.3, velocity.z * 0.5)
+		p.travelled += p.position.distance_to(position)
+		if kind != Kind.FLAME and p.travelled >= PARTICLE_DISTANCE:
+			continue
 		p.position = position
 		p.velocity = velocity
 		var t := age / p.max_life
