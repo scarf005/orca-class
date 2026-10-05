@@ -261,25 +261,35 @@ func _city() -> void:
 			continue
 		var lane := rng.randf_range(-9.0, 9.0)
 		add("car", float(d), lane, rng.randf_range(-0.3, 0.3) + (PI if lane > 0.0 else 0.0), rng.randi_range(0, 11))
-	# Breakable two-to-three-storey shops follow the village's 18–26 m frontage cadence.
-	var shop_d := 130.0
-	while shop_d < 3150.0:
-		for side in [-1.0, 1.0]:
-			if not stage.in_arena(shop_d, 35.0) and rng.randf() < 0.7:
-				add("city_shop", shop_d + rng.randf_range(-4.0, 4.0), side * rng.randf_range(16.0, 24.0), rng.randf() * TAU, rng.randi_range(0, 11))
-		shop_d += rng.randf_range(18.0, 26.0)
-	for d in range(180, 3150, 240):
-		if not stage.in_arena(float(d), 30.0):
-			add("bus_shelter", float(d), -14.0 if d % 2 else 14.0, 0.0, d % 4)
-	for d in range(220, 3150, 260):
-		if not stage.in_arena(float(d), 30.0):
-			add("kiosk", float(d), rng.randf_range(-20.0, 20.0), rng.randf() * TAU, d % 4)
+	# A row of breakable two-to-three-storey shops fronts the towers along each kerb, facing the street, with bus
+	# shelters and kiosks on the pavement in front; the boulevard keeps a sparse median of plane trees.
+	for side in [-1.0, 1.0]:
+		var shop_d := 120.0 + (0.0 if side < 0.0 else 9.0)
+		while shop_d < 3150.0:
+			var kerb := stage.lateral_limit(shop_d) - 4.0
+			if not stage.in_arena(shop_d, 35.0) and not _near_split(shop_d, 26.0) and rng.randf() < 0.65:
+				add("city_shop", shop_d, side * kerb, -side * PI * 0.5, rng.randi_range(0, 11))
+			shop_d += rng.randf_range(15.0, 24.0)
+	for d in range(180, 3150, 150):
+		var side := -1.0 if d / 150 % 2 else 1.0
+		var pavement := stage.lateral_limit(float(d)) - 9.0
+		if not stage.in_arena(float(d), 30.0) and not _near_split(float(d), 30.0):
+			add("bus_shelter" if d / 150 % 3 else "kiosk", float(d), side * pavement, -side * PI * 0.5, d % 4)
+	for d in range(140, 3150, 64):
+		var section := stage.section_at(float(d))
+		if section == Stage2.Section.BOULEVARD and not stage.in_arena(float(d), 30.0) and not _near_split(float(d), 30.0):
+			add("plane_tree", float(d), rng.randf_range(-0.4, 0.4), rng.randf() * TAU, d % 3)
 	add_decor(CityKit.decor("subway_entrance"), Stage2.PLAZA_D - 65.0, 55.0, 0.0, stage.height(Stage2.PLAZA_D - 65.0, 55.0))
 	for d in range(2250, 3150, 180):
 		add("truck", float(d), 8.0, 0.0, 1)
 
 
 var _last_tank := Vector3.INF
+
+
+## Whether `d` is within `reach` of one of stage 2's splitter towers, where the street divides into lanes.
+static func _near_split(d: float, reach: float) -> bool:
+	return Stage2.SPLITS.any(func(split: Dictionary) -> bool: return absf(d - float(split.d)) < reach)
 
 
 func _process(_delta: float) -> void:

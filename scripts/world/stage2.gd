@@ -93,10 +93,17 @@ func _generate_walls() -> void:
 				var within_section := d - along * 0.5 >= float(section_range[0]) and d + along * 0.5 <= float(section_range[1])
 				if within_section and not in_arena(d, 10.0 + along * 0.5):
 					if not _expressway_occupies(d, along, side):
-						_structure("city_building", d, centre, Vector3(across, h, along), WATER_LEVEL - 4.5, rng.randi_range(0, 15))
+						_structure("city_building", d, centre, Vector3(across, h, along), WATER_LEVEL - 4.5, _tower_kind(d, rng) + 4 * rng.randi_range(0, 3))
 					frontage_gaps.append({"d": d + along + gap * 0.5, "u": side * (setback + across + 8.0), "gap": gap, "side": side})
 				d = next_d
 				along = next_along
+
+
+## Each part of town has its own mix of tower kinds (see CityKit.tower): shop signs on the boulevard, apartment
+## blocks behind the expressway, glass towers in the canyon.
+func _tower_kind(d: float, rng: RandomNumberGenerator) -> int:
+	var mix: Array = [[2, 2, 0, 1], [1, 1, 2, 0], [2, 3, 0], [3, 3, 0, 2], [0, 1, 3]][section_at(d)]
+	return mix[rng.randi() % mix.size()]
 
 
 func _expressway_side(d: float) -> float:
@@ -135,14 +142,6 @@ func _generate_expressway() -> void:
 		_structure("city_sag_span" if d == 1390 else "city_deck", float(d), side * 40.0, Vector3(6.0, 2.6 if d == 1390 else 1.8, span), deck_y - (0.4 if d == 1390 else 0.0), int(d / 90) % 6)
 		for offset: float in [-span * 0.32, span * 0.32]:
 			_structure("city_pier", float(d) + offset, side * 40.0, Vector3(3.0, 10.5, 3.0), WATER_LEVEL - 4.5, int(d / 90) % 4)
-
-
-## Towers are generated independently on either side, so the skyline never mirrors itself.
-func _in_any_arena(d: float, u: float) -> bool:
-	for arena in arenas:
-		if Vector2(d - arena.d, u).length() < arena.radius + 8.0:
-			return true
-	return section_at(d) == Section.BAY
 
 
 func in_arena(d: float, margin := 0.0) -> bool:
@@ -190,13 +189,16 @@ func height(d: float, u: float) -> float:
 
 
 func ground_color(d: float, u: float, _h: float, _slope: float) -> Color:
-	if absf(u) < 10.0:
-		if absf(absf(u) - 3.5) < 0.3 and fposmod(d, 14.0) < 7.0:
-			return Palette.CREAM
-		return Palette.SLATE
-	if section_at(d) == Section.PLAZA:
+	var au := absf(u)
+	if section_at(d) == Section.PLAZA and Vector2(d - PLAZA_D, u).length() < PLAZA_RADIUS:
 		return Palette.MIST if int(Vector2(d - PLAZA_D, u).length() / 8.0) % 2 else Palette.STONE
-	return Palette.TEAL if section_at(d) == Section.BAY else Palette.CONCRETE
+	if section_at(d) == Section.BAY:
+		return Palette.TEAL
+	var limit := lateral_limit(d)
+	if au > limit:
+		return Palette.MOSS
+	# Terrain vertices are metres apart, so painted lines would smear into big triangles: only broad surfaces.
+	return Palette.CONCRETE if au > limit - 4.0 else Palette.SLATE
 
 
 func water_surface(c: Vector2) -> float:
@@ -213,7 +215,9 @@ func water_mesh() -> ArrayMesh:
 			var c := Course.to_world(d + 20.0, float(u), WATER_LEVEL)
 			var e := Course.to_world(d + 20.0, u + 10.0, WATER_LEVEL)
 			var f := Course.to_world(float(d), u + 10.0, WATER_LEVEL)
-			var color := Color(Palette.SKY if absf(u + 5.0) < 10.0 or _in_any_arena(d + 10.0, u + 5.0) else Palette.SLATE.lerp(Palette.TEAL, 0.5), 0.85)
+			# One sheet of water from wall to wall, a shade darker over the deep lots than over the drowned avenue.
+			var shallow := height(d + 10.0, u + 5.0) > WATER_LEVEL - 1.0
+			var color := Color(Palette.SKY, 0.82) if shallow else Color(Palette.SKY.darkened(0.22), 0.95)
 			b.tri(a, c, e, color, Vector3.UP)
 			b.tri(a, e, f, color, Vector3.UP)
 	var rng := RandomNumberGenerator.new()
