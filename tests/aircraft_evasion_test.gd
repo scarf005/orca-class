@@ -235,6 +235,126 @@ func test_stagger_and_crash_paths_do_not_start_new_evasion() -> void:
 		check_eq(flyer._jink_phase, phase, kind + " crash movement bypasses the evasion controller")
 
 
+func _tank_at_range(world: World, flyer: Enemy, distance: float) -> void:
+	var tank := world.player
+	tank.global_position = flyer.hit_center() + Vector3.FORWARD * distance
+	tank.global_position.y = 0.0
+	# Place the actual muzzle, rather than the hull origin, at the reported range.
+	for i in 3:
+		tank.model.barrel.look_at(flyer.hit_center(), Vector3.UP)
+		var actual := tank.model.muzzle.global_position.distance_to(flyer.hit_center())
+		tank.global_position += Vector3.FORWARD * (distance - actual)
+
+
+func _unlocked_bore_path(kind: String, near: bool) -> Array[Vector3]:
+	Game.difficulty = Game.Difficulty.HARD
+	var world := _rig()
+	var flyer := _flyer(world, kind)
+	_tank_at_range(world, flyer, 100.0)
+	var tank := world.player
+	check_near(tank.model.muzzle.global_position.distance_to(flyer.hit_center()), 100.0, 0.01, "the real muzzle begins at the reported 100 m range")
+	if not near:
+		tank.model.barrel.look_at(tank.model.barrel.global_position + Vector3.FORWARD, Vector3.UP)
+	var positions: Array[Vector3] = []
+	for i in 60:
+		if near:
+			tank.model.barrel.look_at(flyer.hit_center(), Vector3.UP)
+		flyer.tick(1.0 / 60.0)
+		positions.append(flyer.global_position)
+		check_eq(flyer._jink_active, near, kind + " reacts on the first flight step and throughout bore tracking")
+		check(tank.charge_lock == null and tank.aim_target == null and tank.coax_target == null and not tank.is_charging(), "barrel awareness needs neither sight selection nor charging nor a lock")
+	return positions
+
+
+func test_all_evasive_aircraft_move_as_soon_as_an_unlocked_barrel_points_near_them_at_100_m() -> void:
+	for kind in ["helicopter", "tiltrotor", "uav", "gunship"]:
+		var ordinary := _unlocked_bore_path(kind, false)
+		var threatened := _unlocked_bore_path(kind, true)
+		check(threatened.back().distance_to(ordinary.back()) > 0.01, kind + " changes its actual flight path before the player charges or locks")
+
+
+func test_barrel_near_miss_starts_flight_but_away_behind_out_of_range_and_normal_do_not() -> void:
+	for scenario in ["near", "away", "behind", "range", "normal", "easy"]:
+		Game.difficulty = Game.Difficulty.NORMAL if scenario == "normal" else (Game.Difficulty.EASY if scenario == "easy" else Game.Difficulty.HARD)
+		var world := _rig()
+		var flyer := _flyer(world, "helicopter")
+		_tank_at_range(world, flyer, 500.0 if scenario == "range" else 100.0)
+		var tank := world.player
+		var aim := flyer.hit_center() + Vector3.RIGHT * (20.0 if scenario == "away" else 5.0)
+		if scenario == "behind":
+			aim = tank.model.barrel.global_position + Vector3.FORWARD
+		tank.model.barrel.look_at(aim, Vector3.UP)
+		if scenario == "near":
+			var muzzle := tank.model.muzzle.global_position
+			var end := muzzle - tank.model.barrel.global_basis.z.normalized() * Armament.SHELL_RANGE
+			check(flyer.hit_test(muzzle, end) < 0.0, "the near barrel ray does not intersect the real helicopter hit shape")
+		var origin := flyer.global_position
+		for i in 60:
+			flyer.tick(1.0 / 60.0)
+		var horizontal := flyer.global_position - origin
+		horizontal.y = 0.0
+		check_eq(horizontal.length() > 0.01, scenario == "near", scenario + " flight outcome respects direction, range and difficulty gates")
+		check(tank.charge_lock == null and not tank.is_charging(), "the near-miss warning precedes charging")
+
+
+func _stage_one_release_at_100_m(evade: bool) -> Dictionary:
+	Game.difficulty = Game.Difficulty.HARD
+	var world := _rig()
+	var flyer := _flyer(world, "helicopter")
+	flyer.global_position.x = 0.0 # Fire down the open road, not through a roadside building.
+	flyer._lane = 0.0
+	flyer._last_position = flyer.global_position
+	flyer.evasive = evade
+	_tank_at_range(world, flyer, 100.0)
+	var tank := world.player
+	tank.model.barrel.basis = Basis() # Production aiming owns turret yaw and gun-pivot elevation.
+	tank.input_enabled = true
+	tank.using_gamepad = true
+	tank._burst_gap = 100.0 # Isolate the reported cannon shot from automatic coax bursts.
+	world.camera.global_position = tank.global_position + Vector3.UP * 8.0
+	world.camera.look_at(flyer.hit_center(), Vector3.UP)
+	var origin := flyer.global_position
+	for i in 90:
+		tank.aim_screen = world.camera.unproject_position(flyer.hit_center())
+		tank._update_aim(1.0 / 60.0)
+		flyer.tick(1.0 / 60.0)
+		check(tank.charge_lock == null and not tank.is_charging(), "ordinary barrel tracking starts before a charge lock")
+	var precharge := flyer.global_position - origin
+	precharge.y = 0.0
+	for i in 3:
+		var actual := tank.model.muzzle.global_position.distance_to(flyer.hit_center())
+		tank.global_position += Vector3.FORWARD * (100.0 - actual)
+	Input.action_press("fire")
+	for i in 18:
+		tank._update_charge(1.0 / 60.0)
+		tank.aim_screen = world.camera.unproject_position(flyer.hit_center())
+		tank._update_aim(1.0 / 60.0)
+		flyer.tick(1.0 / 60.0)
+	check_eq(Armament.stage(tank.charge), 1, "the actual fire input charges only the first stage")
+	# Movement and the 0.8 m altitude bob during charging can shift this range slightly.
+	check_near(tank.model.muzzle.global_position.distance_to(flyer.hit_center()), 100.0, 0.5, "the real first-stage release occurs at the reported range")
+	Input.action_release("fire")
+	tank._update_charge(1.0 / 60.0)
+	tank._update_weapons(1.0 / 60.0)
+	var shell: Projectile = world.projectiles.back()
+	shell.set_process(false)
+	var hp := flyer.hp
+	for i in 60:
+		flyer.tick(1.0 / 60.0)
+		if not shell.is_queued_for_deletion():
+			shell.step(1.0 / 60.0)
+	return {"precharge_motion": precharge.length(), "hit": flyer.hp < hp or flyer.dead}
+
+
+func test_barrel_tracking_moves_the_helicopter_before_a_real_stage_one_charge_and_release_at_100_m() -> void:
+	var control := _stage_one_release_at_100_m(false)
+	var warned := _stage_one_release_at_100_m(true)
+	check_eq(control.precharge_motion, 0.0, "the control has no lateral flight before charging")
+	check(warned.precharge_motion > 0.1, "the helicopter is already moving evasively when the real first-stage charge starts")
+	check(control.hit, "the real ground-tank muzzle, sight, lead, charge and release damage the vulnerable control")
+	print("100 m stage-one release: control hit=%s, early-warning hit=%s" % [control.hit, warned.hit])
+
+
 func _quick_shot(power: float, evade: bool, delay: float) -> bool:
 	Game.difficulty = Game.Difficulty.HARD
 	var world := _rig()

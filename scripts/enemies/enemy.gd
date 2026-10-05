@@ -181,14 +181,18 @@ func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 
 
 ## Move the flight goal, not the airframe: rotorcraft follow it with their flight controller;
-## fixed-wing aircraft turn into it with a bank. Keep weaving while the lock remains.
+## fixed-wing aircraft turn into it with a bank. React to a nearby bore before it locks.
 func _evade(delta: float, rotorcraft := false) -> void:
 	var tank := player()
 	var threatened := false
 	if evasive and Game.difficulty == Game.Difficulty.HARD and not invulnerable and not is_staggered() and tank != null and not tank.dead:
 		threatened = tank.charge_lock == self
 		if not threatened:
-			# At most 10 scans/s when unlocked; the 0.15 s look-ahead covers the scan interval.
+			var muzzle := tank.model.muzzle.global_position
+			var bore := -tank.model.barrel.global_basis.z.normalized()
+			threatened = hit_test(muzzle, muzzle + bore * Armament.SHELL_RANGE, 6.0) >= 0.0
+		if not threatened:
+			# At most 10 scans/s without a bore threat; the look-ahead covers the scan interval.
 			_shell_watch -= delta
 			if _shell_watch <= 0.0:
 				_shell_watch = 0.1
