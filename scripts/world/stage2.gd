@@ -6,6 +6,7 @@ enum Section { BOULEVARD, VIADUCT, PLAZA, CANYON, BAY }
 
 const SECTION_STARTS := [0.0, 700.0, 1650.0, 2150.0, 3200.0]
 const LENGTH := 4000.0
+const DECK_TOP := 6.25 ## Expressway deck hunters stand this high above the drowned road under it.
 const WATER_LEVEL := 0.3
 const PLAZA_D := 1900.0
 const PLAZA_RADIUS := 72.0
@@ -127,7 +128,7 @@ func _generate_splitters() -> void:
 		if split.kind == "toppled":
 			_structure("city_toppled", split.d, split.u, Vector3(size, 4.0, 24.0), WATER_LEVEL - 0.1, index + 20)
 		else:
-			var h := 12.0 if split.kind == "tower" else 2.0
+			var h := 8.5 if split.kind == "tower" else 2.0 # A sunken block whose roof storey stands 4 m clear: the camera sees over it.
 			var base := WATER_LEVEL - 4.5 if split.kind == "tower" else WATER_LEVEL - 0.1
 			_structure("city_building" if split.kind == "tower" else "city_deck", split.d, split.u, Vector3(size, h, 14.0), base, index + 20)
 
@@ -185,7 +186,9 @@ func height(d: float, u: float) -> float:
 	for arena in arenas:
 		if Vector2(d - arena.d, u).length() < arena.radius:
 			return -0.15
-	return 0.05 if absf(u) <= lateral_limit(d) else WATER_LEVEL - 4.5
+	# Under the expressway the drowned road runs on to the piers, so its hunters can come down to the street.
+	var reach := lateral_limit(d) + (14.0 if section_at(d) == Section.VIADUCT and signf(u) == _expressway_side(d) else 0.0)
+	return 0.05 if absf(u) <= reach else WATER_LEVEL - 4.5
 
 
 func ground_color(d: float, u: float, _h: float, _slope: float) -> Color:
@@ -300,14 +303,14 @@ func events(hard: bool) -> Array[Dictionary]:
 		{"kind": "ugv", "u": -8.0, "ahead": 80.0, "props": {"weapon": "atgm"}},
 		{"kind": "walker", "u": 6.0, "ahead": 75.0}]})
 
-	wave.call(720.0, "kain", {"u": -38.5, "ahead": 65.0, "height": 10.5, "squad": [
+	wave.call(720.0, "kain", {"u": -38.5, "ahead": 65.0, "height": DECK_TOP, "squad": [
 		{"kind": "ugv", "count": 2, "spacing": 12.0, "ahead": 75.0},
 		{"kind": "fpv", "height": 5.0}]})
 	wave.call(840.0, "abel", {"u": -21.0, "ahead": 85.0, "squad": [
 		{"kind": "ugv", "u": -16.0, "ahead": 75.0, "props": {"weapon": "atgm"}},
 		{"kind": "drone_boat", "u": 10.0, "ahead": 65.0}]})
 	wave.call(870.0, "sea_mine", {"count": 2, "u": 12.0, "spacing": 4.0, "ahead": 45.0})
-	wave.call(970.0, "rooftop_battery", {"u": -40.0, "ahead": 80.0, "height": 10.5})
+	wave.call(970.0, "rooftop_battery", {"u": -40.0, "ahead": 80.0, "height": DECK_TOP})
 	e.append({"d": 1070.0, "type": "pickup", "id": "atgm"})
 	wave.call(1140.0, "hind", {"u": 8.0, "height": 5.0, "ahead": 90.0, "drop": "micro", "squad": [
 		{"kind": "fpv", "count": 2, "height": 5.0, "spacing": 7.0},
@@ -371,6 +374,6 @@ func events(hard: bool) -> Array[Dictionary]:
 				member.ahead = 50.0 if member.kind == "drone_boat" else 65.0
 				if member.kind == "ugv":
 					member.props = {"weapon": "atgm"}
-		wave.call(990.0, "rooftop_battery", {"u": -40.0, "ahead": 80.0, "height": 10.5})
+		wave.call(990.0, "rooftop_battery", {"u": -40.0, "ahead": 80.0, "height": DECK_TOP})
 	e.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.d < b.d)
 	return e

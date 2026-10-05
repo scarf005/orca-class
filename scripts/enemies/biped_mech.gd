@@ -315,9 +315,14 @@ func walk_to(goal: Vector3, speed: float, delta: float) -> void:
 		next = global_position + tangent * step.length()
 		if line_blocked(global_position + clearance, next + clearance, radius):
 			next = global_position
+	var floor := CityCover.surface_at(next, next.y + 1.0)
+	var here := CityCover.surface_at(global_position, global_position.y + 1.0)
+	if Water.surface_at(next) - floor > Water.DEEP and Water.surface_at(global_position) - here <= Water.DEEP:
+		next = global_position # Deep water off the avenue: the hunter stops at its edge rather than sinking.
+		floor = here
 	_walk += global_position.distance_to(next)
 	global_position = next
-	global_position.y = CityCover.surface_at(next, next.y + 1.0)
+	global_position.y = floor
 
 
 func move_hunter(tank: Tank, delta: float, planted: bool, keep := 52.0) -> void:
