@@ -65,6 +65,41 @@ func test_valid_off_center_charge_lock_keeps_its_original_ray() -> void:
 	check(behind.dead, "a valid ray is not redirected toward the target center")
 
 
+func test_grazing_charge_locks_damage_small_and_compound_air_targets() -> void:
+	for kind in ["fpv", "helicopter"]:
+		var world := _rig()
+		var enemy: Enemy = FpvDrone.new() if kind == "fpv" else Helicopter.new()
+		enemy.position = Vector3(40, 30, -60)
+		world.add_enemy(enemy)
+		enemy.set_process(false)
+		# FPV: radius + 0.3 m. Helicopter: outside the fuselage and rocket-pod spheres.
+		var muzzle := Vector3(41.2, 30, 0) if kind == "fpv" else Vector3(41.9, 30.2, 0)
+		_lock(world, muzzle)
+		check_eq(world.player.charge_lock, enemy, "the production sight locks the edge of %s" % kind)
+		check_eq(enemy.hit_test(muzzle, muzzle + Vector3.FORWARD * 100.0), -1.0, "the original ray misses every real hit sphere")
+		var before := enemy.hp
+		world.player.fire_cannon(muzzle, Vector3.FORWARD, 1.0)
+		check(enemy.hp < before, "the real %s accepts the corrected APFSDS hit" % kind)
+
+
+func test_locked_gunship_rack_still_takes_the_dart_instead_of_the_hull() -> void:
+	var world := _rig()
+	var boss := Gunship.new()
+	boss.position = Vector3(40, 30, -60)
+	world.add_enemy(boss)
+	boss.set_process(false)
+	var rack: Gunship.Part = boss.parts.pod_l
+	var center: Vector3 = boss.aim_parts().pod_l[0]
+	world.player.charge_lock = boss
+	world.player.charge_part = "pod_l"
+	world.player.current_round = Armament.Round.APFSDS
+	world.player.round_count = 6
+	var before := rack.hp
+	world.player.fire_cannon(center + Vector3.FORWARD * 40.0, Vector3.BACK, 1.0)
+	check(rack.hp < before, "the real locked rack accepts the dart's module damage")
+	check_eq(boss.parts.pod_r.hp, Gunship.MODULE_HP.pod_r, "the opposite rack is outside the locked ray")
+
+
 func test_charge_lock_does_not_let_a_dart_pass_through_solid_earth() -> void:
 	var world := _rig()
 	var enemy := _ugv(world, Vector3(40, -6, -60))

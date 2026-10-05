@@ -1215,15 +1215,18 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 
 		shell.scale = Vector3.ONE * QUICK_SHELL_SCALE
 		shell.glow_trail = color
 		return
+	var reach := Armament.SHELL_RANGE * (lerpf(Armament.APFSDS_RANGE.x, Armament.APFSDS_RANGE.y, power) if dart else 1.0)
 	# Beams aim at the lock. Only other full-charge rounds skip obstacles before reaching it.
 	if is_instance_valid(charge_lock) and round != Armament.Round.AIRBURST:
 		var at := _aimed_spot(charge_lock)
 		at = charge_lock.hit_center() if at == Vector3.INF else at
+		# The sight's selection tolerance must not aim a zero-width dart outside the real body.
+		if dart and charge_lock.hit_test(muzzle, muzzle + (at - muzzle).normalized() * reach) < 0.0:
+			at = charge_lock.hit_center()
 		shell.velocity = (at - muzzle).normalized() * shell.velocity.length()
 		if not dart:
 			shell.sure_target = charge_lock
 			shell.homing_part = charge_part
-	var reach := Armament.SHELL_RANGE * (lerpf(Armament.APFSDS_RANGE.x, Armament.APFSDS_RANGE.y, power) if dart else 1.0)
 	if dart:
 		_discard_sabot(muzzle, shell.velocity.normalized())
 	var end := shell.resolve_now(reach)
