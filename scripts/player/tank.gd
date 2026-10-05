@@ -59,6 +59,7 @@ const RESPAWN_DELAY := 1.8
 const RESPAWN_INVULN := 2.6
 const CRUSH_SPEED := 5.0 ## Ground speed above which the tank runs down ground enemies.
 const RAM_DAMAGE := 150.0
+const RAM_COOLDOWN := 0.6 ## Seconds between crushing hits on the same enemy, matching dash recovery.
 const CANISTER_RANGE := 70.0
 const SMALL_ARMS_CALIBER := 40 ## Bullets below this glance off the armor; only the exposed sensors feel them.
 const TOP_ATTACK_ANGLE := deg_to_rad(7.0) ## Descent that makes a bullet hit the roof. Helicopters (8-15 deg at station) and UAVs (10+) fire down at this; ground gunners stay under 5 (95th percentile).
@@ -123,6 +124,7 @@ var _blink := 0.0 ## Blinks while the fresh hull's respawn cover lasts; dashes a
 var _ghost_timer := 0.0
 var _ghost_hue := 0.0
 var anchor_cooldown := 0.0
+var _ram_cooldowns: Dictionary[int, float] = {}
 var _drift := 0.0
 var _drift_dir := 0.0
 var _drift_yaw := 0.0
@@ -228,6 +230,10 @@ func tick(delta: float) -> void:
 	invuln = maxf(0.0, invuln - delta)
 	show_damage(delta, HULL_RADIUS)
 	anchor_cooldown = maxf(0.0, anchor_cooldown - delta)
+	for id: int in _ram_cooldowns.keys():
+		_ram_cooldowns[id] -= delta
+		if _ram_cooldowns[id] <= 0.0:
+			_ram_cooldowns.erase(id)
 	_update_charge(delta)
 	modules.update(delta)
 	_sync_sensors()
@@ -594,11 +600,12 @@ func _ram_enemies() -> void:
 	if _ground_speed() < CRUSH_SPEED:
 		return
 	for entity: Entity in world.enemies.duplicate():
-		if entity.flying or not entity is Enemy or entity is Colossus or (entity as Enemy).hidden:
+		if entity.flying or not entity is Enemy or entity is Colossus or (entity as Enemy).hidden or _ram_cooldowns.has(entity.get_instance_id()):
 			continue
 		var offset := entity.global_position - global_position
 		offset.y = 0.0
 		if offset.length() < HULL_RADIUS + entity.radius:
+			_ram_cooldowns[entity.get_instance_id()] = RAM_COOLDOWN
 			var ram := Hit.make(Hit.Kind.RAM, RAM_DAMAGE, entity.hit_center(), travel_direction())
 			ram.source = self
 			ram.salvage = true
