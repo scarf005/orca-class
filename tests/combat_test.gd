@@ -2,6 +2,65 @@ extends TestCase
 ## Armor rules, hit geometry, props and blasts.
 
 
+## Isolate driving contact from the automatic tail, guns and world simulation.
+func _ram_world() -> World:
+	var world := stage("", false)
+	world.set_process(false)
+	world.player.tail.destroyed = true
+	return world
+
+
+func _ram_quad(world: World) -> QuadMech:
+	var quad := QuadMech.new()
+	quad.position = world.player.global_position
+	world.add_enemy(quad)
+	return quad
+
+
+func _ram_tick(world: World, targets: Array[QuadMech], delta: float) -> void:
+	for target in targets:
+		target.global_position = world.player.global_position
+	world.player.tick(delta)
+
+
+func test_ram_contact_damage_is_independent_of_frame_rate() -> void:
+	for fps in [30, 60, 120]:
+		var world := _ram_world()
+		var quad := _ram_quad(world)
+		var hp := quad.hp
+		for _i in fps / 2:
+			_ram_tick(world, [quad], 1.0 / fps)
+		check_eq(quad.hp, hp - Tank.RAM_DAMAGE, "only one crushing hit during 0.5 s at %d FPS" % fps)
+		check(not quad.dead, "contact does not instantly kill the heavy mech")
+
+
+func test_ram_rehits_only_after_point_six_seconds_even_after_reentry() -> void:
+	var world := _ram_world()
+	var quad := _ram_quad(world)
+	var hp := quad.hp
+	_ram_tick(world, [quad], 0.01)
+	check_eq(quad.hp, hp - Tank.RAM_DAMAGE, "first contact hits immediately")
+	quad.global_position += Vector3.RIGHT * 30.0
+	world.player.tick(0.25)
+	_ram_tick(world, [quad], 0.34)
+	check_eq(quad.hp, hp - Tank.RAM_DAMAGE, "leaving and reentering does not bypass recovery at 0.59 s")
+	# Cross the boundary by 0.01 s, avoiding floating-point rounding at exactly 0.6 s.
+	_ram_tick(world, [quad], 0.02)
+	check_eq(quad.hp, hp - Tank.RAM_DAMAGE * 2.0, "contact can hit again after 0.61 s")
+
+
+func test_ram_cooldown_does_not_protect_other_targets() -> void:
+	var world := _ram_world()
+	var first := _ram_quad(world)
+	var first_hp := first.hp
+	_ram_tick(world, [first], 0.01)
+	var second := _ram_quad(world)
+	var second_hp := second.hp
+	_ram_tick(world, [first, second], 0.01)
+	check_eq(first.hp, first_hp - Tank.RAM_DAMAGE, "the first target is still recovering")
+	check_eq(second.hp, second_hp - Tank.RAM_DAMAGE, "a different target takes its first hit immediately")
+
+
 func test_segment_sphere() -> void:
 	check_near(Entity.segment_sphere(Vector3(-5, 0, 0), Vector3(5, 0, 0), Vector3.ZERO, 1.0), 4.0, 0.001, "hits the near side")
 	check_eq(Entity.segment_sphere(Vector3(-5, 2, 0), Vector3(5, 2, 0), Vector3.ZERO, 1.0), -1.0, "misses above")
