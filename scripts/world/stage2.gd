@@ -171,12 +171,11 @@ func split_lane_centres(index: int) -> Vector2:
 	return Vector2((-limit + left_edge) * 0.5, (right_edge + limit) * 0.5)
 
 
-func camera_lane_u(d: float, u: float) -> float:
-	for index in SPLITS.size():
-		if absf(d - float(SPLITS[index].d)) < 20.0:
-			var lanes := split_lane_centres(index)
-			return lanes.x if u <= 0.0 else lanes.y
-	return u - signf(u) * 3.0 if absf(u) > lateral_limit(d) - 6.0 else u + signf(u) * 3.0 if absf(u) > 0.1 else u
+## The camera trails the tank's lane but keeps 6 m inside the wall line at its own distance, so on bends it never
+## runs into the towers and has to be pulled in behind the hull.
+func camera_u(d: float, u: float) -> float:
+	var reach := lateral_limit(d - ChaseCamera.RAIL_BACK) - 6.0
+	return clampf(u * 0.75, -reach, reach)
 
 
 func valley_half_width(d: float) -> float:

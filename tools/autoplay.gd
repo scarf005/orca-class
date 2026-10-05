@@ -102,9 +102,7 @@ func run() -> int:
 				break
 		_drive(world, elapsed)
 		if world.rail.mode != Rail.Mode.ARENA and Course.stage is Stage2:
-			var camera_u := world.player.course_u * 0.75
-			if Course.stage is Stage2:
-				camera_u = (Course.stage as Stage2).camera_lane_u(world.rail.d, world.player.course_u)
+			var camera_u := Course.stage.camera_u(world.rail.d, world.player.course_u)
 			var expected_eye := Course.to_world(world.rail.d - ChaseCamera.RAIL_BACK, camera_u)
 			expected_eye.y = maxf(Course.height(world.rail.d - ChaseCamera.RAIL_BACK, camera_u), world.player.global_position.y - 1.0) + ChaseCamera.RAIL_HEIGHT
 			var safe_eye := world.director.scenery.camera_position(world.player.hit_center(), expected_eye)

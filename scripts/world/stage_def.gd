@@ -86,6 +86,11 @@ func lateral_limit(d: float) -> float:
 	return maxf(valley_half_width(d) - 4.0, 14.0)
 
 
+## Where the chase camera rides across the road (its u) while the tank is at `u` at rail distance `d`.
+func camera_u(_d: float, u: float) -> float:
+	return u * 0.75
+
+
 ## The height of standing water at course position `c` (d, u), or -INF when there is none.
 func water_surface(_c: Vector2) -> float:
 	return -INF
