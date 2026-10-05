@@ -2,6 +2,34 @@ extends TestCase
 ## Mid-boss caps/core and the gunship's phases and crash.
 
 
+func test_plaza_attack_cycle_reaches_every_weapon_in_twenty_five_seconds() -> void:
+	var world := stage("", false, 2)
+	world.director._next_event = world.director.events.size()
+	world.rail.mode = Rail.Mode.HOLD
+	var boss := Hovercraft.new()
+	boss.position = Course.to_world(Stage2.PLAZA_D, 0.0)
+	world.add_enemy(boss)
+	world.player.global_position = boss.arena_center() + Vector3(0, 0, -30)
+	var seen: Array[int] = []
+	for i in 25 * 60:
+		if i == 10 * 60:
+			var hit := Hit.make(Hit.Kind.SHELL, boss.max_hp * 0.5 * Armament.SHELL_DAMAGE / Hovercraft.ROUND_DAMAGE, boss.hit_center())
+			hit.caliber = 100
+			boss.take_hit(hit)
+		boss.tick(1.0 / 60.0)
+		if boss._attack != Hovercraft.Attack.NONE and not seen.has(boss._attack):
+			seen.append(boss._attack)
+	for attack in [Hovercraft.Attack.GUN, Hovercraft.Attack.CANNON, Hovercraft.Attack.RAM, Hovercraft.Attack.MLRS]:
+		check(seen.has(attack), "plaza fight shows %s by 25 seconds" % Hovercraft.Attack.keys()[attack])
+	boss.phase = Hovercraft.Phase.STRIPPED
+	var cycle: Array[int] = []
+	for i in 8:
+		boss._end_attack()
+		boss._update_attack(2.0, world.player)
+		cycle.append(boss._attack)
+	check_eq(cycle.slice(0, 4), cycle.slice(4, 8), "plaza attacks repeat rather than random starvation")
+
+
 func _colossus(world: World) -> Colossus:
 	var boss := Colossus.new()
 	boss.position = Course.ground_at(world.rail.d + 60.0, 0.0)

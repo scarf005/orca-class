@@ -30,6 +30,36 @@ func _advance(boss: HiMo, seconds: float) -> void:
 		boss.behave(1.0 / 60.0)
 
 
+func test_skater_pattern_already_teaches_heavy_attacks() -> void:
+	var boss := _boss()
+	var seen: Array[int] = []
+	for i in 8:
+		boss._choose_attack()
+		seen.append(boss._attack)
+	for attack in [HiMo.Attack.GUN, HiMo.Attack.RAIL, HiMo.Attack.CHARGE, HiMo.Attack.STOMP]:
+		check(seen.has(attack), "phase one teaches %s before stripping" % HiMo.Attack.keys()[attack])
+	boss._pattern = 0
+	for attack in seen:
+		boss._choose_attack()
+		check_eq(boss._attack, attack, "pattern repeats in readable order")
+
+
+func test_above_water_actuator_hits_disable_a_leg() -> void:
+	var boss := _boss()
+	var knee: Node3D = boss._legs[0].knee
+	var at := knee.global_position
+	check(at.y > Stage2.WATER_LEVEL + 1.0, "knee is above the flooded bay")
+	check(boss.hit_test(at + Vector3.LEFT * 2.0, at + Vector3.RIGHT * 2.0) >= 0.0, "exposed actuator registers collision")
+	_shell(boss, at, HiMo.LEG_HP)
+	check_eq(boss.legs_lost(), 1, "actuator hit tears off its leg rather than requiring submerged wheels")
+
+
+func test_stripping_starts_a_cover_crushing_hop() -> void:
+	var boss := _boss()
+	_shell(boss, boss.hit_center(), boss.max_hp * 0.35)
+	check(boss._hop > 0.0, "65 percent starts the leap set piece")
+
+
 func test_phase_boundaries_and_music() -> void:
 	var boss := _boss()
 	check_eq(boss.phase, HiMo.Phase.SKATER, "full hull starts skating")
