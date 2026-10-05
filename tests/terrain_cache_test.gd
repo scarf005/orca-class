@@ -78,6 +78,33 @@ func test_stage_switch_keeps_city_and_valley_geometry_separate() -> void:
 	Course.use(1)
 
 
+func test_changed_city_arenas_and_road_plan_invalidate_geometry() -> void:
+	Terrain._meshes.clear()
+	Course.flat = false
+	Course.use(2)
+	var previous: Mesh
+	for variant in 3:
+		Course.stage = Stage2.new()
+		if variant > 0:
+			Course.stage.arenas = [{"d": 0.0, "radius": 50.0}]
+		if variant > 1:
+			Course.stage.plan = Course.stage.plan.duplicate(true)
+			Course.stage.plan[0] = [1100.0, 10.0]
+		Course._map = Course._build()
+		var terrain := Terrain.new()
+		add_child(terrain)
+		terrain.stream(0.0, true)
+		var mesh: Mesh = terrain._chunks[0].mesh
+		var expected := terrain._build_chunk(0).mesh().surface_get_arrays(0)
+		if previous:
+			check(mesh != previous, "changed city geography does not reuse the prior mesh")
+		for attribute in [Mesh.ARRAY_VERTEX, Mesh.ARRAY_NORMAL, Mesh.ARRAY_COLOR]:
+			check_eq(mesh.surface_get_arrays(0)[attribute], expected[attribute], "cached city changes match fresh production geometry")
+		previous = mesh
+		terrain.free()
+	Course.use(1)
+
+
 func test_custom_stage_instances_do_not_share_different_ground() -> void:
 	Terrain._meshes.clear()
 	Course.flat = false
