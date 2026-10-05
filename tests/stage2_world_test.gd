@@ -25,6 +25,14 @@ func test_stage_driven_street_limits_and_clear_corridor() -> void:
 				check(absf(c.y) >= Tank.lateral_limit(c.x) - 0.05, "transformed city structure clears the drivable corridor")
 
 
+func test_new_breakable_debris_pieces_are_capped() -> void:
+	for kind in ["city_shop", "kiosk", "bus_shelter", "barricade"]:
+		var chunks := PropKit.collapse_pieces(PropKit.mesh(kind, 0))
+		for chunk in chunks:
+			var width := maxf(chunk.get_aabb().size.x, chunk.get_aabb().size.z)
+			check(width * Prop.debris_piece_scale(kind, width) <= 2.01, "%s collapse pieces stay under two metres" % kind)
+
+
 func test_city_frontage_props_are_real_breakable_shop_cover() -> void:
 	var world := stage("", false, 2)
 	var scenery := world.director.scenery

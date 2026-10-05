@@ -72,6 +72,7 @@ func run() -> int:
 	var boss_kind := ""
 	var active_boss: Entity
 	var tank_structure_violations := 0
+	var camera_pull_ins := 0
 	var mode := world.rail.mode
 	await get_tree().process_frame
 	await _capture("section-%d" % _section)
@@ -100,6 +101,21 @@ func run() -> int:
 				tank_structure_violations += 1
 				break
 		_drive(world, elapsed)
+		if world.rail.mode != Rail.Mode.ARENA and Course.stage is Stage2:
+			var camera_u := world.player.course_u * 0.75
+			if Course.stage is Stage2:
+				camera_u = (Course.stage as Stage2).camera_lane_u(world.rail.d, world.player.course_u)
+			var expected_eye := Course.to_world(world.rail.d - ChaseCamera.RAIL_BACK, camera_u)
+			expected_eye.y = maxf(Course.height(world.rail.d - ChaseCamera.RAIL_BACK, camera_u), world.player.global_position.y - 1.0) + ChaseCamera.RAIL_HEIGHT
+			var safe_eye := world.director.scenery.camera_position(world.player.hit_center(), expected_eye)
+			if safe_eye.distance_to(expected_eye) > 0.05 and not Course.stage.in_arena(world.rail.d):
+				camera_pull_ins += 1
+				if camera_pull_ins <= 10:
+					var blockers := []
+					for structure in Course.structure_boxes:
+						if Prop.box_hit(structure.pose, structure.size, world.player.hit_center(), expected_eye, 0.8) >= 0.0:
+							blockers.append("%s@%.0f,%.0f" % [structure.kind, structure.d, structure.u])
+					print("CAMERA_PULL d=%.1f u=%.1f amount=%.2f blockers=%s" % [world.rail.d, world.player.course_u, safe_eye.distance_to(expected_eye), blockers])
 		if args.has("profile") and frames % 60 == 0:
 			print("t=%.1f frame=%.1fms process=%.1fms draw_calls=%d objects=%d particles=%d enemies=%d props=%d" % [elapsed, frame_ms,
 				Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
@@ -146,13 +162,14 @@ func run() -> int:
 		world.rail.d, stats.score, stats.kills, stats.spawned, stats.lives, world.player.hp, world.enemies.size(),
 		world.projectiles.size(), frames, slow_frames, worst])
 	print("STRUCTURE_CHECK tank_inside_structure=%d samples=%d" % [tank_structure_violations, frames])
+	print("CAMERA_CHECK pull_in_outside_arenas=%d samples=%d" % [camera_pull_ins, frames])
 	print("PROBE difficulty=%s bot=%s cleared=%s dead=%s time=%.2f d=%.0f lives=%d deaths=%d damage_taken=%.2f kills=%d/%d front_mean=%.2f coax=%d cannon=%d ram=%d dash=%d tail=%d ciws=%d collateral=%d reflect=%d other=%d cannon_shots=%d charged_shots=%d healing_melee=%.2f healing_repair=%.2f" % [
 		difficulty, bot, cleared and not world.player.dead, world.player.dead, stats.time, world.rail.d, stats.lives, deaths, stats.damage_taken, stats.kills, stats.spawned, front_total / maxi(frames, 1),
 		kill_sources.coax, kill_sources.cannon, kill_sources.ram, kill_sources.dash, kill_sources.tail, kill_sources.ciws, kill_sources.collateral, kill_sources.reflect, kill_sources.other, stats.shots, stats.charged_shots, stats.melee_healing, stats.repair_healing])
 	for action in ["fire", "move_left", "move_right"]:
 		Input.action_release(action)
 	Engine.time_scale = 1.0
-	return 1 if args.has("verify") and (not cleared or screen._results == null or tank_structure_violations > 0) else 0
+	return 1 if args.has("verify") and (not cleared or screen._results == null or tank_structure_violations > 0 or camera_pull_ins > 0) else 0
 
 
 func _capture(name: String) -> void:

@@ -201,6 +201,9 @@ static func toppled(size: Vector3, variant: int) -> Mesh:
 	b.box(_xf(Vector3(0, size.y + 0.25, 0)), Vector3(size.x * 0.9, 0.25, size.z * 0.9), Palette.STONE)
 	for z in range(-int(size.z * 0.4), int(size.z * 0.4), 5):
 		b.box(_xf(Vector3(0, size.y + 0.4, float(z))), Vector3(size.x * 0.55, 0.2, 1.5), Palette.SLATE)
+	for side in [-1.0, 1.0]:
+		for z in range(-int(size.z * 0.35), int(size.z * 0.35), 5):
+			b.box(_xf(Vector3(side * (size.x * 0.5 + 0.04), size.y * 0.55, float(z))), Vector3(0.08, 1.1, 1.8), Palette.INK)
 	return b.mesh()
 
 
@@ -214,6 +217,12 @@ static func sag_span(size: Vector3, variant: int) -> Mesh:
 		var y := size.y * 0.55 - (0.55 if piece == 0 else 0.35)
 		b.box(_xf(Vector3(0, y, z)), Vector3(size.x, 0.7, length), Palette.STONE)
 		b.box(_xf(Vector3(0, y + 0.45, z)), Vector3(size.x + 0.5, 0.2, length), Palette.MIST)
+		for side in [-1.0, 1.0]:
+			b.box(_xf(Vector3(side * (size.x * 0.5 - 0.15), y + 0.65, z)), Vector3(0.25, 1.0, length), Palette.ASH)
+	# Broken ends expose short lengths of rebar over the missing middle.
+	for side in [-1.0, 1.0]:
+		for z in [-half * 0.34, half * 0.34]:
+			b.box(_xf(Vector3(side * 1.2, size.y * 0.35, z)), Vector3(0.12, 0.12, 2.2), Palette.CORAL)
 	return b.mesh()
 
 

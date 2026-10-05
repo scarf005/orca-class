@@ -75,8 +75,11 @@ func follow(delta: float) -> void:
 	else:
 		var d := world.rail.d
 		var u := player.course_u
-		eye = Course.to_world(d - RAIL_BACK, u * 0.75)
-		eye.y = maxf(Course.height(d - RAIL_BACK, u * 0.75), player.global_position.y - 1.0) + RAIL_HEIGHT
+		var camera_u := u * 0.75
+		if world.stage_number == 2 and Course.stage is Stage2:
+			camera_u = (Course.stage as Stage2).camera_lane_u(d, u)
+		eye = Course.to_world(d - RAIL_BACK, camera_u)
+		eye.y = maxf(Course.height(d - RAIL_BACK, camera_u), player.global_position.y - 1.0) + RAIL_HEIGHT
 		look = Course.to_world(d + RAIL_LOOK_AHEAD, u * 0.85, player.global_position.y - 1.0)
 		roll = -player.lateral_velocity * 0.006
 	var k := 1.0 - exp(-9.0 * delta)

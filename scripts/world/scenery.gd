@@ -338,6 +338,25 @@ func drive_position(from: Vector3, to: Vector3, radius: float) -> Vector3:
 
 ## Pull the eye toward the hull before it enters a deck underside or a facade.
 func camera_position(target: Vector3, eye: Vector3) -> Vector3:
+	if Course.stage is Stage2:
+		var camera_course := Course.to_course(eye)
+		if not Course.stage.in_arena(camera_course.x):
+			var eye_clear := true
+			for structure in Course.structure_boxes:
+				if Prop.box_hit(structure.pose, structure.size, eye, eye, 0.8) >= 0.0:
+					eye_clear = false
+					break
+			if eye_clear:
+				return eye
+			for offset in [-8.0, 8.0, -14.0, 14.0]:
+				var candidate: Vector3 = eye + Course.right(camera_course.x) * offset
+				var candidate_clear := true
+				for structure in Course.structure_boxes:
+					if Prop.box_hit(structure.pose, structure.size, candidate, candidate, 0.8) >= 0.0:
+						candidate_clear = false
+						break
+				if candidate_clear:
+					return candidate
 	var reach := target.distance_to(eye)
 	var clear := reach
 	for structure in Course.structure_boxes:

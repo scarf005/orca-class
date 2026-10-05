@@ -34,12 +34,17 @@ var min_charge := 0 ## Main-gun charge stage (Armament.stage) a hit needs to bre
 const DRAW_DISTANCE := 150.0 ## Fog hides small props well before this.
 
 enum CollapseStyle { NONE, TORN, SINK, RAM, TOPPLE, BURN }
-const BUILDINGS := ["house", "infested_house", "hall", "greenhouse", "church", "church_nave", "church_tower", "church_spire", "school", "school_wing", "school_center", "gas_station", "bus_stop", "pavilion", "city_shop", "overpass_pier", "overpass_deck", "pier", "gate"]
+const BUILDINGS := ["house", "infested_house", "hall", "greenhouse", "church", "church_nave", "church_tower", "church_spire", "school", "school_wing", "school_center", "gas_station", "bus_stop", "pavilion", "city_shop", "kiosk", "bus_shelter", "barricade", "overpass_pier", "overpass_deck", "pier", "gate"]
 ## Tuned live in the duel mode, hence static vars: at 105 km/h a slow fall lands behind the tank.
 static var TOPPLE_TIME := 0.45 ## Seconds a tall thing takes to fall flat.
 static var COLLAPSE_TIME := 0.45 ## Seconds a building takes to sink or fold.
 static var KNOCK_SPEED := 10.0 ## m/s a tall thing is knocked flying at by a plain blow; harder ones throw it faster.
 const TALL := ["church_tower", "church_spire", "overpass_pier", "fungal_spire", "spore_tower", "flagpole"]
+const SMALL_DEBRIS := ["city_shop", "kiosk", "bus_shelter", "barricade"]
+
+
+static func debris_piece_scale(kind_value: String, width: float) -> float:
+	return minf(1.0, 2.0 / maxf(width, 0.001)) if kind_value in SMALL_DEBRIS else 1.0
 
 
 ## The killing blow chooses the motion, not a random roll. Fire wins over its shell delivery;
@@ -144,6 +149,10 @@ func _collapse(world: World, hit: Hit, style: CollapseStyle) -> void:
 		var piece := MeshInstance3D.new()
 		piece.mesh = chunk
 		piece.transform = model.global_transform
+		var width := maxf(chunk.get_aabb().size.x, chunk.get_aabb().size.z)
+		var debris_scale := debris_piece_scale(kind, width)
+		if debris_scale < 1.0:
+			piece.scale = Vector3.ONE * debris_scale
 		world.add_child(piece)
 		pieces.append(piece)
 	model.hide()
