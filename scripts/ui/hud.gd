@@ -30,13 +30,13 @@ var _style_pop := 0.0 ## Punch on the meter after a rank up.
 var _style_drop := 0.0 ## Shudder on the meter after a rank down.
 # Wireframe x-ray views of the real models.
 # Straight down, front of the tank at the top of the view.
-var _tank_view := WireView.new(Vector2i(84, 108), Vector3(0.6, 20.0, -0.6), Vector3(0.6, 0.0, -0.6), 16.0, Vector3.FORWARD)
-var _life_view := WireView.new(Vector2i(20, 30), Vector3(0, 20.0, -1.5), Vector3(0, 0.0, -1.5), 14.0, Vector3.FORWARD)
-var _round_view := WireView.new(Vector2i(44, 26), Vector3(0, 0.2, 4.0), Vector3(0, 0.1, 0), 1.3)
-var _coax_view := WireView.new(Vector2i(72, 34), Vector3(4.0, 0.3, -0.8), Vector3(0, 0, -0.8), 2.2)
-var _laser_view := WireView.new(Vector2i(30, 26), Vector3(1.6, 1.6, -1.8), Vector3(0, 0.35, 0), 1.3)
-var _xray := TankModel.new()
-var _xray_tail := Tail.new()
+var _tank_view: WireView
+var _life_view: WireView
+var _round_view: WireView
+var _coax_view: WireView
+var _laser_view: WireView
+var _xray: TankModel
+var _xray_tail: Tail
 var _shown_round := -1
 var _tail_posed := false
 var _shown_tier := -1
@@ -44,6 +44,13 @@ var _painted := {} ## Node -> color it was last painted, so materials change onl
 
 
 func _ready() -> void:
+	_tank_view = WireView.new(Vector2i(84, 108), Vector3(0.6, 20.0, -0.6), Vector3(0.6, 0.0, -0.6), 16.0, Vector3.FORWARD)
+	_life_view = WireView.new(Vector2i(20, 30), Vector3(0, 20.0, -1.5), Vector3(0, 0.0, -1.5), 14.0, Vector3.FORWARD)
+	_round_view = WireView.new(Vector2i(44, 26), Vector3(0, 0.2, 4.0), Vector3(0, 0.1, 0), 1.3)
+	_coax_view = WireView.new(Vector2i(72, 34), Vector3(4.0, 0.3, -0.8), Vector3(0, 0, -0.8), 2.2)
+	_laser_view = WireView.new(Vector2i(30, 26), Vector3(1.6, 1.6, -1.8), Vector3(0, 0.35, 0), 1.3)
+	_xray = TankModel.new()
+	_xray_tail = Tail.new()
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	font = get_theme_default_font()

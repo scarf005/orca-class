@@ -1,397 +1,436 @@
 class_name Tutorial
 extends Control
-## Learn by driving to marked pads and hitting a target with the real cannon.
+## A drivable course: painted controls, concrete turns, a breakable gate and a locked shot.
 
 signal exit
 signal start(checkpoint: String)
 
-enum Step { FORWARD, LEFT, BACK, RIGHT, AIM, FIRE, ROAD, DONE }
-const MOVE_ACTIONS := [&"move_forward", &"move_left", &"move_back", &"move_right"]
-const DIRECTIONS := [Vector2.UP, Vector2.LEFT, Vector2.DOWN, Vector2.RIGHT]
-const DIRECTION_KEYS := ["TUTORIAL_UP", "TUTORIAL_LEFT", "TUTORIAL_DOWN", "TUTORIAL_RIGHT"]
-const PAD_RADIUS := 2.6
-const ROAD_LENGTH := 120.0 ## Repeat the straight road instead of running beyond the finite course.
+enum Step { DRIVE, GATE, LOCK, DONE }
+const ROUTE := [Vector2(-36, -50), Vector2(-36, -12), Vector2(-4, -12), Vector2(-4, -34), Vector2(28, -34), Vector2(28, 16), Vector2(28, 50), Vector2(-8, 50)]
+const LANES := [Rect2(-43, -57, 14, 52), Rect2(-43, -19, 46, 14), Rect2(-11, -41, 14, 36), Rect2(-11, -41, 46, 14), Rect2(21, -41, 14, 98), Rect2(-15, 43, 50, 14)]
 
-class PracticeTank extends Tank:
-	var moving := true
-	var shooting := false
-	var slow := true
+class CourseTank extends Tank:
+	var course: Tutorial
+	var firing_lock: Entity
+	var _dash_read := false
 
 	func tick(delta: float) -> void:
-		# Small simulation steps keep the tail stable without slowing charging to one step per frame.
-		var remaining := minf(delta, 0.25)
-		while remaining > 0.00001:
-			var piece := minf(remaining, 1.0 / 30.0)
-			super.tick(piece)
-			remaining -= piece
+		# Integrate all elapsed time at the normal speed; small steps prevent wall tunnelling.
+		_dash_read = false
+		var steps := clampi(ceili(delta * 60.0), 1, 32)
+		for i in steps:
+			super.tick(delta / steps)
 
-	func _input_vector() -> Vector2:
-		return super._input_vector() * (0.2 if slow else 1.0) if moving else Vector2.ZERO
+	func _update_movement(delta: float) -> void:
+		var before := course.floor_position(global_position)
+		super._update_movement(delta)
+		var proposed := course.floor_position(global_position)
+		var resolved := course.slide(before, proposed)
+		if not resolved.is_equal_approx(proposed):
+			_set_pose(course.floor_world(resolved), hull_yaw)
+			course_u = Course.to_course(global_position).y
+			var actual := (global_position - course.floor_world(before)) / maxf(delta, 0.000001)
+			local_velocity = Vector2(actual.x, actual.z)
 
-	func _read_dash(_direction: Vector2) -> void:
+	func _read_dash(wish: Vector2) -> void:
+		if not _dash_read:
+			_dash_read = true
+			super._read_dash(wish)
+
+	func _collide_props() -> void:
+		# This course has persistent barriers, not crushable scenery. slide() owns contact.
 		pass
 
-	func _update_charge(delta: float) -> void:
-		if shooting:
-			super._update_charge(delta)
-		else:
-			_cancel_charge()
+	func _fire_shell(round: Armament.Round, muzzle: Vector3, direction: Vector3, power := 0.0) -> void:
+		firing_lock = charge_lock if round == Armament.Round.APHE and power >= 1.0 else null
+		super._fire_shell(round, muzzle, direction, power)
+		firing_lock = null
 
-	func _update_weapons(delta: float) -> void:
-		if shooting:
-			super._update_weapons(delta)
+class CourseWorld extends World:
+	func _process(delta: float) -> void:
+		# Keep World's non-projectile upkeep; sweep each shot's live interval before expiry.
+		if _hitstop > 0:
+			_hitstop -= delta / maxf(Engine.time_scale, 0.001)
+			if _hitstop <= 0:
+				Engine.time_scale = game_speed
+		for projectile in projectiles.duplicate():
+			if not is_instance_valid(projectile) or projectile.is_queued_for_deletion():
+				continue
+			var life: float = projectile.life
+			var flight := minf(delta, maxf(life, 0))
+			# Projectile.step otherwise expires before sweeping its last live segment.
+			projectile.life += delta
+			projectile.step(flight)
+			if not projectile.is_queued_for_deletion():
+				projectile.life = life - flight
+				if projectile.life <= 0:
+					projectile.step(0)
+		terrain.stream(rail.d)
+		var step := minf(delta, 1.0 / 30.0)
+		stats.tick(step)
+		_update_nanites(step)
+		_update_drop_shadows()
 
-	func _aim_assist(_delta: float) -> void:
-		pass
+class CourseCamera extends ChaseCamera:
+	var course: Tutorial
 
-	# The learner, not an automatic weapon, must aim and land the shot.
-	func _fire_coax(_muzzle: Node3D, _caliber: int, _spec: Dictionary, _target: Entity) -> void:
-		pass
-
-	func auto_tail() -> void:
-		pass
-
-class PracticeCamera extends ChaseCamera:
 	func follow(_delta: float) -> void:
-		var world := World.current
-		if not world.player:
+		if not World.current.player:
 			return
-		var d := world.rail.d + world.player.course_offset - 4.0
-		var u := world.player.course_u
-		global_position = Course.ground_at(d - 12.0, u * 0.6) + Vector3.UP * 22.0
-		look_at(Course.ground_at(d + 8.0, u * 0.6), Vector3.UP)
+		var at := World.current.player.global_position
+		global_position = at + course.floor_basis * Vector3(0, 30, 26)
+		look_at(at + course.floor_basis * Vector3(0, 0, -10), Vector3.UP)
 
-class PracticeTarget extends Entity:
-	signal cannon_hit
-
-	func _init() -> void:
-		radius = 2.6
-		center_height = 3.5
-		team = Team.NEUTRAL
-
-	func _ready() -> void:
-		var post := MeshInstance3D.new()
-		var box := BoxMesh.new()
-		box.size = Vector3(0.4, center_height, 0.4)
-		post.mesh = box
-		post.position.y = center_height / 2.0
-		add_child(post)
-		for ring in [[2.6, Palette.CREAM], [2.0, Palette.INK], [1.4, Palette.BUTTER], [0.6, Palette.INK]]:
-			var mesh := MeshInstance3D.new()
-			var disc := CylinderMesh.new()
-			disc.top_radius = ring[0]
-			disc.bottom_radius = ring[0]
-			disc.height = 0.12
-			mesh.mesh = disc
-			var material := StandardMaterial3D.new()
-			material.albedo_color = ring[1]
-			mesh.material_override = material
-			mesh.rotation.x = PI / 2.0
-			mesh.position = Vector3(0, center_height, (2.6 - ring[0]) * 0.1)
-			add_child(mesh)
-		track_meshes(self)
-
+class Gate extends Prop:
 	func take_hit(hit: Hit) -> void:
-		if hit.source is PracticeTank and hit.weapon == "cannon":
-			flash()
-			cannon_hit.emit()
+		if hit.source is CourseTank and hit.weapon == "cannon":
+			super.take_hit(hit)
+
+	func _exit_tree() -> void:
+		if World.current:
+			World.current.enemies.erase(self)
+		super._exit_tree()
+
+class LockTarget extends Entity:
+	func take_hit(hit: Hit) -> void:
+		if hit.source is CourseTank and hit.weapon == "cannon" and (hit.source as CourseTank).firing_lock == self:
+			super.take_hit(hit)
+
+	func on_death(hit: Hit) -> void:
+		World.current.fx.shatter(visual_bounds(), [Fx.Debris.METAL], hit.direction, 0.5)
+		Sfx.play("blast", global_position)
+
+class Sight extends Hud:
+	func _ready() -> void:
+		set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		font = get_theme_default_font()
+
+	func _process(delta: float) -> void:
+		_time += delta
+		queue_redraw()
+
+	func _draw() -> void:
+		_draw_reticle()
 
 var view := DitherView.new()
-var world := World.new()
-var tank := PracticeTank.new()
-var target := PracticeTarget.new()
-var step := Step.FORWARD
-var reached := false
-var goal := Vector2.ZERO ## Course (u, offset) of the current parking pad.
-var _move_action: StringName = &"move_forward"
-var _aim_origin := Vector2.ZERO
-var _aim_moved := false
-var _road_start := 0.0
-var _fire_ready := false
+var world := CourseWorld.new()
+var tank := CourseTank.new()
+var gate: Gate
+var target: LockTarget
+var step := Step.DRIVE
+var floor_basis := Basis.IDENTITY
+var floor_origin := Vector3.ZERO
+var walls: Array[Rect2] = []
+var _course_objects := Node3D.new()
+var _paint: Array[Node3D] = []
 var _overlay: Menu
-var _ink := Control.new()
-var _instruction := Label.new()
-var _menu_button := Button.new()
 var _play := Button.new()
 var _replay := Button.new()
+
+
+func floor_world(point: Vector2) -> Vector3:
+	var at := floor_origin + floor_basis * Vector3(point.x, 0, -point.y)
+	at.y = Course.height_at(at)
+	return at
+
+
+func floor_position(at: Vector3) -> Vector2:
+	var local := floor_basis.inverse() * (at - floor_origin)
+	return Vector2(local.x, -local.z)
 
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	floor_origin = Course.to_world(Course.ARENA_CENTER_D, 0)
+	floor_basis = Basis(Vector3.UP, Course.yaw_at(Course.ARENA_CENTER_D))
 	add_child(view)
 	world.view = view
 	world.process_mode = Node.PROCESS_MODE_PAUSABLE
-	world.rail.mode = Rail.Mode.HOLD
-	world.rail.hold_at = 0.0
-	world.rail.speed = 0.0
+	world.rail.mode = Rail.Mode.ARENA
+	world.rail.d = Course.ARENA_CENTER_D
+	world.rail.speed = 0
 	world.camera.free()
-	world.camera = PracticeCamera.new()
+	var camera := CourseCamera.new()
+	camera.course = self
+	world.camera = camera
 	view.viewport.add_child(world)
-	world.player = tank
+	tank.course = self
 	tank.invulnerable = true
+	world.player = tank
 	world.add_child(tank)
-	world.add_child(target)
-	target.cannon_hit.connect(func() -> void:
-		if step == Step.FIRE:
-			reached = true
-			_refresh_text())
-	world.camera.follow(0.0)
-	_ink.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_ink.draw.connect(_draw_guidance)
-	add_child(_ink)
-	_button(_menu_button, Rect2(784, 12, 152, 36), _pause)
-	_label(_instruction, Vector2(284, 434), Vector2(544, 86), 26)
-	_instruction.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	world.add_child(_course_objects)
+	_build_course()
+	var sight := Sight.new()
+	sight.world = world
+	add_child(sight)
 	_button(_replay, Rect2(192, 484, 260, 42), restart_practice)
 	_button(_play, Rect2(472, 484, 296, 42), _start_game)
-	_set_step(Step.FORWARD)
+	restart_practice()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-
-
-func _label(label: Label, at: Vector2, dimensions: Vector2, font_size: int) -> void:
-	label.position = at
-	label.size = dimensions
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", Palette.CREAM)
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(label)
 
 
 func _button(button: Button, rect: Rect2, action: Callable) -> void:
 	button.position = rect.position
 	button.size = rect.size
 	button.add_theme_font_size_override("font_size", 22)
-	for state in ["normal", "hover", "pressed", "focus"]:
-		var style := StyleBoxFlat.new()
-		style.bg_color = Palette.INK
-		style.border_color = Palette.BUTTER if state in ["hover", "focus"] else Palette.MIST
-		style.set_border_width_all(2)
-		button.add_theme_stylebox_override(state, style)
 	button.pressed.connect(action)
 	add_child(button)
 
 
-func _set_step(value: Step) -> void:
-	step = value
-	reached = false
-	_aim_origin = tank.aim_screen
-	_aim_moved = false
-	_fire_ready = not Input.is_action_pressed("fire")
-	tank.moving = step <= Step.RIGHT or step >= Step.ROAD
-	tank.slow = step < Step.ROAD
-	tank.shooting = step == Step.FIRE and _fire_ready or step == Step.DONE
-	tank._cancel_charge()
-	if step <= Step.RIGHT:
-		_move_action = MOVE_ACTIONS[step]
-		goal = Vector2(tank.course_u, tank.course_offset) + Vector2(DIRECTIONS[step].x, -DIRECTIONS[step].y) * (9.0 if step == Step.FORWARD else 7.0)
-		if step in [Step.LEFT, Step.RIGHT]:
-			goal.x = clampf(goal.x, -Tank.lateral_limit(world.rail.d + goal.y) + PAD_RADIUS, Tank.lateral_limit(world.rail.d + goal.y) - PAD_RADIUS)
-		else:
-			goal.y = clampf(goal.y, Tank.FORWARD_LIMIT.x + PAD_RADIUS, Tank.FORWARD_LIMIT.y - PAD_RADIUS)
-	if step == Step.AIM or step == Step.DONE:
-		_place_target()
-	if step == Step.ROAD:
-		_road_start = world.rail.d
-		world.rail.mode = Rail.Mode.RAIL
-	target.visible = step in [Step.AIM, Step.FIRE, Step.DONE]
-	target.team = Entity.Team.ENEMY if target.visible else Entity.Team.NEUTRAL
-	if target.visible:
-		world.register(target)
-	else:
-		world.unregister(target)
-	_refresh_text()
-	if step == Step.DONE:
-		_play.grab_focus()
+func _box(at: Vector2, dimensions: Vector3, color: Color, parent: Node3D = _course_objects) -> MeshInstance3D:
+	var mesh := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = dimensions
+	mesh.mesh = box
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	mesh.material_override = material
+	parent.add_child(mesh)
+	mesh.global_position = floor_world(at) + Vector3.UP * dimensions.y / 2
+	mesh.global_basis = floor_basis
+	return mesh
 
 
-func _place_target() -> void:
-	var d := world.rail.d + tank.course_offset + 30.0
-	var forward := Course.forward(d)
-	target.position = Course.ground_at(d, tank.course_u + 7.0)
-	target.rotation.y = atan2(-forward.x, -forward.z)
+func _inside(point: Vector2) -> bool:
+	for lane in LANES:
+		if lane.has_point(point):
+			return true
+	return false
 
 
-func _movement_action() -> StringName:
-	var distance := goal - Vector2(tank.course_u, tank.course_offset)
-	if absf(distance.x) > absf(distance.y):
-		return &"move_left" if distance.x < 0.0 else &"move_right"
-	return &"move_back" if distance.y < 0.0 else &"move_forward"
+func _build_course() -> void:
+	var xs: Array[float] = []
+	var ys: Array[float] = []
+	for lane in LANES:
+		for x in [lane.position.x, lane.end.x]:
+			if x not in xs:
+				xs.append(x)
+		for y in [lane.position.y, lane.end.y]:
+			if y not in ys:
+				ys.append(y)
+	xs.sort()
+	ys.sort()
+	for i in xs.size() - 1:
+		for j in ys.size() - 1:
+			var cell := Rect2(xs[i], ys[j], xs[i + 1] - xs[i], ys[j + 1] - ys[j])
+			if not _inside(cell.get_center()):
+				continue
+			_box(cell.get_center(), Vector3(cell.size.x, 0.18, cell.size.y), Palette.STONE)
+			for edge in [Rect2(cell.position.x - 0.5, cell.position.y, 1, cell.size.y), Rect2(cell.end.x - 0.5, cell.position.y, 1, cell.size.y), Rect2(cell.position.x, cell.position.y - 0.5, cell.size.x, 1), Rect2(cell.position.x, cell.end.y - 0.5, cell.size.x, 1)]:
+				var outward: Vector2 = (edge.get_center() - cell.get_center()).normalized()
+				if _inside(edge.get_center() + outward * 0.6):
+					continue
+				walls.append(edge)
+				_box(edge.get_center(), Vector3(edge.size.x, 2.4, edge.size.y), Palette.CREAM)
+	_refresh_paint()
 
 
-func _event_for(action: StringName) -> InputEvent:
+func _floor_text(at: Vector2, text: String, yaw := 0.0) -> void:
+	var label := Label3D.new()
+	label.text = text
+	label.font = get_theme_default_font()
+	label.font_size = 160
+	label.pixel_size = 0.025
+	label.modulate = Palette.BUTTER
+	label.outline_size = 0
+	label.shaded = false
+	label.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_course_objects.add_child(label)
+	label.global_position = floor_world(at) + Vector3.UP * 0.35
+	label.global_basis = floor_basis * Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, -PI / 2)
+	_paint.append(label)
+
+
+func _binding(action: StringName) -> String:
 	for event in InputMap.action_get_events(action):
-		if tank.using_gamepad == (event is InputEventJoypadMotion or event is InputEventJoypadButton):
-			return event
-	return null
+		if event is InputEventKey and not tank.using_gamepad:
+			return OS.get_keycode_string(event.physical_keycode if event.physical_keycode else event.keycode)
+		if event is InputEventMouseButton and not tank.using_gamepad:
+			return "M%d" % (event.button_index - 4 if event.button_index in [8, 9] else event.button_index)
+	return "↑" if action == &"move_forward" else "↓" if action == &"move_back" else "←" if action == &"move_left" else "→"
 
 
-func binding(action: StringName) -> String:
-	var event := _event_for(action)
-	if event is InputEventKey:
-		return tr("TUTORIAL_KEY") % OS.get_keycode_string(event.physical_keycode)
-	if event is InputEventMouseButton:
-		return tr("TUTORIAL_MOUSE_%d" % event.button_index)
-	return tr("TUTORIAL_TRIGGER") if action == &"fire" else tr("TUTORIAL_STICK")
+func _refresh_paint() -> void:
+	for paint in _paint:
+		paint.queue_free()
+	_paint.clear()
+	for i in ROUTE.size() - 1:
+		var from: Vector2 = ROUTE[i]
+		var direction: Vector2 = (ROUTE[i + 1] - from).normalized()
+		var action: StringName = &"move_forward" if direction.y > 0 else &"move_back" if direction.y < 0 else &"move_right" if direction.x > 0 else &"move_left"
+		_floor_text(from + direction * 8, _binding(action))
+		var length := from.distance_to(ROUTE[i + 1])
+		for distance in range(15, int(length) - 3, 10):
+			_floor_text(from + direction * distance, "↑", atan2(-direction.x, direction.y))
+	_floor_text(Vector2(0, 50), tr("TUTORIAL_LOCK"))
+	_mouse_paint()
+	_floor_text(Vector2(24, -7), "↔")
+	_floor_text(Vector2(32, -7), "↕")
 
 
-func _refresh_text() -> void:
-	_menu_button.text = tr("TUTORIAL_MENU")
+func _mouse_paint() -> void:
+	var at := Vector2(28, -7)
+	if tank.using_gamepad:
+		_floor_text(at, "RT")
+		return
+	var button := MOUSE_BUTTON_LEFT
+	for event in InputMap.action_get_events("fire"):
+		if event is InputEventKey:
+			_floor_text(at, OS.get_keycode_string(event.physical_keycode if event.physical_keycode else event.keycode))
+			return
+		if event is InputEventMouseButton:
+			button = event.button_index
+			break
+	var pressed := Rect2(-1.8 if button == MOUSE_BUTTON_LEFT else 0.2, 0.3, 1.6, 2.4) if button in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT] else Rect2(-3.2, 0.4 if button == MOUSE_BUTTON_XBUTTON1 else -1.2, 0.8, 1.2) if button in [MOUSE_BUTTON_XBUTTON1, MOUSE_BUTTON_XBUTTON2] else Rect2(-0.3, 1, 0.6, 1)
+	for rectangle in [Rect2(-2, -3, 4, 0.22), Rect2(-2, 3, 4, 0.22), Rect2(-2, -3, 0.22, 6), Rect2(2, -3, 0.22, 6), Rect2(0, 0, 0.22, 3), Rect2(-2, 0, 4, 0.22), pressed]:
+		var mesh := _box(at + rectangle.get_center(), Vector3(rectangle.size.x, 0.04, rectangle.size.y), Palette.BUTTER)
+		mesh.global_position.y += 0.24
+		_paint.append(mesh)
+
+
+func _make_gate() -> void:
+	gate = Gate.new()
+	gate.kind = "gate"
+	gate.footprint = 7
+	gate.height = 5
+	gate.radius = 7
+	gate.center_height = 2.5
+	gate.max_hp = 100
+	gate.hp = 100
+	gate.team = Entity.Team.NEUTRAL
+	gate.position = floor_world(Vector2(28, 16))
+	var panel := LowPoly.new()
+	panel.box(Transform3D(Basis.IDENTITY, Vector3(0, 2.5, 0)), Vector3(13, 5, 0.8), Palette.INK)
+	panel.box(Transform3D(Basis.IDENTITY, Vector3(0, 2.5, 0.45)), Vector3(2.0, 2.0, 0.12), Palette.AMBER)
+	var mesh := MeshInstance3D.new()
+	mesh.name = "Mesh"
+	mesh.mesh = panel.mesh()
+	gate.add_child(mesh)
+	gate.basis = floor_basis
+	gate.track_meshes(gate)
+	_course_objects.add_child(gate)
+	# Props belong to the scenery registry; this panel also needs an elevated aim surface.
+	world.enemies.append(gate)
+	gate.died.connect(func(_entity: Entity) -> void:
+		world.enemies.erase(gate)
+		step = Step.LOCK
+		_make_target())
+
+
+func _make_target() -> void:
+	target = LockTarget.new()
+	target.radius = 2.5
+	target.center_height = 3
+	target.max_hp = 100
+	target.hp = 100
+	target.position = floor_world(Vector2(-8, 50))
+	var model := MeshInstance3D.new()
+	model.mesh = PropKit.mesh("crate")
+	model.scale = Vector3(2, 3, 2)
+	target.add_child(model)
+	target.track_meshes(target)
+	_course_objects.add_child(target)
+	target.died.connect(func(_entity: Entity) -> void:
+		step = Step.DONE
+		_refresh_buttons()
+		_play.grab_focus())
+
+
+func slide(from: Vector2, to: Vector2) -> Vector2:
+	var closed := is_instance_valid(gate) and not gate.dead
+	var position := from
+	var motion := to - from
+	for attempt in 3:
+		var fraction := 1.0
+		var normal := Vector2.ZERO
+		for i in walls.size() + int(closed):
+			var obstacle: Rect2 = walls[i] if i < walls.size() else Rect2(21, 15.5, 14, 1)
+			var rect := obstacle.grow(Tank.HULL_RADIUS)
+			var near := 0.0
+			var far := 1.0
+			var face := Vector2.ZERO
+			var intersects := true
+			for axis in 2:
+				if absf(motion[axis]) < 0.000001:
+					if position[axis] <= rect.position[axis] or position[axis] >= rect.end[axis]:
+						intersects = false
+					continue
+				var enter := (rect.position[axis] - position[axis]) / motion[axis]
+				var leave := (rect.end[axis] - position[axis]) / motion[axis]
+				if enter > leave:
+					var swap := enter
+					enter = leave
+					leave = swap
+				if enter >= near:
+					near = enter
+					face = Vector2.ZERO
+					face[axis] = -signf(motion[axis])
+				far = minf(far, leave)
+			if intersects and near <= far and near < fraction and far > 0 and not face.is_zero_approx():
+				fraction = near
+				normal = face
+		position += motion * fraction
+		# Centimetre clearance exceeds float precision at the arena's kilometre-scale coordinates.
+		position += normal * 0.01
+		if normal.is_zero_approx():
+			break
+		motion *= 1.0 - fraction
+		motion -= normal * motion.dot(normal)
+	return position
+
+
+func restart_practice() -> void:
+	for projectile in world.projectiles.duplicate():
+		projectile.queue_free()
+	world.projectiles.clear()
+	if is_instance_valid(gate):
+		world.enemies.erase(gate)
+		world.props.remove(gate)
+		gate.queue_free()
+	if is_instance_valid(target):
+		world.unregister(target)
+		target.queue_free()
+	target = null
+	step = Step.DRIVE
+	tank._cancel_charge()
+	tank.local_velocity = Vector2.ZERO
+	tank.velocity = Vector3.ZERO
+	tank._drift = 0
+	tank._drift_dir = 0
+	tank._drift_yaw = 0
+	tank.anchor_cooldown = 0
+	tank.tail.set_state(Tail.State.IDLE)
+	tank._set_pose(floor_world(ROUTE[0]), Course.yaw_at(Course.ARENA_CENTER_D))
+	tank._last_position = tank.global_position
+	tank.tail._initialized = false
+	tank.tail._claw_velocity = Vector3.ZERO
+	tank.tracks._last = Vector3.INF
+	_make_gate()
+	world.camera.follow(0)
+	_refresh_buttons()
+
+
+func _refresh_buttons() -> void:
 	_play.text = tr("TUTORIAL_START_GAME")
 	_replay.text = tr("TUTORIAL_RESTART")
 	_play.visible = step == Step.DONE
 	_replay.visible = step == Step.DONE
-	_instruction.position.y = 408 if step == Step.DONE else 434
-	_instruction.size.y = 68 if step == Step.DONE else 86
-	if step <= Step.RIGHT:
-		_instruction.text = tr("TUTORIAL_STOP_PAD" if tank.using_gamepad else "TUTORIAL_STOP") if reached else tr("TUTORIAL_MOVE_PAD") % tr(DIRECTION_KEYS[MOVE_ACTIONS.find(_move_action)]) if tank.using_gamepad else tr("TUTORIAL_MOVE") % binding(_move_action)
-	elif step == Step.AIM:
-		_instruction.text = tr("TUTORIAL_AIM_PAD" if tank.using_gamepad else "TUTORIAL_AIM")
-	elif step == Step.FIRE:
-		_instruction.text = tr("TUTORIAL_HIT") if reached else tr("TUTORIAL_FIRE" if _fire_ready else "TUTORIAL_RELEASE") % binding(&"fire")
-	elif step == Step.ROAD:
-		_instruction.text = tr("TUTORIAL_RELEASE") % binding(&"move_back") if reached else tr("TUTORIAL_ROAD_PAD") if tank.using_gamepad else tr("TUTORIAL_ROAD") % binding(&"move_back")
-	else:
-		_instruction.text = tr("TUTORIAL_DONE")
-	_ink.queue_redraw()
 
 
-func restart_practice() -> void:
-	world.rail.mode = Rail.Mode.HOLD
-	world.rail.hold_at = 0.0
-	world.rail.speed = 0.0
-	tank.course_u = 0.0
-	tank.course_offset = 4.0
-	tank.local_velocity = Vector2.ZERO
-	_rewind_road()
-	_set_step(Step.FORWARD)
-
-
-func _rewind_road() -> void:
-	world.rail.d = 0.0
-	_road_start = 0.0
-	tank._place(0.0)
-	tank._last_position = tank.position
-	tank.tracks._last = Vector3.INF
-	tank.tail._initialized = false
-	tank.tail._claw_velocity = Vector3.ZERO
-	for projectile in world.projectiles.duplicate():
-		projectile.queue_free()
-	_place_target()
-	world.camera.follow(0.0)
+func _process(_delta: float) -> void:
+	if get_tree().paused:
+		return
+	if step == Step.DRIVE and floor_position(tank.global_position).distance_to(Vector2(28, 5)) < 12:
+		step = Step.GATE
 
 
 func _start_game() -> void:
 	if step == Step.DONE and not get_tree().paused:
 		Game.difficulty = Game.Difficulty.EASY
 		start.emit("")
-
-
-func _process(_delta: float) -> void:
-	if get_tree().paused:
-		return
-	if step >= Step.ROAD and world.rail.d >= ROAD_LENGTH:
-		_rewind_road()
-	if step <= Step.RIGHT and not reached:
-		var action := _movement_action()
-		if action != _move_action:
-			_move_action = action
-			_refresh_text()
-		if not tank._input_vector().is_zero_approx() and Vector2(tank.course_u, tank.course_offset).distance_to(goal) <= PAD_RADIUS:
-			reached = true
-			Sfx.ui("ui_select")
-			_refresh_text()
-	elif step == Step.AIM:
-		_aim_moved = _aim_moved or tank.aim_screen.distance_to(_aim_origin) > 8.0
-		if _aim_moved and tank.aim_screen.distance_to(world.camera.unproject_position(target.hit_center())) < 24.0:
-			_set_step(Step.FIRE)
-	elif step == Step.FIRE and not _fire_ready and not Input.is_action_pressed("fire"):
-		_fire_ready = true
-		tank.shooting = true
-		_refresh_text()
-	elif step == Step.ROAD and not reached and world.rail.d - _road_start >= 6.0 and Input.is_action_pressed("move_back") and world.rail.throttle == -1 and world.rail.speed < Rail.CRUISE:
-		reached = true
-		_refresh_text()
-	elif step == Step.DONE and (target.position.distance_to(tank.position) > 65.0 or Course.to_course(target.position).x < world.rail.d + tank.course_offset + 14.0):
-		_place_target()
-	if reached and Input.get_vector("move_left", "move_right", "move_back", "move_forward").is_zero_approx() and tank.local_velocity.length() < 0.1 and not Input.is_action_pressed("fire"):
-		_set_step((step + 1) as Step)
-	_ink.queue_redraw()
-
-
-func _draw_guidance() -> void:
-	var font := get_theme_default_font()
-	_ink.draw_rect(Rect2(180, 428 if step != Step.DONE else 402, 660, 98 if step != Step.DONE else 76), Palette.INK)
-	var action: StringName = _move_action if step <= Step.RIGHT else &"move_back" if step == Step.ROAD else &"aim_right" if step == Step.AIM else &"fire"
-	_draw_input(action)
-	if step <= Step.RIGHT:
-		var corners := PackedVector2Array()
-		for offset in [Vector2(-PAD_RADIUS, -PAD_RADIUS), Vector2(PAD_RADIUS, -PAD_RADIUS), Vector2(PAD_RADIUS, PAD_RADIUS), Vector2(-PAD_RADIUS, PAD_RADIUS), Vector2(-PAD_RADIUS, -PAD_RADIUS)]:
-			corners.append(world.camera.unproject_position(Course.ground_at(world.rail.d + goal.y + offset.y, goal.x + offset.x) + Vector3.UP * 0.15))
-		_ink.draw_colored_polygon(corners.slice(0, 4), Color(Palette.INK, 0.85))
-		_ink.draw_polyline(corners, Palette.INK, 10.0)
-		_ink.draw_polyline(corners, Palette.NANITE if reached else Palette.AMBER, 5.0)
-		var at := world.camera.unproject_position(Course.ground_at(world.rail.d + goal.y, goal.x) + Vector3.UP * 1.0)
-		if reached:
-			_ink.draw_polyline(PackedVector2Array([at + Vector2(-12, 0), at + Vector2(-3, 8), at + Vector2(14, -10)]), Palette.NANITE, 4.0)
-		else:
-			_draw_arrow(at - DIRECTIONS[MOVE_ACTIONS.find(_move_action)] * 36, at, Palette.AMBER)
-		if step == Step.FORWARD:
-			var player_at := world.camera.unproject_position(tank.hit_center() + Vector3.UP * 2.0)
-			_ink.draw_string(font, player_at + Vector2(-136, 16), tr("TUTORIAL_YOUR_TANK"), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Palette.INK)
-			_ink.draw_string(font, player_at + Vector2(-138, 14), tr("TUTORIAL_YOUR_TANK"), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Palette.CREAM)
-	elif step in [Step.AIM, Step.FIRE, Step.DONE]:
-		var at := world.camera.unproject_position(target.hit_center())
-		_ink.draw_arc(at, 28, 0, TAU, 48, Palette.NANITE if reached else Palette.AMBER, 3.0)
-		var sight := tank.aim_screen
-		for axis in [Vector2.RIGHT, Vector2.DOWN]:
-			_ink.draw_line(sight - axis * 10, sight + axis * 10, Palette.INK, 6.0)
-			_ink.draw_line(sight - axis * 10, sight + axis * 10, Palette.CREAM, 2.0)
-		if tank.charge > 0.0:
-			_ink.draw_arc(sight, 19, -PI / 2, -PI / 2 + TAU * tank.charge, 48, Palette.BUTTER, 4.0)
-
-
-func _draw_arrow(from: Vector2, to: Vector2, color: Color) -> void:
-	var direction := (to - from).normalized()
-	var side := direction.orthogonal()
-	_ink.draw_line(from, to, Palette.INK, 8.0)
-	_ink.draw_line(from, to, color, 4.0)
-	_ink.draw_colored_polygon(PackedVector2Array([to, to - direction * 14 + side * 9, to - direction * 14 - side * 9]), color)
-
-
-func _draw_input(action: StringName) -> void:
-	var event := _event_for(action)
-	var at := Vector2(220, 477 if step != Step.DONE else 440)
-	var font := get_theme_default_font()
-	if tank.using_gamepad and action != &"fire":
-		_ink.draw_rect(Rect2(at - Vector2(38, 26), Vector2(76, 52)), Palette.MIST, false, 2.0)
-		for side in [-1, 1]:
-			_ink.draw_circle(at + Vector2(side * 18, 0), 13, Palette.MIST, false, 2.0)
-		var active := at + Vector2(-18 if action in MOVE_ACTIONS else 18, 0)
-		_ink.draw_circle(active, 8, Palette.BUTTER)
-		var direction: Vector2 = DIRECTIONS[MOVE_ACTIONS.find(action)] if action in MOVE_ACTIONS else Vector2.RIGHT
-		if not reached:
-			_draw_arrow(active, active + direction * 30, Palette.BUTTER)
-	elif event is InputEventMouseButton or step == Step.AIM and not tank.using_gamepad:
-		var rect := Rect2(at - Vector2(23, 32), Vector2(46, 64))
-		_ink.draw_rect(rect, Palette.MIST, false, 2.0)
-		_ink.draw_line(at + Vector2(0, -32), at, Palette.MIST, 2.0)
-		_ink.draw_line(at - Vector2(23, 0), at + Vector2(23, 0), Palette.MIST, 2.0)
-		if step == Step.AIM:
-			_draw_arrow(at + Vector2(-32, 4), at + Vector2(-32, -20), Palette.BUTTER)
-			_draw_arrow(at + Vector2(32, -4), at + Vector2(32, 20), Palette.BUTTER)
-		else:
-			var button: int = event.button_index
-			var button_rect := Rect2(at + Vector2(-21 if button == 1 else 2, -30), Vector2(19, 28)) if button in [1, 2] else Rect2(at + Vector2(-4, -22), Vector2(8, 16)) if button == 3 else Rect2(at + Vector2(-29, 4 if button == 8 else 18), Vector2(10, 12))
-			_ink.draw_rect(button_rect, Palette.BUTTER)
-	else:
-		var key := OS.get_keycode_string(event.physical_keycode) if event is InputEventKey else "RT"
-		_ink.draw_rect(Rect2(at - Vector2(28, 28), Vector2(56, 56)), Palette.BUTTER, false, 3.0)
-		var font_size := mini(28, int(48.0 / maxf(font.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, 1).x, 1.0)))
-		var width := font.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
-		_ink.draw_string(font, at + Vector2(-width / 2, 10), key, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Palette.CREAM)
 
 
 func _input(event: InputEvent) -> void:
@@ -401,7 +440,7 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventMouseMotion or event is InputEventKey or event is InputEventMouseButton:
 		tank.using_gamepad = false
 	if gamepad != tank.using_gamepad:
-		_refresh_text()
+		_refresh_paint()
 	if not get_tree().paused and (event is InputEventKey or event is InputEventJoypadMotion):
 		for action in ["fire", "move_forward", "move_left", "move_back", "move_right"]:
 			if event.is_action(action):
@@ -440,7 +479,8 @@ func _settings() -> void:
 	var settings := SettingsMenu.new()
 	settings.back.connect(func() -> void:
 		_close_pause()
-		_refresh_text())
+		_refresh_paint()
+		_refresh_buttons())
 	_overlay = settings
 	add_child(settings)
 

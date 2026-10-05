@@ -15,9 +15,9 @@ godot --path . -- --play # skip title screen
 godot --path . -- --tutorial # practice movement, aiming and firing
 ```
 
-Choose **LEARN THE CONTROLS** to drive to marked pads, aim at a target, and fire. Short prompts and
-control diagrams guide each action, with no attacks or time limits. The range also teaches automatic
-forward movement and braking before offering more practice or the main game on Easy.
+Choose **LEARN THE CONTROLS** to follow painted controls through a concrete obstacle course at normal
+arena speed. Shoot the gate to open the route, then follow the arrows and hold a lock to destroy the
+next target. Escape opens settings and replay; completing the course offers the main game on Easy.
 
 ### Web
 
