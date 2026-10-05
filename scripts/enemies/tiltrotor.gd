@@ -49,6 +49,7 @@ var _sweep := 0.0 ## Seconds of the sweep left.
 var _sweep_done := false
 var _line_a := Vector3.ZERO
 var _line_b := Vector3.ZERO
+var _line_mesh := MeshInstance3D.new()
 var _shot_timer := 0.0
 
 
@@ -154,6 +155,12 @@ func build() -> void:
 	_muzzle.position = Vector3(0, 0, -1.8)
 	_gun.add_child(_muzzle)
 	_gun.basis = Basis.looking_at(Vector3.BACK)
+	add_child(_line_mesh)
+	_line_mesh.top_level = true
+	_line_mesh.material_override = LowPoly.glow_material.duplicate()
+	_line_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_line_mesh.layers |= ActorLayer.LAYER
+	_line_mesh.visible = false
 	pop_parts = [_nacelles[0], _nacelles[1]]
 	# Enter far ahead and beside the road, nose to the tank, rotors forward.
 	var d := World.current.rail.d + slot.z
@@ -207,6 +214,7 @@ func on_damaged(hit: Hit, amount: float) -> void:
 	world.award(200, global_position, false)
 	_wind = 0.0
 	_sweep = 0.0
+	_line_mesh.visible = false
 	Sfx.play("blast_small", global_position)
 
 
@@ -220,6 +228,7 @@ func behave(delta: float) -> void:
 		_crash(delta)
 		return
 	if tank == null or tank.dead:
+		_line_mesh.visible = false
 		return
 	_evade(delta, true)
 	var course := Course.to_course(global_position - _jink_previous)
@@ -239,9 +248,6 @@ func behave(delta: float) -> void:
 			course.x += (world.rail.speed + clampf(-remaining * 1.1, -20.0, 20.0)) * delta
 			heading = global_position - tank.global_position # Tail to the tank: the ramp and the gun face it.
 			heading.y = 0.0
-			_hover_tasks(delta, tank)
-			if _hover > LEAVE_AT and _wind <= 0.0 and _sweep <= 0.0:
-				state = State.DEPART
 		State.DEPART:
 			_depart_speed = move_toward(_depart_speed, DEPART_SPEED if _tilt < 0.3 else world.rail.speed, 26.0 * delta)
 			course.x += _depart_speed * delta
@@ -262,6 +268,10 @@ func behave(delta: float) -> void:
 	_bank_evasion(delta)
 	_ramp = move_toward(_ramp, 1.0 if state == State.HOVER and _hover > 0.3 else 0.0, delta * 1.6)
 	_ramp_hinge.rotation.x = lerpf(-0.5, 0.45, _ramp)
+	if state == State.HOVER:
+		_hover_tasks(delta, tank)
+		if _hover > LEAVE_AT and _wind <= 0.0 and _sweep <= 0.0:
+			state = State.DEPART
 
 
 ## Hangs in the hover with the ramp down without running any AI (debug room).
@@ -289,6 +299,7 @@ func _hover_tasks(delta: float, tank: Tank) -> void:
 		_line_across(tank)
 		Sfx.play("warn", global_position, -2.0, 0.8)
 	var aim := _line_a
+	var fire := false
 	if _wind > 0.0:
 		_wind -= delta
 		world.fx.beam(_muzzle.global_position, _line_a, Palette.CORAL, 0.04, 0.05)
@@ -304,10 +315,13 @@ func _hover_tasks(delta: float, tank: Tank) -> void:
 		_shot_timer -= delta
 		if _shot_timer <= 0.0:
 			_shot_timer = 0.07
-			_fire(aim)
-	if _wind > 0.0 or _sweep > 0.0:
-		world.fx.beam(_line_a, _line_b, Palette.CORAL if _sweep <= 0.0 else Palette.HOT, 0.3, 0.05)
+			fire = true
+	_line_mesh.visible = _wind > 0.0 or _sweep > 0.0
+	_line_mesh.material_override.albedo_color = Palette.CORAL if _sweep <= 0.0 else Palette.HOT
+	if _line_mesh.visible or fire:
 		aim_barrel(_gun, aim, GUN_SLEW, delta)
+		if fire:
+			_fire(aim)
 	else:
 		slew_barrel(_gun, model.global_basis * Vector3.BACK, 2.0, delta)
 
@@ -315,17 +329,34 @@ func _hover_tasks(delta: float, tank: Tank) -> void:
 ## A line across the road through where the RWS (or the hull) will be when the beam reaches it,
 ## starting on the near side so the sweep runs away from the aircraft.
 func _line_across(tank: Tank) -> void:
-	var at := Gunnery.sensor_lead(tank, _muzzle.global_position, MG_SPEED)
-	var lead := Course.to_course(at + tank.velocity * (SWEEP_WIND * Game.telegraph_scale() + SWEEP_TIME * 0.5))
-	var side := signf(Course.to_course(global_position).y - lead.y)
+	var at := Gunnery.ground_lead(tank, _muzzle.global_position, MG_SPEED, {"delay": SWEEP_WIND * Game.telegraph_scale() + SWEEP_TIME * 0.5})
+	var lead := Course.to_course(at)
+	var side := 1.0 if Course.to_course(global_position).y >= lead.y else -1.0
 	_line_a = Course.to_world(lead.x, lead.y + side * SWEEP_HALF)
 	_line_b = Course.to_world(lead.x, lead.y - side * SWEEP_HALF)
 	_line_a.y = Course.height_at(_line_a) + 0.2
 	_line_b.y = Course.height_at(_line_b) + 0.2
+	# The committed path is one mesh, not a new node/material for every segment each frame.
+	var path := LowPoly.new()
+	path.glow = true
+	var previous := _line_point(0.0)
+	for i in range(1, 13):
+		var point := _line_point(i / 12.0)
+		var direction := point - previous
+		path.box(Transform3D(Basis.looking_at(direction), (previous + point) * 0.5 - _line_a), Vector3(0.3, 0.3, direction.length()), Color.WHITE)
+		previous = point
+	_line_mesh.mesh = path.mesh()
+	_line_mesh.global_position = _line_a
+
+
+func _line_point(fraction: float) -> Vector3:
+	var point := _line_a.lerp(_line_b, fraction)
+	point.y = Course.height_at(point) + 0.2
+	return point
 
 
 func _sweep_point() -> Vector3:
-	return _line_a.lerp(_line_b, 1.0 - clampf(_sweep / SWEEP_TIME, 0.0, 1.0))
+	return _line_point(1.0 - clampf(_sweep / SWEEP_TIME, 0.0, 1.0))
 
 
 func _fire(point: Vector3) -> void:
@@ -385,3 +416,4 @@ func interrupt() -> void:
 	_wind = 0.0
 	_sweep = 0.0
 	_sweep_done = true
+	_line_mesh.visible = false

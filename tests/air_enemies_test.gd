@@ -90,6 +90,9 @@ func _heli_ready_to_fire(world: World, tank: Tank) -> Helicopter:
 	world.add_enemy(heli)
 	heli._rockets = true
 	heli._telegraph = 0.1
+	world.rail.mode = Rail.Mode.HOLD
+	world.rail.hold_at = world.rail.d
+	world.rail.speed = 0.0 # This fixture injects purely lateral motion, with no scrolling rail.
 	tank.velocity = Course.right(world.rail.d) * 10.0
 	return heli
 

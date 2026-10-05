@@ -197,7 +197,7 @@ func behave(delta: float) -> void:
 		if _attack_timer <= 0.0 and to_tank.length() < 130.0:
 			_telegraph = 0.8 * Game.telegraph_scale()
 			if _strafing:
-				var lane := Course.to_course(tank.global_position + tank.velocity * 0.4)
+				var lane := Course.to_course(Gunnery.ground_position(tank, 0.4))
 				_strafe_d = lane.x + STRAFE_LEAD
 				_strafe_u = lane.y
 			Sfx.play("warn", global_position, -4.0)
@@ -210,7 +210,7 @@ func _aim_point(tank: Tank) -> Vector3:
 		return _strafe_point()
 	if _rockets and _burst > 0:
 		return _rocket_aim
-	return Gunnery.sensor_lead(tank, global_position, ROCKET_SPEED if _rockets else MG_SPEED)
+	return Gunnery.ground_lead(tank, global_position, ROCKET_SPEED if _rockets else MG_SPEED, {"life": 4.0 if _rockets else 3.0})
 
 
 ## The attacks cycle gun burst, rocket pair, strafing run.
