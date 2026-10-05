@@ -95,28 +95,43 @@ func test_hunter_reaches_rectangular_city_cover_then_peeks_into_line_of_sight() 
 
 
 func test_surviving_deck_hunter_crosses_the_gap_with_a_street_fallback() -> void:
+	for rate in [60.0, 12.0]:
+		var world := stage("", true, 2)
+		world.process_mode = Node.PROCESS_MODE_DISABLED
+		world.director.scenery.stream(800.0, 100000)
+		for prop: Prop in world.props.get_children():
+			prop.dead = true
+		world.rail.d = 720.0
+		world.player._place(720.0)
+		world.camera.follow(0.0)
+		var hunter := world.director.spawn_wave({"kind": "kain", "u": -38.5, "height": 10.5, "ahead": 65.0})[0] as Kain
+		hunter._attack_timer = INF
+		var unsupported := false
+		for i in int(rate * 10.0):
+			world.rail.d = 720.0 + i * 16.0 / rate
+			world.player._place(world.rail.d)
+			world.camera.follow(1.0 / rate)
+			hunter.move_hunter(world.player, 1.0 / rate, false)
+			var slot: Vector3 = hunter.get_meta("slot")
+			unsupported = unsupported or (slot.y > 0.0 and hunter.global_position.y < Stage2.WATER_LEVEL + 5.5)
+		check(not unsupported, "a live deck hunter never retains deck-only metadata under an unsupported span")
+		var slot: Vector3 = hunter.get_meta("slot")
+		check_eq(slot.y, 0.0, "the 806-814 m gap sends the hunter to a street firing lane")
+		check(absf(Course.to_course(hunter.global_position).y) <= Stage2.new().lateral_limit(world.rail.d), "fallback returns to the street instead of stranding the hunter below the deck")
+		var ahead := Course.to_course(hunter.global_position).x - Course.to_course(world.player.global_position).x
+		check(ahead >= 40.0 and ahead <= 120.0, "a relocating hunter keeps its firing range at %.0f FPS (%.1f m)" % [rate, ahead])
+
+
+func test_city_relocation_consumes_the_full_low_fps_step() -> void:
 	var world := stage("", true, 2)
 	world.process_mode = Node.PROCESS_MODE_DISABLED
-	world.director.scenery.stream(800.0, 100000)
 	for prop: Prop in world.props.get_children():
 		prop.dead = true
-	world.rail.d = 720.0
-	world.player._place(720.0)
-	world.camera.follow(0.0)
-	var hunter := world.director.spawn_wave({"kind": "kain", "u": -38.5, "height": 10.5, "ahead": 65.0})[0] as Kain
-	hunter._attack_timer = INF
-	var unsupported := false
-	for i in 600:
-		world.rail.d = 720.0 + i * 16.0 / 60.0
-		world.player._place(world.rail.d)
-		world.camera.follow(1.0 / 60.0)
-		hunter.move_hunter(world.player, 1.0 / 60.0, false)
-		var slot: Vector3 = hunter.get_meta("slot")
-		unsupported = unsupported or (slot.y > 0.0 and hunter.global_position.y < Stage2.WATER_LEVEL + 5.5)
-	check(not unsupported, "a live deck hunter never retains deck-only metadata under an unsupported span")
-	var slot: Vector3 = hunter.get_meta("slot")
-	check_eq(slot.y, 0.0, "the 806-814 m gap sends the hunter to a street firing lane")
-	check(absf(Course.to_course(hunter.global_position).y) <= Stage2.new().lateral_limit(world.rail.d), "fallback returns to the street instead of stranding the hunter below the deck")
+	var hunter := Kain.new()
+	hunter.position = Course.ground_at(100.0, -12.0)
+	world.add_enemy(hunter)
+	hunter.walk_city_firing(Course.ground_at(110.0, -12.0), 30.0, 1.0 / 12.0)
+	check_near(Course.to_course(hunter.global_position).x, 102.5, 0.01, "relocation at 30 m/s travels 2.5 m in a 1/12-second frame")
 
 
 func test_boss_start_uses_active_stage_theme_before_any_deferred_call() -> void:
