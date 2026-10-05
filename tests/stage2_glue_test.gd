@@ -28,7 +28,7 @@ func test_director_deck_events_use_the_live_parallel_expressway() -> void:
 		world.rail.d = kain_event.d
 		var kain := world.director.spawn_wave(kain_event)[0]
 		var kc := Course.to_course(kain.global_position)
-		check_near(kc.y, -40.0, 0.1, "director Kain uses the negative expressway deck")
+		check_near(kc.y, -38.5, 0.1, "director Kain stands at the street-facing parapet")
 		check_near(kain.global_position.y, Stage2.WATER_LEVEL + 6.0, 0.2, "Kain feet are on the low deck")
 		var battery_event: Dictionary = specs.filter(func(event: Dictionary) -> bool: return event.type == "wave" and event.kind == "rooftop_battery" and event.d == (990.0 if hard else 970.0))[0]
 		world.rail.d = battery_event.d
@@ -77,11 +77,11 @@ func test_hunter_reaches_rectangular_city_cover_then_peeks_into_line_of_sight() 
 	world.process_mode = Node.PROCESS_MODE_DISABLED
 	world.player.global_position = Course.ground_at(500.0, 0.0)
 	var hunter := Abel.new()
-	hunter.position = Course.ground_at(560.0, 75.0)
+	hunter.position = Course.ground_at(593.0, 9.0)
 	world.director.scenery.stream(560.0, 100000)
 	world.add_enemy(hunter)
 	hunter._attack_timer = INF
-	check(hunter.seek_cover(world.player), "a real city facade provides cover")
+	check(hunter.seek_cover(world.player), "a real street splitter provides cover")
 	var goal := hunter._cover_goal
 	check(not BipedMech.line_blocked(goal + Vector3.UP * (hunter.radius + 0.1), goal + Vector3.UP * (hunter.radius + 0.1), hunter.radius), "hide goal is outside the real padded rectangular footprint")
 	for _i in 900:
@@ -92,6 +92,31 @@ func test_hunter_reaches_rectangular_city_cover_then_peeks_into_line_of_sight() 
 	for _i in 600:
 		hunter.behave(1.0 / 60.0)
 	check(not BipedMech.line_blocked(world.player.hit_center(), hunter.hit_center()), "real city firing edge restores sight: at %s, goal %s, blocker %s" % [hunter.global_position, hunter._cover_goal, BipedMech.hard_blocker(world.player.hit_center(), hunter.hit_center())])
+
+
+func test_surviving_deck_hunter_crosses_the_gap_with_a_street_fallback() -> void:
+	var world := stage("", true, 2)
+	world.process_mode = Node.PROCESS_MODE_DISABLED
+	world.director.scenery.stream(800.0, 100000)
+	for prop: Prop in world.props.get_children():
+		prop.dead = true
+	world.rail.d = 720.0
+	world.player._place(720.0)
+	world.camera.follow(0.0)
+	var hunter := world.director.spawn_wave({"kind": "kain", "u": -38.5, "height": 10.5, "ahead": 65.0})[0] as Kain
+	hunter._attack_timer = INF
+	var unsupported := false
+	for i in 600:
+		world.rail.d = 720.0 + i * 16.0 / 60.0
+		world.player._place(world.rail.d)
+		world.camera.follow(1.0 / 60.0)
+		hunter.move_hunter(world.player, 1.0 / 60.0, false)
+		var slot: Vector3 = hunter.get_meta("slot")
+		unsupported = unsupported or (slot.y > 0.0 and hunter.global_position.y < Stage2.WATER_LEVEL + 5.5)
+	check(not unsupported, "a live deck hunter never retains deck-only metadata under an unsupported span")
+	var slot: Vector3 = hunter.get_meta("slot")
+	check_eq(slot.y, 0.0, "the 806-814 m gap sends the hunter to a street firing lane")
+	check(absf(Course.to_course(hunter.global_position).y) <= Stage2.new().lateral_limit(world.rail.d), "fallback returns to the street instead of stranding the hunter below the deck")
 
 
 func test_boss_start_uses_active_stage_theme_before_any_deferred_call() -> void:
