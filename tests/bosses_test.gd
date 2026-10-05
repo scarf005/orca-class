@@ -30,6 +30,19 @@ func test_plaza_attack_cycle_reaches_every_weapon_in_twenty_five_seconds() -> vo
 	check_eq(cycle.slice(0, 4), cycle.slice(4, 8), "plaza attacks repeat rather than random starvation")
 
 
+func test_plaza_entry_selects_arena_before_the_player_moves() -> void:
+	var world := stage("", false, 2)
+	world.director._next_event = world.director.events.size()
+	world.rail.d = Stage2.PLAZA_D - 56.0
+	world.player.global_position = Course.ground_at(world.rail.d, 0.0)
+	var before := world.player.position
+	world._process(1.0 / 60.0) # World runs before Director changes the encounter mode.
+	world.director._start_midboss({"kind": "hovercraft", "hold": world.rail.d})
+	check_eq(Course.stage.arena_center_d, Stage2.PLAZA_D, "Director synchronously selects plaza rather than the previous bay arena")
+	world.player._move_arena(1.0 / 60.0, Vector2.ZERO)
+	check_near(world.player.position.distance_to(before), 0.0, 0.1, "entry frame cannot fling the tank toward the bay")
+
+
 func test_hovercraft_ram_warning_keeps_its_origin_in_real_ticks() -> void:
 	var world := stage("", false, 2)
 	world.director._next_event = world.director.events.size()
