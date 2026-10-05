@@ -66,7 +66,7 @@ func test_quiet_opening_and_release_keep_the_elite_count_low() -> void:
 	check(city_count < farm_count / 2, "elite city sends less than half the scripted stage-one enemies")
 
 
-func test_supplies_offer_missiles_and_kinetic_counters_before_plaza() -> void:
+func test_supplies_offer_stage_one_special_rounds_before_plaza() -> void:
 	var supplies := {}
 	for event in Stage2.new().events(false):
 		if event.d >= Stage2.PLAZA_D - 110.0:
@@ -77,7 +77,8 @@ func test_supplies_offer_missiles_and_kinetic_counters_before_plaza() -> void:
 			supplies[event.drop] = true
 		if event.has("reward"):
 			supplies[event.reward] = true
-	for id in ["atgm", "micro", "heat", "apfsds"]:
+	for round: Armament.Round in Armament.OFFERED:
+		var id: String = Armament.ROUND_IDS[round]
 		check(supplies.has(id), "%s is offered before the missile-countering midboss" % id)
 
 
