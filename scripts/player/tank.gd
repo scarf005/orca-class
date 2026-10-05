@@ -45,10 +45,9 @@ const TAIL_SMALL_ARMS := 2.0 ## Small-arms damage on the tail, which no armor gu
 static var DRIFT_ANGLE := deg_to_rad(60.0) ## How far a sideways dash swings the nose against its slide (tuned live in the duel mode).
 const DRIFT_TURN := Vector2(14.0, 5.0) ## Per second the drift swings in, and back out.
 const AREA_ROUNDS := [Armament.Round.CANISTER, Armament.Round.AIRBURST, Armament.Round.DRAGON] ## Rounds with no lock.
-## The charge at which a round fires on its own: every special round at the first lock box; the
-## plain APHE shell charges on to full.
+## APHE and APFSDS charge through all three lock boxes; other special rounds are snap shots.
 static func round_step(round: Armament.Round) -> float:
-	return 1.0 if round == Armament.Round.APHE else Armament.STAGE_1
+	return 1.0 if round in [Armament.Round.APHE, Armament.Round.APFSDS] else Armament.STAGE_1
 const LOCK_SWITCH := 0.6 ## Another enemy takes a held lock only when this much nearer the reticle.
 const SIGHT_RATE := 10.0 ## Per second the chevron's range eases toward the range it rests on.
 const PART_LOCK_RADIUS := 90.0 ## Screen pixels: on a target made of modules, the nearest one within this is locked.
@@ -798,7 +797,7 @@ func is_charging() -> bool:
 ## Seconds from the first charge to full: a damaged breech loads slower.
 func charge_time() -> float:
 	# Special rounds are snap shots: their first (and only) step charges twice as fast.
-	var quick := 1.0 if current_round == Armament.Round.APHE else 0.5
+	var quick := 1.0 if current_round in [Armament.Round.APHE, Armament.Round.APFSDS] else 0.5
 	return (Armament.FULL_TIME - Armament.TAP_TIME) * modules.breech_factor() * quick
 
 
@@ -842,7 +841,7 @@ func _update_charge(delta: float) -> void:
 		_auto_fire = _hold >= auto_fire_hold() or (step < 1.0 and _hold >= Armament.TAP_TIME + step * charge_time())
 	elif not _fire_released: # The release frame keeps the charge it let go with.
 		_hold = 0.0
-	# Special rounds stop at their step and go: they never reach a full, aimed charge.
+	# Snap rounds stop at the first box; APHE and APFSDS keep charging to the third.
 	charge = clampf((_hold - Armament.TAP_TIME) / charge_time(), 0.0, round_step(current_round))
 	# Each lock box rings the next note up (G, A, B), so the charge reads by ear as well as by eye.
 	var stage := Armament.stage(charge)
@@ -1125,7 +1124,7 @@ func fire_cannon(from := Vector3.INF, toward := Vector3.ZERO, power := 0.0) -> v
 				_salvo.append(shot)
 				micro_marked.append(shot)
 		_:
-			_fire_shell(round, muzzle, shot_dir.call(shell_speed(power)), power)
+			_fire_shell(round, muzzle, shot_dir.call(INF if round == Armament.Round.APFSDS else shell_speed(power)), power)
 	if round != Armament.Round.APHE:
 		round_count -= 1
 		if round_count <= 0:
@@ -1158,15 +1157,15 @@ func _fire_canister(muzzle: Vector3, aim_dir: Vector3) -> void:
 		world.fx.spawn(Fx.Kind.FLAME, end, Vector3.UP * 2.0, 0.12, 0.5, Palette.BUTTER)
 
 
-## A 100 mm shell (APHE, HEAT, APFSDS or airburst). A quick shell (`power` below 1) is a projectile that
-## flies on at its charge step's quick speed; a full charge is hitscan: it lands this very frame and a tracer flash marks its
-## line. Special rounds take their uncharged table for a quick shell and their charged one for a full charge.
+## A 100 mm shell: quick shots fly and full shots are hitscan, except APFSDS, always a beam.
+## HEAT and airburst use quick/full tables; APFSDS damage and reach grow with charge.
 func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 0.0) -> void:
 	var world := World.current
 	var full := power >= 1.0
+	var dart := round == Armament.Round.APFSDS
 	var table := float(full)
 	var color: Color = Armament.ROUND_COLORS[round]
-	var shell := world.spawn_projectile(Team.PLAYER, muzzle, dir * shell_speed(power), "dart" if round == Armament.Round.APFSDS else "shell", color)
+	var shell := world.spawn_projectile(Team.PLAYER, muzzle, dir * (Armament.SHELL_SPEED if dart else shell_speed(power)), "dart" if dart else "shell", color)
 	shell.hit = Hit.make(Hit.Kind.SHELL, Armament.SHELL_DAMAGE, muzzle)
 	shell.hit.caliber = 100
 	shell.hit.source = self
@@ -1193,12 +1192,12 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 
 			shell.blast_damage = 500.0
 			shell.blast_colors = [Palette.WHITE, Palette.CORAL, Palette.RED, Palette.PEACH]
 		Armament.Round.APFSDS:
-			shell.hit.damage = Armament.SHELL_DAMAGE * 2.0 * lerpf(Armament.APFSDS_DAMAGE.x, Armament.APFSDS_DAMAGE.y, table)
+			shell.hit.weapon = "apfsds"
+			shell.hit.damage = Armament.SHELL_DAMAGE * 2.0 * lerpf(Armament.APFSDS_DAMAGE.x, Armament.APFSDS_DAMAGE.y, power)
 			shell.hit.pierce = true
 			shell.pierce_entities = true
-			# The dart goes through everything in line and slams into the ground with a crater.
-			shell.blast_radius = 7.0
-			shell.blast_damage = 450.0
+			shell.pierce_props = true
+			shell.impact_sound = "hit_confirm"
 		Armament.Round.AIRBURST:
 			# A slow, visible round with a proximity fuse: it bursts into a ring of shot as it passes
 			# near any enemy, or at the end of its range.
@@ -1211,20 +1210,26 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 
 			shell.proximity = lerpf(Armament.AIRBURST_PROXIMITY.x, Armament.AIRBURST_PROXIMITY.y, table)
 	shell.hit.damage *= Armament.SHELL_DAMAGE_SCALE
 	shell.blast_damage *= Armament.SHELL_DAMAGE_SCALE
-	if not full:
+	if not full and not dart:
 		# A quick shell is a visible round: drawn big, with a glowing tracer streaming behind it.
 		shell.scale = Vector3.ONE * QUICK_SHELL_SCALE
 		shell.glow_trail = color
 		return
-	# A locked full charge always strikes its lock: aimed straight at it, through whatever is between.
+	# Beams aim at the lock. Only other full-charge rounds skip obstacles before reaching it.
 	if is_instance_valid(charge_lock) and round != Armament.Round.AIRBURST:
 		var at := _aimed_spot(charge_lock)
 		at = charge_lock.hit_center() if at == Vector3.INF else at
 		shell.velocity = (at - muzzle).normalized() * shell.velocity.length()
-		shell.sure_target = charge_lock
-		shell.homing_part = charge_part
-	var reach := Armament.SHELL_RANGE * (lerpf(Armament.APFSDS_RANGE.x, Armament.APFSDS_RANGE.y, table) if round == Armament.Round.APFSDS else 1.0)
+		if not dart:
+			shell.sure_target = charge_lock
+			shell.homing_part = charge_part
+	var reach := Armament.SHELL_RANGE * (lerpf(Armament.APFSDS_RANGE.x, Armament.APFSDS_RANGE.y, power) if dart else 1.0)
+	if dart:
+		_discard_sabot(muzzle, shell.velocity.normalized())
 	var end := shell.resolve_now(reach)
+	if dart:
+		world.fx.rail_beam(muzzle, end, color, Armament.stage(power))
+		return
 	world.fx.beam(muzzle, end, Palette.WHITE, 0.5, 0.1)
 	world.fx.beam(muzzle, end, color, 1.4, 0.18)
 	world.fx.beam(muzzle, end, color, 2.6, 0.08)
@@ -1233,6 +1238,31 @@ func _fire_shell(round: Armament.Round, muzzle: Vector3, dir: Vector3, power := 
 	for k in int(length / 6.0):
 		var at := muzzle.lerp(end, (k + 0.5) * 6.0 / length)
 		world.fx.spawn(Fx.Kind.GLOW, at, Vector3(randf_range(-0.4, 0.4), 0.8, randf_range(-0.4, 0.4)), randf_range(0.5, 0.9), 0.5, Palette.MIST, {"end_size": 1.4, "drag": 2.0, "fade": 0.2})
+
+
+## Four carrier petals peel away ahead of the muzzle: short-lived, physical, damaging debris.
+func _discard_sabot(muzzle: Vector3, dir: Vector3) -> void:
+	var side := dir.cross(Vector3.UP if absf(dir.y) < 0.99 else Vector3.RIGHT).normalized()
+	var up := side.cross(dir)
+	for i in 4:
+		var radial := side * cos(i * TAU / 4.0) + up * sin(i * TAU / 4.0)
+		var petal := Projectile.new()
+		petal.velocity = dir * Armament.SABOT_SPEED + radial * Armament.SABOT_SPREAD_SPEED
+		petal.gravity = 9.0
+		petal.life = Armament.SABOT_LIFE
+		petal.radius = 0.12
+		petal.hit = Hit.make(Hit.Kind.FRAGMENT, Armament.SABOT_DAMAGE, muzzle)
+		petal.hit.caliber = 20
+		petal.hit.source = self
+		petal.hit.weapon = "sabot"
+		var builder := LowPoly.new()
+		builder.box(Transform3D(), Vector3(0.3, 0.12, 0.8), Palette.STONE)
+		var mesh := MeshInstance3D.new()
+		mesh.mesh = builder.mesh()
+		petal.add_child(mesh)
+		World.current.add_child(petal)
+		petal.global_position = muzzle + radial * 0.18
+		petal.look_at(petal.global_position + petal.velocity, up)
 
 
 ## A guided missile of the loaded round, homing on `target` (its `part`) and re-locking the nearest

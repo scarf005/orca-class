@@ -427,7 +427,8 @@ func take_hit(hit: Hit) -> void:
 	impact_feedback(hit, amount, falls and phase == Phase.INFECTED)
 	if cannon:
 		# A 100 mm shell lands like a truck: a blast on the skin, the whole craft lurches and rolls.
-		world.fx.explosion(hit.position, 2.2, [Palette.WHITE, Palette.BUTTER, Palette.AMBER, Palette.CORAL], hit.direction)
+		if hit.weapon != "apfsds":
+			world.fx.explosion(hit.position, 2.2, [Palette.WHITE, Palette.BUTTER, Palette.AMBER, Palette.CORAL], hit.direction)
 		world.fx.debris(hit.position, 10, debris, 14.0, 0.5, hit.direction)
 		_velocity += hit.direction.normalized() * 9.0 + Vector3.UP * 3.0
 		model.rotation.z += randf_range(-0.2, 0.2)
@@ -436,7 +437,7 @@ func take_hit(hit: Hit) -> void:
 		world.shake(0.45, hit.position)
 		world.screen_flash(Palette.WHITE, 0.15)
 		world.camera.kick(0.03)
-		Sfx.play("blast_small", hit.position, 4.0, 0.8)
+		Sfx.play("hit_confirm" if hit.weapon == "apfsds" else "blast_small", hit.position, 4.0, 0.8)
 	if hit.stagger >= 1.0:
 		stagger = maxf(stagger, 0.6)
 		if _attack in [Attack.GUN, Attack.ATGM] and _attack_time < 0.8:

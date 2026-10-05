@@ -90,15 +90,16 @@ func test_held_apfsds_waits_for_third_box_and_spends_one_round() -> void:
 	var world := _rig()
 	var tank := world.player
 	tank.input_enabled = true
+	var aphe_time := tank.charge_time()
 	tank.load_round(Armament.Round.APFSDS)
 	Input.action_press("fire")
-	tank._update_charge(Armament.TAP_TIME + tank.charge_time() * Armament.STAGE_1)
+	tank._update_charge(Armament.TAP_TIME + aphe_time * Armament.STAGE_1)
 	tank._update_weapons(0.0)
 	check_eq(world.stats.shots, 0, "holding through the first box does not auto-fire")
-	tank._update_charge(tank.charge_time() * (Armament.STAGE_2 - Armament.STAGE_1))
+	tank._update_charge(aphe_time * (Armament.STAGE_2 - Armament.STAGE_1))
 	tank._update_weapons(0.0)
 	check_eq(world.stats.shots, 0, "holding through the second box does not auto-fire")
-	tank._update_charge(tank.charge_time() * (1.0 - Armament.STAGE_2))
+	tank._update_charge(aphe_time * (1.0 - Armament.STAGE_2))
 	tank._update_weapons(0.0)
 	check_eq(world.stats.shots, 1, "fires at the same full-charge deadline as APHE")
 	check_eq(world.stats.charged_shots, 1, "the shot has full power")
@@ -151,6 +152,8 @@ func test_beam_width_is_proportional_to_charge_stage() -> void:
 		var glows: Array = world.fx._transients.filter(func(t: Dictionary) -> bool: return t.life == 0.12)
 		check_eq(cores.size(), 1, "one bright beam core")
 		check_eq(glows.size(), 1, "one colored beam envelope")
+		if cores.size() != 1 or glows.size() != 1:
+			continue
 		var level := Armament.stage(power)
 		# Mesh basis lengths use float32; allow less than 1e-6 m of rounding.
 		check_near(cores[0].node.basis.x.length(), 0.32 * level, 0.000001, "core width scales 1:2:3 with charge boxes")
@@ -160,7 +163,7 @@ func test_beam_width_is_proportional_to_charge_stage() -> void:
 func test_beam_fades_into_a_spiral_trail() -> void:
 	var world := _rig()
 	var muzzle := Vector3(40, 30, 0)
-	_fire(world, muzzle, 1.0)
+	world.player._fire_shell(Armament.Round.APFSDS, muzzle, Vector3.FORWARD, 1.0)
 	var spiral: Array = world.fx._pools[Fx.Kind.FLAME].filter(func(p: Fx.Particle) -> bool:
 		return p.color == Palette.CYAN and p.position.z < -20.0)
 	check(spiral.size() > 30, "a continuous spiral extends along the beam")
@@ -170,3 +173,16 @@ func test_beam_fades_into_a_spiral_trail() -> void:
 		quadrants[Vector2i(int(signf(offset.x)), int(signf(offset.y)))] = true
 		check(p.velocity.length() > 0.0, "the spiral disperses after firing")
 	check_eq(quadrants.size(), 4, "the trail coils around all sides of the bore")
+	if spiral.is_empty():
+		return
+	var beams := world.fx._transients.duplicate()
+	check_eq(beams.size(), 2, "the free beam consists of its core and envelope")
+	var first: Fx.Particle = spiral[0]
+	var before_radius := Vector2(first.position.x - muzzle.x, first.position.y - muzzle.y).length()
+	var trails: Array[Fx.Particle] = []
+	var splashes: Array[Fx.Particle] = []
+	world.fx._advance_pool(Fx.Kind.FLAME, 0.18, trails, splashes)
+	world.fx._update_transients(0.18)
+	check(beams.all(func(t: Dictionary) -> bool: return t.node.is_queued_for_deletion()), "the straight beam disappears before the spiral")
+	check(first.life < first.max_life, "spiral motes outlive the beam")
+	check(Vector2(first.position.x - muzzle.x, first.position.y - muzzle.y).length() > before_radius, "the helix expands as the beam disintegrates")

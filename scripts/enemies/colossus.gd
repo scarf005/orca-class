@@ -322,7 +322,8 @@ func _flesh_hit(hit: Hit) -> void:
 	world.fx.spores(hit.position, 12 if heavy else 3, 1.5 if heavy else 0.5)
 	Sfx.play("squelch", hit.position, 4.0 if heavy else -6.0, randf_range(0.7, 1.1))
 	if hit.kind == Hit.Kind.SHELL and hit.caliber >= 100:
-		world.fx.explosion(hit.position, 2.5, [Palette.WHITE, Palette.BLUSH, Palette.FUNGUS, Palette.LILAC], hit.direction)
+		if hit.weapon != "apfsds":
+			world.fx.explosion(hit.position, 2.5, [Palette.WHITE, Palette.BLUSH, Palette.FUNGUS, Palette.LILAC], hit.direction)
 		world.hitstop(0.07)
 		world.shake(0.45, hit.position)
 		world.camera.kick(0.03)

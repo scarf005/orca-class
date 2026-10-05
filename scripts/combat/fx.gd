@@ -759,6 +759,25 @@ func beam(from: Vector3, to: Vector3, color: Color, width := 0.12, life := 0.06)
 	_transient(mesh, Transform3D(basis, from), life, true, Vector2.ONE, 0.5, true)
 
 
+## A railgun flash disintegrating into an expanding, twisting helix of cooling motes.
+func rail_beam(from: Vector3, to: Vector3, color: Color, charge_stage := 3) -> void:
+	var thickness := float(maxi(1, charge_stage))
+	beam(from, to, Palette.WHITE, 0.32 * thickness, 0.07)
+	beam(from, to, color, 0.8 * thickness, 0.12)
+	var length := from.distance_to(to)
+	if length < 0.01:
+		return
+	var dir := (to - from) / length
+	var side := dir.cross(Vector3.UP if absf(dir.y) < 0.99 else Vector3.RIGHT).normalized()
+	var up := side.cross(dir)
+	for i in int(length / 0.75):
+		var distance := (i + 0.5) * 0.75
+		var angle := distance * TAU / 8.0
+		var radial := side * cos(angle) + up * sin(angle)
+		var tangent := -side * sin(angle) + up * cos(angle)
+		spawn(Kind.FLAME, from + dir * distance + radial * 0.6 * thickness, radial * 3.2 + tangent * 2.4, 0.8, 0.45, color, {"end_size": 0.1, "drag": 1.2, "fade": 0.2})
+
+
 ## A pulsing ring on the ground that tightens until `time` runs out: where something will land.
 func marker(position: Vector3, radius: float, time: float, color := Palette.RED) -> void:
 	var mesh := _cached("marker", color, func(b: LowPoly, c: Color) -> void:

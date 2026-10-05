@@ -293,30 +293,33 @@ func set_see_through(enabled: bool) -> void:
 
 
 func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
-	# Vertical cylinder: test in the ground plane, then check the height at the contact point.
+	# Intersect the horizontal cylinder interval with its height interval, including roof entry.
 	var base := global_position
 	var r := footprint + extra_radius
 	var a := Vector2(from.x - base.x, from.z - base.z)
-	var b := Vector2(to.x - base.x, to.z - base.z)
-	var d := b - a
-	var length_2d := d.length()
-	var t := -1.0
-	if a.length() <= r:
-		t = 0.0
-	elif length_2d > 0.0001:
-		var dir := d / length_2d
-		var proj := -a.dot(dir)
-		var perp := a.length_squared() - proj * proj
-		if proj >= 0.0 and perp <= r * r:
-			var along := proj - sqrt(r * r - perp)
-			if along <= length_2d:
-				t = along / length_2d
-	if t < 0.0:
+	var d := Vector2(to.x - from.x, to.z - from.z)
+	var enter := 0.0
+	var leave := 1.0
+	var length_squared := d.length_squared()
+	if length_squared > 0.00000001:
+		var projection := a.dot(d)
+		var discriminant := projection * projection - length_squared * (a.length_squared() - r * r)
+		if discriminant < 0.0:
+			return -1.0
+		var root := sqrt(discriminant)
+		enter = maxf(enter, (-projection - root) / length_squared)
+		leave = minf(leave, (-projection + root) / length_squared)
+	elif a.length_squared() > r * r:
 		return -1.0
-	var y := lerpf(from.y, to.y, t)
-	if y < base.y - 0.5 or y > base.y + height:
+	var dy := to.y - from.y
+	if absf(dy) > 0.0001:
+		var bottom := (base.y - 0.5 - from.y) / dy
+		var top := (base.y + height - from.y) / dy
+		enter = maxf(enter, minf(bottom, top))
+		leave = minf(leave, maxf(bottom, top))
+	elif from.y < base.y - 0.5 or from.y > base.y + height:
 		return -1.0
-	return t * from.distance_to(to)
+	return enter * from.distance_to(to) if enter <= leave else -1.0
 
 
 ## Driven over: one of a squashed hulk left behind, the whole car knocked flying in one wrecked

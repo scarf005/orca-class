@@ -17,7 +17,8 @@ var hit := Hit.new()
 var blast_radius := 0.0
 var blast_damage := 0.0
 var blast_colors: Array = [Palette.BUTTER, Palette.AMBER, Palette.HOT, Palette.CORAL]
-var pierce_entities := false ## Keeps flying after hitting entities (APFSDS).
+var pierce_entities := false ## Keeps flying after hitting entities.
+var pierce_props := false ## Drills every enemy and destructible prop, including overlapping ones.
 var fuse_distance := 0.0 ## Detonates in the air after this distance (airburst); 0 disables.
 var airburst_fragments := 0
 var proximity := 0.0 ## Airburst: once armed, detonates when it passes this close to a flying hostile; 0 disables.
@@ -219,9 +220,12 @@ func resolve_now(max_range: float) -> Vector3:
 	impacted.connect(func(_p: Projectile, point: Vector3, _t: Entity) -> void: end[0] = point)
 	var speed := maxf(velocity.length(), 1.0)
 	life = max_range / speed + 1.0
-	while not is_queued_for_deletion() and not _glanced and _traveled < max_range:
+	# Count sweeps independently of float-precision displacement, including fractional ranges.
+	for i in ceili(max_range / 6.0):
+		if is_queued_for_deletion() or _glanced:
+			break
 		end[0] = global_position
-		step(6.0 / speed)
+		step(minf(6.0, max_range - i * 6.0) / speed)
 	if _glanced:
 		return end[0] # The line ends where it glanced; the round tumbles off on its own from there.
 	if not is_queued_for_deletion():
@@ -233,6 +237,8 @@ func resolve_now(max_range: float) -> Vector3:
 
 ## Returns true when the projectile stopped.
 func _sweep(from: Vector3, to: Vector3) -> bool:
+	if pierce_props:
+		return _sweep_penetrating(from, to)
 	var world := World.current
 	if is_instance_valid(sure_target) and not sure_target.dead:
 		var part: Array = sure_target.aim_parts().get(homing_part, [])
@@ -285,6 +291,37 @@ func _sweep(from: Vector3, to: Vector3) -> bool:
 			world.fx.sparks(point, -velocity.normalized(), 6, Palette.WHITE, 14.0)
 			return false
 		detonate(point, best_entity)
+		return true
+	return false
+
+
+## A dart drills every intersected body once, ordered along the ray. Solid earth stops it;
+## scenery does not, even when the hit fails to destroy it.
+func _sweep_penetrating(from: Vector3, to: Vector3) -> bool:
+	var world := World.current
+	var ground_t := _ground_hit(from, to)
+	var limit := ground_t if ground_t >= 0.0 else from.distance_to(to)
+	var contacts: Array[Dictionary] = []
+	var candidates: Array = world.targets_for(team).duplicate()
+	candidates.append_array(world.props.near(from, to, 12.0))
+	for entity: Entity in candidates:
+		if entity.dead or entity in _hit_entities:
+			continue
+		var t := entity.hit_test(from, to, radius)
+		if t >= 0.0 and t <= limit:
+			contacts.append({"entity": entity, "t": t})
+	contacts.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.t < b.t)
+	for contact in contacts:
+		var entity: Entity = contact.entity
+		if entity.dead or entity in _hit_entities:
+			continue
+		var point: Vector3 = from + velocity.normalized() * contact.t
+		_hit_entities.append(entity)
+		_apply(entity, point)
+		world.fx.sparks(point, -velocity.normalized(), 6, Palette.WHITE, 14.0)
+		impacted.emit(self, point, entity)
+	if ground_t >= 0.0:
+		detonate(from + velocity.normalized() * ground_t, null)
 		return true
 	return false
 
