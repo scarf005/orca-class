@@ -66,7 +66,7 @@ static func mesh(kind: String, variant := 0) -> Mesh:
 	if not _cache.has(key):
 		var rng := RandomNumberGenerator.new()
 		rng.seed = hash(key)
-		_cache[key] = Callable(PropKit, kind).call(variant, rng)
+		_cache[key] = CityKit.decor("rubble" if kind == "city_rubble" else kind, variant) if kind in ["streetlamp", "traffic_light", "road_sign", "raft", "city_rubble", "subway_entrance"] else Callable(PropKit, kind).call(variant, rng)
 	return _cache[key]
 
 

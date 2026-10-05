@@ -236,11 +236,11 @@ func test_destroyed_and_soft_props_do_not_block_sight() -> void:
 	check(not scenery.line_blocked(a, b), "destroyed cover stops blocking immediately")
 
 
-func test_city_structures_cannot_be_crushed_or_shot_down() -> void:
+func test_city_boundary_architecture_cannot_be_crushed_or_shot_down() -> void:
 	var world := stage("", false, 2)
 	var checked := 0
 	for prop: Node in world.props.get_children():
-		if not prop is Prop or (prop as Prop).box_size == Vector3.ZERO:
+		if not prop is Prop or (prop as Prop).box_size == Vector3.ZERO or (prop as Prop).kind in ["container", "ship"]:
 			continue
 		var solid := prop as Prop
 		var hp := solid.hp

@@ -65,6 +65,12 @@ const PROPS := {
 	"city_deck": [12.0, 1.8, 200.0, false, false, 0, false, false],
 	"container": [7.0, 2.8, 200.0, false, false, 0, false, false],
 	"ship": [8.0, 8.0, 200.0, false, false, 0, false, false],
+	"streetlamp": [0.5, 8.5, 12.5, true, false, 10, false, false],
+	"traffic_light": [0.5, 6.2, 12.5, true, false, 10, false, false],
+	"road_sign": [0.5, 4.6, 10.0, true, false, 5, false, false],
+	"raft": [2.5, 1.0, 6.0, true, true, 10, false, false],
+	"city_rubble": [2.5, 2.2, 10.0, true, false, 5, false, false],
+	"subway_entrance": [4.2, 2.85, 20.0, true, false, 15, false, false],
 }
 
 ## The highway crossing overhead: piers standing in the valley (lateral offsets) and deck spans
@@ -78,7 +84,7 @@ const OVERPASS_DECK_Y := 7.9
 const VEHICLES := ["car", "truck", "infested_car", "cultivator"]
 
 ## Tall thin props that snap and fall over rather than vanish.
-const FALLING := ["pole", "plane_tree", "persimmon", "cordyceps"]
+const FALLING := ["pole", "plane_tree", "persimmon", "cordyceps", "streetlamp", "traffic_light", "road_sign"]
 
 ## Solid buildings and structures: the tank breaks them but is slowed hard (Rail.jolt).
 const HARD := ["house", "infested_house", "hall", "church_nave", "church_tower", "church_spire", "school_wing", "school_center", "gas_station", "overpass_pier", "overpass_deck", "gate", "rock", "fungal_spire", "zelkova_trunk", "city_building", "city_shop", "city_terminal", "city_department", "city_clock", "city_leaning", "city_toppled", "city_pier", "city_deck", "city_sag_span", "container", "ship"]
@@ -204,11 +210,22 @@ func add_decor(mesh: Mesh, d: float, u: float, yaw := 0.0, y := INF) -> Spec:
 
 
 func _city() -> void:
+	var container_groups := {}
 	for structure in Course.stage.structures:
 		var spec := add(structure.kind, structure.d, structure.u, structure.yaw, structure.variant)
 		spec.size = structure.size
 		spec.tilt = structure.get("tilt", Vector3.ZERO)
 		spec.set_meta("y", structure.y)
+		if structure.kind == "container":
+			var key := Vector2(structure.d, signf(structure.u))
+			if container_groups.has(key):
+				spec.group = container_groups[key]
+				spec.index = 1
+				spec.rests_on = 0
+			else:
+				spec.group = _groups.size()
+				container_groups[key] = spec.group
+				_groups.append({})
 	var stage := Course.stage as Stage2
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20261004
@@ -216,17 +233,18 @@ func _city() -> void:
 		if stage.in_arena(float(d), 40.0):
 			continue
 		var side := -1.0 if (d / 36) % 2 == 0 else 1.0
-		add_decor(CityKit.decor("streetlamp"), float(d), side * 11.5, 0.0 if side < 0.0 else PI, stage.height(float(d), side * 11.5))
+		add("streetlamp", float(d), side * 11.5, 0.0 if side < 0.0 else PI, 0).set_meta("y", stage.height(float(d), side * 11.5))
 	for d in range(180, int(Stage2.LENGTH) - 300, 140):
 		if stage.in_arena(float(d), 60.0):
 			continue
-		add_decor(CityKit.decor("traffic_light"), float(d), 11.0, PI, stage.height(float(d), 11.0))
-		add_decor(CityKit.decor("road_sign", d % 4), float(d) + 55.0, -11.5, 0.0, stage.height(float(d), -11.5))
+		add("traffic_light", float(d), 11.0, PI, 0).set_meta("y", stage.height(float(d), 11.0))
+		add("road_sign", float(d) + 55.0, -11.5, 0.0, d % 4).set_meta("y", stage.height(float(d), -11.5))
 	for d in range(150, int(Stage2.LENGTH) - 300, 95):
 		if stage.in_arena(float(d), 40.0):
 			continue
 		var u := rng.randf_range(-12.0, 12.0)
-		add_decor(CityKit.decor("raft", rng.randi_range(0, 5)), float(d), u, rng.randf() * TAU, Stage2.WATER_LEVEL + 0.02)
+		var variant := rng.randi_range(0, 5)
+		add("raft", float(d), u, rng.randf() * TAU, variant).set_meta("y", Stage2.WATER_LEVEL + 0.02)
 	for d in range(220, int(Stage2.LENGTH) - 300, 210):
 		if stage.in_arena(float(d), 50.0):
 			continue
@@ -236,7 +254,7 @@ func _city() -> void:
 		if stage.in_arena(float(d), 50.0):
 			continue
 		add("barricade", float(d), rng.randf_range(-6.0, 6.0), rng.randf_range(-0.3, 0.3), rng.randi_range(0, 3))
-		add_decor(CityKit.decor("rubble", d % 4), float(d) + 20.0, 11.0 if d % 2 == 0 else -11.0, rng.randf() * TAU, stage.height(float(d), 11.0))
+		add("city_rubble", float(d) + 20.0, 11.0 if d % 2 == 0 else -11.0, rng.randf() * TAU, d % 4).set_meta("y", stage.height(float(d), 11.0))
 	# Deep-water gap dressing is placed from the generated frontage data, never inside a tower box.
 	var gap_index := 0
 	for gap: Dictionary in stage.frontage_gaps:
@@ -247,14 +265,14 @@ func _city() -> void:
 			add("bus_wreck", float(gap.d), float(gap.u), rng.randf_range(-0.4, 0.4), rng.randi_range(0, 5))
 		else:
 			add("car", float(gap.d), float(gap.u), rng.randf() * TAU, rng.randi_range(0, 11))
-		add_decor(CityKit.decor("streetlamp", int(gap.d) % 6), float(gap.d) - 5.0, float(gap.u) + gap.side * 3.0, 0.0, Stage2.WATER_LEVEL + 0.02)
-		add_decor(CityKit.decor("road_sign", int(gap.d) % 4), float(gap.d) + 6.0, float(gap.u) - gap.side * 2.0, 0.0, Stage2.WATER_LEVEL + 0.02)
+		add("streetlamp", float(gap.d) - 5.0, float(gap.u) + gap.side * 3.0, 0.0, int(gap.d) % 6).set_meta("y", Stage2.WATER_LEVEL + 0.02)
+		add("road_sign", float(gap.d) + 6.0, float(gap.u) - gap.side * 2.0, 0.0, int(gap.d) % 4).set_meta("y", Stage2.WATER_LEVEL + 0.02)
 	for i in 5:
 		var side := -1.0 if i % 2 == 0 else 1.0
 		add_decor(CityKit.decor("crane"), Stage2.BAY_D - 110.0 + i * 55.0, side * 158.0, PI * 0.5 * side, Stage2.WATER_LEVEL - 4.0)
 	for i in 14:
 		var angle := TAU * i / 14.0 + 0.2
-		add_decor(CityKit.decor("raft", i % 6), Stage2.BAY_D + sin(angle) * 70.0, cos(angle) * 70.0, angle, Stage2.WATER_LEVEL + 0.02)
+		add("raft", Stage2.BAY_D + sin(angle) * 70.0, cos(angle) * 70.0, angle, i % 6).set_meta("y", Stage2.WATER_LEVEL + 0.02)
 	# Stalled traffic filling the drowned lanes, thicker in the quiet opening; wrecks wake out at the harbour.
 	for d in range(100, int(Stage2.LENGTH) - 350, 55):
 		if stage.in_arena(float(d), 30.0) or rng.randf() < (0.25 if d > 700 else 0.1):
@@ -282,7 +300,7 @@ func _city() -> void:
 		var section := stage.section_at(float(d))
 		if section == Stage2.Section.BOULEVARD and not stage.in_arena(float(d), 30.0) and not _near_split(float(d), 30.0):
 			add("plane_tree", float(d), rng.randf_range(-0.4, 0.4), rng.randf() * TAU, d % 3)
-	add_decor(CityKit.decor("subway_entrance"), Stage2.PLAZA_D - 65.0, 55.0, 0.0, stage.height(Stage2.PLAZA_D - 65.0, 55.0))
+	add("subway_entrance", Stage2.PLAZA_D - 65.0, 55.0, 0.0, 0).set_meta("y", stage.height(Stage2.PLAZA_D - 65.0, 55.0))
 	for d in range(2250, 3150, 180):
 		add("truck", float(d), 8.0, 0.0, 1)
 
@@ -392,7 +410,7 @@ func arena_position(point: Vector3, d: float, margin := 0.0) -> Vector3:
 
 
 ## Boss impacts remove both the visual prop and its persistent solid, even outside the stream.
-## Only named breakable cover is affected; towers, ships and piers remain arena boundaries.
+## Only explicitly named cover is affected.
 func crush_cover(from: Vector3, to: Vector3, reach: float, kinds: Array[String]) -> int:
 	var removed := 0
 	for spec in specs:
@@ -403,11 +421,7 @@ func crush_cover(from: Vector3, to: Vector3, reach: float, kinds: Array[String])
 		var extent := spec.size.length() * 0.5 if spec.size != Vector3.ZERO else float(PROPS[spec.kind][0])
 		if Vector2(at.x - closest.x, at.z - closest.z).length() > reach + extent:
 			continue
-		spec.set_meta("destroyed", true)
-		for i in range(Course.structure_boxes.size() - 1, -1, -1):
-			var box: Dictionary = Course.structure_boxes[i]
-			if box.d == spec.d and box.u == spec.u and box.size == spec.size and box.pose.origin.is_equal_approx(at):
-				Course.structure_boxes.remove_at(i)
+		_destroy_spec(spec)
 		if is_instance_valid(spec.node):
 			var prop := spec.node as Prop
 			if prop != null and not prop.dead:
@@ -417,6 +431,16 @@ func crush_cover(from: Vector3, to: Vector3, reach: float, kinds: Array[String])
 		World.current.fx.debris(at + Vector3.UP, 12, [Fx.Debris.METAL, Fx.Debris.CONCRETE], 12.0, 0.6)
 		removed += 1
 	return removed
+
+
+func _destroy_spec(spec: Spec) -> void:
+	spec.set_meta("destroyed", true)
+	if spec.size == Vector3.ZERO:
+		return
+	for i in range(Course.structure_boxes.size() - 1, -1, -1):
+		var box: Dictionary = Course.structure_boxes[i]
+		if box.d == spec.d and box.u == spec.u and box.size == spec.size:
+			Course.structure_boxes.remove_at(i)
 
 
 ## HARD cover, including streamed-out city boxes; destroyed ordinary props no longer block sight.
@@ -754,7 +778,7 @@ func _instantiate(spec: Spec) -> void:
 		if spec.size != Vector3.ZERO:
 			prop.setup(spec.kind, PropKit.structure_mesh(spec.kind, spec.size, spec.variant), minf(spec.size.x, spec.size.z) * 0.5, spec.size.y, cfg[2])
 			prop.box_size = spec.size
-			prop.invulnerable = true
+			prop.invulnerable = spec.kind not in ["container", "ship"]
 		else:
 			prop.setup(spec.kind, PropKit.mesh(spec.kind, spec.variant), cfg[0], cfg[1], cfg[2])
 		prop.crushable = cfg[3]
@@ -775,7 +799,7 @@ func _instantiate(spec: Spec) -> void:
 		prop.rotation = Vector3(spec.tilt.x, yaw, spec.tilt.z)
 		World.current.props.add_child(prop)
 		spec.node = prop
-		prop.died.connect(func(_prop: Entity) -> void: spec.set_meta("destroyed", true))
+		prop.died.connect(func(_prop: Entity) -> void: _destroy_spec(spec))
 		if spec.group >= 0:
 			_link(spec, prop)
 		if _wires_of.has(spec):
@@ -841,8 +865,14 @@ func _debris(kind: String) -> Array:
 			return [Fx.Debris.CERAMIC]
 		"greenhouse":
 			return [Fx.Debris.VINYL, Fx.Debris.METAL, Fx.Debris.FOLIAGE]
-		"pole":
+		"pole", "streetlamp", "traffic_light", "road_sign":
 			return [Fx.Debris.CONCRETE, Fx.Debris.METAL]
+		"raft":
+			return [Fx.Debris.WOOD, Fx.Debris.METAL]
+		"city_rubble", "subway_entrance":
+			return [Fx.Debris.CONCRETE, Fx.Debris.METAL]
+		"container", "ship":
+			return [Fx.Debris.METAL, Fx.Debris.PAINT]
 		"bus_stop":
 			return [Fx.Debris.METAL, Fx.Debris.GLASS, Fx.Debris.CONCRETE]
 		"cultivator", "barrel", "gas_pump":
