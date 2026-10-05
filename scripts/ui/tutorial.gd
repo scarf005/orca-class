@@ -111,7 +111,6 @@ var _fire_ready := false
 var _overlay: Menu
 var _ink := Control.new()
 var _instruction := Label.new()
-var _caption := Label.new()
 var _menu_button := Button.new()
 var _play := Button.new()
 var _replay := Button.new()
@@ -142,7 +141,6 @@ func _ready() -> void:
 	_ink.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_ink.draw.connect(_draw_guidance)
 	add_child(_ink)
-	_label(_caption, Vector2(24, 18), Vector2(560, 30), 20)
 	_button(_menu_button, Rect2(784, 12, 152, 36), _pause)
 	_label(_instruction, Vector2(284, 434), Vector2(544, 86), 26)
 	_instruction.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -240,7 +238,6 @@ func binding(action: StringName) -> String:
 
 
 func _refresh_text() -> void:
-	_caption.text = tr("TUTORIAL_TITLE")
 	_menu_button.text = tr("TUTORIAL_MENU")
 	_play.text = tr("TUTORIAL_START_GAME")
 	_replay.text = tr("TUTORIAL_RESTART")
@@ -326,7 +323,6 @@ func _process(_delta: float) -> void:
 
 func _draw_guidance() -> void:
 	var font := get_theme_default_font()
-	_ink.draw_rect(Rect2(16, 12, font.get_string_size(_caption.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x + 24, 36), Palette.INK)
 	_ink.draw_rect(Rect2(180, 428 if step != Step.DONE else 402, 660, 98 if step != Step.DONE else 76), Palette.INK)
 	var action: StringName = _move_action if step <= Step.RIGHT else &"move_back" if step == Step.ROAD else &"aim_right" if step == Step.AIM else &"fire"
 	_draw_input(action)
