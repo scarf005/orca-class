@@ -356,7 +356,7 @@ func _wade_spray(delta: float) -> void:
 	for side: float in [-1.0, 1.0]:
 		var at: Vector3 = global_position + global_basis.x * side * TrackMarks.TRACK_OFFSET + global_basis.z * 1.5
 		if _wet:
-			fx.splash(at, 0.8, Water.surface_at(global_position))
+			fx.splash(at, 0.8, Water.surface_at(global_position), false) # Spray only: the wake draws the rings.
 		else:
 			fx.juice(at, global_basis.z)
 

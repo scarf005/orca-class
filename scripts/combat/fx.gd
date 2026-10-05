@@ -505,10 +505,11 @@ func afterimage(meshes: Array, color: Color, life := 0.45) -> void:
 
 
 ## Something hits the water: a crown of spray and rings spreading out over the surface.
-func splash(position: Vector3, size: float, surface := Stage1.WATER_LEVEL) -> void:
+func splash(position: Vector3, size: float, surface := Stage1.WATER_LEVEL, rings := true) -> void:
 	var at := Vector3(position.x, surface + 0.05, position.z)
-	for ring in [[2.5, 0.8], [4.5, 1.3], [7.0, 1.9]]:
-		_transient(_cached("ring", Palette.CREAM, _ring_builder), Transform3D(Basis(), at), ring[1] * (0.6 + size * 0.4), true, Vector2(size * 0.5, size * ring[0]), 0.2, false)
+	var spread := minf(size, 2.5) # Big wrecks throw more water up, not a wider white sheet.
+	for ring in [[2.5, 0.8], [4.5, 1.3], [7.0, 1.9]] if rings else []:
+		_transient(_cached("wake_ring", Palette.CREAM, _thin_ring_builder), Transform3D(Basis(), at), ring[1] * (0.6 + spread * 0.4), true, Vector2(spread * 0.5, spread * ring[0]), 0.2, false)
 	for i in int(4 + size * 6):
 		var dir := Vector3(randf_range(-0.4, 0.4), 1.0, randf_range(-0.4, 0.4)).normalized()
 		spawn(Kind.GLOW, at, dir * randf_range(3.0, 7.0) * (0.6 + size * 0.5), randf_range(0.4, 0.8), randf_range(0.15, 0.3) * (1.0 + size), [Palette.WHITE, Palette.SKY, Palette.CREAM][i % 3], {"gravity": 18.0, "end_size": 0.05, "fade": 0.6})
@@ -521,7 +522,7 @@ func wake(position: Vector3, velocity: Vector3, size: float, surface := Stage1.W
 	var flat := Vector3(velocity.x, 0.0, velocity.z)
 	var pace := clampf(flat.length() / 20.0, 0.0, 1.0)
 	# Moving, rings are laid close together: small and brief, so they read as a trail, not a sheet.
-	_transient(_cached("ring", Palette.CREAM, _ring_builder), Transform3D(Basis(), at), lerpf(1.4, 0.5, pace), true, Vector2(size * 0.3, size * lerpf(2.0, 0.9, pace)), 0.2, false)
+	_transient(_cached("wake_ring", Palette.CREAM, _thin_ring_builder), Transform3D(Basis(), at), lerpf(1.4, 0.5, pace), true, Vector2(size * 0.3, size * lerpf(2.0, 0.9, pace)), 0.2, false)
 	if pace < 0.1:
 		return
 	var ahead := flat.normalized()
@@ -532,11 +533,16 @@ func wake(position: Vector3, velocity: Vector3, size: float, surface := Stage1.W
 		spawn(Kind.GLOW, at + ahead * size * 0.7 + side * out * size * 0.5, push * (0.5 + pace * 0.5), randf_range(0.35, 0.6), randf_range(0.15, 0.3) * (1.0 + size * 0.5), [Palette.WHITE, Palette.SKY, Palette.CREAM][i % 3], {"gravity": 18.0, "end_size": 0.05, "fade": 0.6})
 
 
-static func _ring_builder(b: LowPoly, c: Color) -> void:
+static func _ring_builder(b: LowPoly, c: Color, inner := 0.8) -> void:
 	for i in 16:
 		var o0 := Vector3(cos(TAU * i / 16.0), 0, sin(TAU * i / 16.0))
 		var o1 := Vector3(cos(TAU * (i + 1) / 16.0), 0, sin(TAU * (i + 1) / 16.0))
-		b.quad(o0 * 0.8, o1 * 0.8, o1, o0, c, Vector3.UP)
+		b.quad(o0 * inner, o1 * inner, o1, o0, c, Vector3.UP)
+
+
+## Wakes lay many rings in a row; thin ones read as a trail instead of a white sheet.
+static func _thin_ring_builder(b: LowPoly, c: Color) -> void:
+	_ring_builder(b, c, 0.93)
 
 
 ## A slow column of smoke that lingers where something blew up.
