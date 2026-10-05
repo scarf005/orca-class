@@ -805,8 +805,8 @@ func marker(position: Vector3, radius: float, time: float, color := Palette.RED)
 			b.quad(o0 * 0.86, o1 * 0.86, o1, o0, c, Vector3.UP)
 		b.box(Transform3D(), Vector3(0.5, 0.02, 0.08), c)
 		b.box(Transform3D(), Vector3(0.08, 0.02, 0.5), c))
-	var ground := Vector3(position.x, Course.height_at(position) + 0.15, position.z)
-	var node := _transient(mesh, Transform3D(Basis(), ground), time, true, Vector2(radius * 1.6, radius), 0.97)
+	var ground := Vector3(position.x, maxf(Course.height_at(position), Water.surface_at(position)) + 0.15, position.z)
+	var node := _transient(mesh, Transform3D(Basis(), ground), time, true, Vector2(radius * 1.6, radius), 0.97, true)
 	node.scale = Vector3.ONE * radius * 1.6
 
 
