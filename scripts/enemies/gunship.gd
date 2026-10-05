@@ -325,7 +325,7 @@ func _pod_mesh() -> Mesh:
 	b.box(Transform3D(Basis(), Vector3(0, 1.45, 0)), Vector3(1.6, 0.1, 4.4), Palette.BUTTER)
 	for x in [-0.45, 0.45]:
 		for y in [-0.9, 0.0, 0.9]:
-			b.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(x, y, -2.4)), 0.3, 0.45, 6, Palette.ASH, 0.0)
+			b.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(x, y, -2.4)), 0.3, 0.45, 6, Palette.AMBER, 0.0)
 	return b.mesh()
 
 
