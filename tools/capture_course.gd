@@ -38,10 +38,18 @@ func run() -> int:
 			var center := Course.ground_at(d + 120.0, 0.0)
 			world.camera.global_transform = Transform3D(Basis.looking_at(Vector3.DOWN, Course.forward(d + 120.0)), center + Vector3.UP * 330.0)
 		else:
-			var eye := Course.ground_at(d - 14.0, float(args.get("u", "0")))
+			var capture_u := float(args.get("u", "0"))
+			# A gameplay tank is shoved into a lane before a splitter; do the same for stills.
+			if world.stage_number == 2:
+				var city := Course.stage as Stage2
+				for index in city.SPLITS.size():
+					if absf(d - float(city.SPLITS[index].d)) < 20.0:
+						capture_u = city.split_lane_centres(index).x
+						break
+			var eye := Course.ground_at(d - 14.0, capture_u)
 			eye.y += float(args.get("h", "7"))
 			world.camera.position = eye
-			world.camera.look_at(Course.ground_at(d + 30.0, 0.0) + Vector3.UP * 1.5)
+			world.camera.look_at(Course.ground_at(d + 30.0, capture_u) + Vector3.UP * 1.5)
 		for _i in 30:
 			await get_tree().process_frame
 		if args.has("profile"):

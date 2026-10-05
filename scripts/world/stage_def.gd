@@ -81,6 +81,8 @@ func deck_blend(_d: float) -> float:
 
 ## Maximum tank offset from the road centerline outside an all-range arena.
 func lateral_limit(d: float) -> float:
+	if deck_blend(d) > 0.5:
+		return 12.0
 	return maxf(valley_half_width(d) - 4.0, 14.0)
 
 
