@@ -1,9 +1,8 @@
 """Synthesizes the game's extra sound effects and music.
 
-Run: uv run --with numpy --with pyfluidsynth tools/audio.py [sfx|music|stage2|stage2sfx|stage2music]
+Run: uv run --with numpy tools/audio.py [sfx|music|stage2|stage2sfx|stage2music]
 Writes WAV effects to assets/audio/synth/ and OGG music to assets/music/ (via ffmpeg).
-Everything is generated here from scratch, except stage 2's piano, which FluidSynth renders from the FluidR3 GM soundfont
-(see assets/audio/ATTRIBUTION.md).
+Everything is generated from scratch, here and in city_music.py (stage 2).
 """
 
 import os
@@ -402,13 +401,11 @@ class Song:
         for edit in self.edits:
             self._edit(left, *edit)
             self._edit(right, *edit)
-        if pedal:
-            tail = int(0.1 * RATE)
-            left = highpass(np.concatenate([left[-tail:], left]), 30)[tail:]
-            right = highpass(np.concatenate([right[-tail:], right]), 30)[tail:]
-            stereo = np.stack([left, right], axis=1)
-        else:
-            stereo = np.stack([highpass(left, 30), highpass(right, 30)], axis=1)
+        # Highpass across the loop point: the filter starts from the loop's own tail, so the seam stays continuous.
+        tail = int(0.1 * RATE)
+        left = highpass(np.concatenate([left[-tail:], left]), 30)[tail:]
+        right = highpass(np.concatenate([right[-tail:], right]), 30)[tail:]
+        stereo = np.stack([left, right], axis=1)
         # Normalize and soft-limit under the effects. Piano's brighter spectrum needs 1 dB less RMS
         # to match stage 1's perceived loudness (about -14 LUFS).
         stereo /= np.percentile(np.abs(stereo), 99.9) or 1.0
