@@ -19,9 +19,11 @@ const SPLITS: Array[Dictionary] = [
 	{"d": 1450.0, "u": 0.0, "size": 8.0, "kind": "span"},
 	{"d": 1720.0, "u": 0.0, "size": 8.0, "kind": "tower"},
 	{"d": 2080.0, "u": 5.0, "size": 6.0, "kind": "tower"},
-	{"d": 2400.0, "u": -5.0, "size": 6.0, "kind": "tower"},
+	{"d": 2400.0, "u": -5.0, "size": 6.0, "kind": "toppled"},
 	{"d": 2750.0, "u": 4.0, "size": 6.0, "kind": "tower"},
 ]
+
+var frontage_gaps: Array[Dictionary] = []
 
 
 func _init() -> void:
@@ -53,15 +55,14 @@ func _init() -> void:
 	# Hand-placed landmarks break up the procedural frontage without narrowing the street.
 	# Boulevard bus terminal facade gives the opening hunter a readable peek from cover.
 	_structure("city_building", 336.0, 45.0, Vector3(22.0, 30.0, 24.0), WATER_LEVEL - 4.5, 6)
-	_structure("city_building", 430.0, -46.0, Vector3(30.0, 34.0, 30.0), WATER_LEVEL - 4.5, 7)
+	_structure("city_terminal", 430.0, -47.0, Vector3(28.0, 12.0, 34.0), WATER_LEVEL - 4.5, 7)
+	_structure("city_department", 560.0, 47.0, Vector3(26.0, 28.0, 24.0), WATER_LEVEL - 4.5, 9)
 	_structure("city_building", 1760.0, 48.0, Vector3(26.0, 30.0, 24.0), WATER_LEVEL - 4.5, 9)
-	_structure("city_building", PLAZA_D, 80.0, Vector3(14.0, 30.0, 14.0), WATER_LEVEL - 4.5, 14)
+	_structure("city_clock", PLAZA_D, 80.0, Vector3(14.0, 30.0, 14.0), WATER_LEVEL - 4.5, 14)
 	_structure("city_building", 2200.0, -38.0, Vector3(24.0, 28.0, 22.0), WATER_LEVEL - 4.5, 11)
-	_structure("city_building", 2500.0, 38.0, Vector3(18.0, 26.0, 22.0), WATER_LEVEL - 4.5, 15, 0.16)
+	_structure("city_leaning", 2500.0, 38.0, Vector3(18.0, 26.0, 22.0), WATER_LEVEL - 4.5, 15, 0.0, Vector3(0.0, 0.0, 0.16))
 	# A bay-facing rim remains outside the boss arena; the yard and ships fill the water beyond it.
 	_structure("city_building", PLAZA_D - PLAZA_RADIUS - 20.0, -54.0, Vector3(24.0, 32.0, 22.0), WATER_LEVEL - 4.5, 12)
-	# Broken span in the boulevard-side water is a low, traversable splitter.
-	_structure("city_deck", 1450.0, 0.0, Vector3(8.0, 2.0, 14.0), WATER_LEVEL - 0.1, 3)
 	# Container yard, freighters and cranes stay in the harbour.
 	for d in [3530.0, 3570.0, 3710.0, 3750.0]:
 		for u in [-85.0, 85.0]:
@@ -80,26 +81,48 @@ func _generate_walls() -> void:
 	for section_range: Array in ranges:
 		for side: float in [-1.0, 1.0]:
 			var d: float = float(section_range[0]) + rng.randf_range(0.0, 10.0)
+			var along: float = rng.randf_range(16.0, 34.0)
 			while d < section_range[1]:
-				var along: float = rng.randf_range(16.0, 34.0)
 				var across: float = rng.randf_range(18.0, 30.0)
 				var h: float = rng.randf_range(18.0, 48.0)
 				var setback: float = lateral_limit(d) + 3.0 + rng.randf_range(0.0, 6.0)
-				if section_at(d) == Section.VIADUCT:
-					setback = maxf(setback, 10.0 + lateral_limit(d))
 				var centre: float = side * (setback + across * 0.5)
-				if not in_arena(d, 10.0 + along * 0.5):
-					_structure("city_building", d, centre, Vector3(across, h, along), WATER_LEVEL - 4.5, rng.randi_range(0, 15))
-				d += along + rng.randf_range(0.0, 14.0)
+				var gap: float = rng.randf_range(0.0, 14.0)
+				var next_along: float = rng.randf_range(16.0, 34.0)
+				var next_d := d + (along + next_along) * 0.5 + gap
+				var within_section := d - along * 0.5 >= float(section_range[0]) and d + along * 0.5 <= float(section_range[1])
+				if within_section and not in_arena(d, 10.0 + along * 0.5):
+					if not _expressway_occupies(d, along, side):
+						_structure("city_building", d, centre, Vector3(across, h, along), WATER_LEVEL - 4.5, rng.randi_range(0, 15))
+					frontage_gaps.append({"d": d + along + gap * 0.5, "u": side * (setback + across + 8.0), "gap": gap, "side": side})
+				d = next_d
+				along = next_along
+
+
+func _expressway_side(d: float) -> float:
+	return -1.0 if d < 1120.0 or d >= 1480.0 else 1.0
+
+
+func _expressway_occupies(d: float, along: float, side: float) -> bool:
+	if section_at(d) != Section.VIADUCT or side != _expressway_side(d):
+		return false
+	for span_d in range(760, 1640, 90):
+		var span := 72.0 + float(int(span_d / 90.0) % 3) * 10.0
+		if absf(d - float(span_d)) < (along + span) * 0.5:
+			return true
+	return false
 
 
 func _generate_splitters() -> void:
 	for index in SPLITS.size():
 		var split: Dictionary = SPLITS[index]
 		var size := float(split.size)
-		var h := 12.0 if split.kind == "tower" else 2.0
-		var base := WATER_LEVEL - 4.5 if split.kind == "tower" else WATER_LEVEL - 0.1
-		_structure("city_building" if split.kind == "tower" else "city_deck", split.d, split.u, Vector3(size, h, 14.0), base, index + 20)
+		if split.kind == "toppled":
+			_structure("city_toppled", split.d, split.u, Vector3(size, 4.0, 24.0), WATER_LEVEL - 0.1, index + 20)
+		else:
+			var h := 12.0 if split.kind == "tower" else 2.0
+			var base := WATER_LEVEL - 4.5 if split.kind == "tower" else WATER_LEVEL - 0.1
+			_structure("city_building" if split.kind == "tower" else "city_deck", split.d, split.u, Vector3(size, h, 14.0), base, index + 20)
 
 
 func _generate_expressway() -> void:
@@ -109,9 +132,9 @@ func _generate_expressway() -> void:
 			side *= -1.0
 		var span := 72.0 + float(int(d / 90.0) % 3) * 10.0
 		var deck_y := WATER_LEVEL + 4.2
-		_structure("city_deck", float(d), side * 37.0, Vector3(6.0, 1.8, span), deck_y, int(d / 90) % 6)
+		_structure("city_sag_span" if d == 1390 else "city_deck", float(d), side * 40.0, Vector3(6.0, 2.6 if d == 1390 else 1.8, span), deck_y - (0.4 if d == 1390 else 0.0), int(d / 90) % 6)
 		for offset: float in [-span * 0.32, span * 0.32]:
-			_structure("city_pier", float(d) + offset, side * 37.0, Vector3(3.0, 10.5, 3.0), WATER_LEVEL - 4.5, int(d / 90) % 4)
+			_structure("city_pier", float(d) + offset, side * 40.0, Vector3(3.0, 10.5, 3.0), WATER_LEVEL - 4.5, int(d / 90) % 4)
 
 
 ## Towers are generated independently on either side, so the skyline never mirrors itself.
@@ -129,8 +152,8 @@ func in_arena(d: float, margin := 0.0) -> bool:
 	return false
 
 
-func _structure(kind: String, d: float, u: float, size: Vector3, y: float, variant := 0, yaw := 0.0) -> void:
-	structures.append({"kind": kind, "d": d, "u": u, "size": size, "y": y, "yaw": yaw, "variant": variant})
+func _structure(kind: String, d: float, u: float, size: Vector3, y: float, variant := 0, yaw := 0.0, tilt := Vector3.ZERO) -> void:
+	structures.append({"kind": kind, "d": d, "u": u, "size": size, "y": y, "yaw": yaw, "tilt": tilt, "variant": variant})
 
 
 func lateral_limit(d: float) -> float:
@@ -260,9 +283,9 @@ func events(hard: bool) -> Array[Dictionary]:
 	e.append({"d": 520.0, "type": "pickup", "id": "apfsds"})
 
 	# Viaduct: the deck shooters make looking up matter; mines leave a gap down the road.
-	wave.call(720.0, "kain", {"u": -37.0, "ahead": 80.0, "height": 7.5})
+	wave.call(720.0, "kain", {"u": -40.0, "ahead": 80.0, "height": 10.5})
 	wave.call(870.0, "sea_mine", {"count": 2, "u": -12.0, "spacing": 4.0, "ahead": 45.0})
-	wave.call(970.0, "rooftop_battery", {"u": 37.0, "ahead": 80.0, "height": 7.5})
+	wave.call(970.0, "rooftop_battery", {"u": -40.0, "ahead": 80.0, "height": 7.5})
 	e.append({"d": 1070.0, "type": "pickup", "id": "atgm"})
 	wave.call(1140.0, "hind", {"u": -16.0, "height": 7.0, "ahead": 90.0, "drop": "micro"})
 	wave.call(1330.0, "kain", {"u": 10.0, "ahead": 80.0})
@@ -302,7 +325,7 @@ func events(hard: bool) -> Array[Dictionary]:
 
 	if hard:
 		# Pressure from the other deck and an extra flanker, never during an opening or release.
-		wave.call(990.0, "rooftop_battery", {"u": -42.0, "ahead": 80.0})
+		wave.call(990.0, "rooftop_battery", {"u": -40.0, "ahead": 80.0})
 		wave.call(2300.0, "kain", {"u": -10.0, "ahead": 80.0})
 		wave.call(2940.0, "helicopter", {"u": 16.0, "height": 14.0, "ahead": 90.0})
 	e.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.d < b.d)

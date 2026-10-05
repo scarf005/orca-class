@@ -159,6 +159,64 @@ static func foam(size: Vector3) -> Array:
 	return rects
 
 
+## A half-sunk bus terminal with a canopy and a readable terminal sign.
+static func terminal(size: Vector3, variant: int) -> Mesh:
+	var b := LowPoly.new()
+	b.box(_xf(Vector3(0, size.y * 0.5, 0)), size, Palette.CONCRETE)
+	b.box(_xf(Vector3(0, size.y + 0.8, 0)), Vector3(size.x + 4.0, 1.0, size.z + 2.0), Palette.STONE)
+	b.box(_xf(Vector3(0, size.y + 2.0, -size.z * 0.25)), Vector3(size.x * 0.75, 0.4, 0.3), Palette.CORAL)
+	for x in [-size.x * 0.35, 0.0, size.x * 0.35]:
+		b.box(_xf(Vector3(x, size.y * 0.5, size.z * 0.3)), Vector3(0.3, size.y, 0.3), Palette.ASH)
+	b.box(_xf(Vector3(0, size.y * 0.72, size.z * 0.5 + 0.2)), Vector3(size.x * 0.7, 2.4, 0.12), Palette.INK)
+	b.box(_xf(Vector3(0, size.y * 0.72, size.z * 0.58)), Vector3(size.x * 0.55, 0.2, 0.05), Palette.BUTTER)
+	return b.mesh()
+
+
+## A department store facade with a giant sign, distinct from a residential tower.
+static func department(size: Vector3, variant: int) -> Mesh:
+	var b := LowPoly.new()
+	b.box(_xf(Vector3(0, size.y * 0.5, 0)), size, FACADES[variant % FACADES.size()])
+	b.box(_xf(Vector3(0, size.y * 0.86, size.z * 0.5 + 0.35)), Vector3(size.x * 0.9, 3.2, 0.18), Palette.CORAL)
+	b.box(_xf(Vector3(0, size.y * 0.86, size.z * 0.48 + 0.46)), Vector3(size.x * 0.72, 1.4, 0.04), Palette.CREAM)
+	for floor_index in range(1, int(size.y / 4.0)):
+		b.box(_xf(Vector3(0, floor_index * 4.0, size.z * 0.5 + 0.08)), Vector3(size.x * 0.86, 0.2, 0.1), Palette.MIST)
+	return b.mesh()
+
+
+## Clock tower landmark at the plaza rim.
+static func clock(size: Vector3, variant: int) -> Mesh:
+	var b := LowPoly.new()
+	b.box(_xf(Vector3(0, size.y * 0.5, 0)), size, Palette.STONE)
+	b.box(_xf(Vector3(0, size.y + 1.5, 0)), Vector3(size.x * 1.15, 3.0, size.z * 1.15), Palette.CONCRETE)
+	for side in [-1.0, 1.0]:
+		b.prism(_xf(Vector3(0, size.y + 1.6, side * (size.z * 0.58)), PI * 0.5), 1.8, 0.18, 12, Palette.INK)
+	b.prism(_xf(Vector3(0, size.y + 3.5, 0)), 1.0, 3.0, 8, Palette.CORAL)
+	return b.mesh()
+
+
+## A canyon tower lying along the road; the collision box is the visible horizontal slab.
+static func toppled(size: Vector3, variant: int) -> Mesh:
+	var b := LowPoly.new()
+	b.box(_xf(Vector3(0, size.y * 0.5, 0)), size, Palette.CONCRETE)
+	b.box(_xf(Vector3(0, size.y + 0.25, 0)), Vector3(size.x * 0.9, 0.25, size.z * 0.9), Palette.STONE)
+	for z in range(-int(size.z * 0.4), int(size.z * 0.4), 5):
+		b.box(_xf(Vector3(0, size.y + 0.4, float(z))), Vector3(size.x * 0.55, 0.2, 1.5), Palette.SLATE)
+	return b.mesh()
+
+
+## A broken parallel-span mesh: the two ends sag toward a missing center section.
+static func sag_span(size: Vector3, variant: int) -> Mesh:
+	var b := LowPoly.new()
+	var half := size.z * 0.5
+	for piece in 2:
+		var z := (-half * 0.62 if piece == 0 else half * 0.62)
+		var length := half * 0.7
+		var y := size.y * 0.55 - (0.55 if piece == 0 else 0.35)
+		b.box(_xf(Vector3(0, y, z)), Vector3(size.x, 0.7, length), Palette.STONE)
+		b.box(_xf(Vector3(0, y + 0.45, z)), Vector3(size.x + 0.5, 0.2, length), Palette.MIST)
+	return b.mesh()
+
+
 ## A tower: size is the exact collision box. Facade, windows, ground-floor shops, waterline stain and roof clutter vary by variant.
 static func tower(size: Vector3, variant: int) -> Mesh:
 	var rng := RandomNumberGenerator.new()

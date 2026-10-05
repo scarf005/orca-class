@@ -98,7 +98,8 @@ static func _build() -> PackedFloat32Array:
 	structure_boxes.clear()
 	for structure in stage.structures:
 		var box := structure.duplicate()
-		box.pose = Transform3D(Basis(Vector3.UP, yaw_at(structure.d) + structure.yaw), to_world(structure.d, structure.u, structure.y))
+		var tilt: Vector3 = structure.get("tilt", Vector3.ZERO)
+		box.pose = Transform3D(Basis.from_euler(Vector3(tilt.x, yaw_at(structure.d) + structure.yaw, tilt.z)), to_world(structure.d, structure.u, structure.y))
 		structure_boxes.append(box)
 	return map
 

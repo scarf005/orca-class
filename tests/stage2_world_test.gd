@@ -7,6 +7,8 @@ func test_stage_driven_street_limits_and_clear_corridor() -> void:
 	check_near(Tank.lateral_limit(300.0), 30.0, 0.01, "boulevard street is 60 m wide")
 	check_near(Tank.lateral_limit(900.0), 30.0, 0.01, "viaduct street is 60 m wide")
 	check_near(Tank.lateral_limit(2300.0), 22.0, 0.01, "canyon street narrows to 44 m")
+	for d in [100.0, 800.0, 1700.0, 2200.0, 3300.0]:
+		check_near(Tank.lateral_limit(d), 22.0 if Course.section_at(d) == Stage2.Section.CANYON else 30.0, 0.01, "stage limit follows every non-arena section")
 	for box in Course.structure_boxes:
 		if box.kind in ["city_deck", "city_pier"] or Course.stage.in_arena(box.d):
 			continue
@@ -16,13 +18,46 @@ func test_stage_driven_street_limits_and_clear_corridor() -> void:
 		if is_split:
 			continue
 		var pose: Transform3D = box.pose
-		var c := Course.to_course(pose.origin)
-		check(absf(c.y) - box.size.x * 0.5 >= Tank.lateral_limit(c.x) - 0.01, "city structure clears the drivable corridor")
+		for local_z in [-box.size.z * 0.5, box.size.z * 0.5]:
+			for local_x in [-box.size.x * 0.5, box.size.x * 0.5]:
+				var corner: Vector3 = pose * Vector3(local_x, 0.0, local_z)
+				var c := Course.to_course(corner)
+				check(absf(c.y) >= Tank.lateral_limit(c.x) - 0.05, "transformed city structure clears the drivable corridor")
+
+
+func test_city_frontage_props_are_real_breakable_shop_cover() -> void:
+	var world := stage("", false, 2)
+	var scenery := world.director.scenery
+	var shop_specs := scenery.specs.filter(func(spec: Scenery.Spec) -> bool: return spec.kind == "city_shop")
+	check(shop_specs.size() >= 60, "street shops match village-like frontage density")
+	var shop_spec: Scenery.Spec = shop_specs[0]
+	scenery.stream(shop_spec.d, 100000)
+	var shop := shop_spec.node as Prop
+	check(shop != null and shop.hard and shop.crushable, "shops are registered HARD breakable props")
+	if shop:
+		world.player.global_position = shop.global_position
+		world.player._collide_props()
+		check(shop.dead or shop.is_falling(), "the tank can flatten a shop")
+	var furniture := scenery.specs.filter(func(spec: Scenery.Spec) -> bool: return spec.kind in ["kiosk", "bus_shelter", "barricade"])
+	check(not furniture.is_empty(), "kiosks, shelters and barricades are streamed as props")
+	for spec: Scenery.Spec in furniture.slice(0, mini(furniture.size(), 3)):
+		scenery.stream(spec.d, 100000)
+		check(spec.node is Prop, "%s is a registered destructible prop" % spec.kind)
 
 
 func test_splitters_and_overhead_clearance_are_explicit() -> void:
 	Course.use(2)
 	check(Stage2.SPLITS.size() >= 6 and Stage2.SPLITS.size() <= 8, "the route has six to eight splitters")
+	check(Stage2.SPLITS.any(func(split: Dictionary) -> bool: return split.kind == "toppled"), "the canyon has an explicit toppled tower splitter")
+	var leaning := Course.structure_boxes.filter(func(box: Dictionary) -> bool: return box.kind == "city_leaning")
+	check(not leaning.is_empty() and leaning[0].pose.basis.y.dot(Vector3.UP) < 0.99, "the canyon edge landmark is physically leaning")
+	check(Course.structure_boxes.any(func(box: Dictionary) -> bool: return box.kind == "city_sag_span"), "the parallel expressway has a broken sagging span")
+	var section_counts := {}
+	for split: Dictionary in Stage2.SPLITS:
+		var section := Course.section_at(float(split.d))
+		section_counts[section] = int(section_counts.get(section, 0)) + 1
+	for count: int in section_counts.values():
+		check(count <= 2, "no section has more than two splitters")
 	for split: Dictionary in Stage2.SPLITS:
 		check(split.d >= 150.0, "splitters leave the opening readable")
 		var lanes := Stage2.new().split_lane_centres(Stage2.SPLITS.find(split))
@@ -30,13 +65,37 @@ func test_splitters_and_overhead_clearance_are_explicit() -> void:
 		check(lanes.x + float(split.size) * 0.5 - (-limit) >= 9.0, "splitter leaves a nine metre left lane")
 		check(limit - (lanes.y - float(split.size) * 0.5) >= 9.0, "splitter leaves a nine metre right lane")
 	for box in Course.structure_boxes:
+		if Course.stage.in_arena(box.d):
+			continue
 		var split := false
 		for spec: Dictionary in Stage2.SPLITS:
 			split = split or absf(float(spec.d) - box.d) < 0.01
-		if split or box.kind in ["city_deck", "city_pier"] and absf(Course.to_course(box.pose.origin).y) < Tank.lateral_limit(box.d) + box.size.x * 0.5:
-			if split:
-				continue
-			check(box.y + box.size.y <= 0.0 or box.y >= 16.0, "no low structure spans the driving corridor")
+		if split:
+			continue
+		var low_overlap := false
+		for local_z in [-box.size.z * 0.5, box.size.z * 0.5]:
+			for local_x in [-box.size.x * 0.5, box.size.x * 0.5]:
+				var c := Course.to_course(box.pose * Vector3(local_x, 0.0, local_z))
+				low_overlap = low_overlap or absf(c.y) < Tank.lateral_limit(c.x) and box.y < 16.0 and box.y + box.size.y > 0.0
+		check(not low_overlap, "no non-splitter low structure spans the driving corridor")
+
+
+func test_frontage_edges_and_gaps_use_measured_layout_data() -> void:
+	Course.use(2)
+	for gap: Dictionary in (Course.stage as Stage2).frontage_gaps:
+		check(gap.gap >= 0.0 and gap.gap <= 14.0, "frontage gap stays within the seeded 0-14 m range")
+	for box in Course.structure_boxes:
+		if box.kind != "city_building" or Course.stage.in_arena(box.d):
+			continue
+		var splitter := false
+		for split: Dictionary in Stage2.SPLITS:
+			splitter = splitter or absf(float(split.d) - box.d) < 0.01
+		if splitter or is_equal_approx(box.d, 1808.0):
+			continue
+		var c := Course.to_course(box.pose.origin)
+		var face: float = absf(c.y) - box.size.x * 0.5
+		check(face >= Tank.lateral_limit(c.x) + 2.9, "tower inner face is three metres beyond the limit")
+		check(face <= Tank.lateral_limit(c.x) + 9.1, "tower jitter stays within six metres")
 
 
 func test_section_boundaries_and_bending_rail() -> void:
@@ -72,7 +131,7 @@ func test_shallow_lanes_and_deep_offroad_pools() -> void:
 
 func test_highest_walkable_surface_and_underpass_ground() -> void:
 	Course.use(2)
-	var top := Course.surface_height(1050.0, -37.0)
+	var top := Course.surface_height(1050.0, -40.0)
 	check_near(top, Stage2.WATER_LEVEL + 6.0, 0.2, "the parallel expressway is six metres above water")
 	check_near(Course.surface_height(1050.0, 0.0), 0.05, 0.01, "the tank still drives underneath")
 	check_near(Course.height(1050.0, 0.0), 0.05, 0.01, "the tank still drives underneath")
@@ -97,7 +156,7 @@ func test_cover_blocks_sides_roofs_and_inside_rays() -> void:
 	check(scenery.line_blocked(centre + Vector3.UP * (tower.size.y + 5.0), centre + Vector3.UP), "a vertical ray enters the roof")
 	check(scenery.line_blocked(centre + Vector3.UP, centre + across * (tower.size.x + 10.0) + Vector3.UP), "a ray starting inside cover is blocked")
 	check(not scenery.line_blocked(Course.to_world(800, 0, 2), Course.to_world(800, 0, 5)), "clearance under the viaduct is not cover")
-	check(scenery.line_blocked(Course.to_world(800, -37, 8), Course.to_world(800, -37, 5)), "the expressway deck blocks diving fire")
+	check(scenery.line_blocked(Course.to_world(800, -40, 8), Course.to_world(800, -40, 5)), "the expressway deck blocks diving fire")
 	check(not scenery.line_blocked(Course.to_world(100, 0, 2), Course.to_world(200, 0, 2)), "the opening lane stays unobstructed")
 	scenery.free()
 

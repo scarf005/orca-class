@@ -34,7 +34,7 @@ var min_charge := 0 ## Main-gun charge stage (Armament.stage) a hit needs to bre
 const DRAW_DISTANCE := 150.0 ## Fog hides small props well before this.
 
 enum CollapseStyle { NONE, TORN, SINK, RAM, TOPPLE, BURN }
-const BUILDINGS := ["house", "infested_house", "hall", "greenhouse", "church", "church_nave", "church_tower", "church_spire", "school", "school_wing", "school_center", "gas_station", "bus_stop", "pavilion", "overpass_pier", "overpass_deck", "pier", "gate"]
+const BUILDINGS := ["house", "infested_house", "hall", "greenhouse", "church", "church_nave", "church_tower", "church_spire", "school", "school_wing", "school_center", "gas_station", "bus_stop", "pavilion", "city_shop", "overpass_pier", "overpass_deck", "pier", "gate"]
 ## Tuned live in the duel mode, hence static vars: at 105 km/h a slow fall lands behind the tank.
 static var TOPPLE_TIME := 0.45 ## Seconds a tall thing takes to fall flat.
 static var COLLAPSE_TIME := 0.45 ## Seconds a building takes to sink or fold.

@@ -75,8 +75,13 @@ static func structure_mesh(kind: String, size: Vector3, variant: int) -> Mesh:
 	var key := "%s:%s:%d" % [kind, size, variant]
 	if _cache.has(key):
 		return _cache[key]
-	if kind in ["city_building", "container", "ship"]:
-		_cache[key] = Callable(CityKit, "tower" if kind == "city_building" else kind).call(size, variant)
+	if kind in ["city_building", "city_leaning", "city_terminal", "city_department", "city_clock", "city_toppled", "city_sag_span", "container", "ship"]:
+		var mesh_kind: String = {
+			"city_building": "tower", "city_leaning": "tower", "city_terminal": "terminal",
+			"city_department": "department", "city_clock": "clock", "city_toppled": "toppled",
+			"city_sag_span": "sag_span", "container": "container", "ship": "ship"
+		}[kind]
+		_cache[key] = Callable(CityKit, mesh_kind).call(size, variant)
 		return _cache[key]
 	var b := LowPoly.new()
 	b.box(_xf(Vector3(0, size.y * 0.5, 0)), size, Palette.STONE)
@@ -117,8 +122,37 @@ static func house(variant: int, rng: RandomNumberGenerator) -> Mesh:
 	return _house(LowPoly.new(), variant, Vector2(rng.randf_range(7.0, 9.0), rng.randf_range(5.0, 6.0))).mesh()
 
 
+static func kiosk(variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	return CityKit.decor("kiosk", variant)
+
+
+static func bus_shelter(variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	return CityKit.decor("bus_shelter", variant)
+
+
+static func barricade(variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	return CityKit.decor("barricade", variant)
+
+
+static func bus_wreck(variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	return CityKit.decor("bus_wreck", variant)
+
+
 static func city_shop(variant: int, rng: RandomNumberGenerator) -> Mesh:
-	return _house(LowPoly.new(), variant, Vector2(rng.randf_range(7.0, 9.0), rng.randf_range(5.0, 6.0))).mesh()
+	var b := LowPoly.new()
+	var width := rng.randf_range(6.0, 8.0)
+	var depth := rng.randf_range(5.0, 7.0)
+	var floors := 2 if variant % 3 else 3
+	var height := float(floors) * 2.8
+	var wall: Color = [Palette.CONCRETE, Palette.MIST, Palette.PEACH][variant % 3]
+	b.box(_xf(Vector3(0, height * 0.5, 0)), Vector3(width, height, depth), wall)
+	for floor_index in floors:
+		var y := 1.1 + floor_index * 2.8
+		b.box(_xf(Vector3(0, y, depth * 0.5 + 0.05)), Vector3(width * 0.72, 1.25, 0.08), Palette.SLATE)
+		b.box(_xf(Vector3(0, y - 0.75, depth * 0.5 + 0.1)), Vector3(width * 0.78, 0.12, 0.1), Palette.MIST)
+	b.box(_xf(Vector3(0, height + 0.25, 0)), Vector3(width + 0.5, 0.5, depth + 0.5), Palette.CORAL if variant % 2 else Palette.TEAL)
+	b.box(_xf(Vector3(0, height * 0.82, depth * 0.5 + 0.16)), Vector3(width * 0.8, 0.8, 0.05), Palette.BUTTER)
+	return b.mesh()
 
 
 static func _house(b: LowPoly, variant: int, size: Vector2) -> LowPoly:

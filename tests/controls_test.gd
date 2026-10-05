@@ -136,8 +136,9 @@ func test_coax_soft_locks_near_the_reticle() -> void:
 
 
 func test_tank_ranges_across_the_valley_floor() -> void:
+	Course.use(1)
 	check(Tank.lateral_limit(300.0) > 25.0, "the farm valley is open to the foot of the hills")
-	check(Tank.lateral_limit(3100.0) <= (22.0 if Course.stage.number == 2 else 12.0), "the active stage keeps the route inside its lateral limit")
+	check(Tank.lateral_limit(3100.0) <= 12.0, "the highway deck keeps it inside the guardrails")
 	check(Tank.MOVE_SPEED.x * 1.0 > Tank.lateral_limit(300.0), "it crosses half the valley in under a second")
 
 

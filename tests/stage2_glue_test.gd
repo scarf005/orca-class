@@ -18,16 +18,36 @@ func test_checkpoint_sorties_start_before_the_fight_with_city_loadout() -> void:
 		check(next.d > world.rail.d and next.d < (1780.0 if checkpoint == "midboss" else 3540.0), "retry keeps supplies before the boss entrance")
 
 
+func test_director_deck_events_use_the_live_parallel_expressway() -> void:
+	for hard in [false, true]:
+		var world := stage("", false, 2)
+		world.director._hard = hard
+		world.rail.d = 720.0 if not hard else 990.0
+		var specs := Stage2.new().events(hard)
+		var kain_event: Dictionary = specs.filter(func(event: Dictionary) -> bool: return event.type == "wave" and event.kind == "kain" and event.d == 720.0)[0]
+		world.rail.d = kain_event.d
+		var kain := world.director.spawn_wave(kain_event)[0]
+		var kc := Course.to_course(kain.global_position)
+		check_near(kc.y, -40.0, 0.1, "director Kain uses the negative expressway deck")
+		check_near(kain.global_position.y, Stage2.WATER_LEVEL + 6.0, 0.2, "Kain feet are on the low deck")
+		var battery_event: Dictionary = specs.filter(func(event: Dictionary) -> bool: return event.type == "wave" and event.kind == "rooftop_battery" and event.d == (990.0 if hard else 970.0))[0]
+		world.rail.d = battery_event.d
+		var battery := world.director.spawn_wave(battery_event)[0]
+		var bc := Course.to_course(battery.global_position)
+		check_near(bc.y, -40.0, 0.1, "normal and hard rooftop batteries share the deck")
+		check_near(battery.global_position.y, Stage2.WATER_LEVEL + 6.0, 0.2, "rooftop battery build finds the deck surface")
+
+
 func test_city_mechs_move_on_the_deck_but_street_mechs_stay_underneath() -> void:
 	var world := stage("", false, 2)
 	world.process_mode = Node.PROCESS_MODE_DISABLED
 	world.director.scenery.stream(1000.0, 100000)
 	for kind in ["abel", "kain", "adam"]:
 		var mech: BipedMech = load(Director.ENEMY_SCRIPTS[kind]).new()
-		var deck_height := Course.surface_height(1000.0, -37.0)
-		mech.position = Course.to_world(1000.0, -37.0, deck_height)
+		var deck_height := Course.surface_height(1000.0, -40.0)
+		mech.position = Course.to_world(1000.0, -40.0, deck_height)
 		world.add_enemy(mech)
-		mech.walk_to(Course.to_world(1010.0, -37.0), 4.0, 0.5)
+		mech.walk_to(Course.to_world(1010.0, -40.0), 4.0, 0.5)
 		check_near(mech.global_position.y, deck_height, 0.01, "%s feet retain the deck height after movement" % kind)
 		mech.position = Course.ground_at(800.0, 0.0)
 		mech.walk_to(Course.ground_at(805.0, 0.0), 4.0, 0.5)
@@ -41,8 +61,8 @@ func test_roof_battery_uses_actual_rectangle_and_unstreamed_deck() -> void:
 	var world := stage("", false, 2)
 	world.process_mode = Node.PROCESS_MODE_DISABLED
 	var battery := RooftopBattery.new()
-	var deck_height := Course.surface_height(1000.0, -37.0)
-	battery.position = Course.to_world(1000.0, -37.0, deck_height)
+	var deck_height := Course.surface_height(1000.0, -40.0)
+	battery.position = Course.to_world(1000.0, -40.0, deck_height)
 	world.add_enemy(battery)
 	check_near(battery.position.y, deck_height, 0.01, "spawn height does not depend on whether the deck streamed yet")
 	world.director.scenery.stream(1000.0, 100000)
@@ -55,9 +75,10 @@ func test_roof_battery_uses_actual_rectangle_and_unstreamed_deck() -> void:
 func test_hunter_reaches_rectangular_city_cover_then_peeks_into_line_of_sight() -> void:
 	var world := stage("", false, 2)
 	world.process_mode = Node.PROCESS_MODE_DISABLED
-	world.player.global_position = Course.ground_at(240.0, 0.0)
+	world.player.global_position = Course.ground_at(500.0, 0.0)
 	var hunter := Abel.new()
-	hunter.position = Course.ground_at(360.0, 62.0)
+	hunter.position = Course.ground_at(560.0, 75.0)
+	world.director.scenery.stream(560.0, 100000)
 	world.add_enemy(hunter)
 	hunter._attack_timer = INF
 	check(hunter.seek_cover(world.player), "a real city facade provides cover")

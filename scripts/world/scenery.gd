@@ -50,7 +50,17 @@ const PROPS := {
 	"overpass_pier": [1.6, 15.0, 200.0, false, false, 300, false, false],
 	"overpass_deck": [11.0, 2.6, 150.0, false, false, 200, false, false],
 	"city_building": [15.0, 36.0, 200.0, false, false, 0, false, false],
-	"city_shop": [4.5, 6.0, 100.0, true, false, 70, false, true],
+	"city_shop": [4.5, 7.5, 100.0, true, false, 70, false, true],
+	"city_terminal": [14.0, 12.0, 180.0, false, false, 0, false, false],
+	"city_department": [13.0, 28.0, 200.0, false, false, 0, false, false],
+	"city_clock": [7.0, 30.0, 200.0, false, false, 0, false, false],
+	"city_leaning": [15.0, 36.0, 200.0, false, false, 0, false, false],
+	"city_toppled": [12.0, 4.0, 200.0, false, false, 0, false, false],
+	"city_sag_span": [12.0, 2.6, 200.0, false, false, 0, false, false],
+	"kiosk": [1.6, 2.8, 20.0, true, false, 15, false, false],
+	"bus_shelter": [2.4, 3.6, 20.0, true, false, 15, false, false],
+	"barricade": [3.0, 1.0, 15.0, true, false, 10, false, false],
+	"bus_wreck": [2.0, 2.6, 35.0, false, false, 30, true, false],
 	"city_pier": [3.0, 24.0, 200.0, false, false, 0, false, false],
 	"city_deck": [12.0, 1.8, 200.0, false, false, 0, false, false],
 	"container": [7.0, 2.8, 200.0, false, false, 0, false, false],
@@ -71,7 +81,7 @@ const VEHICLES := ["car", "truck", "infested_car", "cultivator"]
 const FALLING := ["pole", "plane_tree", "persimmon", "cordyceps"]
 
 ## Solid buildings and structures: the tank breaks them but is slowed hard (Rail.jolt).
-const HARD := ["house", "infested_house", "hall", "church_nave", "church_tower", "church_spire", "school_wing", "school_center", "gas_station", "overpass_pier", "overpass_deck", "gate", "rock", "fungal_spire", "zelkova_trunk", "city_building", "city_shop", "city_pier", "city_deck", "container", "ship"]
+const HARD := ["house", "infested_house", "hall", "church_nave", "church_tower", "church_spire", "school_wing", "school_center", "gas_station", "overpass_pier", "overpass_deck", "gate", "rock", "fungal_spire", "zelkova_trunk", "city_building", "city_shop", "city_terminal", "city_department", "city_clock", "city_leaning", "city_toppled", "city_pier", "city_deck", "city_sag_span", "container", "ship"]
 
 ## Plain props that spawn overgrown more often the deeper the stage goes.
 const INFESTED := {"house": "infested_house", "car": "infested_car"}
@@ -90,6 +100,7 @@ class Spec:
 	var d := 0.0
 	var u := 0.0
 	var yaw := 0.0
+	var tilt := Vector3.ZERO
 	var pickup := "" ## Loot lying on the ground here instead of a prop.
 	var decor := false
 	var mesh: Mesh
@@ -195,6 +206,7 @@ func _city() -> void:
 	for structure in Course.stage.structures:
 		var spec := add(structure.kind, structure.d, structure.u, structure.yaw, structure.variant)
 		spec.size = structure.size
+		spec.tilt = structure.get("tilt", Vector3.ZERO)
 		spec.set_meta("y", structure.y)
 	var stage := Course.stage as Stage2
 	var rng := RandomNumberGenerator.new()
@@ -218,12 +230,24 @@ func _city() -> void:
 		if stage.in_arena(float(d), 50.0):
 			continue
 		var u := rng.randf_range(-7.0, 7.0)
-		add_decor(CityKit.decor("bus_wreck"), float(d), u, rng.randf_range(-0.4, 0.4), Stage2.WATER_LEVEL - 0.9)
+		add("bus_wreck", float(d), u, rng.randf_range(-0.4, 0.4), rng.randi_range(0, 5))
 	for d in range(330, int(Stage2.LENGTH) - 300, 260):
 		if stage.in_arena(float(d), 50.0):
 			continue
-		add_decor(CityKit.decor("barricade"), float(d), rng.randf_range(-6.0, 6.0), rng.randf_range(-0.3, 0.3), stage.height(float(d), 0.0))
+		add("barricade", float(d), rng.randf_range(-6.0, 6.0), rng.randf_range(-0.3, 0.3), rng.randi_range(0, 3))
 		add_decor(CityKit.decor("rubble", d % 4), float(d) + 20.0, 11.0 if d % 2 == 0 else -11.0, rng.randf() * TAU, stage.height(float(d), 11.0))
+	# Deep-water gap dressing is placed from the generated frontage data, never inside a tower box.
+	var gap_index := 0
+	for gap: Dictionary in stage.frontage_gaps:
+		gap_index += 1
+		if gap.gap < 4.0 or gap_index % 6 != 0 or stage.in_arena(float(gap.d), 30.0):
+			continue
+		if gap_index % 2:
+			add("bus_wreck", float(gap.d), float(gap.u), rng.randf_range(-0.4, 0.4), rng.randi_range(0, 5))
+		else:
+			add("car", float(gap.d), float(gap.u), rng.randf() * TAU, rng.randi_range(0, 11))
+		add_decor(CityKit.decor("streetlamp", int(gap.d) % 6), float(gap.d) - 5.0, float(gap.u) + gap.side * 3.0, 0.0, Stage2.WATER_LEVEL + 0.02)
+		add_decor(CityKit.decor("road_sign", int(gap.d) % 4), float(gap.d) + 6.0, float(gap.u) - gap.side * 2.0, 0.0, Stage2.WATER_LEVEL + 0.02)
 	for i in 5:
 		var side := -1.0 if i % 2 == 0 else 1.0
 		add_decor(CityKit.decor("crane"), Stage2.BAY_D - 110.0 + i * 55.0, side * 158.0, PI * 0.5 * side, Stage2.WATER_LEVEL - 4.0)
@@ -236,18 +260,19 @@ func _city() -> void:
 			continue
 		var lane := rng.randf_range(-9.0, 9.0)
 		add("car", float(d), lane, rng.randf_range(-0.3, 0.3) + (PI if lane > 0.0 else 0.0), rng.randi_range(0, 11))
-	# Breakable street frontage is sparse enough to weave through, but as dense as the village.
-	for d in range(130, 3150, 130):
-		if stage.in_arena(float(d), 35.0):
-			continue
-		var shop_u := -18.0 if (d / 130) % 2 == 0 else 18.0
-		add("city_shop", float(d) + rng.randf_range(-18.0, 18.0), shop_u + rng.randf_range(-3.0, 3.0), rng.randf() * TAU, rng.randi_range(0, 11))
+	# Breakable two-to-three-storey shops follow the village's 18–26 m frontage cadence.
+	var shop_d := 130.0
+	while shop_d < 3150.0:
+		for side in [-1.0, 1.0]:
+			if not stage.in_arena(shop_d, 35.0) and rng.randf() < 0.7:
+				add("city_shop", shop_d + rng.randf_range(-4.0, 4.0), side * rng.randf_range(16.0, 24.0), rng.randf() * TAU, rng.randi_range(0, 11))
+		shop_d += rng.randf_range(18.0, 26.0)
 	for d in range(180, 3150, 240):
 		if not stage.in_arena(float(d), 30.0):
-			add_decor(CityKit.decor("bus_shelter", d % 4), float(d), -14.0 if d % 2 else 14.0, 0.0)
+			add("bus_shelter", float(d), -14.0 if d % 2 else 14.0, 0.0, d % 4)
 	for d in range(220, 3150, 260):
 		if not stage.in_arena(float(d), 30.0):
-			add_decor(CityKit.decor("kiosk", d % 4), float(d), rng.randf_range(-20.0, 20.0), rng.randf() * TAU)
+			add("kiosk", float(d), rng.randf_range(-20.0, 20.0), rng.randf() * TAU, d % 4)
 	add_decor(CityKit.decor("subway_entrance"), Stage2.PLAZA_D - 65.0, 55.0, 0.0, stage.height(Stage2.PLAZA_D - 65.0, 55.0))
 	for d in range(2250, 3150, 180):
 		add("truck", float(d), 8.0, 0.0, 1)
@@ -682,7 +707,7 @@ func _instantiate(spec: Spec) -> void:
 		prop.debris = _debris(spec.kind)
 		# Position before entering the tree: props register into spatial buckets on entry.
 		prop.position = position
-		prop.rotation.y = yaw
+		prop.rotation = Vector3(spec.tilt.x, yaw, spec.tilt.z)
 		World.current.props.add_child(prop)
 		spec.node = prop
 		prop.died.connect(func(_prop: Entity) -> void: spec.set_meta("destroyed", true))

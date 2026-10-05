@@ -24,6 +24,8 @@ func run() -> int:
 		scenery = Scenery.new()
 		world.add_child(scenery)
 		scenery.build()
+	for _i in 3:
+		await get_tree().process_frame
 	for d_text: String in String(args.get("d", "0")).split(","):
 		var d := float(d_text)
 		world.rail.d = d
@@ -33,23 +35,33 @@ func run() -> int:
 			scenery.stream(d, 100000)
 		print("stream ms ", Time.get_ticks_msec() - start)
 		if args.has("top"):
-			# Straight down from high above, road running up the frame, to show its shape.
+			# Straight down from high above, road running up the frame, with every prop visible.
 			world.environment.fog_enabled = false
+			world.camera.far = 5000.0
+			if scenery:
+				_stream_all(scenery)
 			var center := Course.ground_at(d + 120.0, 0.0)
 			world.camera.global_transform = Transform3D(Basis.looking_at(Vector3.DOWN, Course.forward(d + 120.0)), center + Vector3.UP * 330.0)
 		else:
 			var capture_u := float(args.get("u", "0"))
-			# A gameplay tank is shoved into a lane before a splitter; do the same for stills.
+			# A gameplay tank is shoved into a lane before a splitter; use that real tank pose.
 			if world.stage_number == 2:
 				var city := Course.stage as Stage2
 				for index in city.SPLITS.size():
 					if absf(d - float(city.SPLITS[index].d)) < 20.0:
 						capture_u = city.split_lane_centres(index).x
 						break
-			var eye := Course.ground_at(d - 14.0, capture_u)
-			eye.y += float(args.get("h", "7"))
-			world.camera.position = eye
-			world.camera.look_at(Course.ground_at(d + 30.0, capture_u) + Vector3.UP * 1.5)
+			var tank_ground := Course.ground_at(d, capture_u)
+			if scenery:
+				var corrected := scenery.drive_position(tank_ground, tank_ground, Tank.HULL_RADIUS)
+				capture_u = Course.to_course(corrected).y
+				tank_ground = Course.ground_at(d, capture_u)
+			var target := tank_ground + Vector3.UP
+			var eye := Course.to_world(d - ChaseCamera.RAIL_BACK, capture_u * 0.75)
+			eye.y = maxf(Course.height(d - ChaseCamera.RAIL_BACK, capture_u * 0.75), tank_ground.y - 1.0) + ChaseCamera.RAIL_HEIGHT
+			var look := Course.to_world(d + ChaseCamera.RAIL_LOOK_AHEAD, capture_u * 0.85, tank_ground.y)
+			world.camera.global_position = scenery.camera_position(target, eye) if scenery else eye
+			world.camera.look_at(look, Vector3.UP)
 		for _i in 30:
 			await get_tree().process_frame
 		if args.has("profile"):
@@ -73,6 +85,18 @@ func run() -> int:
 			view.viewport.get_texture().get_image().save_png("%s/raw_%04d.png" % [out, int(d)])
 		print("saved ", d)
 	return 0
+
+
+func _stream_all(scenery: Scenery) -> void:
+	for spec: Scenery.Spec in scenery.specs:
+		if spec.pickup.is_empty() and not spec.has_meta("destroyed") and not is_instance_valid(spec.node):
+			scenery._instantiate(spec)
+	for spec: Scenery.Spec in scenery.specs:
+		if not is_instance_valid(spec.node):
+			continue
+		for node in [spec.node] + spec.node.find_children("*", "GeometryInstance3D", true, false):
+			if node is GeometryInstance3D:
+				(node as GeometryInstance3D).visibility_range_end = 5000.0
 
 
 ## CPU timings of the actual city stream, hull sweep and twelve hunter cover queries, not rendered FPS.
