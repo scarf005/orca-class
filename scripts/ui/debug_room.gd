@@ -274,7 +274,7 @@ func _process(delta: float) -> void:
 		move.y += 1.0
 	if Input.is_key_pressed(KEY_Q):
 		move.y -= 1.0
-	var speed := 60.0 if Input.is_key_pressed(KEY_SHIFT) else 20.0
+	var speed := 180.0 if Input.is_key_pressed(KEY_SHIFT) else 60.0
 	cam.global_position += cam.global_basis * move * speed * delta
 	cam.rotation = Vector3(_pitch, _yaw, 0.0)
 
