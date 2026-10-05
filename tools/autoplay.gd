@@ -19,6 +19,9 @@ var _out := ""
 var _milestones := false
 var _elite_time := 0.0
 var _elite_visible := 0.0
+var _enemy_frames := 0 ## Live-enemy frames within 150 m, for the submerged and hidden-behind-buildings counts.
+var _submerged: Array[String] = []
+var _hidden: Array[String] = []
 var _section_kills := 0
 var _section_spawned := 0
 var _section_damage := 0.0
@@ -108,6 +111,7 @@ func run() -> int:
 		for enemy in world.enemies:
 			if not enemy.dead and not world.camera.is_position_behind(enemy.hit_center()):
 				front_total += 1.0
+			_check_enemy(world, enemy)
 			if enemy.dead or not (enemy is BipedMech or enemy is Hind):
 				continue
 			_elite_time += delta
@@ -221,6 +225,7 @@ func run() -> int:
 		world.rail.d, stats.score, stats.kills, stats.spawned, stats.lives, world.player.hp, world.enemies.size(),
 		world.projectiles.size(), frames, slow_frames, worst])
 	print("STRUCTURE_CHECK tank_inside_structure=%d samples=%d" % [tank_structure_violations, frames])
+	print("ENEMY_CHECK submerged_frames=%d hidden_frames=%d enemy_frames=%d submerged=%s hidden=%s" % [_submerged.size(), _hidden.size(), _enemy_frames, _worst(_submerged), _worst(_hidden)])
 	print("CAMERA_CHECK pull_in_outside_arenas=%d samples=%d" % [camera_pull_ins, frames])
 	print("PROBE difficulty=%s bot=%s cleared=%s dead=%s time=%.2f d=%.0f lives=%d deaths=%d damage_taken=%.2f kills=%d/%d front_mean=%.2f coax=%d cannon=%d ram=%d dash=%d tail=%d ciws=%d collateral=%d reflect=%d other=%d cannon_shots=%d charged_shots=%d healing_melee=%.2f healing_repair=%.2f" % [
 		difficulty, bot, cleared and not world.player.dead, world.player.dead, stats.time, world.rail.d, stats.lives, deaths, stats.damage_taken, stats.kills, stats.spawned, front_total / maxi(frames, 1),
@@ -229,6 +234,30 @@ func run() -> int:
 		Input.action_release(action)
 	Engine.time_scale = 1.0
 	return 1 if args.has("verify") and (not cleared or screen._results == null or tank_structure_violations > 0 or camera_pull_ins > 0) else 0
+
+
+## The most frequent offenders as "kind@where xframes".
+func _worst(samples: Array[String]) -> String:
+	var counts := {}
+	for sample in samples:
+		counts[sample] = counts.get(sample, 0) + 1
+	var keys := counts.keys()
+	keys.sort_custom(func(a: String, b: String) -> bool: return counts[a] > counts[b])
+	return ", ".join(keys.slice(0, 8).map(func(key: String) -> String: return "%s x%d" % [key, counts[key]]))
+
+
+## Counts a ground enemy whose body is under water, and an enemy in front of the camera that a building hides.
+func _check_enemy(world: World, enemy: Enemy) -> void:
+	var at := enemy.hit_center()
+	if enemy.dead or at.distance_to(world.player.global_position) > 150.0:
+		return
+	_enemy_frames += 1
+	var c := Course.to_course(at)
+	var where := "%s@d%d,u%d" % [enemy.get_script().resource_path.get_file().get_basename(), snappedi(int(c.x), 50), snappedi(int(c.y), 10)]
+	if not enemy.flying and not (enemy is DroneBoat or enemy is SeaMine) and Water.surface_at(at) > at.y:
+		_submerged.append(where)
+	if not world.camera.is_position_behind(at) and Course.structure_boxes.any(func(box: Dictionary) -> bool: return Prop.box_hit(box.pose, box.size, world.camera.global_position, at) >= 0.0):
+		_hidden.append(where)
 
 
 func _capture(name: String) -> void:
