@@ -74,6 +74,7 @@ func run() -> int:
 	var tank_structure_violations := 0
 	var camera_pull_ins := 0
 	var mode := world.rail.mode
+	var telegraphs := {}
 	await get_tree().process_frame
 	await _capture("section-%d" % _section)
 	while elapsed < seconds:
@@ -137,6 +138,16 @@ func run() -> int:
 				boss_phase = phase
 				print("BOSS kind=%s phase=%d t=%.2f d=%.0f hp=%.0f music=%s" % [world.boss.get_script().resource_path.get_file().get_basename(), phase, world.stats.time, world.rail.d, world.boss.hp, Sfx._music_path])
 				_capture("%s-phase-%d" % [world.boss.get_script().resource_path.get_file().get_basename(), phase])
+			if _milestones and world.boss is Enemy and (world.boss as Enemy).telegraphing() and float(world.boss.get("_attack_time")) > 0.3:
+				var kind := int(world.boss.get("_attack"))
+				var attack: String = HiMo.Attack.keys()[kind] if world.boss is HiMo else Hovercraft.Attack.keys()[kind] if world.boss is Hovercraft else str(kind)
+				var key := "%s-phase-%d-%s" % [boss_kind, phase, attack.to_lower()]
+				if world.boss is HiMo and (world.boss as HiMo)._overcharge:
+					key += "-overcharged"
+				var ready := not world.boss is HiMo or kind != HiMo.Attack.RAIL or (world.boss as HiMo)._attack_time > (world.boss as HiMo)._wind() - 0.7
+				if ready and not telegraphs.has(key):
+					telegraphs[key] = true
+					_capture(key)
 		elif not boss_kind.is_empty():
 			print("BOSS_END kind=%s t=%.2f d=%.0f fight=%.2fs" % [boss_kind, world.stats.time, world.rail.d, elapsed - boss_start])
 			boss_kind = ""
@@ -237,6 +248,11 @@ func _drive(world: World, t: float) -> void:
 		Input.action_release("fire")
 	else:
 		Input.action_press("fire")
+	# Hold measures sustained fire without dodging; other bots retain the evasive probe.
+	if bot == "hold":
+		Input.action_release("move_left")
+		Input.action_release("move_right")
+		return
 	var weave := sin(t * 0.7)
 	if weave > 0.3:
 		Input.action_press("move_right")
