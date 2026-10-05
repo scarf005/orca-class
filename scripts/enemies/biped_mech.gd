@@ -27,6 +27,7 @@ var _progress_time := 0.0
 var _side := 1.0
 var _search := 0.0
 var _walk := 0.0
+var _hip := 3.0
 
 
 func _init() -> void:
@@ -51,22 +52,58 @@ func add_mesh(parent: Node3D, mesh: Mesh) -> void:
 	parent.add_child(instance)
 
 
-func build_legs(stocky := false, color := Palette.SLATE, girth := 1.0) -> void:
+## Two legs hanging from the hips at `hip` metres: "knee" bends forward like a person's, "bird" folds back at a hock
+## onto a three-toed foot, "heavy" is a thick armored column on a broad foot. `armor` colors the plates.
+func build_legs(hip: float, style: String, armor: Color, frame := Palette.DUSK, spread := 0.75) -> void:
+	_hip = hip
+	_body.position.y = hip
+	var heavy := style == "heavy"
+	var w := 1.35 if heavy else 1.0
 	for side in [-1.0, 1.0]:
 		var leg := Node3D.new()
-		leg.position = Vector3(side * 0.85 * girth, 0, 0)
+		leg.position = Vector3(side * spread, 0, 0)
 		_body.add_child(leg)
 		var b := LowPoly.new()
-		var w := girth
-		b.blob(Transform3D(), 0.4 * w, Palette.INK)
-		b.box(Transform3D(Basis(Vector3.RIGHT, -0.4 if not stocky else 0.1), Vector3(0, -0.65, -0.25)), Vector3((0.65 if stocky else 0.5) * w, 1.45, 0.7 * w), color)
-		b.blob(Transform3D(Basis(), Vector3(0, -1.25, -0.55)), 0.4 * w, Palette.CORAL)
-		b.box(Transform3D(Basis(Vector3.RIGHT, 0.4 if not stocky else -0.1), Vector3(0, -2, -0.25)), Vector3((0.6 if stocky else 0.42) * w, 1.55, 0.5 * w), color.darkened(0.25))
-		b.box(Transform3D(Basis(), Vector3(0, -2.85, -0.45)), Vector3(0.9 * w, 0.3, 1.5 * w), Palette.INK)
-		b.box(Transform3D(Basis(), Vector3(0, -2.65, -0.9)), Vector3(0.7 * w, 0.2, 0.5 * w), color.darkened(0.4))
-		b.prism(Transform3D(Basis(), Vector3(side * 0.3 * w, -1.8, -0.2)), 0.09, 1.1, 6, Palette.ASH)
+		b.blob(Transform3D(), 0.3 * w, Palette.INK)
+		if style == "bird":
+			# Thigh forward to the knee, shin back to the hock, then a long foot bone down to splayed toes.
+			var knee := Vector3(0, -hip * 0.36, -0.55)
+			var hock := Vector3(0, -hip * 0.78, 0.45)
+			var ball := Vector3(0, -hip + 0.22, -0.15)
+			limb(b, Vector3.ZERO, knee, Vector2(0.75, 0.85), Vector2(0.48, 0.55), armor)
+			b.blob(Transform3D(Basis(), knee), 0.3, Palette.INK)
+			limb(b, knee, hock, Vector2(0.4, 0.45), Vector2(0.3, 0.36), frame)
+			b.prism(Transform3D(Basis(), knee + Vector3(side * 0.28, 0.0, 0.1)), 0.07, 1.0, 6, Palette.ASH) # Shin ram.
+			b.blob(Transform3D(Basis(), hock), 0.22, Palette.INK)
+			limb(b, hock, ball, Vector2(0.28, 0.32), Vector2(0.24, 0.26), armor.darkened(0.15))
+			for toe in [-0.45, 0.0, 0.45]:
+				b.frustum(Transform3D(Basis(Vector3.UP, toe), ball + Vector3(0, -0.22, 0)), Vector2(0.24, 1.0), Vector2(0.14, 0.7), 0.22, Palette.INK, Color(0, 0, 0, 0), Vector2(0, -0.1))
+			b.frustum(Transform3D(Basis(), ball + Vector3(0, -0.22, 0.45)), Vector2(0.18, 0.5), Vector2(0.1, 0.3), 0.18, Palette.INK)
+		else:
+			var knee := Vector3(0, -hip * 0.5, -0.22 if heavy else -0.18)
+			var ankle := Vector3(0, -hip + 0.32, 0.02)
+			limb(b, Vector3.ZERO, knee, Vector2(0.5, 0.58) * w, Vector2(0.4, 0.46) * w, frame)
+			b.blob(Transform3D(Basis(), knee), 0.27 * w, Palette.INK)
+			limb(b, knee, ankle, Vector2(0.44, 0.5) * w, Vector2(0.52, 0.56) * w, armor)
+			# Knee cap and a shin plate that flares out toward the ankle.
+			b.frustum(Transform3D(Basis(Vector3.RIGHT, -0.25), knee + Vector3(0, -0.2, -0.22 * w)), Vector2(0.46, 0.2) * w, Vector2(0.34, 0.08) * w, 0.55, armor.lightened(0.1))
+			b.frustum(Transform3D(Basis(Vector3.RIGHT, 0.08), ankle + Vector3(0, 0.15, -0.27 * w)), Vector2(0.56, 0.12) * w, Vector2(0.46, 0.1) * w, hip * 0.36, armor.lightened(0.05))
+			if heavy:
+				b.prism(Transform3D(Basis(), knee + Vector3(side * 0.42, -0.1, 0.25)), 0.09, hip * 0.4, 6, Palette.ASH) # Ankle ram.
+			b.blob(Transform3D(Basis(), ankle), 0.22 * w, Palette.INK)
+			# Foot: a sloped boot with a toe cap and a heel block.
+			b.frustum(Transform3D(Basis(), Vector3(0, -hip, -0.15)), Vector2(0.62, 1.25) * w, Vector2(0.5, 0.8) * w, 0.34, frame, Color(0, 0, 0, 0), Vector2(0, 0.12))
+			b.frustum(Transform3D(Basis(), Vector3(0, -hip, -0.62 * w)), Vector2(0.64, 0.42) * w, Vector2(0.52, 0.1) * w, 0.24, armor)
 		add_mesh(leg, b.mesh())
 		_legs.append(leg)
+
+
+## A tapered limb from `a` to `b`, `top` size at `a` and `bottom` size at `b`.
+static func limb(mesh: LowPoly, a: Vector3, b: Vector3, top: Vector2, bottom: Vector2, color: Color) -> void:
+	var up := (a - b).normalized()
+	var across := Vector3.RIGHT
+	var forward := across.cross(up).normalized()
+	mesh.frustum(Transform3D(Basis(across, up, forward), b), bottom, top, a.distance_to(b), color)
 
 
 ## Only solid scenery hides a hunter; wrecked buildings and light props do not.
@@ -285,9 +322,10 @@ func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 		return -1.0
 	var best := super(from, to, extra_radius)
 	for leg in _legs:
-		var t := Entity.segment_sphere(from, to, leg.to_global(Vector3(0, -1.6, -0.3)), 1.0 + extra_radius)
-		if t >= 0.0 and (best < 0.0 or t < best):
-			best = t
+		for along in [0.3, 0.75]: # Thigh and shin.
+			var t := Entity.segment_sphere(from, to, leg.to_global(Vector3(0, -_hip * along, 0)), 0.7 + extra_radius)
+			if t >= 0.0 and (best < 0.0 or t < best):
+				best = t
 	return best
 
 

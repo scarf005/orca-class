@@ -19,92 +19,101 @@ var _muzzle := Node3D.new()
 
 
 const LOSAT_MIN_FIRE := 45.0 ## Closer than this the dart has not gained its speed, so the gatling answers instead.
-const SCALE := 1.45 ## The whole frame is drawn this much larger than its model-space layout.
 
 
 func _init() -> void:
 	super()
-	radius *= SCALE
-	center_height *= SCALE
+	radius = 1.5
+	center_height = 3.0
 	min_range = 55.0
 	max_hp = 2600.0
 	hp = max_hp
 	score = 800
 
 
+## About 5 m tall, a fifth shorter than the tank stood on its tail: a police labor in white and black with a blue
+## band, round shoulders, a visor head under a light bar, the LOSAT pod on its right forearm and a gatling on its left.
 func build() -> void:
 	super()
-	model.scale = Vector3.ONE * SCALE
-	build_legs(true, Palette.WHITE, 1.35)
+	build_legs(2.15, "knee", Palette.WHITE, Palette.INK, 0.5)
 	var b := LowPoly.new()
-	# Pelvis and waist skirt, dark like a labor frame's hydraulics.
-	b.box(Transform3D(Basis(), Vector3(0, -0.35, 0)), Vector3(1.9, 0.6, 1.3), Palette.DUSK)
+	# Pelvis, a black waist and white hip skirts that swing clear of the thighs.
+	b.box(Transform3D(Basis(), Vector3(0, 0.1, 0)), Vector3(0.95, 0.42, 0.7), Palette.DUSK)
+	b.frustum(Transform3D(Basis(Vector3.RIGHT, -0.25), Vector3(0, -0.25, -0.42)), Vector2(0.6, 0.12), Vector2(0.75, 0.14), 0.5, Palette.WHITE)
 	for side in [-1.0, 1.0]:
-		b.box(Transform3D(Basis(Vector3.BACK, side * 0.12), Vector3(side * 0.95, -0.45, 0)), Vector3(0.55, 0.7, 1.35), Palette.WHITE)
-	# Chest: square white torso, a blue panel band, a coral police stripe and a vent block on the back.
-	b.box(Transform3D(Basis(), Vector3(0, 0.55, 0)), Vector3(2.2, 1.35, 1.55), Palette.WHITE)
-	b.box(Transform3D(Basis(), Vector3(0, 0.3, -0.79)), Vector3(2.0, 0.4, 0.05), Palette.PERIWINKLE)
-	b.box(Transform3D(Basis(), Vector3(0, 0.78, -0.79)), Vector3(2.0, 0.12, 0.05), Palette.CORAL)
-	b.box(Transform3D(Basis(), Vector3(0, 0.55, 0.9)), Vector3(1.5, 1.0, 0.45), Palette.DUSK)
-	for i in 4:
-		b.box(Transform3D(Basis(), Vector3(0, 0.25 + i * 0.22, 1.14)), Vector3(1.2, 0.07, 0.04), Palette.INK)
-	b.box(Transform3D(Basis(), Vector3(0, -0.02, -0.5)), Vector3(1.4, 0.35, 0.7), Palette.SLATE)
-	# Shoulders: block pauldrons with the squad number.
+		b.frustum(Transform3D(Basis(Vector3.BACK, side * 0.22), Vector3(side * 0.6, -0.3, 0)), Vector2(0.14, 0.62), Vector2(0.16, 0.7), 0.55, Palette.WHITE)
+	b.prism(Transform3D(Basis(), Vector3(0, 0.3, 0)), 0.34, 0.4, 8, Palette.INK)
+	# Chest: widening upward into the shoulders, a sloped white front, a black core with vents and the blue band.
+	b.frustum(Transform3D(Basis(), Vector3(0, 0.62, 0.05)), Vector2(1.1, 0.8), Vector2(1.75, 1.05), 0.95, Palette.WHITE, Palette.MIST)
+	b.frustum(Transform3D(Basis(Vector3.RIGHT, 0.2), Vector3(0, 0.72, -0.42)), Vector2(1.0, 0.1), Vector2(1.45, 0.1), 0.8, Palette.WHITE)
+	b.box(Transform3D(Basis(), Vector3(0, 1.0, -0.56)), Vector3(0.5, 0.42, 0.06), Palette.INK)
+	for i in 3:
+		b.box(Transform3D(Basis(), Vector3(0, 0.88 + i * 0.12, -0.6)), Vector3(0.4, 0.04, 0.03), Palette.SLATE)
+	b.box(Transform3D(Basis(), Vector3(0, 0.74, -0.5)), Vector3(1.32, 0.13, 0.1), Palette.PERIWINKLE)
+	b.box(Transform3D(Basis(), Vector3(0, 0.67, -0.5)), Vector3(1.25, 0.03, 0.11), Palette.INK)
+	# Backpack: power pack with two short exhausts.
+	b.frustum(Transform3D(Basis(), Vector3(0, 0.7, 0.62)), Vector2(1.0, 0.55), Vector2(0.9, 0.45), 0.85, Palette.DUSK, Palette.SLATE)
 	for side in [-1.0, 1.0]:
-		b.box(Transform3D(Basis(Vector3.BACK, side * 0.1), Vector3(side * 1.45, 1.05, 0)), Vector3(0.95, 0.55, 1.35), Palette.WHITE)
-		b.box(Transform3D(Basis(Vector3.BACK, side * 0.1), Vector3(side * 1.45, 1.35, 0)), Vector3(0.95, 0.07, 1.3), Palette.PERIWINKLE)
+		b.prism(Transform3D(Basis(Vector3.RIGHT, 0.3), Vector3(side * 0.28, 1.4, 0.75)), 0.09, 0.35, 6, Palette.INK)
+	# Shoulders: big round pauldrons over black joints, a blue rim and an amber marker lamp.
+	for side in [-1.0, 1.0]:
+		b.blob(Transform3D(Basis(), Vector3(side * 1.0, 1.4, 0)), 0.26, Palette.INK)
+		b.blob(Transform3D(Basis().scaled(Vector3(0.95, 0.78, 1.05)), Vector3(side * 1.1, 1.5, 0)), 0.47, Palette.WHITE, 1)
+		b.box(Transform3D(Basis(Vector3.BACK, side * -0.35), Vector3(side * 1.22, 1.73, 0)), Vector3(0.3, 0.06, 0.8), Palette.PERIWINKLE)
 		b.glow = true
-		b.box(Transform3D(Basis(), Vector3(side * 1.45, 1.08, -0.7)), Vector3(0.4, 0.2, 0.03), Palette.CORAL)
+		b.box(Transform3D(Basis(), Vector3(side * 1.55, 1.5, -0.1)), Vector3(0.05, 0.12, 0.22), Palette.AMBER)
 		b.glow = false
-	# Head: a rounded dome on a neck with the canopy visor, rim, light bar and whip antennas.
-	b.box(Transform3D(Basis(), Vector3(0, 1.38, -0.05)), Vector3(0.7, 0.28, 0.7), Palette.DUSK)
-	b.blob(Transform3D(Basis().scaled(Vector3(1.0, 0.82, 1.12)), Vector3(0, 1.85, -0.1)), 0.78, Palette.WHITE)
-	b.box(Transform3D(Basis(Vector3.RIGHT, -0.18), Vector3(0, 1.82, -0.7)), Vector3(1.15, 0.5, 0.2), Palette.INK)
-	b.box(Transform3D(Basis(Vector3.RIGHT, -0.18), Vector3(0, 1.82, -0.8)), Vector3(1.0, 0.04, 0.03), Palette.CYAN)
-	b.box(Transform3D(Basis(Vector3.RIGHT, -0.18), Vector3(0, 2.02, -0.74)), Vector3(1.25, 0.1, 0.22), Palette.PERIWINKLE)
-	b.box(Transform3D(Basis(), Vector3(0, 2.62, -0.02)), Vector3(0.7, 0.14, 0.26), Palette.INK)
+	# Head: a narrow helmet with a brim, a black face, a wide cyan visor, a light bar and one antenna raked back.
+	b.prism(Transform3D(Basis(), Vector3(0, 1.55, 0)), 0.16, 0.25, 6, Palette.INK)
+	b.frustum(Transform3D(Basis(), Vector3(0, 1.72, 0.02)), Vector2(0.52, 0.56), Vector2(0.44, 0.48), 0.46, Palette.WHITE, Palette.WHITE, Vector2(0, 0.03))
+	b.frustum(Transform3D(Basis(), Vector3(0, 1.7, -0.27)), Vector2(0.46, 0.12), Vector2(0.4, 0.08), 0.28, Palette.INK)
+	b.frustum(Transform3D(Basis(Vector3.RIGHT, 0.35), Vector3(0, 2.07, -0.24)), Vector2(0.6, 0.24), Vector2(0.58, 0.06), 0.06, Palette.WHITE)
+	b.box(Transform3D(Basis(), Vector3(0, 2.22, 0.04)), Vector3(0.5, 0.1, 0.16), Palette.INK)
+	b.prism(Transform3D(Basis(Vector3.RIGHT, 0.45), Vector3(0.2, 2.1, 0.22)), 0.025, 0.9, 4, Palette.INK)
 	b.glow = true
-	b.box(Transform3D(Basis(), Vector3(-0.22, 2.7, -0.02)), Vector3(0.22, 0.1, 0.2), Palette.RED)
-	b.box(Transform3D(Basis(), Vector3(0.22, 2.7, -0.02)), Vector3(0.22, 0.1, 0.2), Palette.CYAN)
+	b.box(Transform3D(Basis(), Vector3(0, 1.88, -0.3)), Vector3(0.38, 0.08, 0.04), Palette.CYAN)
+	b.box(Transform3D(Basis(), Vector3(-0.13, 2.29, 0.04)), Vector3(0.2, 0.08, 0.13), Palette.RED)
+	b.box(Transform3D(Basis(), Vector3(0.13, 2.29, 0.04)), Vector3(0.2, 0.08, 0.13), Palette.RED)
 	b.glow = false
-	for side in [-1.0, 1.0]:
-		b.prism(Transform3D(Basis(Vector3.BACK, side * -0.15), Vector3(side * 0.55, 2.3, 0.45)), 0.03, 1.3, 5, Palette.INK)
 	add_mesh(_body, b.mesh())
-	_launcher.position = Vector3(1.75, 0.35, -0.15)
+	# Right arm: upper arm hanging from the shoulder to a forearm that is the three-tube LOSAT pod.
+	_launcher.position = Vector3(1.1, 1.3, 0)
 	_body.add_child(_launcher)
 	var p := LowPoly.new()
-	# The right arm: upper arm hanging from the pauldron to a boxy three-tube LOSAT pod.
-	p.box(Transform3D(Basis(Vector3.RIGHT, 0.15), Vector3(0.1, 0.45, 0.35)), Vector3(0.6, 0.8, 0.65), Palette.WHITE)
-	p.box(Transform3D(), Vector3(0.95, 1.0, 2.0), Palette.DUSK)
-	p.box(Transform3D(Basis(), Vector3(0, 0.55, 0)), Vector3(0.9, 0.12, 1.9), Palette.PERIWINKLE)
+	limb(p, Vector3.ZERO, Vector3(0.05, -0.62, 0), Vector2(0.32, 0.36), Vector2(0.28, 0.32), Palette.DUSK)
+	p.blob(Transform3D(Basis(), Vector3(0.05, -0.68, 0)), 0.2, Palette.INK)
+	p.frustum(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0.05, -0.78, 0.3)), Vector2(0.62, 0.62), Vector2(0.56, 0.54), 1.3, Palette.WHITE)
+	p.box(Transform3D(Basis(), Vector3(0.05, -0.47, -0.3)), Vector3(0.5, 0.06, 1.1), Palette.PERIWINKLE)
 	for i in 3:
 		var angle := i * TAU / 3.0 + PI / 6.0
-		p.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(cos(angle) * 0.27, sin(angle) * 0.27, -0.7)), 0.19, 1.4, 8, Palette.INK)
-		p.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(cos(angle) * 0.27, sin(angle) * 0.27, -2.1)), 0.23, 0.1, 8, Palette.CORAL)
+		var at := Vector3(0.05 + cos(angle) * 0.17, -0.78 + sin(angle) * 0.17, -1.0)
+		p.tube(Transform3D(Basis(Vector3.UP, PI), at), 0.12, 0.6, 8, Palette.INK)
+		p.tube(Transform3D(Basis(Vector3.UP, PI), at + Vector3(0, 0, -0.55)), 0.14, 0.08, 8, Palette.CORAL)
 	p.glow = true
-	for i in 3:
-		var angle := i * TAU / 3.0 + PI / 6.0
-		p.box(Transform3D(Basis(), Vector3(cos(angle) * 0.27, sin(angle) * 0.27, -2.14)), Vector3(0.2, 0.2, 0.02), Palette.CORAL)
+	p.box(Transform3D(Basis(), Vector3(0.05, -0.44, -0.86)), Vector3(0.14, 0.1, 0.06), Palette.RED) # Laser designator.
 	p.glow = false
 	add_mesh(_launcher, p.mesh())
-	_launch_muzzle.position.z = -2.2
+	_launch_muzzle.position = Vector3(0.05, -0.78, -1.65)
 	_launcher.add_child(_launch_muzzle)
-	_gun.position = Vector3(-1.75, 0.2, -0.15)
+	# Left arm: an armored forearm carrying a three-barrel gatling under it.
+	_gun.position = Vector3(-1.1, 1.3, 0)
 	_body.add_child(_gun)
 	var arm := LowPoly.new()
-	arm.box(Transform3D(Basis(Vector3.RIGHT, 0.15), Vector3(-0.05, 0.4, 0.3)), Vector3(0.6, 0.8, 0.65), Palette.WHITE)
-	arm.box(Transform3D(), Vector3(0.75, 0.75, 1.1), Palette.DUSK)
-	arm.box(Transform3D(Basis(), Vector3(0, 0.4, -0.2)), Vector3(0.7, 0.1, 0.9), Palette.PERIWINKLE)
+	limb(arm, Vector3.ZERO, Vector3(-0.05, -0.62, 0), Vector2(0.32, 0.36), Vector2(0.28, 0.32), Palette.DUSK)
+	arm.blob(Transform3D(Basis(), Vector3(-0.05, -0.68, 0)), 0.2, Palette.INK)
+	arm.frustum(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(-0.05, -0.75, 0.25)), Vector2(0.46, 0.5), Vector2(0.4, 0.42), 0.9, Palette.WHITE)
+	arm.box(Transform3D(Basis(), Vector3(-0.05, -0.98, -0.35)), Vector3(0.36, 0.3, 0.7), Palette.SLATE)
 	add_mesh(_gun, arm.mesh())
+	_barrels.position = Vector3(-0.05, -1.0, -0.6)
 	_gun.add_child(_barrels)
 	var g := LowPoly.new()
-	g.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0, 0, -0.45)), 0.33, 0.35, 8, Palette.SLATE)
+	g.tube(Transform3D(Basis(Vector3.UP, PI), Vector3.ZERO), 0.17, 0.2, 8, Palette.INK)
 	for i in 3:
 		var angle := i * TAU / 3.0
-		g.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(cos(angle) * 0.17, sin(angle) * 0.17, -0.5)), 0.075, 1.7, 6, Palette.INK)
-	g.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0, 0, -2.0)), 0.3, 0.1, 8, Palette.ASH)
+		g.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(cos(angle) * 0.09, sin(angle) * 0.09, 0)), 0.045, 1.1, 6, Palette.INK)
+	g.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(0, 0, -0.75)), 0.16, 0.08, 8, Palette.ASH)
 	add_mesh(_barrels, g.mesh())
-	_muzzle.position.z = -2.25
+	_muzzle.position = Vector3(-0.05, -1.0, -1.75)
 	_gun.add_child(_muzzle)
 	pop_parts = [_launcher, _gun]
 
@@ -182,16 +191,16 @@ func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 	var best := super(from, to, extra_radius)
 	if hidden or disarmed:
 		return best
-	var t := Entity.segment_sphere(from, to, _launcher.global_position, 0.8 * SCALE + extra_radius)
+	var t := Entity.segment_sphere(from, to, _launcher.global_position + _launcher.global_basis * Vector3(0, -0.78, -0.4), 0.6 + extra_radius)
 	return t if t >= 0.0 and (best < 0.0 or t < best) else best
 
 
 func aim_parts() -> Dictionary:
-	return {} if disarmed else {"launcher": [_launcher.global_position, 0.8 * SCALE, tr("ENEMY_ABEL")]}
+	return {} if disarmed else {"launcher": [_launcher.global_position + _launcher.global_basis * Vector3(0, -0.78, -0.4), 0.6, tr("ENEMY_ABEL")]}
 
 
 func on_damaged(hit: Hit, amount: float) -> void:
-	var tube_hit := not disarmed and hit.position.distance_to(_launcher.global_position) < 1.2 * SCALE
+	var tube_hit := not disarmed and hit.position.distance_to(_launcher.global_position + _launcher.global_basis * Vector3(0, -0.78, -0.4)) < 0.9
 	super(hit, amount)
 	if tube_hit:
 		launcher_hp -= amount
