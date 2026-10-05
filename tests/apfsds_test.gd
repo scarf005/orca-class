@@ -160,13 +160,14 @@ func test_beam_width_is_proportional_to_charge_stage() -> void:
 		check_near(glows[0].node.basis.x.length(), 0.8 * level, 0.000001, "envelope width scales 1:2:3 with charge boxes")
 
 
-func test_beam_fades_into_a_spiral_trail() -> void:
+func test_beam_fades_into_expanding_spiral_smoke() -> void:
 	var world := _rig()
 	var muzzle := Vector3(40, 30, 0)
 	world.player._fire_shell(Armament.Round.APFSDS, muzzle, Vector3.FORWARD, 1.0)
-	var spiral: Array = world.fx._pools[Fx.Kind.FLAME].filter(func(p: Fx.Particle) -> bool:
-		return p.color == Palette.CYAN and p.position.z < -20.0)
-	check(spiral.size() > 30, "a continuous spiral extends along the beam")
+	var spiral: Array = world.fx._pools[Fx.Kind.GLOW].filter(func(p: Fx.Particle) -> bool:
+		return p.color in [Palette.SLATE, Palette.STONE, Palette.ASH] and p.position.z < -20.0)
+	check(spiral.size() > 30, "a continuous spiral of neutral smoke extends along the beam")
+	check(not world.fx._pools[Fx.Kind.FLAME].any(func(p: Fx.Particle) -> bool: return p.color == Palette.CYAN), "the fading trail contains no cyan sparks")
 	var quadrants := {}
 	for p: Fx.Particle in spiral:
 		var offset := p.position - muzzle
@@ -181,8 +182,11 @@ func test_beam_fades_into_a_spiral_trail() -> void:
 	var before_radius := Vector2(first.position.x - muzzle.x, first.position.y - muzzle.y).length()
 	var trails: Array[Fx.Particle] = []
 	var splashes: Array[Fx.Particle] = []
-	world.fx._advance_pool(Fx.Kind.FLAME, 0.18, trails, splashes)
+	world.fx._advance_pool(Fx.Kind.GLOW, 0.18, trails, splashes)
 	world.fx._update_transients(0.18)
 	check(beams.all(func(t: Dictionary) -> bool: return t.node.is_queued_for_deletion()), "the straight beam disappears before the spiral")
-	check(first.life < first.max_life, "spiral motes outlive the beam")
+	check(first.life < first.max_life, "spiral smoke outlives the beam")
+	var smoke_index: int = world.fx._pools[Fx.Kind.GLOW].find(first)
+	if smoke_index >= 0:
+		check(world.fx._buffers[Fx.Kind.GLOW][smoke_index * Fx.STRIDE + 16] > first.size, "rendered smoke swells instead of shrinking like a spark")
 	check(Vector2(first.position.x - muzzle.x, first.position.y - muzzle.y).length() > before_radius, "the helix expands as the beam disintegrates")
