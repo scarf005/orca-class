@@ -1,6 +1,6 @@
 class_name Hovercraft
 extends Enemy
-## Plaza mid-boss: a skirting hull with two ducted fans, twin autocannons and a bow gun.
+## Plaza mid-boss: an air-cushion landing craft with two ducted fans, twin autocannons and a bow gun.
 ## Shells break the laser and fans; overlapping missile salvos exhaust the laser's shared heat.
 ## At half hull the flank plates and fan cowls tear off, and the rear rocket rack joins the fight.
 
@@ -67,42 +67,39 @@ func _init() -> void:
 func build() -> void:
 	model.scale = Vector3.ONE * SCALE
 	var b := LowPoly.new()
-	# Wide rubber skirt in hazard-banded fingers, a stepped deck, a clipped bow and an overbuilt bridge:
-	# this hull carries every weapon its builders could bolt on.
-	for z in [-4.8, -1.6, 1.6, 4.8]:
-		b.prism(Transform3D(Basis(Vector3.RIGHT, PI * 0.5).scaled(Vector3(1, 0.15, 1)), Vector3(0, 0.9, z)), 5.8 if z > -4.0 else 4.6, 3.2, 8, Palette.INK, 5.2)
-	for i in 14:
-		var z := -6.0 + i * 0.95
-		for side in [-1.0, 1.0]:
-			b.box(Transform3D(Basis(), Vector3(side * 5.1, 1.0, z)), Vector3(0.12, 0.5, 0.48), Palette.BUTTER if i % 2 == 0 else Palette.INK)
-	b.box(Transform3D(Basis(), Vector3(0, 1.6, 0)), Vector3(10.0, 1.2, 13.0), Palette.CONCRETE, Palette.MIST)
-	b.box(Transform3D(Basis(Vector3.RIGHT, 0.35), Vector3(0, 1.75, -6.6)), Vector3(9.6, 0.9, 2.6), Palette.CONCRETE)
+	# An air-cushion landing craft: a black skirt bulging out over the water, a flat grey deck with an open cargo well,
+	# long deckhouses down both sides, a hazard-striped bow ramp, and the hull number on the bridge.
+	b.frustum(Transform3D(Basis(), Vector3(0, 0.0, 0)), Vector2(9.0, 13.4), Vector2(10.8, 15.0), 1.0, Palette.INK)
+	b.frustum(Transform3D(Basis(), Vector3(0, 1.0, 0)), Vector2(10.8, 15.0), Vector2(10.0, 14.2), 0.6, Palette.DUSK)
+	b.box(Transform3D(Basis(), Vector3(0, 1.85, 0.4)), Vector3(9.8, 0.5, 13.0), Palette.ASH, Palette.STONE)
+	b.box(Transform3D(Basis(), Vector3(0, 2.12, 0.0)), Vector3(4.6, 0.06, 10.0), Palette.SLATE)
+	for i in 5:
+		b.box(Transform3D(Basis(), Vector3(0, 2.16, -4.0 + i * 2.0)), Vector3(4.4, 0.03, 0.1), Palette.BUTTER)
+	b.frustum(Transform3D(Basis(Vector3.RIGHT, 0.5), Vector3(0, 1.6, -6.6)), Vector2(4.6, 0.25), Vector2(4.6, 0.25), 2.2, Palette.STONE)
+	for i in 5:
+		b.box(Transform3D(Basis(Vector3.RIGHT, 0.5), Vector3(-1.8 + i * 0.9, 2.1, -6.95)), Vector3(0.45, 0.04, 0.9), Palette.CORAL if i % 2 == 0 else Palette.INK)
 	for side in [-1.0, 1.0]:
-		b.box(Transform3D(Basis(), Vector3(side * 5.05, 1.9, 0)), Vector3(0.1, 0.4, 11.5), Palette.CORAL)
-	# Bridge: two tiers of glazing, a radar scanner, a mast with a beacon and stowed searchlights.
-	b.box(Transform3D(Basis(), Vector3(0, 3.1, 2.0)), Vector3(4.6, 1.8, 3.4), Palette.MIST, Palette.WHITE)
-	b.box(Transform3D(Basis(), Vector3(0, 4.45, 2.2)), Vector3(3.2, 1.0, 2.4), Palette.WHITE, Palette.CREAM)
+		# Deckhouse: a long low cabin with a raked front, windows at the bow end and lift fan grilles on its roof.
+		b.frustum(Transform3D(Basis(), Vector3(side * 3.6, 2.1, 0.4)), Vector2(2.2, 11.0), Vector2(1.9, 10.2), 1.5, Palette.HULL_LIGHT, Palette.ASH, Vector2(0, 0.4))
+		b.glow = true
+		b.box(Transform3D(Basis(Vector3.RIGHT, 0.3), Vector3(side * 3.6, 3.15, -4.6)), Vector3(1.6, 0.32, 0.05), Palette.CYAN)
+		b.glow = false
+		for z in [-1.0, 2.6]:
+			b.prism(Transform3D(Basis(), Vector3(side * 3.6, 3.6, z)), 0.75, 0.12, 12, Palette.INK)
+			b.prism(Transform3D(Basis(), Vector3(side * 3.6, 3.7, z)), 0.6, 0.04, 12, Palette.SLATE)
+		b.box(Transform3D(Basis(), Vector3(side * 4.65, 2.8, 0.4)), Vector3(0.06, 0.24, 10.0), Palette.CORAL)
+	# Bridge on the starboard deckhouse: a raised cab with wrap-around glazing, a mast and a radar.
+	b.frustum(Transform3D(Basis(), Vector3(3.6, 3.6, -2.6)), Vector2(1.8, 2.2), Vector2(1.6, 1.8), 1.0, Palette.HULL_LIGHT, Palette.WHITE)
 	b.glow = true
-	b.box(Transform3D(Basis(Vector3.RIGHT, 0.0), Vector3(0, 3.25, 0.28)), Vector3(4.2, 0.5, 0.06), Palette.CYAN)
-	b.box(Transform3D(Basis(), Vector3(0, 4.55, 0.96)), Vector3(2.9, 0.4, 0.06), Palette.CYAN)
-	b.box(Transform3D(Basis(), Vector3(0, 6.9, 2.2)), Vector3(0.3, 0.3, 0.3), Palette.HOT)
+	b.box(Transform3D(Basis(), Vector3(3.6, 4.2, -3.55)), Vector3(1.5, 0.3, 0.05), Palette.CYAN)
+	b.box(Transform3D(Basis(), Vector3(3.6, 6.25, -2.6)), Vector3(0.25, 0.25, 0.25), Palette.HOT)
 	b.glow = false
-	b.box(Transform3D(Basis(), Vector3(0, 6.0, 2.2)), Vector3(0.14, 3.0, 0.14), Palette.ASH)
-	b.box(Transform3D(Basis(), Vector3(0, 5.2, 2.2)), Vector3(3.4, 0.1, 0.5), Palette.INK)
-	b.box(Transform3D(Basis(), Vector3(0, 5.5, 2.2)), Vector3(0.5, 0.5, 0.5), Palette.DUSK)
-	for side in [-1.0, 1.0]:
-		b.box(Transform3D(Basis(), Vector3(side * 2.0, 4.1, 0.9)), Vector3(0.5, 0.4, 0.6), Palette.ASH)
-	# Missile cells in two banks on the deck, a gun-director dome and ammunition crates.
-	for side in [-1.0, 1.0]:
-		for ix in 3:
-			for iz in 4:
-				b.box(Transform3D(Basis(), Vector3(side * (3.0 + ix * 0.55), 2.4, -1.0 + iz * 0.6)), Vector3(0.46, 0.22, 0.5), Palette.DUSK)
-				b.box(Transform3D(Basis(), Vector3(side * (3.0 + ix * 0.55), 2.52, -1.0 + iz * 0.6)), Vector3(0.34, 0.04, 0.38), Palette.CORAL)
-	b.blob(Transform3D(Basis(), Vector3(-2.8, 2.7, 3.2)), 0.7, Palette.WHITE)
-	b.box(Transform3D(Basis(), Vector3(2.6, 2.5, 4.0)), Vector3(1.4, 0.8, 1.2), Palette.BUTTER)
-	b.box(Transform3D(Basis(), Vector3(0, 2.5, -3.0)), Vector3(2.4, 0.6, 1.4), Palette.ASH)
-	for x in [-4.5, 4.5]:
-		b.box(Transform3D(Basis(), Vector3(x, 2.25, 0)), Vector3(0.4, 0.2, 11.0), Palette.BUTTER)
+	b.box(Transform3D(Basis(), Vector3(3.6, 5.3, -2.6)), Vector3(0.12, 1.8, 0.12), Palette.ASH)
+	b.box(Transform3D(Basis(), Vector3(3.6, 5.6, -2.6)), Vector3(1.6, 0.12, 0.35), Palette.INK)
+	b.box(Transform3D(Basis(), Vector3(4.71, 3.0, -1.2)), Vector3(0.04, 0.5, 1.1), Palette.WHITE)
+	for x in [4.72]:
+		for i in 3:
+			b.box(Transform3D(Basis(), Vector3(x, 3.0, -1.55 + i * 0.35)), Vector3(0.05, 0.36, 0.22), Palette.INK)
 	_add_mesh(model, b.mesh())
 	for side in [-1.0, 1.0]:
 		var name := "fan_l" if side < 0.0 else "fan_r"
@@ -110,25 +107,30 @@ func build() -> void:
 		fan.position = PARTS[name]
 		model.add_child(fan)
 		_part_nodes[name] = fan
+		# Propulsion: a deep ducted shroud on a pylon with twin rudders behind it.
 		var duct := LowPoly.new()
-		for i in 12:
-			var a := TAU * i / 12.0
-			duct.box(Transform3D(Basis(Vector3.FORWARD, a), Vector3(sin(a), cos(a), 0) * 2.0), Vector3(1.1, 0.35, 1.4), Palette.SLATE)
+		for i in 16:
+			var a := TAU * i / 16.0
+			duct.box(Transform3D(Basis(Vector3.FORWARD, a), Vector3(sin(a), cos(a), 0) * 2.1), Vector3(0.9, 0.3, 1.8), Palette.SLATE)
+		duct.box(Transform3D(Basis(), Vector3(0, -2.25, 0)), Vector3(0.5, 0.6, 1.2), Palette.DUSK)
+		for x in [-0.8, 0.8]:
+			duct.box(Transform3D(Basis(), Vector3(x, 0, 1.6)), Vector3(0.12, 3.6, 1.0), Palette.HULL_LIGHT)
+		duct.box(Transform3D(Basis(), Vector3(0, 2.0, 0)), Vector3(0.3, 0.06, 1.7), Palette.CORAL)
 		_add_mesh(fan, duct.mesh())
 		var rotor := Node3D.new()
 		fan.add_child(rotor)
 		var blades := LowPoly.new()
-		blades.prism(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3.ZERO), 0.4, 0.8, 8, Palette.BUTTER)
+		blades.tube(Transform3D(Basis(), Vector3(0, 0, -0.4)), 0.35, 0.8, 8, Palette.INK)
 		for i in 4:
-			blades.box(Transform3D(Basis(Vector3.FORWARD, i * PI * 0.5), Vector3.ZERO), Vector3(0.22, 3.6, 0.16), Palette.MIST)
+			blades.box(Transform3D(Basis(Vector3.FORWARD, i * PI * 0.5) * Basis(Vector3.UP, 0.35), Vector3.ZERO), Vector3(0.3, 3.7, 0.08), Palette.ASH)
 		_add_mesh(rotor, blades.mesh())
 		_fans.append(rotor)
 		var plate := Node3D.new()
-		plate.position = Vector3(side * 5.1, 2.0, 0)
+		plate.position = Vector3(side * 4.75, 2.6, 0.4)
 		model.add_child(plate)
-		_add_mesh(plate, LowPoly.new().box(Transform3D(), Vector3(0.35, 1.2, 9.0), Palette.STONE).mesh())
+		_add_mesh(plate, LowPoly.new().frustum(Transform3D(Basis(Vector3.BACK, side * -0.2), Vector3(0, -0.8, 0)), Vector2(0.3, 9.4), Vector2(0.24, 8.8), 1.4, Palette.STONE).mesh())
 		_plates.append(plate)
-		var gun := _weapon(Vector3(side * 3.1, 2.8, -3.0), 1, 2.5)
+		var gun := _weapon(Vector3(side * 3.6, 3.6, -0.2 if side < 0.0 else 0.6), 1, 2.5)
 		_guns.append(gun)
 		_muzzles.append(gun.get_node("Muzzle"))
 	var laser := Node3D.new()
@@ -162,10 +164,9 @@ func _weapon(at: Vector3, barrels: int, length: float) -> Node3D:
 	node.position = at
 	model.add_child(node)
 	var b := LowPoly.new()
-	b.prism(Transform3D(Basis(), Vector3(0, -0.55, 0)), 0.9, 0.35, 8, Palette.DUSK)
-	b.box(Transform3D(), Vector3(2.4, 0.9, 1.7), Palette.MIST, Palette.WHITE)
-	b.box(Transform3D(Basis(Vector3.RIGHT, -0.3), Vector3(0, 0.1, -0.95)), Vector3(2.2, 0.8, 0.3), Palette.WHITE)
-	b.box(Transform3D(Basis(), Vector3(0, 0.5, 0.2)), Vector3(1.4, 0.15, 1.0), Palette.CORAL)
+	b.prism(Transform3D(Basis(), Vector3(0, -0.55, 0)), 0.75, 0.3, 10, Palette.DUSK)
+	b.frustum(Transform3D(Basis(), Vector3(0, -0.4, 0.1)), Vector2(1.6, 1.8), Vector2(1.2, 1.1), 0.85, Palette.WHITE, Palette.MIST, Vector2(0, 0.2))
+	b.box(Transform3D(Basis(), Vector3(0, 0.47, 0.3)), Vector3(0.8, 0.06, 0.7), Palette.CORAL)
 	for i in barrels:
 		var x := (i - (barrels - 1) * 0.5) * 0.4
 		b.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(x, 0, -0.8)), 0.15, length, 6, Palette.INK)
