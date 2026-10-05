@@ -8,7 +8,7 @@ extends Enemy
 ## Every weapon and rotor is its own module with its own health: hitting one hurts only it (a rotor
 ## takes three full charges, each weapon one), and wrecking it tears it off the airframe and
 ## silences that attack. One rotor lost lowers and banks the craft. Only the last phase can crash:
-## earlier, losing both rotors or the hull makes it recover into the next phase instead. Weapons: two shoulder gatlings, a nose cannon, a chin ATGM drum,
+## earlier, losing both rotors or the hull makes it recover into the next phase instead. Weapons: two shoulder gatlings, a nose cannon, a chin ATGM canister turret,
 ## two wing rocket racks and a belly bomb bay. The three phases add flares, drone calls and the
 ## infected dive before the crash into the dam.
 
@@ -41,7 +41,7 @@ const CANNON_AIM := 0.7 ## Seconds of warning before each cannon shot.
 const CANNON_LOCK := 0.35 ## For the last of the warning the aim holds still: move now and it misses.
 const CANNON_BRAKE := 8.0 ## Per second the airframe sheds its drift while the cannon takes its shots.
 const GATLING_TRACER := 22.0 ## Length of the bright streak each gatling round draws.
-const GATLING_SLEW := 3.0 ## Radians per second the shoulder guns, the chin drum and the racks turn onto their aim.
+const GATLING_SLEW := 3.0 ## Radians per second the shoulder guns, the chin turret and the racks turn onto their aim.
 const CHIN_SLEW := 2.0
 const RACK_SLEW := 4.0
 const CANNON_SLEW := 6.0 ## The nose cannon traverses onto its target while the line follows; the lock then holds it.
@@ -78,8 +78,9 @@ var _discs: Array[MeshInstance3D] = []
 var _gatlings: Array[Node3D] = [] ## Shoulder turrets that track the tank; barrels spin while firing.
 var _barrels: Array[Node3D] = []
 var _gatling_muzzles: Array[Node3D] = []
-var _chin := Node3D.new()
-var _chin_muzzles: Array[Node3D] = [] ## One per launch tube of the ATGM drum.
+var _chin := Node3D.new() ## Hull-fixed root: the mount and aiming cradle detach together.
+var _chin_aim := Node3D.new()
+var _chin_muzzles: Array[Node3D] = [] ## Three salvo launch points on the ATGM canister grid.
 var _rack_muzzles := {} ## Rack part name -> muzzle node; it steps from cell to cell.
 var _rack_aim := {} ## Rack part name -> world point its next rocket is meant for.
 var _nose_muzzle := Node3D.new()
@@ -202,21 +203,60 @@ func build() -> void:
 		var gatling := "gatling_l" if side < 0.0 else "gatling_r"
 		_add_part(gatling, joint.position, 1.1, MODULE_HP[gatling], null)
 		parts[gatling].node = joint
-	# Chin rocket turret: an eight-tube drum under the nose; losing it silences the gun runs too.
-	_chin.position = Vector3(0, -2.3, -5.2)
+	# PAC-3-style chin turret: two separate 2x2 canister blocks on a shared mount.
+	_chin.position = Vector3(0, -2.4, -5.2)
 	model.add_child(_chin)
+	var chin_scale := 0.65
+	var canister_scale := Vector3(chin_scale, chin_scale, chin_scale * 0.75)
+	var canister_offset := Vector3(0, 0, -1.3 * 0.75) # Shorten along the bore, keeping the rear joint at the pivot.
+	var mount := LowPoly.new()
+	# A low-profile attachment: the central drum and crosshead share the same top and bottom.
+	mount.box(Transform3D(Basis(), Vector3(0, 0.65, 0.25)), Vector3(1.15, 0.3, 0.85), Palette.SLATE)
+	mount.prism(Transform3D(Basis(), Vector3(0, 0.5, 0.25)), 0.55, 0.3, 8, Palette.STONE)
+	mount.box(Transform3D(Basis(), Vector3(0, 0.65, 0.25)), Vector3(2.8, 0.3, 0.65), Palette.SLATE)
+	for x in [-1.32, 1.32]:
+		mount.box(Transform3D(Basis(), Vector3(x, -0.05, 0.25)), Vector3(0.16, 1.4, 0.65), Palette.SLATE)
+		mount.tube(Transform3D(Basis(Vector3.UP, PI * 0.5), Vector3(x - 0.12, 0, 0.25)), 0.22, 0.24, 8, Palette.STONE)
+	mount.tube(Transform3D(Basis(Vector3.UP, PI * 0.5), Vector3(-1.44, 0, 0.25)), 0.12, 2.88, 8, Palette.SLATE)
+	mount.blob(Transform3D(Basis(), Vector3(0, 0, 0.25)), 0.3, Palette.STONE, 1)
+	for block_x in [-0.68, 0.68]:
+		mount.box(Transform3D(Basis(), Vector3(block_x, -0.69, 0.25)), Vector3(1.2, 0.12, 0.8), Palette.STONE)
+	var chin_mount := MeshInstance3D.new()
+	chin_mount.mesh = mount.mesh()
+	chin_mount.scale = Vector3.ONE * chin_scale
+	_chin.add_child(chin_mount)
+	_chin_aim.position = Vector3(0, 0, 0.25 * chin_scale)
+	_chin.add_child(_chin_aim)
 	var c := LowPoly.new()
-	c.box(Transform3D(), Vector3(1.6, 1.0, 1.4), Palette.STONE)
-	for k in 8:
-		var o := Vector3(cos(TAU * k / 8.0), sin(TAU * k / 8.0), 0) * 0.45
-		c.tube(Transform3D(Basis(Vector3.UP, PI), o + Vector3(0, 0, -0.6)), 0.14, 0.9, 6, Palette.INK)
+	for block_x in [-0.68, 0.68]:
+		# Four long, individually sealed canisters; no enclosing box hides their seams.
+		for x in [-0.24, 0.24]:
+			for y in [-0.24, 0.24]:
+				var cell := Vector3(block_x + x, y, -0.2)
+				c.box(Transform3D(Basis(), cell), Vector3(0.44, 0.44, 4.4), Palette.ASH)
+				c.box(Transform3D(Basis(), Vector3(cell.x, y, -2.42)), Vector3(0.46, 0.46, 0.08), Palette.SLATE)
+				c.box(Transform3D(Basis(), Vector3(cell.x, y, -2.47)), Vector3(0.38, 0.38, 0.04), Palette.STONE)
+				c.box(Transform3D(Basis(), Vector3(cell.x, y - 0.13, -2.5)), Vector3(0.16, 0.04, 0.02), Palette.STONE)
+		# Binding hoops and longitudinal rails hold each 2x2 pack independently.
+		for z in [-2.15, -0.25, 1.75]:
+			for side in [-1.0, 1.0]:
+				c.box(Transform3D(Basis(), Vector3(block_x, side * 0.5, z)), Vector3(1.08, 0.08, 0.14), Palette.SLATE)
+				c.box(Transform3D(Basis(), Vector3(block_x + side * 0.5, 0, z)), Vector3(0.08, 1.08, 0.14), Palette.SLATE)
+		for x in [-0.5, 0.5]:
+			c.box(Transform3D(Basis(), Vector3(block_x + x, -0.55, -0.2)), Vector3(0.12, 0.16, 4.6), Palette.SLATE)
+			c.box(Transform3D(Basis(), Vector3(block_x + x, 0, -0.2)), Vector3(0.08, 0.1, 4.3), Palette.SLATE)
+	# The rear crossmember meets the fixed swivel bearing at the aiming pivot.
+	c.box(Transform3D(Basis(), Vector3(0, 0, 2.0)), Vector3(2.4, 0.18, 0.2), Palette.SLATE)
 	var chin_mesh := MeshInstance3D.new()
 	chin_mesh.mesh = c.mesh()
-	_chin.add_child(chin_mesh)
-	for x in [-0.45, 0.0, 0.45]:
+	chin_mesh.scale = canister_scale
+	chin_mesh.position = canister_offset
+	_chin_aim.add_child(chin_mesh)
+	# Keep the three-missile salvo, with each launch point on a canister face.
+	for cell in [Vector2(-0.92, 0.24), Vector2(0.44, -0.24), Vector2(0.92, 0.24)]:
 		var tube := Node3D.new()
-		tube.position = Vector3(x, 0, -1.6)
-		_chin.add_child(tube)
+		tube.position = Vector3(cell.x, cell.y, -2.54) * canister_scale + canister_offset
+		_chin_aim.add_child(tube)
 		_chin_muzzles.append(tube)
 	_add_part("era_left", Vector3(-2.6, 0.0, -1.2), 2.0, ERA_HP, _panel_mesh(-1.0))
 	_add_part("era_right", Vector3(2.6, 0.0, -1.2), 2.0, ERA_HP, _panel_mesh(1.0))
@@ -328,7 +368,6 @@ func _nose_mesh() -> Mesh:
 func _pod_mesh() -> Mesh:
 	var b := LowPoly.new()
 	b.box(Transform3D(), Vector3(1.8, 2.8, 4.8), Palette.ASH)
-	b.box(Transform3D(Basis(), Vector3(0, 1.45, 0)), Vector3(1.6, 0.1, 4.4), Palette.BUTTER)
 	for x in [-0.45, 0.45]:
 		for y in [-0.9, 0.0, 0.9]:
 			b.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(x, y, -2.4)), 0.3, 0.45, 6, Palette.AMBER, 0.0)
@@ -722,12 +761,12 @@ func behave(delta: float) -> void:
 	_update_attack(delta, tank)
 
 
-## Every barrel turns toward its aim at its own slew rate: the chin drum and gatlings follow the
+## Every barrel turns toward its aim at its own slew rate: the chin turret and gatlings follow the
 ## tank, the racks the point their next rocket is meant for, and the nose cannon its lead (held
 ## dead still once the aim locks).
 func _aim_weapons(delta: float, tank: Tank) -> void:
 	if _live("chin"):
-		aim_barrel(_chin, tank.hit_center(), CHIN_SLEW, delta)
+		aim_barrel(_chin_aim, tank.hit_center(), CHIN_SLEW, delta)
 	# Aim parents first so their motion cannot undo the child guns' world-space aim.
 	for side: String in _rack_muzzles:
 		if _live(side):
@@ -1056,7 +1095,7 @@ func _bombs(tank: Tank) -> void:
 func _launch_atgm(tank: Tank, index: int) -> void:
 	var muzzle := _chin_muzzles[index]
 	var from := muzzle.global_position
-	# Out of the tube along the drum, then it steers: the tubes splay a little so the three fan out.
+	# Out of the canister along the turret's aim, then it steers onto the tank.
 	var missile := fire_along("atgm", muzzle, ATGM_SPEED, 0.0, Palette.HOT, Vector3.ZERO, 3.0, 0.06)
 	missile.hit = Hit.make(Hit.Kind.SHELL, 0.0, from)
 	missile.hit.source = self
