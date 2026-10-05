@@ -199,7 +199,8 @@ Readable patterns, fair dodge windows, and no damage-sponge phases.
 A downtown drowned to the second floor, at dawn. The road is a shallow lane between 5-10 storey towers that cannot be
 crossed (the tank is shoved around them, like the Stage 1 overpass piers); viaducts run above the street and carry
 enemies. Few enemies, each deadly, and each uses cover: it hides behind a tower, peeks out, fires, and moves. The
-tank starts with the RWS fitted and the coax at tier 2, whether it follows Stage 1 or is picked on its own. Wading
+tank starts without the RWS and with the coax at tier 2, whether it follows Stage 1 or is picked on its own.
+Special-round drops match Stage 1: Dragon, ATGM and micro-missiles. Wading
 slows strafing (see Stage 1's water rules); deep water also halves the overdrive refill.
 
 Sections: **Boulevard** (quiet opening, stalled traffic, the first LOSAT hunter), **Viaduct** (deck gunners, mines,
@@ -211,7 +212,7 @@ Music is lyrical solo piano over chopped breakcore, one track per section, and t
 | Abel (police-labor biped) | Peeks out of cover, fires a LOSAT kinetic dart or a 20 mm gatling burst, then moves; the dart's damage grows with its speed, so it is deadly at range and harmless under 25 m | Laser line from the right arm, then launch | Close in, shoot the three tubes off, a charged shell or two quick shells |
 | Kain (reverse-joint gun carrier) | Lobs a 100 mm low-pressure shell at a marked patch from behind cover, with a 20 mm coax | Turret swivels; impact circle | Legs and rear; the turret's front is armored |
 | Adam (construction biped) | Body-blocks the lane in front of other hunters; hydraulic breaker slam or an I-beam sweep | Impact circle; arm rears back | Shoot the hose bundle on the arm or the legs |
-| Hind (attack helicopter) | Flies the canyon low, hides behind towers, pops up to fire a gatling burst, a rocket ripple or an ATGM | Chin sight beam; pods open; ATGM flare | Airburst, a few coax hits to the tail rotor; CIWS catches rockets and the ATGM |
+| Hind (attack helicopter) | Flies the canyon low, hides behind towers, pops up to fire a gatling burst, a rocket ripple or an ATGM | Chin sight beam; pods open; ATGM flare | Micro-missiles, a few coax hits to the tail rotor; dodge rockets and the ATGM |
 | Rooftop battery | Rocket ripples from a roof or viaduct deck | Ground circles | A shell or heavy coax |
 | Sea mine | Floats toward the tank and detonates, chains with others | Beeping speeds up | Shoot it, swat with the tail |
 | Hovercraft (mid-boss) | All-range in the plaza: twin lasers that shoot down player ATGM and micro-missiles, autocannons, a bow shell, a ram, and a rear rocket rack after half hull | Laser heat, circles, a ram line | Direct rounds bypass the lasers; overlapping missile salvos overheat them; shells break the lift fans and emitters |
