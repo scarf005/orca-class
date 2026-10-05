@@ -15,8 +15,9 @@ godot --path . -- --play # skip title screen
 godot --path . -- --tutorial # practice movement, aiming and firing
 ```
 
-Choose **FIRST TIME? LEARN THE CONTROLS** on the title screen for a self-paced practice range with no
-attacks. You can practice again or start the main game on Easy when you're ready.
+Choose **LEARN THE CONTROLS** to drive to marked pads, aim at a target, and fire. Short prompts and
+control diagrams guide each action, with no attacks or time limits. The range also teaches automatic
+forward movement and braking before offering more practice or the main game on Easy.
 
 ### Web
 
