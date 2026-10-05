@@ -120,6 +120,7 @@ var _groups: Array[Dictionary] = [] ## Compound id -> {piece index: Prop}, fille
 
 
 func build() -> void:
+	Course.reset_structures()
 	_rng.seed = 20260928
 	if Course.stage.number == 1:
 		_farm()
@@ -371,6 +372,34 @@ func arena_position(point: Vector3, d: float, margin := 0.0) -> Vector3:
 	var center := Course.to_world(arena.d, 0.0)
 	var offset := Vector2(point.x - center.x, point.z - center.z).limit_length(maxf(arena.radius - margin, 0.0))
 	return Vector3(center.x + offset.x, point.y, center.z + offset.y)
+
+
+## Boss impacts remove both the visual prop and its persistent solid, even outside the stream.
+## Only named breakable cover is affected; towers, ships and piers remain arena boundaries.
+func crush_cover(from: Vector3, to: Vector3, reach: float, kinds: Array[String]) -> int:
+	var removed := 0
+	for spec in specs:
+		if spec.kind not in kinds or spec.has_meta("destroyed"):
+			continue
+		var at := Course.to_world(spec.d, spec.u, float(spec.get_meta("y", Course.height(spec.d, spec.u))))
+		var closest := Geometry3D.get_closest_point_to_segment(at, from, to)
+		var extent := spec.size.length() * 0.5 if spec.size != Vector3.ZERO else float(PROPS[spec.kind][0])
+		if Vector2(at.x - closest.x, at.z - closest.z).length() > reach + extent:
+			continue
+		spec.set_meta("destroyed", true)
+		for i in range(Course.structure_boxes.size() - 1, -1, -1):
+			var box: Dictionary = Course.structure_boxes[i]
+			if box.d == spec.d and box.u == spec.u and box.size == spec.size and box.pose.origin.is_equal_approx(at):
+				Course.structure_boxes.remove_at(i)
+		if is_instance_valid(spec.node):
+			var prop := spec.node as Prop
+			if prop != null and not prop.dead:
+				prop.die(Hit.make(Hit.Kind.RAM, 0.0, at, (to - from).normalized()))
+			else:
+				spec.node.queue_free()
+		World.current.fx.debris(at + Vector3.UP, 12, [Fx.Debris.METAL, Fx.Debris.CONCRETE], 12.0, 0.6)
+		removed += 1
+	return removed
 
 
 ## HARD cover, including streamed-out city boxes; destroyed ordinary props no longer block sight.

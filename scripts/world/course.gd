@@ -95,13 +95,18 @@ static func _build() -> PackedFloat32Array:
 	_curvature = raw
 	_map_origin = origin
 	_map_size = size
+	reset_structures()
+	return map
+
+
+## Runtime boss destruction lasts one run; a same-stage retry restores its cover too.
+static func reset_structures() -> void:
 	structure_boxes.clear()
 	for structure in stage.structures:
 		var box := structure.duplicate()
 		var tilt: Vector3 = structure.get("tilt", Vector3.ZERO)
 		box.pose = Transform3D(Basis.from_euler(Vector3(tilt.x, yaw_at(structure.d) + structure.yaw, tilt.z)), to_world(structure.d, structure.u, structure.y))
 		structure_boxes.append(box)
-	return map
 
 
 static func _center(d: float) -> Vector2:

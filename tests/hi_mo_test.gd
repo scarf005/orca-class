@@ -106,8 +106,8 @@ func test_desperate_transition_tears_above_water_leg_and_recovers() -> void:
 	_advance(boss, HiMo.HOP_TIME + 0.1)
 	_shell(boss, boss.hit_center(), boss.max_hp * 0.35)
 	check_eq(boss.legs_lost(), 1, "thirty percent tears off one leg")
-	var knee: Node3D = boss._legs[2].knee
-	check(knee.get_parent() != boss._legs[2].hip, "actuator and lower leg detach together")
+	var knee: Node3D = boss._legs[0].knee
+	check(knee.get_parent() != boss._legs[0].hip, "actuator and lower leg detach together")
 	var y := boss.position.y
 	_advance(boss, 1.2)
 	check(boss.position.y < y - 2.0, "the damaged walker drops into water")
@@ -140,6 +140,11 @@ func test_perched_missiles_and_final_overcharged_rail() -> void:
 	check_eq(boss._attack, HiMo.Attack.RAIL, "low hull schedules the final rail before death")
 	check(boss._overcharge, "final rail is overcharged")
 	check(boss._wind() > float(HiMo.WIND[HiMo.Attack.RAIL]) * Game.telegraph_scale(), "overcharge has a longer dodge warning")
+	boss.position = boss.player().position + Vector3.RIGHT * 8.0
+	boss._begin_attack(HiMo.Attack.RAIL)
+	_advance(boss, 1.1)
+	check(boss.position.distance_to(boss.player().position) >= 35.0, "overcharge clears melee smoke so its long corridor can be read")
+	check(boss.telegraphing(), "retreat does not consume the locked dodge warning")
 
 
 func test_phase_boundaries_and_music() -> void:
