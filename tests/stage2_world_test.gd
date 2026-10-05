@@ -2,6 +2,20 @@ extends TestCase
 ## The flooded city remains navigable beneath solid cover, including broad roofs and expressways.
 
 
+func test_stage_driven_street_limits_and_clear_corridor() -> void:
+	Course.use(2)
+	check_near(Tank.lateral_limit(300.0), 30.0, 0.01, "boulevard street is 60 m wide")
+	check_near(Tank.lateral_limit(900.0), 30.0, 0.01, "viaduct street is 60 m wide")
+	check_near(Tank.lateral_limit(2300.0), 22.0, 0.01, "canyon street narrows to 44 m")
+	for box in Course.structure_boxes:
+		if box.kind in ["city_deck", "city_pier"]:
+			continue
+		var pose: Transform3D = box.pose
+		var half := maxf(box.size.x, box.size.z) * 0.5
+		var c := Course.to_course(pose.origin)
+		check(absf(c.y) - half >= Tank.lateral_limit(c.x) - 0.01, "city structure clears the drivable corridor")
+
+
 func test_section_boundaries_and_bending_rail() -> void:
 	Course.use(2)
 	for i in Stage2.SECTION_STARTS.size():
