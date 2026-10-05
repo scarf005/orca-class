@@ -3,4 +3,6 @@
 /builds/
 *.translation
 /screenshots/
+/.screenshots/
+*.blend1
 __pycache__/

@@ -55,52 +55,24 @@ func build() -> void:
 	var slot: Vector3 = get_meta("slot", Vector3(0, 13, 55))
 	_lane = slot.x
 	_height = maxf(slot.y, 10.0)
-	var b := LowPoly.new()
-	# Narrow tandem fuselage, stepped canopies, tail boom and fin.
-	b.box(Transform3D(Basis(), Vector3(0, 0, 0.2)), Vector3(1.5, 1.7, 5.4), Palette.SLATE)
-	b.box(Transform3D(Basis(Vector3.RIGHT, 0.35), Vector3(0, 0.55, -2.6)), Vector3(1.3, 1.1, 1.8), Palette.SLATE)
-	b.box(Transform3D(Basis(Vector3.RIGHT, -0.25), Vector3(0, -0.35, -2.9)), Vector3(1.2, 0.8, 1.2), Palette.DUSK)
-	b.glow = true
-	b.box(Transform3D(Basis(Vector3.RIGHT, 0.35), Vector3(0, 1.0, -2.3)), Vector3(1.1, 0.5, 1.2), Palette.PERIWINKLE)
-	b.box(Transform3D(Basis(Vector3.RIGHT, 0.2), Vector3(0, 1.2, -0.9)), Vector3(1.0, 0.5, 1.1), Palette.PERIWINKLE)
-	b.glow = false
-	b.box(Transform3D(Basis(), Vector3(0, 0.3, 5.2)), Vector3(0.6, 0.6, 5.2), Palette.SLATE)
-	b.box(Transform3D(Basis(), Vector3(0, 1.3, 7.5)), Vector3(0.2, 2.0, 1.2), Palette.DUSK)
-	b.box(Transform3D(Basis(), Vector3(0, 0.4, 7.3)), Vector3(2.2, 0.1, 0.8), Palette.DUSK)
-	# Engine nacelles and exhausts on the shoulders.
-	for x in [-0.95, 0.95]:
-		b.box(Transform3D(Basis(), Vector3(x, 1.1, 0.4)), Vector3(0.6, 0.7, 2.4), Palette.STONE)
-		b.box(Transform3D(Basis(), Vector3(x * 1.1, 1.1, 1.7)), Vector3(0.5, 0.5, 0.3), Palette.INK)
-	# Stub wings.
-	b.box(Transform3D(Basis(), Vector3(0, -0.1, 0.3)), Vector3(5.6, 0.18, 1.2), Palette.DUSK)
-	b.box(Transform3D(Basis(), Vector3(0, 1.75, 0.2)), Vector3(0.4, 0.5, 0.4), Palette.INK)
 	var body := MeshInstance3D.new()
-	body.mesh = b.mesh()
+	body.mesh = ActorMeshes.mesh("helicopter", "body")
 	model.add_child(body)
 	_rotor.position = Vector3(0, 2.05, 0.2)
 	model.add_child(_rotor)
-	var r := LowPoly.new()
-	for i in 5:
-		r.box(Transform3D(Basis(Vector3.UP, TAU * i / 5.0), Vector3(0, 0, 0)).translated_local(Vector3(3.7, 0, 0)), Vector3(7.4, 0.06, 0.45), Palette.INK)
 	var rotor_mesh := MeshInstance3D.new()
-	rotor_mesh.mesh = r.mesh()
+	rotor_mesh.mesh = ActorMeshes.mesh("helicopter", "rotor")
 	_rotor.add_child(rotor_mesh)
 	_tail_rotor.position = Vector3(0.2, 1.4, 7.6)
 	model.add_child(_tail_rotor)
 	var tr_mesh := MeshInstance3D.new()
-	var t := LowPoly.new()
-	for i in 4:
-		t.box(Transform3D(Basis(Vector3.RIGHT, TAU * i / 4.0), Vector3.ZERO).translated_local(Vector3(0, 0.7, 0)), Vector3(0.05, 1.4, 0.25), Palette.INK)
-	tr_mesh.mesh = t.mesh()
+	tr_mesh.mesh = ActorMeshes.mesh("helicopter", "tail_rotor")
 	_tail_rotor.add_child(tr_mesh)
 	# Chin gun turret.
 	_chin.position = Vector3(0, -0.85, -2.7)
 	model.add_child(_chin)
-	var c := LowPoly.new()
-	c.box(Transform3D(), Vector3(0.5, 0.4, 0.5), Palette.INK)
-	c.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3(0, 0, -0.2)), 0.06, 1.5, 6, Palette.INK)
 	var chin_mesh := MeshInstance3D.new()
-	chin_mesh.mesh = c.mesh()
+	chin_mesh.mesh = ActorMeshes.mesh("helicopter", "chin")
 	_chin.add_child(chin_mesh)
 	_chin_muzzle.position = Vector3(0, 0, -1.8)
 	_chin.add_child(_chin_muzzle)
@@ -109,7 +81,7 @@ func build() -> void:
 		pivot.position = Vector3(side * 2.6, -0.4, 0.2)
 		model.add_child(pivot)
 		var pod := MeshInstance3D.new()
-		pod.mesh = _pod_mesh()
+		pod.mesh = ActorMeshes.mesh("helicopter", "pod")
 		pivot.add_child(pod)
 		var muzzle := Node3D.new()
 		muzzle.position = Vector3(0, 0, -1.2)
@@ -118,16 +90,6 @@ func build() -> void:
 		_pod_muzzles.append(muzzle)
 	pop_parts = [_rotor, _tail_rotor]
 	Sfx.loop("rotor", self, -5.0)
-
-
-func _pod_mesh() -> Mesh:
-	var b := LowPoly.new()
-	b.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3(0, 0, 1.0)), 0.42, 2.0, 7, Palette.MOSS)
-	b.glow = true
-	for i in 6:
-		var angle := TAU * i / 6.0
-		b.box(Transform3D(Basis(), Vector3(cos(angle) * 0.24, sin(angle) * 0.24, -1.01)), Vector3(0.12, 0.12, 0.02), Palette.CORAL)
-	return b.mesh()
 
 
 func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:

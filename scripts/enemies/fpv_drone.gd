@@ -50,32 +50,19 @@ func _init() -> void:
 
 
 func build() -> void:
-	var b := LowPoly.new()
-	# X frame, battery, warhead.
-	b.box(Transform3D(Basis(Vector3.UP, PI * 0.25), Vector3.ZERO), Vector3(1.5, 0.08, 0.14), Palette.INK)
-	b.box(Transform3D(Basis(Vector3.UP, -PI * 0.25), Vector3.ZERO), Vector3(1.5, 0.08, 0.14), Palette.INK)
-	b.box(Transform3D(Basis(), Vector3(0, 0.12, 0.05)), Vector3(0.3, 0.16, 0.5), Palette.BUTTER)
-	b.tube(Transform3D(Basis(), Vector3(0, -0.2, -0.35)), 0.12, 0.7, 6, Palette.OCHRE, 0.08)
-	b.box(Transform3D(Basis(), Vector3(0, 0.05, -0.32)), Vector3(0.18, 0.18, 0.14), Palette.SLATE)
 	var body := MeshInstance3D.new()
-	body.mesh = b.mesh()
+	body.mesh = ActorMeshes.mesh("fpv_drone", "body")
 	model.add_child(body)
 	for i in 4:
 		var angle := PI * 0.25 + i * PI * 0.5
 		var rotor := MeshInstance3D.new()
-		var r := LowPoly.new()
-		r.glow = true
-		r.prism(Transform3D(), 0.38, 0.02, 6, Palette.MIST)
-		rotor.mesh = r.mesh()
+		rotor.mesh = ActorMeshes.mesh("fpv_drone", "rotor")
 		rotor.position = Vector3(cos(angle), 0.08, sin(angle)) * 0.53
 		rotor.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		model.add_child(rotor)
 		_rotors.append(rotor)
 	_light = MeshInstance3D.new()
-	var l := LowPoly.new()
-	l.glow = true
-	l.box(Transform3D(), Vector3(0.12, 0.12, 0.05), Color.WHITE)
-	_light.mesh = l.mesh()
+	_light.mesh = ActorMeshes.mesh("fpv_drone", "light")
 	_light.position = Vector3(0, 0.05, -0.4)
 	var material := StandardMaterial3D.new()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
