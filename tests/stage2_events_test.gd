@@ -169,7 +169,7 @@ func test_boss_deaths_resume_then_clear() -> void:
 		var clears := [0]
 		world.stage_cleared.connect(func() -> void: clears[0] += 1)
 		world.director._fire(event)
-		check_eq(world.rail.mode, Rail.Mode.HOLD if type == "midboss" else Rail.Mode.ARENA, "boss event switches movement mode")
+		check_eq(world.rail.mode, Rail.Mode.ARENA, "both city bosses permit all-range dodging")
 		check(world.boss != null, "boss is announced to the HUD")
 		world.boss.died.emit(world.boss)
 		await frames(100)

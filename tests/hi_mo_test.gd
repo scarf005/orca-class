@@ -3,6 +3,7 @@ extends TestCase
 
 
 func _boss() -> HiMo:
+	seed(5) # Repeatable recoil and debris while testing choreography and collision.
 	var world := stage("", false, 2)
 	world.rail.d = Stage2.BAY_D
 	world.rail.mode = Rail.Mode.ARENA
@@ -20,6 +21,7 @@ func _boss() -> HiMo:
 func _shell(boss: HiMo, at: Vector3, damage: float, charged := false) -> void:
 	var hit := Hit.make(Hit.Kind.SHELL, damage, at, Vector3.BACK)
 	hit.caliber = 100
+	hit.pierce = true # Synthetic hull amounts isolate phase/weak-point rules from the front arc.
 	hit.power = 1.0 if charged else 0.0
 	hit.source = _world.player
 	boss.take_hit(hit)
@@ -44,6 +46,24 @@ func test_skater_pattern_already_teaches_heavy_attacks() -> void:
 		check_eq(boss._attack, attack, "pattern repeats in readable order")
 
 
+func test_each_phase_pattern_and_desperate_combos() -> void:
+	var boss := _boss()
+	var expected := [
+		[HiMo.Attack.GUN, HiMo.Attack.RAIL, HiMo.Attack.CHARGE, HiMo.Attack.HOP, HiMo.Attack.STOMP],
+		[HiMo.Attack.HOP, HiMo.Attack.MISSILES, HiMo.Attack.GUN, HiMo.Attack.CHARGE, HiMo.Attack.STOMP, HiMo.Attack.SWEEP, HiMo.Attack.RAIL],
+		[HiMo.Attack.SWEEP, HiMo.Attack.RAIL, HiMo.Attack.CHARGE, HiMo.Attack.STOMP, HiMo.Attack.HOP, HiMo.Attack.MISSILES, HiMo.Attack.GUN, HiMo.Attack.RAIL],
+	]
+	for phase in HiMo.Phase.values():
+		boss.phase = phase
+		boss._pattern = 0
+		for attack in expected[phase]:
+			boss._choose_attack()
+			check_eq(boss._attack, attack, "phase %d has the readable teaching/combo order" % phase)
+	boss._begin_attack(HiMo.Attack.SWEEP)
+	boss._end_attack()
+	check(boss._next_attack < 0.3, "desperate sweep flows into its rail without a long gap")
+
+
 func test_above_water_actuator_hits_disable_a_leg() -> void:
 	var boss := _boss()
 	var knee: Node3D = boss._legs[0].knee
@@ -60,6 +80,68 @@ func test_stripping_starts_a_cover_crushing_hop() -> void:
 	check(boss._hop > 0.0, "65 percent starts the leap set piece")
 
 
+func test_transition_crushes_cover_and_retry_restores_it() -> void:
+	var boss := _boss()
+	_world.director.scenery.stream(Stage2.BAY_D, 100000)
+	var before := Course.structure_boxes.size()
+	_shell(boss, boss.hit_center(), boss.max_hp * 0.35)
+	var landing := boss._hop_to
+	_advance(boss, HiMo.HOP_TIME + 0.1)
+	check(Course.structure_boxes.size() < before, "transition removes the existing bay cover collision")
+	check(boss._floor(landing) < landing.y, "collapsed span no longer supplies a perch")
+	var scenery := _world.director.scenery
+	var destroyed := scenery.specs.filter(func(spec: Scenery.Spec) -> bool: return spec.has_meta("destroyed"))
+	check(not destroyed.is_empty(), "cover remains destroyed in the streaming plan")
+	for spec: Scenery.Spec in destroyed:
+		check(not is_instance_valid(spec.node) or spec.node is Prop and (spec.node as Prop).dead, "live prop ceases projectile/LOS collision immediately")
+	scenery.stream(Stage2.BAY_D, 100000)
+	check_eq(Course.structure_boxes.size(), before - destroyed.size(), "streaming cannot restore crushed cover")
+	_boss()
+	check_eq(Course.structure_boxes.size(), before, "same-stage retry restores visuals and solids together")
+
+
+func test_desperate_transition_tears_above_water_leg_and_recovers() -> void:
+	var boss := _boss()
+	_shell(boss, boss.hit_center(), boss.max_hp * 0.35)
+	_advance(boss, HiMo.HOP_TIME + 0.1)
+	_shell(boss, boss.hit_center(), boss.max_hp * 0.35)
+	check_eq(boss.legs_lost(), 1, "thirty percent tears off one leg")
+	var knee: Node3D = boss._legs[2].knee
+	check(knee.get_parent() != boss._legs[2].hip, "actuator and lower leg detach together")
+	var y := boss.position.y
+	_advance(boss, 1.2)
+	check(boss.position.y < y - 2.0, "the damaged walker drops into water")
+	_advance(boss, 1.3)
+	check(boss._transition <= 0.0, "it drags itself up without an invulnerable phase")
+
+
+func test_airborne_phase_change_cancels_hop_and_drops_into_water() -> void:
+	var boss := _boss()
+	_shell(boss, boss.hit_center(), boss.max_hp * 0.35)
+	_advance(boss, 1.1)
+	boss._start_hop(boss.position + Vector3.RIGHT * 30.0)
+	boss.behave(0.5)
+	check(boss.position.y > Stage2.WATER_LEVEL + 10.0, "threshold is crossed at the hop apex")
+	_shell(boss, boss.hit_center(), boss.max_hp * 0.35)
+	check_eq(boss._hop, 0.0, "torn leg cancels the old airborne trajectory")
+	_advance(boss, 1.2)
+	check(boss.position.y < Stage2.WATER_LEVEL, "transition lands in water, not a bob at the hop apex")
+
+
+func test_perched_missiles_and_final_overcharged_rail() -> void:
+	var boss := _boss()
+	boss.phase = HiMo.Phase.STRIPPED
+	boss._begin_attack(HiMo.Attack.HOP)
+	_advance(boss, 2.1)
+	check(boss.position.y > Stage2.WATER_LEVEL + 2.0, "hop puts the rack on a surviving high perch")
+	boss.phase = HiMo.Phase.DESPERATE
+	boss.hp = boss.max_hp * 0.12
+	boss._choose_attack()
+	check_eq(boss._attack, HiMo.Attack.RAIL, "low hull schedules the final rail before death")
+	check(boss._overcharge, "final rail is overcharged")
+	check(boss._wind() > float(HiMo.WIND[HiMo.Attack.RAIL]) * Game.telegraph_scale(), "overcharge has a longer dodge warning")
+
+
 func test_phase_boundaries_and_music() -> void:
 	var boss := _boss()
 	check_eq(boss.phase, HiMo.Phase.SKATER, "full hull starts skating")
@@ -71,24 +153,22 @@ func test_phase_boundaries_and_music() -> void:
 	_shell(boss, boss.hit_center(), boss.max_hp * 0.35)
 	check_eq(boss.phase, HiMo.Phase.DESPERATE, "30 percent enters phase three")
 	check(boss.legs_lost() >= 1, "last phase visibly fights on a broken wheel leg")
-	check(boss.skate_speed() > (HiMo.SPEED[HiMo.Phase.STRIPPED] as float), "desperate drive is faster despite the first broken wheel")
+	check(boss.skate_speed() < (HiMo.SPEED[HiMo.Phase.STRIPPED] as float), "desperate drive visibly limps after the torn leg")
 	check(boss.music_track().ends_with("stage2_boss_phase2.ogg"), "last phase keeps the second theme")
 	_shell(boss, boss.hit_center(), -100.0)
 	check_eq(boss.phase, HiMo.Phase.DESPERATE, "ignored hits cannot reverse phases")
 
 
-func test_eight_real_charged_shells_clear_all_phases() -> void:
+func test_hull_damage_keeps_working_during_hops_and_transitions() -> void:
 	var boss := _boss()
-	var damage := Armament.SHELL_DAMAGE * Armament.APHE_DAMAGE.y * Armament.SHELL_DAMAGE_SCALE
-	for i in 7:
-		_shell(boss, boss.hit_center(), damage, true)
-		check(not boss.dead, "a full charge advances the fight without skipping every phase")
-		if i == 2:
-			check_eq(boss.phase, HiMo.Phase.STRIPPED, "third full charge strips armor")
-		if i == 5:
-			check_eq(boss.phase, HiMo.Phase.DESPERATE, "sixth full charge exposes the last phase")
-	_shell(boss, boss.hit_center(), damage, true)
-	check(boss.dead, "eighth actual APHE charge finishes the boss, with no recovery gate")
+	_shell(boss, boss.hit_center(), boss.max_hp * 0.35)
+	var hp := boss.hp
+	_shell(boss, boss.hit_center(), 6000.0, true)
+	check_near(hp - boss.hp, 6000.0, 0.01, "transition hop remains damageable without a phase gate")
+	boss._start_hop(boss.position + Vector3.RIGHT * 20.0)
+	hp = boss.hp
+	_shell(boss, boss.hit_center(), 6000.0, true)
+	check_near(hp - boss.hp, 6000.0, 0.01, "an aimed shell still damages the airborne hull")
 
 
 func test_actual_music_player_switches() -> void:
@@ -142,15 +222,15 @@ func test_missiles_home_gently_and_ciws_can_intercept() -> void:
 	check(missile.is_queued_for_deletion(), "actual CIWS destroys the approaching missile")
 
 
-func test_wheel_shots_cripple_and_two_losses_crawl() -> void:
+func test_actuator_shots_cripple_and_two_losses_crawl() -> void:
 	var boss := _boss()
 	var speed := boss.skate_speed()
 	for i in 2:
-		var wheel: Node3D = boss._legs[i].wheel
-		var at := wheel.global_position
-		check(boss.hit_test(at + Vector3.UP * 3.0, at - Vector3.UP * 3.0) >= 0.0, "low aimed shell can hit a wheel")
+		var knee: Node3D = boss._legs[i].knee
+		var at := knee.global_position
+		check(boss.hit_test(at + Vector3.UP * 3.0, at - Vector3.UP * 3.0) >= 0.0, "aimed shell can hit the exposed knee")
 		_shell(boss, at, HiMo.LEG_HP, true)
-		check_eq(boss.legs_lost(), i + 1, "heavy shell tears off the targeted wheel only")
+		check_eq(boss.legs_lost(), i + 1, "heavy shell tears off the targeted leg only")
 		check(boss.skate_speed() < speed, "each loss slows the walker")
 		speed = boss.skate_speed()
 	boss.stagger = 0.0
@@ -285,7 +365,7 @@ func test_rail_lock_allows_lateral_escape() -> void:
 	_advance(boss, 0.9 * Game.telegraph_scale())
 	var aim := boss._aim
 	tank.global_position += Vector3.RIGHT * 20.0
-	_advance(boss, 0.4 * Game.telegraph_scale())
+	_advance(boss, 0.7 * Game.telegraph_scale())
 	check_eq(boss._aim, aim, "late lateral dash cannot be tracked by the locked laser")
 	var hp := tank.hp
 	land(_world, 0)

@@ -30,6 +30,44 @@ func test_plaza_attack_cycle_reaches_every_weapon_in_twenty_five_seconds() -> vo
 	check_eq(cycle.slice(0, 4), cycle.slice(4, 8), "plaza attacks repeat rather than random starvation")
 
 
+func test_hovercraft_ram_warning_keeps_its_origin_in_real_ticks() -> void:
+	var world := stage("", false, 2)
+	world.director._next_event = world.director.events.size()
+	world.rail.mode = Rail.Mode.HOLD
+	var boss := Hovercraft.new()
+	boss.position = Course.to_world(Stage2.PLAZA_D, 30.0)
+	world.add_enemy(boss)
+	boss._bound()
+	world.player.position = boss.arena_center()
+	boss._begin_attack(Hovercraft.Attack.RAM)
+	var from := boss.position
+	for i in 45:
+		boss.tick(1.0 / 60.0)
+	check_near(boss.position.distance_to(from), 0.0, 0.01, "ram remains at its telegraphed origin through the warning")
+
+
+func test_hovercraft_broken_fan_lists_and_ram_destroys_props() -> void:
+	var world := stage("", false, 2)
+	world.director._next_event = world.director.events.size()
+	world.rail.mode = Rail.Mode.HOLD
+	var boss := Hovercraft.new()
+	boss.position = Course.to_world(Stage2.PLAZA_D, 0.0)
+	world.add_enemy(boss)
+	boss._bound()
+	world.player.global_position = boss.position + Vector3(0, 0, -30)
+	var speed := boss.move_speed()
+	boss._break_part("fan_l", Vector3.ZERO)
+	boss.behave(0.1)
+	check(boss.model.rotation.z > 0.0, "lost left fan visibly lists the hull")
+	check(boss.move_speed() < speed, "fan loss slows actual movement")
+	var prop := Prop.new().setup("crate", PropKit.mesh("crate", 0), 1.1, 1.2, 9.0)
+	prop.position = boss.position + Vector3(0, 0, -15)
+	world.props.add_child(prop)
+	boss._begin_attack(Hovercraft.Attack.RAM)
+	boss._update_attack(Hovercraft.WIND * Game.telegraph_scale() + 0.2, world.player)
+	check(prop.dead, "ram's swept hull tears through plaza props")
+
+
 func _colossus(world: World) -> Colossus:
 	var boss := Colossus.new()
 	boss.position = Course.ground_at(world.rail.d + 60.0, 0.0)
