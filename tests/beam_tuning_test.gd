@@ -8,9 +8,9 @@ func _panel() -> DuelPanel:
 
 
 func _slider(panel: DuelPanel, label: String) -> HSlider:
-	for i in panel._tuning._rows.size():
-		if panel._tuning._rows[i][0] == label:
-			return panel._grid.get_child(i * 3 + 1)
+	for control: Label in panel.find_children("*", "Label", true, false):
+		if control.text == label:
+			return control.get_parent().get_child(control.get_index() + 1)
 	check(false, "duel slider exists: " + label)
 	return null
 

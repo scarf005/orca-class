@@ -9,6 +9,14 @@ class TestTuning extends GameTuning:
 		saved = true
 
 
+func _slider(panel: DuelPanel, label: String) -> HSlider:
+	for control: Label in panel.find_children("*", "Label", true, false):
+		if control.text == label:
+			return control.get_parent().get_child(control.get_index() + 1)
+	check(false, "duel slider exists: " + label)
+	return null
+
+
 func test_duel_difficulty_is_scoped_to_the_world() -> void:
 	var saved := GameTuning.duel_difficulty
 	var normal_difficulty := Game.difficulty
@@ -47,8 +55,7 @@ func test_duel_difficulty_restarts_only_when_tuning_closes() -> void:
 	screen.restart.connect(func(checkpoint: String) -> void:
 		check(tuning.saved, "settings saved before restart")
 		restarts.append(checkpoint))
-	var row := tuning._rows.find(tuning._rows.filter(func(r: Array) -> bool: return r[0] == "Duel difficulty")[0])
-	var slider: HSlider = panel._grid.get_child(row * 3 + 1)
+	var slider := _slider(panel, "Duel difficulty")
 	check_eq(slider.min_value, 0.0, "slider starts at Easy")
 	check_eq(slider.max_value, 2.0, "slider ends at Hard")
 	check_eq(slider.step, 1.0, "slider selects discrete difficulties")
@@ -65,7 +72,7 @@ func test_duel_difficulty_restarts_only_when_tuning_closes() -> void:
 		tuning.saved = false
 		slider.value = index
 		check_eq(GameTuning.duel_difficulty, GameTuning.DUEL_DIFFICULTIES[index], "slider stores selected difficulty")
-		var label: Label = panel._grid.get_child(row * 3 + 2)
+		var label: Label = slider.get_parent().get_child(slider.get_index() + 1)
 		check_eq(label.text, ["Easy", "Normal", "Hard"][index], "slider shows difficulty name")
 		await frames(1)
 	check_eq(restarts.size(), 0, "slider changes never interrupt tuning")
@@ -128,8 +135,7 @@ func test_duel_speed_slider_applies_live_and_saves() -> void:
 	var panel := DuelPanel.new()
 	panel._tuning = tuning
 	add_child(panel)
-	var row := tuning._rows.find(tuning._rows.filter(func(r: Array) -> bool: return r[0] == "Duel speed (x)")[0])
-	var slider: HSlider = panel._grid.get_child(row * 3 + 1)
+	var slider := _slider(panel, "Duel speed (x)")
 	for speed in [0.1, 2.0, 1.0]:
 		slider.value = speed
 		check_near(GameTuning.duel_speed, speed, 0.0001, "slider changes stored speed")

@@ -5,7 +5,17 @@ extends PanelContainer
 signal restart_requested
 
 var _tuning := GameTuning.new()
-var _grid := GridContainer.new()
+const GROUPS := {
+	"Duel": ["Duel difficulty", "Duel speed (x)", "Round"],
+	"Cannon": ["Charge for box 1 (0-1)", "Charge for box 2 (0-1)", "Charge delay (s)", "Full charge (s)", "Recover after shot (s)", "Quick shell speed, 1 box (m/s)", "Quick shell speed, 2 boxes (m/s)", "Airburst round speed (m/s)", "Shell damage (x)", "HE blast radius (x)"],
+	"Coax": ["Coax burst (rounds)", "Coax burst gap (s)"],
+	"Missiles": ["ATGM top speed (m/s)", "ATGM turn rate (rad/s)", "ATGM turn rate increment rate (rad/s)", "Micro-Missile turn rate (rad/s)", "Micro-missile turn rate increment rate (rad/s)", "Micro-missile intial split (rad)", "Micro-missile lock interval (s)", "Micro-missile stack interval (s)", "Micro-missile damage (x full shell)"],
+	"Tank & aiming": ["Turret traverse (rad/s)", "Gun elevation (rad/s)", "Lock radius (px)", "Near sight along the barrel (0-1)", "Drift nose swing (deg)", "Drift tail lash damage", "Tail stab damage", "Hit weight (x)"],
+	"Movement & pursuit": ["Scroll speed (km/h)", "Hard building slows to (share of cruise)", "Hard building recovery (s)", "Water and mud cap (share of cruise)", "Pursuit: slow below (share of cruise)", "Pursuit: fill time (s)", "Pursuit: first group size", "Pursuit: group interval (s)"],
+	"Enemies": ["Gunners aim at tail (share)"],
+	"Destruction": ["Kill throw cap (x)", "Dismember speed (m/s)", "Dismember focus by momentum", "Blast throw (m/s per dmg)", "Shockwave reach (x blast)", "Topple time (s)", "Collapse time (s)", "Knock-flying speed (m/s)"],
+	"Visual effects": ["Secondary blast pops", "Fragments/smoke duration (s)", "Fragments/smoke travel (m)", "Debris life (s)", "Debris smoke life (s)", "Rail smoke shrink (0-1)", "Rail smoke fade speed (x)", "Hitscan beam shrink speed (x)", "Track marks last (s)", "Track marks wear away (s)", "Explosion pace (x time)", "Scenery dither (x)", "Drop shadow density"],
+}
 var _difficulty := GameTuning.duel_difficulty
 
 
@@ -21,15 +31,39 @@ func _ready() -> void:
 	style.content_margin_top = 10
 	style.content_margin_bottom = 10
 	add_theme_stylebox_override("panel", style)
-	_grid.columns = 3
-	_grid.add_theme_constant_override("h_separation", 12)
+	var sections := VBoxContainer.new()
+	sections.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var grids := {}
+	for title: String in GROUPS:
+		var header := Button.new()
+		header.text = "+ " + title
+		header.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		header.toggle_mode = true
+		header.focus_mode = Control.FOCUS_NONE
+		header.add_theme_color_override("font_color", Palette.MIST)
+		var grid := GridContainer.new()
+		grid.columns = 3
+		grid.add_theme_constant_override("h_separation", 12)
+		grid.visible = false
+		header.toggled.connect(func(expanded: bool) -> void:
+			grid.visible = expanded
+			header.text = ("- " if expanded else "+ ") + title)
+		sections.add_child(header)
+		sections.add_child(grid)
+		grids[title] = grid
 	# Too many rows for the screen: they scroll, the panel stays inside the view.
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.custom_minimum_size = Vector2(0, get_viewport_rect().size.y - 100.0)
-	scroll.add_child(_grid)
+	scroll.custom_minimum_size = Vector2(740, get_viewport_rect().size.y - 100.0)
+	scroll.add_child(sections)
 	add_child(scroll)
 	for row: Array in _tuning._rows:
+		var group := "Enemies" if row[0].ends_with(" per round") else ""
+		for title: String in GROUPS:
+			if row[0] in GROUPS[title]:
+				group = title
+				break
+		var grid: GridContainer = grids[group]
 		var name := Label.new()
 		name.text = row[0]
 		name.add_theme_color_override("font_color", Palette.MIST)
@@ -53,9 +87,9 @@ func _ready() -> void:
 				World.current.game_speed = GameTuning.duel_speed
 			value.text = text.call(v)
 			_tuning.save_values())
-		_grid.add_child(name)
-		_grid.add_child(slider)
-		_grid.add_child(value)
+		grid.add_child(name)
+		grid.add_child(slider)
+		grid.add_child(value)
 
 
 # _input, not _unhandled_input: a focused slider would take Tab for focus navigation first.
