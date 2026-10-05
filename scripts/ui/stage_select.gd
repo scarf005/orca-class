@@ -216,6 +216,19 @@ func _draw() -> void:
 		draw_rect(rect, Color(Palette.INK, 0.5), false, 1.0)
 		var label := "%d  %s" % [i + 1, tr(STAGE_NAMES[i])]
 		draw_string(font, rect.position + Vector2(10, 25), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Palette.CREAM)
+		if i == 1:
+			var band := Rect2(rect.position + Vector2(0, 202), Vector2(rect.size.x, 32))
+			draw_rect(band, Color.BLACK)
+			for x in range(0, int(band.size.x), 16):
+				for y in [0.0, band.size.y - 6.0]:
+					var origin := band.position + Vector2(x, y)
+					draw_colored_polygon(PackedVector2Array([
+						origin + Vector2(0, 6), origin + Vector2(6, 0),
+						origin + Vector2(14, 0), origin + Vector2(8, 6),
+					]), Palette.BUTTER)
+			var wip := "WIP / 작업중"
+			var text_width := font.get_string_size(wip, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+			draw_string(font, band.position + Vector2((band.size.x - text_width) / 2.0, 21), wip, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Palette.BUTTER)
 		var best := best_score(i + 1)
 		if best > 0:
 			var best_text := tr("STAGE_BEST") % best
