@@ -3,7 +3,8 @@ extends Node
 ## Usage: xvfb-run -a godot --path . -- --run=res://tools/autoplay.gd --seconds=30 --shots=5,10 \
 ##        [--checkpoint=boss] [--stage=2] [--out=builds/auto] [--god] [--scale=1] [--seed=1]
 ##        [--range=3000,3300] # print frame times within a course-distance interval
-##        [--milestones] [--verify] # capture sections, boss phases and results; fail unless results arrive
+##        [--milestones] [--verify] # capture sections, authored peaks, boss phases and results; fail unless results arrive
+##        [--compare-city] [--trace-elites] # same-distance Stage 1 census and hunter sight/fire diagnostics
 
 var screen: GameScreen
 var bot := "hold"
@@ -16,12 +17,24 @@ var _shots_seen := 0
 var _section := 0
 var _out := ""
 var _milestones := false
+var _elite_time := 0.0
+var _elite_visible := 0.0
+var _section_kills := 0
+var _section_spawned := 0
+var _section_damage := 0.0
+var _section_deaths := 0
+var _peak_enemies := 0
+var _peaks := {}
+var _peak_capture_at := -1.0
+var _compare_city := false
+var _compare_section := 0
+var _compare_kills := 0
+var _compare_spawned := 0
 
 
 func run() -> int:
 	var args: Dictionary = preload("res://scripts/main.gd").args()
-	if args.has("seed"):
-		seed(int(args.seed))
+	seed(int(args.get("seed", "1")))
 	var difficulty: String = args.get("difficulty", "normal")
 	if difficulty not in ["easy", "normal", "hard"]:
 		push_error("Unknown difficulty: %s" % difficulty)
@@ -34,6 +47,7 @@ func run() -> int:
 	var out: String = args.get("out", "builds/auto")
 	_out = out
 	_milestones = args.has("milestones")
+	_compare_city = args.has("compare-city")
 	DirAccess.make_dir_recursive_absolute(out)
 	var seconds := float(args.get("seconds", "20"))
 	var shots: Array = []
@@ -45,6 +59,9 @@ func run() -> int:
 	screen.stage = int(args.get("stage", "1"))
 	add_child(screen)
 	var world := screen.world
+	for event: Dictionary in world.director.events:
+		if event.get("peak", false):
+			_peaks[Course.section_at(event.d)] = float(event.d)
 	world.killed.connect(_killed)
 	world.player.life_lost.connect(func() -> void: deaths += 1)
 	world.stage_cleared.connect(func() -> void:
@@ -84,9 +101,32 @@ func run() -> int:
 		var delta := get_process_delta_time()
 		elapsed += delta
 		frames += 1
+		if _compare_city and _compare_section + 1 < Stage2.SECTION_STARTS.size() and world.rail.d >= Stage2.SECTION_STARTS[_compare_section + 1]:
+			_comparison_end(world)
+			_compare_section += 1
+		var elite_present := false
 		for enemy in world.enemies:
 			if not enemy.dead and not world.camera.is_position_behind(enemy.hit_center()):
 				front_total += 1.0
+			if enemy.dead or not (enemy is BipedMech or enemy is Hind):
+				continue
+			_elite_time += delta
+			var at := enemy.hit_center()
+			if world.camera.is_position_behind(at):
+				continue
+			var pixel := world.camera.unproject_position(at) / Vector2(DitherView.RESOLUTION)
+			if pixel.x >= 0.2 and pixel.x <= 0.8 and pixel.y >= 0.2 and pixel.y <= 0.8 and not world.director.scenery.line_blocked(world.camera.global_position, at):
+				_elite_visible += delta
+				elite_present = true
+		if _peaks.has(_section) and world.rail.d >= float(_peaks[_section]):
+			_peak_capture_at = elapsed + 0.4
+			_peaks.erase(_section)
+		if _peak_capture_at >= 0.0 and elapsed >= _peak_capture_at:
+			await _capture("section-%d-peak" % _section)
+			_peak_capture_at = -1.0
+		if not Course.stage is Stage2 and elite_present and world.enemies.size() > _peak_enemies:
+			_peak_enemies = world.enemies.size()
+			await _capture("section-%d-peak" % _section)
 		if frames > 30:
 			frame_times.append(frame_ms)
 			if range_bounds.size() == 2 and world.rail.d >= float(range_bounds[0]) and world.rail.d < float(range_bounds[1]):
@@ -115,6 +155,11 @@ func run() -> int:
 						if Prop.box_hit(structure.pose, structure.size, world.player.hit_center(), expected_eye, 0.8) >= 0.0:
 							blockers.append("%s@%.0f,%.0f" % [structure.kind, structure.d, structure.u])
 					print("CAMERA_PULL d=%.1f u=%.1f amount=%.2f blockers=%s" % [world.rail.d, world.player.course_u, safe_eye.distance_to(expected_eye), blockers])
+		if args.has("trace-elites") and frames % 60 == 0:
+			for enemy in world.enemies:
+				if enemy is BipedMech or enemy is Hind:
+					print("ELITE t=%.2f kind=%s hp=%.0f position=%s warning=%s timer=%s shots=%d" % [elapsed, enemy.get_script().resource_path.get_file(), enemy.hp, Course.to_course(enemy.global_position), enemy.telegraphing(), enemy.get("_attack_timer"), world.projectiles.size()])
+					print("ELITE_VIEW pixel=%s blocked=%s stance=%s" % [world.camera.unproject_position(enemy.hit_center()) / Vector2(DitherView.RESOLUTION), world.director.scenery.line_blocked(world.camera.global_position, enemy.hit_center()), enemy.get("_stance")])
 		if args.has("profile") and frames % 60 == 0:
 			print("t=%.1f frame=%.1fms process=%.1fms draw_calls=%d objects=%d particles=%d enemies=%d props=%d" % [elapsed, frame_ms,
 				Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
@@ -129,7 +174,8 @@ func run() -> int:
 			mode = world.rail.mode
 			print("MODE mode=%s t=%.2f d=%.0f" % [Rail.Mode.keys()[mode], world.stats.time, world.rail.d])
 		if is_instance_valid(world.boss) and not world.boss.dead:
-			var phase := int(world.boss.get("phase")) + 1
+			var boss_state: Variant = world.boss.get("phase")
+			var phase := int(boss_state if boss_state != null else 0) + 1
 			if active_boss != world.boss or boss_phase != phase:
 				if active_boss != world.boss:
 					boss_start = elapsed
@@ -161,6 +207,10 @@ func run() -> int:
 		await _capture("results")
 		print("RESULTS stage=%d heading=%s ranked=%s" % [screen.stage, screen._results.clear_heading(), world.stats.ranked])
 	var stats := world.stats
+	if _compare_city:
+		_comparison_end(world)
+	if not cleared:
+		_section_end(world)
 	if not frame_times.is_empty():
 		frame_times.sort()
 		print("BENCH median=%.2fms p95=%.2fms samples=%d" % [frame_times[frame_times.size() / 2], frame_times[int(frame_times.size() * 0.95)], frame_times.size()])
@@ -188,7 +238,22 @@ func _capture(name: String) -> void:
 
 
 func _section_end(world: World) -> void:
-	print("SECTION section=%d t=%.2f d=%.0f lives=%d hp=%.2f kills=%d/%d" % [_section, world.stats.time, world.rail.d, world.stats.lives, world.player.hp, world.stats.kills, world.stats.spawned])
+	var stats := world.stats
+	print("SECTION section=%d t=%.2f d=%.0f lives=%d hp=%.2f kills=%d/%d section_kills=%d section_spawned=%d lives_lost=%d damage_taken=%.2f elite_visible=%.2f%% elite_seconds=%.2f" % [_section, stats.time, world.rail.d, stats.lives, world.player.hp, stats.kills, stats.spawned, stats.kills - _section_kills, stats.spawned - _section_spawned, deaths - _section_deaths, stats.damage_taken - _section_damage, 100.0 * _elite_visible / maxf(_elite_time, 0.0001), _elite_time])
+	_elite_time = 0.0
+	_elite_visible = 0.0
+	_peak_enemies = 0
+	_section_kills = stats.kills
+	_section_spawned = stats.spawned
+	_section_damage = stats.damage_taken
+	_section_deaths = deaths
+
+
+## Measures either stage over the city's distances, separately from its actual section/music boundaries.
+func _comparison_end(world: World) -> void:
+	print("REFERENCE stage=%d section=%d d=%.0f kills=%d spawned=%d" % [screen.stage, _compare_section, world.rail.d, world.stats.kills - _compare_kills, world.stats.spawned - _compare_spawned])
+	_compare_kills = world.stats.kills
+	_compare_spawned = world.stats.spawned
 
 
 func _killed(_victim: Entity, hit: Hit) -> void:
@@ -263,7 +328,7 @@ func _drive(world: World, t: float) -> void:
 	else:
 		Input.action_release("move_left")
 		Input.action_release("move_right")
-	if bot != "idle":
+	if bot not in ["idle", "hold"]:
 		_dodge(world)
 
 
