@@ -16,10 +16,7 @@ func _init() -> void:
 
 func _ready() -> void:
 	var mesh := MeshInstance3D.new()
-	var b := LowPoly.new()
-	b.glow = true
-	b.blob(Transform3D(), 0.4, Palette.WHITE)
-	mesh.mesh = b.mesh()
+	mesh.mesh = ActorMeshes.mesh("flare", "body")
 	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mesh)
 	ActorLayer.mark(self)

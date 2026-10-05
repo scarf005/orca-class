@@ -1,0 +1,494 @@
+{
+  "revision": "32ac4a7",
+  "seed": 12345,
+  "assets": {
+    "colossus": {
+      "body": {
+        "triangles": 740,
+        "sha256": "7138a15c7120ee8185196368e5f300cd779303b3700ebc71b9e421279b403288"
+      },
+      "cap_left": {
+        "triangles": 20,
+        "sha256": "f773b7fbd86e0888bd6cb1df3ba8d00a24dd98368380cb2a9886b1d1a5331c47"
+      },
+      "cap_right": {
+        "triangles": 20,
+        "sha256": "7fa8da10a2c3dd5f7ec724ae6d51522f9395b9033c2d421355028b4c084fcdaa"
+      },
+      "cap_top": {
+        "triangles": 20,
+        "sha256": "6a87c0b5e1f88e1779aa4eefd181e2b18e99fed62a9e26340e9fbda274cdbb81"
+      },
+      "core": {
+        "triangles": 80,
+        "sha256": "150b1aeead50f50b669dde6dd70ef693720dd82b7dc844cc2b951520c0589225"
+      },
+      "geyser": {
+        "triangles": 28,
+        "sha256": "5b4c61f73e7bd363a6f61990946de1dd684181cd488a205778ea8857be935a0a"
+      },
+      "node_left": {
+        "triangles": 80,
+        "sha256": "1c618f87ac28e5c705a4bdf1aec4b656d8693378e5f94c385eca969854146ede"
+      },
+      "node_right": {
+        "triangles": 80,
+        "sha256": "c5a273966bb70728d6aff18260232383b458e3aad531dac174dc5706ce08d431"
+      },
+      "node_top": {
+        "triangles": 80,
+        "sha256": "f4471403e95835482b9906b1ff8d85d4a0cf7730e4e34601ff9ba73bc832c344"
+      },
+      "puff": {
+        "triangles": 80,
+        "sha256": "61fde820592cfab1a875e11cbdcd9979ba40de5f7145b9d5f4ddce7abf412fca"
+      },
+      "spike": {
+        "triangles": 30,
+        "sha256": "dab7f2c40cdd2ce9824504dc1e80b2343b009b6e907ec0108894b7deb0a81f49"
+      },
+      "strip": {
+        "triangles": 12,
+        "sha256": "dc30acd254d1af3e579e46574f4f6928114799dd54008ad040ecf6da82db088a"
+      },
+      "tendril_0": {
+        "triangles": 20,
+        "sha256": "73dc07297928c6bad818b47ffef5a4aea910d1ec4d3b79451430640c89358d9b"
+      },
+      "tendril_1": {
+        "triangles": 20,
+        "sha256": "fb8a89d7e8de2d94931aff57bdeb16d0fac4279898fd344d4790428e7f355e10"
+      },
+      "tendril_2": {
+        "triangles": 20,
+        "sha256": "2154fb1caf1054e697ab9d1e0f08a77dd68b62e57e50a9aa89206b38056cbded"
+      },
+      "tendril_3": {
+        "triangles": 20,
+        "sha256": "c55179563826f27a42927303fdf63d916e425d3b928dd7eb0829ff19feb561a1"
+      },
+      "tendril_4": {
+        "triangles": 20,
+        "sha256": "43467412e5129e1efca539fb2d19fb497cabd9382fe845f3d7747bb79ce13d2d"
+      },
+      "tendril_5": {
+        "triangles": 20,
+        "sha256": "3240d3b26dc282fd5e8722994ace5ef022289adbe7718855e8448dd1f8c72d8e"
+      },
+      "tendril_6": {
+        "triangles": 20,
+        "sha256": "a8af11105986cb6bde77f05bfb07ec8f8c8cc1396e45e932ec8a989ad8ff39f3"
+      },
+      "tendril_7": {
+        "triangles": 20,
+        "sha256": "c8111a05d74be198c9827608e749a5f3bf1ab1c82061195659c0732e1aa8c7c9"
+      },
+      "tendril_8": {
+        "triangles": 20,
+        "sha256": "605c1adfa9e52bca3ed92b11e6253658d0a58c394456998a0b053aeefd6ed256"
+      }
+    },
+    "crawler": {
+      "body_base": {
+        "triangles": 80,
+        "sha256": "90b13fb6ccdc702606ca3ff9caac7936766eb8205b88233a1461c208a97ed166"
+      },
+      "crown_base": {
+        "triangles": 20,
+        "sha256": "d5f3bcc13c73084d0fe5279843aa7c7ca4ea8e01121ebfcd27b6a9ee3fd06b4e"
+      },
+      "leg_left": {
+        "triangles": 16,
+        "sha256": "8f480e125398cf993da69984bd52767cd664d798fea3db908e52d478eee5c2bc"
+      },
+      "leg_right": {
+        "triangles": 16,
+        "sha256": "93bd9b6e00b0fc0bff00b034f8ab81b64e493633a3cdfbdf7c76c500c28af7b6"
+      },
+      "spot": {
+        "triangles": 20,
+        "sha256": "3a6ba4de0e500b49ec50ddf87e80de22733f97db82308ee445519fd669c89138"
+      }
+    },
+    "flare": {
+      "body": {
+        "triangles": 20,
+        "sha256": "4553547e8379fe0d6bb02e833a8c5672d5f0c45b2a7a929319fa34c7d1febee5"
+      }
+    },
+    "fpv_drone": {
+      "body": {
+        "triangles": 72,
+        "sha256": "29a25554ea61968d959b69ce5f05ef56b0d2c08ce108da3cc3e49feb6f50c7a7"
+      },
+      "light": {
+        "triangles": 12,
+        "sha256": "39bbd8440b5c40c3029181469650dd06e03d7a3824dd671c2048148d51bc327c"
+      },
+      "rotor": {
+        "triangles": 24,
+        "sha256": "3617627422bb1e8f0c097fa95ac09329520c8f973d8c248a001b1311805f5f5a"
+      }
+    },
+    "gunship": {
+      "bay": {
+        "triangles": 84,
+        "sha256": "9c50d191d0685f31e1edfdca5027d2231ed8ddaac2f11600a3730ec20bb8e010"
+      },
+      "blades": {
+        "triangles": 80,
+        "sha256": "ab87bd687783c40817d2af82fa8fbb73b5002c53ac82f8b8b55732c2d083a1c5"
+      },
+      "body": {
+        "triangles": 588,
+        "sha256": "870b25cf44c2d7c3bea729fd2327477b8ab47f008e7ab4e2ef2333dfd47cdab4"
+      },
+      "chin": {
+        "triangles": 204,
+        "sha256": "a5b5d4052e84009b7c3cad47565aa6cb2900a97dfdb2dbd64c6be3d8c02e5a55"
+      },
+      "disc": {
+        "triangles": 24,
+        "sha256": "fc1f9abb4dfdb173f207e24060acd38d6962c0e24a24a7296729315febc20349"
+      },
+      "fungus_base_0": {
+        "triangles": 20,
+        "sha256": "d5f3bcc13c73084d0fe5279843aa7c7ca4ea8e01121ebfcd27b6a9ee3fd06b4e"
+      },
+      "fungus_base_1": {
+        "triangles": 20,
+        "sha256": "1e717db7a11683e109cb04710b718a9815e49d0a1df733075646fa0f02dee4c8"
+      },
+      "fungus_base_2": {
+        "triangles": 20,
+        "sha256": "2e737db4789ed326a2934e9af49385f61c363c6d9ab986bc0ac0f76f6c740aa6"
+      },
+      "gatling_barrels": {
+        "triangles": 128,
+        "sha256": "9932076d12b1088db9231bfe56a29921022e7e8d91a395380923f8d9c6e8a109"
+      },
+      "gatling_mount": {
+        "triangles": 92,
+        "sha256": "10ef16a6ea634a21eb0bf44adbe53aa61eeb3b5eb62beac12e472eb608c23a53"
+      },
+      "mast": {
+        "triangles": 64,
+        "sha256": "11a9b8a35a01bb7a227f73b06adc2310651f728c05061892224a9aa7dd305011"
+      },
+      "nose": {
+        "triangles": 36,
+        "sha256": "b4b5242d2efe5950935cb254bc2a1fd7764f6585abab0352c51789e16fa14a84"
+      },
+      "nose_gun": {
+        "triangles": 76,
+        "sha256": "f5baf29b6931ae245007187acd243931457bbc51afe8582af3d727782e88a8b4"
+      },
+      "panel_left": {
+        "triangles": 60,
+        "sha256": "58404db8809d3184a01a72d29539e8cafae1aee9b946d139f96c518555a24f78"
+      },
+      "panel_right": {
+        "triangles": 60,
+        "sha256": "132b323d79ae4b1fe1960635fd8590f5ba974dca1285f7dfab199a3eb1a756f2"
+      },
+      "pod": {
+        "triangles": 96,
+        "sha256": "da6044ad836b93700a77f6599b5fc213572b97fbe6f29d0c2928db44d7e5ef96"
+      }
+    },
+    "helicopter": {
+      "body": {
+        "triangles": 168,
+        "sha256": "61d6deb8d55601ed424178ed58c9b8b9589733d8623eaf99a3577917ab4a0be4"
+      },
+      "chin": {
+        "triangles": 36,
+        "sha256": "7fb44202e35d2762d78acb5b01a9b555e9b19379929de33ffe63b6042dcca01e"
+      },
+      "pod": {
+        "triangles": 100,
+        "sha256": "15326d929cfecd10881a6baeece830742ab4be542852f208c81dc39b02ca95a7"
+      },
+      "rotor": {
+        "triangles": 60,
+        "sha256": "f6804ecbfd048c3b24294c7347f1e3405f88e43aee64c9c4505892a14394a3df"
+      },
+      "tail_rotor": {
+        "triangles": 48,
+        "sha256": "29c8e3194010e122fd361fbc2e2a5cb4efe384d38ff0b95c4a63761b0f6e65ab"
+      }
+    },
+    "quad_mech": {
+      "body": {
+        "triangles": 96,
+        "sha256": "0436bca93784bdac1acd065f858118365fd42feda3436d5f5b976d675a2217c9"
+      },
+      "flak": {
+        "triangles": 108,
+        "sha256": "c29c781ea173ec8af1622aab750c3b94d51ff48f56447452ea21e30cfdf21e0d"
+      },
+      "mortar": {
+        "triangles": 32,
+        "sha256": "b347b43260d752592ca7c83c686b805500d7d4c7fe1eb4b96cb8962daa15f47c"
+      },
+      "shin_left": {
+        "triangles": 56,
+        "sha256": "24c55546f30f70cd42344464b0bd93bd61179bd9dc8c04c0d00e48a4867c900c"
+      },
+      "shin_right": {
+        "triangles": 56,
+        "sha256": "f3d0369ed647c6a5645387a4c740388c38efd41fc3163cf46eaccd3021270476"
+      },
+      "thigh_left": {
+        "triangles": 32,
+        "sha256": "6b15f8b2ba506e23d29246fbf01ddde474a412ec6eb31ca0cca0656bbb8497d8"
+      },
+      "thigh_right": {
+        "triangles": 32,
+        "sha256": "3b57b9c37664ef44dc9a887eb5b21c70dee235110ed8f4ad2a6866b12add4089"
+      },
+      "turret": {
+        "triangles": 32,
+        "sha256": "f566d6d38c9c4391795ed6f5cf159006bf4ff07f038202ce51dd9724a03411c5"
+      },
+      "wheel": {
+        "triangles": 32,
+        "sha256": "25f6265ecc7e5627cebee4a7ce49ec47e297460d68f289e8e93379cd5892d4e5"
+      }
+    },
+    "spitter": {
+      "base": {
+        "triangles": 50,
+        "sha256": "558a02eb58bd70fc3d5d7c836b9c8b77f6106161c7241965cb57d3bc8a835447"
+      },
+      "sac": {
+        "triangles": 200,
+        "sha256": "a2146030cef4e196641ab6af5687dbcee71a3abcec4b0950e0fac15611a82ffb"
+      },
+      "stalk": {
+        "triangles": 24,
+        "sha256": "8c02a0e0795a5ec0bdeba2ee7f74940e4f44794e99ff8f5b7deca63373a0740a"
+      }
+    },
+    "tank": {
+      "barrel": {
+        "triangles": 108,
+        "sha256": "817f6e38bcbd6387cb15daa8f77850d23f7d19d5d10123782f13b511d2f99e7c"
+      },
+      "coax_15": {
+        "triangles": 36,
+        "sha256": "d3d57752d6babe0b2f6dff4fc2396fd70256ea572cb4a2736c3ddbadf635546c"
+      },
+      "coax_20": {
+        "triangles": 72,
+        "sha256": "d506d3c5fd6c4d692da66b24977e07bdae84a974490c420db35427b70a7c555d"
+      },
+      "coax_8": {
+        "triangles": 36,
+        "sha256": "ee4100ffa4d0d0476b3c8275153efd9d7be0754f6fd816dd045c8738bcb2208a"
+      },
+      "fcs": {
+        "triangles": 72,
+        "sha256": "6ff35eab88f8735acbda8afa45d898e0d4aac7a3599001e48a86bed8c9e0c83f"
+      },
+      "hull": {
+        "triangles": 196,
+        "sha256": "7f0172eef2b9cd354870c0a99eb99d2c1af539ddc1934757afbc71da22c75185"
+      },
+      "rws": {
+        "triangles": 80,
+        "sha256": "2e07a7db658c530192abd3adba235d8cce13d768b52c42b6c18c23c69b5c67a8"
+      },
+      "tail_fluke_left": {
+        "triangles": 14,
+        "sha256": "9db91851702984d3113b0f20b3e0f038411615203b3ab3e6d66c43892ef8b87c"
+      },
+      "tail_fluke_right": {
+        "triangles": 14,
+        "sha256": "2813e3edf279572ce3d961d896ea1a7e0cc6e19e3811c4ddf52f7fd0e88afeb4"
+      },
+      "tail_knuckle_0": {
+        "triangles": 80,
+        "sha256": "af074616e5c0bffc0276961fbd62705be20f2179d1fac5d660ab98ae5216a5e5"
+      },
+      "tail_knuckle_1": {
+        "triangles": 80,
+        "sha256": "1b744b3fcebd090c34749a9550fb26a0e67802e2dffc677a1429ffbcca7c1c9a"
+      },
+      "tail_knuckle_2": {
+        "triangles": 80,
+        "sha256": "ad526ae8476f9346f62744494fe2b3d2cfd0fe27067375c48a8b93f869ef11ae"
+      },
+      "tail_knuckle_3": {
+        "triangles": 80,
+        "sha256": "91aa431e1f976dac5e050acf7d749345550c94ff19dc70bbcb0adfd02b12cab4"
+      },
+      "tail_knuckle_4": {
+        "triangles": 80,
+        "sha256": "b96240825fa8c3dfe127165eaddfad9cf5a4cc818c2448637c20f35ffc463ec5"
+      },
+      "tail_palm": {
+        "triangles": 12,
+        "sha256": "2581919d8aad3f2ff9faba4a35c859ee65b2936af735c90711457979cdf7be7f"
+      },
+      "tail_segment_0": {
+        "triangles": 56,
+        "sha256": "e77cf2e768eb8abfea4d6dd8419542bc523fbfa7019d304d615cca15224035ec"
+      },
+      "tail_segment_1": {
+        "triangles": 56,
+        "sha256": "f922712a92f98eb4ac32ac8dcad0c085a124558e421ef8e404db7a6fa6913882"
+      },
+      "tail_segment_2": {
+        "triangles": 56,
+        "sha256": "20f649fa46df823616cb3c14b8aed8b06e88ce9b40f85f08fdbae0a506a066e0"
+      },
+      "tail_segment_3": {
+        "triangles": 56,
+        "sha256": "64e1f0dfec103b2079d2ee2e7c290b5d4e6253d2d610e69c496e2f5cc9744416"
+      },
+      "tail_segment_4": {
+        "triangles": 56,
+        "sha256": "5d64c4d9fbbddae810fb611c5747241258f4cb04a02ed414c66661a5679c60bb"
+      },
+      "track": {
+        "triangles": 212,
+        "sha256": "4b622e4eeef38222552f5e5bef6a4fe80fdc24ff196b69a9fc00e45758863d46"
+      },
+      "turret": {
+        "triangles": 126,
+        "sha256": "f8d59970796b3edb4cc85b418176976417c098ac1ed80e189203f57e2deed9cb"
+      }
+    },
+    "tiltrotor": {
+      "blades": {
+        "triangles": 108,
+        "sha256": "63331def23b93448702e320bb5344d680718f5a263d047713df48ceaed82239d"
+      },
+      "body": {
+        "triangles": 704,
+        "sha256": "ff935a41331d11bdbbdbcce4ec6aca8b1e5761adecef264175d8ebc399836080"
+      },
+      "gun": {
+        "triangles": 36,
+        "sha256": "81256262ad936c4700b51d7e16d15ec8de05cf011435c6a0e17d0769a81517fa"
+      },
+      "nacelle": {
+        "triangles": 120,
+        "sha256": "71fdb799389aad24724c59e143c50566494ee8fc7dd8339a876a24bfc9bc93f3"
+      },
+      "ramp": {
+        "triangles": 12,
+        "sha256": "425fd6aceb072b50e63fdc0d69e6378895a86e4e68c670b39420708889456ec6"
+      }
+    },
+    "uav": {
+      "body": {
+        "triangles": 132,
+        "sha256": "40502ba6fd5a3b94385b9b32820631650568a77ebf5b9d065c158ca97e27c895"
+      },
+      "gun": {
+        "triangles": 24,
+        "sha256": "b32ce4fbf8cd20493c41f16b3bf286966f583fada089fe7ae4d48640854ac885"
+      },
+      "prop": {
+        "triangles": 24,
+        "sha256": "b3f71954c76f42432b7f301eec05a81531667a3d492ce46ea356ef795ccf26de"
+      }
+    },
+    "ugv": {
+      "barrel_atgm": {
+        "triangles": 48,
+        "sha256": "d34e430a3d2d5e15d34d955a61feb43ee2d8b4578f39988d3fc5531964deca6e"
+      },
+      "barrel_gun": {
+        "triangles": 24,
+        "sha256": "8460e8c506ba7b3979f161a62c4f6941df96339e339a9b36efe5e7e1c7d14cb9"
+      },
+      "body": {
+        "triangles": 228,
+        "sha256": "532a0fa50e583e139774bb7b24e71d1706aa2fa0bb982d912188d48ac62d0979"
+      },
+      "body_supply": {
+        "triangles": 276,
+        "sha256": "afe4860085c6dd71ca568c0b29c40a14a52554b371527af57e6afdd12bfff6a3"
+      },
+      "eye": {
+        "triangles": 12,
+        "sha256": "b925bec725dd92caf364064ac338b922d88baf3f00daf9e9bb9151dae35f2dfb"
+      },
+      "turret": {
+        "triangles": 12,
+        "sha256": "ae810e3a62fa0839c686f57512ee060ce56f195fcb0c31da496dd8cace211662"
+      }
+    },
+    "walker": {
+      "arm": {
+        "triangles": 48,
+        "sha256": "857c91666f074760acc3ec33c56401f128c37427d25848218c5bd9afe95d97f2"
+      },
+      "body": {
+        "triangles": 84,
+        "sha256": "a457da448768b1a86e928b4c81b23401eb4f8ce33dc2de80543d81a641195106"
+      },
+      "eye": {
+        "triangles": 12,
+        "sha256": "a29340ea29f1ea06992c76b8ff16340002cf654f93bbf44ac4f56d0364c02ed0"
+      },
+      "foot": {
+        "triangles": 12,
+        "sha256": "819c21e82fd59e81437cbd118c91f4bba38595dc4c1e7549d6848cacad266fee"
+      },
+      "lid": {
+        "triangles": 24,
+        "sha256": "4edc37e3816ca9e0317f7eb185fe7b0fb4b12c6656d768e4018b2eacd5ff01e5"
+      },
+      "pod": {
+        "triangles": 60,
+        "sha256": "727dcd5dd2bb2a6870e170126bd9d2c65e0fbeea468ec24f1bee1a7754c2f659"
+      },
+      "shin": {
+        "triangles": 32,
+        "sha256": "2a56563dc73b1da49d6dda9d7c66e3dbb2a57e42dfffccac08d231293ed28530"
+      },
+      "thigh": {
+        "triangles": 32,
+        "sha256": "a4b9515261c792acbf410bfe5b33d261d224c2fef0d9d8e537ae87f424a7106d"
+      },
+      "wheels": {
+        "triangles": 64,
+        "sha256": "8ba998242eb1b602457224bfa02e5e5ffb8dd411381ab50199b782dfe594ec15"
+      }
+    }
+  },
+  "samples": {
+    "crawler/random_body": {
+      "triangles": 200,
+      "sha256": "379fc3c2ab5e1925968c539281f9ea7400c28a2cae11df87eaddae7290c28889"
+    },
+    "gunship/random_fungus_0": {
+      "triangles": 20,
+      "sha256": "f7c72de538626549efb63a40c44e16609ea0ad1de14ad8e8c9e10312978e27ab"
+    },
+    "gunship/random_fungus_1": {
+      "triangles": 20,
+      "sha256": "e1fde19e46443f6ecffecf02ffe85f9a8eca2728b210dc99d2cf3eab6ce40682"
+    },
+    "gunship/random_fungus_2": {
+      "triangles": 20,
+      "sha256": "8c2d17fffbad19474bac52c0edc02cb9fbab1fb55ecc74692f0ca4e5a5a3451b"
+    },
+    "gunship/random_fungus_3": {
+      "triangles": 20,
+      "sha256": "c6c0d70112ccf5eaff291671776e7faf2212195903b264a41c5067d31c034d14"
+    },
+    "gunship/random_fungus_4": {
+      "triangles": 20,
+      "sha256": "a63edce36c73228a97345fb6a7ea271b950f6bad65b9a66786feb00dacd8e830"
+    },
+    "gunship/random_fungus_5": {
+      "triangles": 20,
+      "sha256": "24c90d16b274f74c8012ba6860a2438fea624ff807abf4758e4a16e42234d9d3"
+    }
+  }
+}

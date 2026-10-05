@@ -29,28 +29,15 @@ func _init() -> void:
 func build() -> void:
 	_hard = Game.difficulty == Game.Difficulty.HARD
 	global_position.y = Course.height_at(global_position)
-	var base := LowPoly.new()
-	for i in 5:
-		var angle := TAU * i / 5.0
-		base.gable(Transform3D(Basis(Vector3.UP, angle), Vector3(cos(angle), 0.1, -sin(angle)) * 0.9), Vector3(1.8, 0.5, 0.8), Palette.LILAC, Palette.MAUVE)
-	base.blob(Transform3D(Basis(), Vector3(0, 0.4, 0)), 0.9, Palette.MAUVE, 0, 0.3, 3)
 	var base_mesh := MeshInstance3D.new()
-	base_mesh.mesh = base.mesh()
+	base_mesh.mesh = ActorMeshes.mesh("spitter", "base")
 	model.add_child(base_mesh)
 	model.add_child(_stalk)
-	var stalk := LowPoly.new()
-	stalk.prism(Transform3D(), 0.45, 2.2, 6, Palette.CREAM, 0.3)
 	var stalk_mesh := MeshInstance3D.new()
-	stalk_mesh.mesh = stalk.mesh()
+	stalk_mesh.mesh = ActorMeshes.mesh("spitter", "stalk")
 	_stalk.add_child(stalk_mesh)
-	var sac := LowPoly.new()
-	sac.blob(Transform3D(), 1.0, Palette.FUNGUS, 1, 0.2, 7)
-	sac.glow = true
-	for i in 6:
-		var angle := TAU * i / 6.0
-		sac.blob(Transform3D(Basis(), Vector3(cos(angle) * 0.8, 0.3, sin(angle) * 0.8)), 0.16, Palette.WHITE)
 	_sac = MeshInstance3D.new()
-	_sac.mesh = sac.mesh()
+	_sac.mesh = ActorMeshes.mesh("spitter", "sac")
 	_sac.position = Vector3(0, 2.8, 0)
 	_stalk.add_child(_sac)
 
