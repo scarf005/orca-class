@@ -613,6 +613,8 @@ const LOCK_BOXES := 3
 const LOCK_BOX_IN := 0.16 ## Seconds a new box takes to spin in and settle.
 var _lock_boxes := 0
 var _lock_box_times: Array[float] = [0.0, 0.0, 0.0]
+var _lock_box_angles: Array[float] = [0.0, 0.0, 0.0]
+var _lock_box_end_spins: Array[float] = [0.0, 0.0, 0.0]
 var _micro_times: Array[float] = [] ## When each micro-missile lock landed, in step with `Tank.micro_locks`.
 
 
@@ -621,6 +623,12 @@ func _draw_lock_boxes(center: Vector2, size: float, charge: float, tint: Color, 
 	var count := Armament.stage(charge)
 	while _lock_boxes < count:
 		_lock_box_times[_lock_boxes] = _time
+		var remaining := (1.0 - charge) * world.player.charge_time()
+		var end_k := clampf(remaining / LOCK_BOX_IN, 0.0, 1.0)
+		var speed := (0.8 + _lock_boxes * 0.5) * (1.0 if _lock_boxes % 2 == 0 else -1.0)
+		# Keep the first box's original phase; shift only the others to N + 45 degrees and N.
+		_lock_box_angles[_lock_boxes] = (_lock_boxes % 2) * PI * 0.25 + (_time + remaining) * (0.8 - speed)
+		_lock_box_end_spins[_lock_boxes] = (1.0 - ease(end_k, 0.35)) * PI * 0.5
 		_lock_boxes += 1
 	_lock_boxes = mini(_lock_boxes, count)
 	var full := charge >= 1.0
@@ -628,7 +636,8 @@ func _draw_lock_boxes(center: Vector2, size: float, charge: float, tint: Color, 
 		var k := 1.0 if settled else clampf((_time - _lock_box_times[i]) / LOCK_BOX_IN, 0.0, 1.0)
 		var settle := ease(k, 0.35)
 		# Spins in a half turn as it lands, then keeps turning slowly, alternate boxes the other way.
-		var angle := (1.0 - settle) * PI * 0.5 + _time * (0.8 + i * 0.5) * (1.0 if i % 2 == 0 else -1.0)
+		var start_angle := _lock_box_angles[i] + (0.0 if settled else _lock_box_end_spins[0] - _lock_box_end_spins[i])
+		var angle := start_angle + (1.0 - settle) * PI * 0.5 + _time * (0.8 + i * 0.5) * (1.0 if i % 2 == 0 else -1.0)
 		var color := OFFLINE_SIGHT_COLOR if offline else (Palette.WHITE if k < 1.0 or (full and fmod(_time, 0.2) < 0.08) else tint)
 		_draw_lock_box(center, lerpf(size * 3.0, size * (1.0 + i * 0.32), settle), angle, color)
 	# The next box is already on its way: it swings in from wide as the charge climbs to its step,
