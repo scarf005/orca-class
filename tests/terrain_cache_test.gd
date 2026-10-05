@@ -49,3 +49,26 @@ func test_flat_ground_does_not_reuse_valley_geometry() -> void:
 		check_eq(flat_mesh.surface_get_arrays(0)[attribute], expected[attribute], "flat cached geometry matches fresh production generation")
 	valley.free()
 	flat.free()
+
+
+func test_eviction_bounds_shared_meshes_without_changing_live_geometry() -> void:
+	Terrain._meshes.clear()
+	Course.flat = false
+	var terrain := Terrain.new()
+	add_child(terrain)
+	terrain._attach(0, terrain._build_chunk(0))
+	var live: Mesh = terrain._chunks[0].mesh
+	var expected := live.surface_get_arrays(0)
+	for index in range(1, Terrain.CACHE_LIMIT + 1):
+		terrain._attach(index, terrain._build_chunk(index))
+	check_eq(Terrain._meshes.size(), Terrain.CACHE_LIMIT, "shared geometry has a fixed upper bound")
+	check(not Terrain._meshes.has(Terrain._mesh_key(0)), "the oldest cached chunk is evicted")
+	for attribute in [Mesh.ARRAY_VERTEX, Mesh.ARRAY_NORMAL, Mesh.ARRAY_COLOR]:
+		check_eq(live.surface_get_arrays(0)[attribute], expected[attribute], "eviction preserves geometry retained by a live node")
+	terrain._chunks[0].free()
+	terrain._chunks.erase(0)
+	terrain.stream(0.0, true)
+	for attribute in [Mesh.ARRAY_VERTEX, Mesh.ARRAY_NORMAL, Mesh.ARRAY_COLOR]:
+		check_eq(terrain._chunks[0].mesh.surface_get_arrays(0)[attribute], expected[attribute], "an evicted chunk regenerates identical ground")
+	terrain.free()
+	Terrain._meshes.clear()

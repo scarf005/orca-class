@@ -20,6 +20,7 @@ func test_sliced_chunks_match_complete_geometry() -> void:
 
 
 func test_serial_stream_cancels_obsolete_work_and_loading_finishes_it() -> void:
+	Terrain._meshes.clear() # Exercise generation rather than a prior suite's cached geometry.
 	var terrain := Terrain.new()
 	terrain.threaded = false
 	add_child(terrain)
@@ -43,6 +44,7 @@ func test_loading_joins_already_pending_workers() -> void:
 	if not OS.has_feature("threads"):
 		skip("worker threads unavailable")
 		return
+	Terrain._meshes.clear() # Ensure the loading path has actual pending workers to join.
 	var terrain := Terrain.new()
 	add_child(terrain)
 	terrain.stream(0.0)

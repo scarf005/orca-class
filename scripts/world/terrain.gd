@@ -10,6 +10,8 @@ const BEHIND := 80.0
 const STREAM_BUDGET_USEC := 1000
 const ROWS := int(CHUNK_LENGTH / STEP_D)
 const BEHIND_BENDS := 480.0 ## How far back chunks may stay loaded while a bend swings them into view.
+const CACHE_LIMIT := 128 ## Bound shared geometry; live nodes retain their meshes after eviction.
+static var _meshes := {} ## Main-thread-only immutable meshes, shared by retries and fresh worlds.
 
 ## Lateral sample positions: fine near the road, coarse on the far hills.
 static var _columns := _make_columns()
@@ -103,6 +105,11 @@ func stream(d: float, wait := false) -> void:
 	for index: int in wanted:
 		if _chunks.has(index):
 			continue
+		if _meshes.has(_mesh_key(index)) and not _pending.has(index):
+			if wait or Time.get_ticks_usec() < deadline:
+				_serial.erase(index)
+				_attach(index)
+			continue
 		if wait:
 			if _pending.has(index):
 				WorkerThreadPool.wait_for_task_completion(_pending[index])
@@ -172,9 +179,18 @@ func _build_async(index: int) -> void:
 	_mutex.unlock()
 
 
-func _attach(index: int, builder: LowPoly) -> void:
+static func _mesh_key(index: int) -> Vector2i:
+	return Vector2i(index, int(Course.flat))
+
+
+func _attach(index: int, builder: LowPoly = null) -> void:
+	var key := _mesh_key(index)
+	if not _meshes.has(key):
+		if _meshes.size() >= CACHE_LIMIT:
+			_meshes.erase(_meshes.keys()[0])
+		_meshes[key] = builder.mesh()
 	var chunk := MeshInstance3D.new()
-	chunk.mesh = builder.mesh()
+	chunk.mesh = _meshes[key]
 	chunk.name = "Chunk%d" % index
 	add_child(chunk)
 	_chunks[index] = chunk
