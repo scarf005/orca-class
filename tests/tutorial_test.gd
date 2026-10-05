@@ -13,13 +13,13 @@ func practice() -> Tutorial:
 	return _tutorial
 
 
-func cleanup() -> void:
+func cleanup(restore_environment := false) -> void:
 	for action in Game.REBINDABLE:
 		Input.action_release(action)
 	if is_instance_valid(_tutorial):
 		_tutorial.queue_free()
 	get_tree().paused = false
-	super.cleanup()
+	super.cleanup(restore_environment)
 
 
 func test_title_entry_and_return_clear_pause() -> void:
