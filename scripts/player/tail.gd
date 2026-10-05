@@ -11,8 +11,6 @@ signal missed ## A reach or stab ran out of time before arriving.
 enum State { IDLE, REACH, RETURN, STAB, SWAT, ANCHOR, FOLD }
 
 const LENGTHS: Array[float] = [0.78, 0.68, 0.62, 0.52, 0.42] ## 3 m at rest.
-const ROOT_RADIUS := 0.34
-const TIP_RADIUS := 0.1
 const MAX_STRETCH := 1.74 ## How far it can stretch reaching out; REACH matches.
 const REACH := 5.2 ## Max claw distance from the mount, measured by action code.
 const COOLDOWN := 0.45
@@ -50,23 +48,23 @@ func _ready() -> void:
 	joints.fill(Vector3.ZERO)
 	for i in LENGTHS.size():
 		var segment := MeshInstance3D.new()
-		segment.mesh = _segment_mesh(i)
+		segment.mesh = ActorMeshes.mesh("tank", "tail_segment_%d" % i)
 		add_child(segment)
 		_segments.append(segment)
 		var knuckle := MeshInstance3D.new()
-		knuckle.mesh = _knuckle_mesh(_radius(i))
+		knuckle.mesh = ActorMeshes.mesh("tank", "tail_knuckle_%d" % i)
 		add_child(knuckle)
 		_knuckles.append(knuckle)
 	add_child(_claw_root)
 	var palm := MeshInstance3D.new()
-	palm.mesh = _palm_mesh()
+	palm.mesh = ActorMeshes.mesh("tank", "tail_palm")
 	_claw_root.add_child(palm)
 	for side in [-1.0, 1.0]:
 		var pincer := Node3D.new()
 		pincer.position = Vector3(0.04 * side, 0, -0.15)
 		_claw_root.add_child(pincer)
 		var mesh := MeshInstance3D.new()
-		mesh.mesh = _pincer_mesh(side)
+		mesh.mesh = ActorMeshes.mesh("tank", "tail_fluke_" + ("left" if side < 0.0 else "right"))
 		pincer.add_child(mesh)
 		_pincers.append(pincer)
 
@@ -234,53 +232,3 @@ func _update_visuals() -> void:
 		var side := -1.0 if i == 0 else 1.0
 		# The flukes flex up and down as the tail works, and spread when it strikes.
 		_pincers[i].rotation.z = side * (sin(_time * 5.0) * 0.12 + claw_open * 0.25)
-
-
-## Radius at joint `index` (0 = root): a straight taper, shared by the segments meeting there.
-func _radius(index: int) -> float:
-	return lerpf(ROOT_RADIUS, TIP_RADIUS, float(index) / LENGTHS.size())
-
-
-func _segment_mesh(index: int) -> Mesh:
-	var b := LowPoly.new()
-	var r0 := _radius(index)
-	var r1 := _radius(index + 1)
-	b.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3.ZERO), r0, 1.0, 8, Palette.HULL_LIGHT, r1)
-	# Muscle ridges along the top and a pale belly plate underneath.
-	b.box(Transform3D(Basis(), Vector3(0, (r0 + r1) * 0.46, -0.5)), Vector3((r0 + r1) * 0.35, 0.06, 0.8), Palette.FUNGUS)
-	b.box(Transform3D(Basis(), Vector3(0, -(r0 + r1) * 0.44, -0.5)), Vector3((r0 + r1) * 0.5, 0.05, 0.7), Palette.BLUSH)
-	return b.mesh()
-
-
-func _knuckle_mesh(r: float) -> Mesh:
-	return LowPoly.new().blob(Transform3D(), r * 1.04, Palette.HULL_LIGHT, 1, 0.0, 9).mesh()
-
-
-func _palm_mesh() -> Mesh:
-	# The narrow tail stock where the flukes join.
-	var b := LowPoly.new()
-	b.box(Transform3D(Basis(), Vector3(0, 0, -0.05)), Vector3(0.22, 0.2, 0.4), Palette.HULL_LIGHT)
-	return b.mesh()
-
-
-## One fluke of an orca's tail: a broad, flat lobe swept back and out to one side, dark on top
-## and pale underneath, with a notched trailing edge.
-func _pincer_mesh(side: float) -> Mesh:
-	var b := LowPoly.new()
-	var t := 0.05
-	var root_front := Vector3(0.0, 0, -0.12)
-	var root_back := Vector3(0.0, 0, 0.18)
-	var tip := Vector3(0.95 * side, 0, 0.42)
-	var lead := Vector3(0.55 * side, 0, -0.1)
-	var trail := Vector3(0.45 * side, 0, 0.22)
-	var up := Vector3.UP * t
-	for face in [[root_front, lead, tip], [root_front, tip, trail], [root_front, trail, root_back]]:
-		b.tri(face[0] + up, face[1] + up, face[2] + up, Palette.INK, Vector3.UP)
-		b.tri(face[0] - up, face[1] - up, face[2] - up, Palette.CREAM, Vector3.DOWN)
-	# Edges, so the lobe has a little thickness from the side.
-	var outline := [root_front, lead, tip, trail, root_back]
-	for i in outline.size() - 1:
-		var a: Vector3 = outline[i]
-		var c: Vector3 = outline[i + 1]
-		b.quad(a + up, c + up, c - up, a - up, Palette.SLATE, ((a + c) * 0.5 - Vector3(0, 0, 0.1)).normalized())
-	return b.mesh()

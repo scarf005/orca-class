@@ -52,35 +52,19 @@ func _init() -> void:
 
 
 func build() -> void:
-	var b := LowPoly.new()
-	b.box(Transform3D(Basis(), Vector3(0, 0, 0)), Vector3(0.6, 0.55, 3.6), Palette.MIST)
-	b.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0, 0, -1.8)), 0.3, 0.7, 6, Palette.MIST, 0.05)
-	b.box(Transform3D(Basis(), Vector3(0, 0.15, -0.2)), Vector3(6.4, 0.08, 0.9), Palette.CONCRETE)
-	for x in [-1.2, 1.2]:
-		b.box(Transform3D(Basis(), Vector3(x, 0.1, 1.4)), Vector3(0.12, 0.12, 2.6), Palette.SLATE)
-		b.box(Transform3D(Basis(Vector3.BACK, 0.5 * signf(x)), Vector3(x * 1.1, 0.5, 2.6)), Vector3(0.06, 0.8, 0.5), Palette.SLATE)
-	b.box(Transform3D(Basis(), Vector3(0, -0.35, -0.9)), Vector3(0.35, 0.3, 0.35), Palette.INK)
-	b.glow = true
-	b.box(Transform3D(Basis(), Vector3(3.2, 0.15, -0.2)), Vector3(0.12, 0.1, 0.2), Palette.RED)
-	b.box(Transform3D(Basis(), Vector3(-3.2, 0.15, -0.2)), Vector3(0.12, 0.1, 0.2), Palette.MINT)
 	var body := MeshInstance3D.new()
-	body.mesh = b.mesh()
+	body.mesh = ActorMeshes.mesh("uav", "body")
 	model.add_child(body)
 	_prop = MeshInstance3D.new()
-	var p := LowPoly.new()
-	p.glow = true
-	p.prism(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3.ZERO), 0.7, 0.03, 6, Palette.MIST)
-	(_prop as MeshInstance3D).mesh = p.mesh()
+	(_prop as MeshInstance3D).mesh = ActorMeshes.mesh("uav", "prop")
 	_prop.position = Vector3(0, 0, 1.9)
 	model.add_child(_prop)
 	if attack == "strafe":
 		_gun = Node3D.new()
 		_gun.position = Vector3(0, -0.35, -0.9)
 		model.add_child(_gun)
-		var g := LowPoly.new()
-		g.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3.ZERO), 0.07, 1.4, 6, Palette.INK)
 		var gun_mesh := MeshInstance3D.new()
-		gun_mesh.mesh = g.mesh()
+		gun_mesh.mesh = ActorMeshes.mesh("uav", "gun")
 		_gun.add_child(gun_mesh)
 		_muzzle = Node3D.new()
 		_muzzle.position = Vector3(0, 0, -1.5)

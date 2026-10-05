@@ -1,6 +1,7 @@
 set positional-arguments := true
 
 godot := env("GODOT", "godot")
+blender := env("BLENDER", "blender")
 butler := env("BUTLER", "butler")
 itch_project := env("ITCH_PROJECT", "scarf005/orca-class")
 
@@ -89,6 +90,16 @@ upload version="": export validate
 # Regenerate the Korean and English string table.
 strings:
     python3 tools/strings.py
+
+# Export edited Blender actor sources; names optionally select individual actors.
+export-actors *names:
+    {{ quote(blender) }} --background --python-exit-code 1 --python tools/export_actors.py -- "$@"
+
+# Check that Blender edits reach GLB without overwriting source files.
+test-actor-export:
+    mkdir -p builds
+    touch builds/.gdignore
+    {{ quote(blender) }} --background --python-exit-code 1 --python tools/test_actor_export.py
 
 # Regenerate synthesized effects and music.
 audio:

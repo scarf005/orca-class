@@ -106,7 +106,6 @@ var _next_attack := 1.5
 var _tendril: Array[MeshInstance3D] = []
 var _tendril_tip := Vector3.ZERO
 var _tip_open := false ## The tendril is raised where a shot can cut it.
-var _prop_meshes := {}
 var _hard := false
 var _dying := 0.0
 var _body_mesh: MeshInstance3D
@@ -129,19 +128,8 @@ func build() -> void:
 	_hard = Game.difficulty == Game.Difficulty.HARD
 	# Its weak points are on its face: turn that face back up the road toward the tank.
 	rotation.y = Course.yaw_at(Course.to_course(global_position).x)
-	var b := LowPoly.new()
-	b.blob(Transform3D(Basis().scaled(Vector3(1.4, 1.0, 1.1)), Vector3(0, 4.0, 0)), 6.5, Palette.MAUVE, 1, 0.3, 11)
-	b.blob(Transform3D(Basis(), Vector3(-4.5, 2.5, 2.0)), 3.5, Palette.LILAC, 1, 0.3, 12)
-	b.blob(Transform3D(Basis(), Vector3(4.8, 2.2, 1.0)), 3.2, Palette.LILAC, 1, 0.3, 13)
-	b.blob(Transform3D(Basis(), Vector3(0, 9.5, -1.0)), 3.0, Palette.MAUVE, 1, 0.3, 14)
-	# Mushroom crowns and roots spreading into the yard.
-	for i in 7:
-		var angle := TAU * i / 7.0
-		b.prism(Transform3D(Basis(Vector3(cos(angle), 0, sin(angle)).cross(Vector3.UP), 0.3), Vector3(cos(angle) * 4.0, 7.0, sin(angle) * 3.0)), 0.4, 3.0, 5, Palette.CREAM, 0.2)
-		b.prism(Transform3D(Basis(), Vector3(cos(angle) * 4.6, 9.8, sin(angle) * 3.4)), 1.6, 0.6, 7, Palette.FUNGUS, 0.3)
-		b.box(Transform3D(Basis(Vector3.UP, angle), Vector3(cos(angle) * 9.0, 0.3, -sin(angle) * 9.0)), Vector3(8.0, 0.6, 1.0), Palette.MAUVE)
 	_body_mesh = MeshInstance3D.new()
-	_body_mesh.mesh = b.mesh()
+	_body_mesh.mesh = ActorMeshes.mesh("colossus", "body")
 	model.add_child(_body_mesh)
 	for spec in [["left", Vector3(-4.8, 4.5, 3.6)], ["right", Vector3(5.0, 4.0, 3.2)], ["top", Vector3(0.0, 10.5, 1.8)]]:
 		parts.append(_make_part(spec[0], spec[1], 1.7, NODE_HP, CAP_HP))
@@ -152,7 +140,7 @@ func build() -> void:
 	set_meta("phase_marks", [CORE_HP / max_hp])
 	for i in 9:
 		var segment := MeshInstance3D.new()
-		segment.mesh = LowPoly.new().blob(Transform3D(), 1.2 - i * 0.08, Palette.MAUVE if i % 2 else Palette.LILAC, 0, 0.25, i).mesh()
+		segment.mesh = ActorMeshes.mesh("colossus", "tendril_%d" % i)
 		segment.visible = false
 		add_child(segment)
 		segment.top_level = true
@@ -175,15 +163,12 @@ func _make_part(part_name: String, offset: Vector3, r: float, part_hp: float, ca
 	part.hp = part_hp
 	part.cap = cap_hp
 	part.mesh = MeshInstance3D.new()
-	var glow := LowPoly.new()
-	glow.glow = true
-	glow.blob(Transform3D(), r, Palette.FUNGUS if part_name == "core" else Palette.BLUSH, 1, 0.15, part_name.length())
-	part.mesh.mesh = glow.mesh()
+	part.mesh.mesh = ActorMeshes.mesh("colossus", "core" if part_name == "core" else "node_" + part_name)
 	part.mesh.position = offset
 	model.add_child(part.mesh)
 	if cap_hp > 0.0:
 		part.cap_mesh = MeshInstance3D.new()
-		part.cap_mesh.mesh = LowPoly.new().blob(Transform3D(Basis().scaled(Vector3(1.2, 0.8, 1.2)), Vector3.ZERO), r * 1.25, Palette.PEACH, 0, 0.35, part_name.length() + 3).mesh()
+		part.cap_mesh.mesh = ActorMeshes.mesh("colossus", "cap_" + part_name)
 		part.cap_mesh.position = offset + Vector3(0, 0.3, 0.4)
 		model.add_child(part.cap_mesh)
 	return part
@@ -587,24 +572,9 @@ func _spawn_crawlers(move: Move) -> void:
 		world.fx.spores(spot, 8, 1.0)
 
 
-## A cached mesh for the attacks' own parts, in the colossus's palette.
+## Attack parts share the same imported resources between encounters.
 func _mesh(id: String) -> Mesh:
-	if not _prop_meshes.has(id):
-		var b := LowPoly.new()
-		match id:
-			"spike":
-				b.prism(Transform3D(), 1.1, 4.5, 5, Palette.CREAM, 0.0)
-				b.prism(Transform3D(Basis(), Vector3(1.0, 0, 0.6)), 0.7, 3.0, 5, Palette.BLUSH, 0.0)
-				b.prism(Transform3D(Basis(), Vector3(-0.9, 0, -0.7)), 0.7, 3.2, 5, Palette.BLUSH, 0.0)
-			"geyser":
-				b.glow = true
-				b.prism(Transform3D(), 1.0, 9.0, 7, Palette.FUNGUS, 1.25, Palette.WHITE)
-			"strip":
-				b.box(Transform3D(), Vector3.ONE, Palette.DUSK)
-			"puff":
-				b.blob(Transform3D(), 2.4, Palette.LILAC, 1, 0.3, 21)
-		_prop_meshes[id] = b.mesh()
-	return _prop_meshes[id]
+	return ActorMeshes.mesh("colossus", id)
 
 
 ## A short-lived prop that shoots up out of the ground at `position` and sinks again.

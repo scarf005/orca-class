@@ -75,82 +75,25 @@ func build() -> void:
 	var slot: Vector3 = get_meta("slot", Vector3(LANE, HEIGHT, 150.0))
 	_lane = slot.x if absf(slot.x) > 1.0 else LANE
 	_height = maxf(slot.y, 8.0)
-	var b := LowPoly.new()
-	# An Osprey: a round-sided fuselage tapering to a blunt nose with a glazed cockpit and the refuelling
-	# probe, sponsons along the belly, a high wing across the top, an H tail over the rear ramp.
-	var aft := Basis(Vector3.UP, PI) # tube() runs along +Z; this turns it to run forward (-Z).
-	b.tube(Transform3D(Basis(), Vector3(0, 0, -3.6)), 1.25, 8.2, 8, Palette.SLATE)
-	b.tube(Transform3D(aft, Vector3(0, -0.1, -3.6)), 1.25, 2.2, 8, Palette.SLATE, 0.5)
-	b.box(Transform3D(Basis(), Vector3(0, -1.05, 0.4)), Vector3(2.1, 0.4, 7.6), Palette.DUSK)
-	b.tube(Transform3D(Basis(Vector3.RIGHT, -0.32), Vector3(0, 0.1, 3.4)), 1.15, 2.6, 8, Palette.SLATE, 0.55)
-	b.box(Transform3D(Basis(), Vector3(0, 0.0, -0.6)), Vector3(2.56, 0.16, 6.4), Palette.CORAL)
-	b.glow = true
-	b.box(Transform3D(Basis(Vector3.RIGHT, 0.6), Vector3(0, 0.62, -4.3)), Vector3(1.6, 0.7, 1.3), Palette.PERIWINKLE)
-	b.glow = false
-	b.tube(Transform3D(aft, Vector3(0.75, 0.45, -4.6)), 0.07, 2.6, 5, Palette.INK)
-	for x in [-1.0, 1.0]:
-		b.box(Transform3D(Basis(), Vector3(x * 1.45, -0.7, 0.6)), Vector3(0.7, 0.8, 3.6), Palette.SLATE, Palette.ASH)
-	# High wing on a fairing, the engines' shafts running out to the tips.
-	b.box(Transform3D(Basis(), Vector3(0, 1.45, -0.1)), Vector3(1.4, 0.55, 3.2), Palette.DUSK)
-	b.box(Transform3D(Basis(), Vector3(0, 1.8, -0.2)), Vector3(NACELLE_X * 2.0, 0.26, 2.0), Palette.DUSK, Palette.SLATE)
-	# H tail: a wide stabiliser on a short boom over the ramp, a fin at each end.
-	b.box(Transform3D(Basis(), Vector3(0, 1.35, 5.3)), Vector3(4.6, 0.16, 1.3), Palette.DUSK)
-	for x in [-2.3, 2.3]:
-		b.box(Transform3D(Basis(Vector3.RIGHT, -0.15), Vector3(x, 1.75, 5.5)), Vector3(0.14, 1.9, 1.4), Palette.DUSK, Palette.CORAL)
-	# Armed to the teeth: a three-barrel chin turret, rocket pods on the sponson pylons, a pair of
-	# missiles under each wing, a pintle gun in each side door.
-	b.blob(Transform3D(Basis(), Vector3(0, -1.2, -3.5)), 0.42, Palette.INK)
-	for k in 3:
-		var angle := TAU * k / 3.0
-		b.tube(Transform3D(aft, Vector3(cos(angle) * 0.1, -1.25 + sin(angle) * 0.1, -3.8)), 0.05, 1.3, 4, Palette.INK)
-	for x in [-1.0, 1.0]:
-		b.box(Transform3D(Basis(), Vector3(x * 2.0, -0.55, 0.2)), Vector3(0.9, 0.12, 0.6), Palette.INK)
-		b.tube(Transform3D(aft, Vector3(x * 2.45, -0.75, 1.1)), 0.34, 1.9, 7, Palette.MOSS)
-		for k in 6:
-			var angle := TAU * k / 6.0
-			b.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(x * 2.45 + cos(angle) * 0.2, -0.75 + sin(angle) * 0.2, -0.8)), 0.06, 0.18, 4, Palette.HOT, 0.0)
-		for k in 2:
-			var mx: float = x * (2.6 + k * 1.1)
-			b.box(Transform3D(Basis(), Vector3(mx, 1.55, -0.3)), Vector3(0.12, 0.22, 0.9), Palette.INK)
-			b.tube(Transform3D(aft, Vector3(mx, 1.3, 0.5)), 0.13, 1.8, 6, Palette.ASH)
-			b.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(mx, 1.3, -1.3)), 0.13, 0.4, 6, Palette.HOT, 0.0)
-		b.tube(Transform3D(Basis(Vector3.UP, x * -PI * 0.5), Vector3(x * 1.3, 0.1, -2.2)), 0.05, 1.1, 4, Palette.INK)
-	_add_mesh(model, b.mesh())
+	_add_mesh(model, ActorMeshes.mesh("tiltrotor", "body"))
 	_ramp_hinge.position = Vector3(0, -1.0, 5.5)
 	model.add_child(_ramp_hinge)
-	var r := LowPoly.new()
-	r.box(Transform3D(Basis(), Vector3(0, 0, 0.9)), Vector3(1.9, 0.14, 1.8), Palette.INK, Palette.STONE)
-	_add_mesh(_ramp_hinge, r.mesh())
+	_add_mesh(_ramp_hinge, ActorMeshes.mesh("tiltrotor", "ramp"))
 	for side in [-1.0, 1.0]:
 		var pivot := Node3D.new()
 		pivot.position = Vector3(side * NACELLE_X, 1.8, 0.0)
 		model.add_child(pivot)
-		# A round engine pod with a hot exhaust behind and a spinner ahead of the proprotor.
-		var n := LowPoly.new()
-		n.tube(Transform3D(Basis(), Vector3(0, 0, -1.4)), 0.62, 3.0, 8, Palette.MOSS, 0.5)
-		n.tube(Transform3D(Basis(), Vector3(0, 0, -0.3)), 0.66, 0.4, 8, Palette.CORAL)
-		n.tube(Transform3D(Basis(), Vector3(0, -0.2, 1.6)), 0.3, 0.3, 6, Palette.INK)
-		n.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0, 0, -1.5)), 0.4, 0.6, 8, Palette.INK, 0.05)
-		_add_mesh(pivot, n.mesh())
+		_add_mesh(pivot, ActorMeshes.mesh("tiltrotor", "nacelle"))
 		var rotor := Node3D.new()
 		rotor.position = Vector3(0, 0, -2.0)
 		pivot.add_child(rotor)
-		var blades := LowPoly.new()
-		for k in 3:
-			var xf := Transform3D(Basis(Vector3.BACK, PI * k / 3.0), Vector3.ZERO)
-			blades.box(xf, Vector3(5.4, 0.34, 0.1), Palette.INK)
-			blades.box(xf.translated_local(Vector3(2.55, 0, 0)), Vector3(0.5, 0.36, 0.12), Palette.BUTTER)
-			blades.box(xf.translated_local(Vector3(-2.55, 0, 0)), Vector3(0.5, 0.36, 0.12), Palette.BUTTER)
-		_add_mesh(rotor, blades.mesh())
+		_add_mesh(rotor, ActorMeshes.mesh("tiltrotor", "blades"))
 		_nacelles.append(pivot)
 		_rotors.append(rotor)
 	# Door gun on the ramp's lip; it rests pointing out the back.
 	_gun.position = Vector3(0, 0.3, 4.4)
 	model.add_child(_gun)
-	var g := LowPoly.new()
-	g.box(Transform3D(), Vector3(0.5, 0.4, 0.5), Palette.INK)
-	g.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3(0, 0, -0.2)), 0.07, 1.5, 6, Palette.INK)
-	_add_mesh(_gun, g.mesh())
+	_add_mesh(_gun, ActorMeshes.mesh("tiltrotor", "gun"))
 	_muzzle.position = Vector3(0, 0, -1.8)
 	_gun.add_child(_muzzle)
 	_gun.basis = Basis.looking_at(Vector3.BACK)

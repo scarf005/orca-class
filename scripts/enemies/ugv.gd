@@ -69,24 +69,8 @@ func build() -> void:
 		max_hp = 45.0
 		score = 300
 	hp = max_hp
-	var b := LowPoly.new()
-	for side in [-1.0, 1.0]:
-		b.box(Transform3D(Basis(), Vector3(0.95 * side, 0.45, 0)), Vector3(0.5, 0.8, 3.4), Palette.INK)
-		for z in [-1.1, 0.0, 1.1]:
-			b.prism(Transform3D(Basis(Vector3.BACK, PI * 0.5), Vector3(1.22 * side, 0.4, z)), 0.32, 0.06, 6, Palette.STONE)
-	b.box(Transform3D(Basis(), Vector3(0, 0.95, 0)), Vector3(1.7, 0.7, 3.2), Palette.SLATE)
-	b.box(Transform3D(Basis(Vector3.RIGHT, 0.5), Vector3(0, 1.05, -1.7)), Vector3(1.6, 0.5, 0.6), Palette.SLATE)
-	b.box(Transform3D(Basis(), Vector3(0, 1.32, 0.9)), Vector3(1.2, 0.1, 1.0), Palette.DUSK)
-	# Sensor mast and a stripe of warning paint.
-	b.box(Transform3D(Basis(), Vector3(0.55, 1.55, 1.2)), Vector3(0.12, 0.6, 0.12), Palette.INK)
-	b.box(Transform3D(Basis(), Vector3(0, 1.0, -1.61)), Vector3(1.6, 0.1, 0.02), Palette.CORAL)
-	if weapon == "supply":
-		for i in 3:
-			b.box(Transform3D(Basis(), Vector3(-0.4 + i * 0.4, 1.6, 0.3 - i * 0.2)), Vector3(0.6, 0.5, 0.8), Palette.OCHRE if i % 2 else Palette.PINE)
-		b.glow = true
-		b.box(Transform3D(Basis(), Vector3(0, 2.0, -0.6)), Vector3(0.3, 0.3, 0.3), Palette.BUTTER)
 	var body := MeshInstance3D.new()
-	body.mesh = b.mesh()
+	body.mesh = ActorMeshes.mesh("ugv", "body_supply" if weapon == "supply" else "body")
 	model.add_child(body)
 	if weapon != "supply":
 		_turret = Node3D.new()
@@ -95,32 +79,23 @@ func build() -> void:
 		pop_parts = [_turret]
 		_turret.position = Vector3(0, 1.35, 0)
 		model.add_child(_turret)
-		var t := LowPoly.new()
-		t.box(Transform3D(Basis(), Vector3(0, 0.25, 0.1)), Vector3(1.0, 0.5, 1.2), Palette.DUSK)
 		var turret_mesh := MeshInstance3D.new()
-		turret_mesh.mesh = t.mesh()
+		turret_mesh.mesh = ActorMeshes.mesh("ugv", "turret")
 		_turret.add_child(turret_mesh)
 		# The gun (or launcher tubes) is its own pivot: it slews onto the tank and rounds leave along it.
-		var g := LowPoly.new()
 		if weapon == "gun":
-			g.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3.ZERO), 0.08, 1.8, 6, Palette.INK)
 			_barrel.position = Vector3(0, 0.3, -0.4)
 			_muzzle.position = Vector3(0, 0, -1.9)
 		else:
-			for x in [-0.28, 0.28]:
-				g.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3(x, 0, 0)), 0.16, 1.4, 6, Palette.MOSS)
 			_barrel.position = Vector3(0, 0.55, 0.5)
 			_muzzle.position = Vector3(0.28, 0, -1.5)
 		var barrel_mesh := MeshInstance3D.new()
-		barrel_mesh.mesh = g.mesh()
+		barrel_mesh.mesh = ActorMeshes.mesh("ugv", "barrel_gun" if weapon == "gun" else "barrel_atgm")
 		_barrel.add_child(barrel_mesh)
 		_barrel.add_child(_muzzle)
 		_turret.add_child(_barrel)
 	_eye = MeshInstance3D.new()
-	var e := LowPoly.new()
-	e.glow = true
-	e.box(Transform3D(), Vector3(0.3, 0.14, 0.05), Color.WHITE)
-	_eye.mesh = e.mesh()
+	_eye.mesh = ActorMeshes.mesh("ugv", "eye")
 	_eye_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_eye_material.albedo_color = Palette.RED
 	_eye.material_override = _eye_material

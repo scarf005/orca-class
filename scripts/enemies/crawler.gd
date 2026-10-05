@@ -29,13 +29,12 @@ func _init() -> void:
 
 
 func build() -> void:
-	var b := LowPoly.new()
-	b.blob(Transform3D(Basis().scaled(Vector3(1.0, 0.75, 1.2)), Vector3(0, 0.8, 0)), 0.8, Palette.MAUVE, 1, 0.3, randi())
-	b.blob(Transform3D(Basis(), Vector3(0, 1.2, 0.2)), 0.5, Palette.FUNGUS, 0, 0.35, randi())
-	b.glow = true
+	var b := ActorDeform.new()
+	b.append(ActorMeshes.mesh("crawler", "body_base"), Transform3D(Basis().scaled(Vector3(1.0, 0.75, 1.2)), Vector3(0, 0.8, 0)), 0.8, 0.3, randi())
+	b.append(ActorMeshes.mesh("crawler", "crown_base"), Transform3D(Basis(), Vector3(0, 1.2, 0.2)), 0.5, 0.35, randi())
 	for i in 5:
 		var angle := randf() * TAU
-		b.blob(Transform3D(Basis(), Vector3(cos(angle) * 0.6, 0.9 + randf() * 0.4, sin(angle) * 0.6)), 0.14, Palette.BLUSH)
+		b.append(ActorMeshes.mesh("crawler", "spot"), Transform3D(Basis(), Vector3(cos(angle) * 0.6, 0.9 + randf() * 0.4, sin(angle) * 0.6)), 0.14)
 	_body = MeshInstance3D.new()
 	_body.mesh = b.mesh()
 	model.add_child(_body)
@@ -44,10 +43,8 @@ func build() -> void:
 		var side := -1.0 if i < 3 else 1.0
 		leg.position = Vector3(0.5 * side, 0.7, -0.5 + (i % 3) * 0.5)
 		leg.rotation.y = side * (PI * 0.5) + ((i % 3) - 1) * 0.5 * side
-		var l := LowPoly.new()
-		l.prism(Transform3D(Basis(Vector3.BACK, -side * 1.0), Vector3.ZERO), 0.07, 1.0, 4, Palette.CREAM, 0.03)
 		var mesh := MeshInstance3D.new()
-		mesh.mesh = l.mesh()
+		mesh.mesh = ActorMeshes.mesh("crawler", "leg_left" if side < 0.0 else "leg_right")
 		leg.add_child(mesh)
 		model.add_child(leg)
 		_legs.append(leg)
