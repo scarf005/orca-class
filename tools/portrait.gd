@@ -1,7 +1,7 @@
 extends Node
 ## Parks one enemy on stage 2's street and shoots it from several angles.
 ## Usage: xvfb-run -a godot --path . --resolution 960x540 -- --run=res://tools/portrait.gd \
-##        --kind=abel[,kain] [--dist=14] [--h=4] [--out=builds/portrait] [--d=300]
+##        --kind=abel[,kain] [--dist=14] [--h=4] [--out=builds/portrait] [--d=300] [--beside] # --beside parks it next to the tank for scale
 
 func run() -> int:
 	var args: Dictionary = preload("res://scripts/main.gd").args()
@@ -22,12 +22,14 @@ func run() -> int:
 	world.director.scenery.stream(d, 100000)
 	for _i in 20:
 		await get_tree().process_frame
-	world.player.model.visible = false
+	world.player.model.visible = args.has("beside")
 	var dist := float(args.get("dist", "14"))
 	var height := float(args.get("h", "4"))
 	for kind: String in String(args.get("kind", "abel")).split(",", false):
 		var enemy: Enemy = load(Director.ENEMY_SCRIPTS[kind]).new()
 		var spot := Course.ground_at(d + float(args.get("ahead", "40")), 0.0)
+		if args.has("beside"):
+			spot = world.player.global_position + Course.right(d) * 7.0
 		enemy.position = spot + Vector3.UP * float(args.get("lift", "0"))
 		world.add_enemy(enemy)
 		world.camera.set_process(false)
