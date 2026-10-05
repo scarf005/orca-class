@@ -356,7 +356,11 @@ func _formation(kind: String, i: int, count: int, event: Dictionary) -> Vector3:
 
 func _start_midboss(event: Dictionary) -> void:
 	var world := World.current
-	world.rail.mode = Rail.Mode.HOLD
+	if event.kind == "hovercraft":
+		var arena := Course.stage.arena_at(world.rail.d)
+		Course.stage.arena_center_d = arena.d
+		Course.stage.arena_radius = arena.radius
+	world.rail.mode = Rail.Mode.ARENA if event.kind == "hovercraft" else Rail.Mode.HOLD
 	world.rail.hold_at = event.hold
 	var boss: Enemy = load(ENEMY_SCRIPTS[event.kind]).new()
 	boss.position = Course.ground_at(Course.stage.midboss_d, 0.0)
@@ -368,11 +372,18 @@ func _start_midboss(event: Dictionary) -> void:
 	boss.died.connect(func(_e: Entity) -> void:
 		world.boss = null
 		world.boss_changed.emit(null)
-		get_tree().create_timer(MIDBOSS_RESUME).timeout.connect(func() -> void: world.rail.mode = Rail.Mode.RAIL))
+		get_tree().create_timer(MIDBOSS_RESUME).timeout.connect(func() -> void:
+			if event.kind == "hovercraft":
+				world.rail.d = maxf(world.rail.d, Course.to_course(world.player.global_position).x - world.player.course_offset)
+				world.player.local_velocity = Vector2.ZERO
+			world.rail.mode = Rail.Mode.RAIL))
 
 
 func _start_boss(event: Dictionary) -> void:
 	var world := World.current
+	var arena := Course.stage.arena_at(world.rail.d)
+	Course.stage.arena_center_d = arena.d
+	Course.stage.arena_radius = arena.radius
 	world.rail.mode = Rail.Mode.ARENA
 	var boss: Enemy = load(ENEMY_SCRIPTS[event.kind]).new()
 	boss.position = Course.ground_at(Course.stage.arena_center_d + event.get("ahead", 70.0), event.get("u", 0.0)) + Vector3.UP * float(event.height) if event.has("height") else Course.stage.boss_position()

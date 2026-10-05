@@ -8,9 +8,9 @@ enum Phase { ARMORED, STRIPPED }
 enum Attack { NONE, GUN, CANNON, RAM, MLRS }
 
 const SCALE := 1.3 ## Drawn this much larger than its model-space layout.
-const BODY_HP := 900.0
+const BODY_HP := 5000.0
 const ROUND_DAMAGE := 40.0 ## Like the colossus, main-gun damage counts in rounds, not the tank's raw thousands.
-const SPEED := 24.0
+const SPEED := 32.0
 const RAM_SPEED := 65.0
 const LASER_RANGE := 30.0
 const LASER_DPS := 6.0
@@ -41,6 +41,7 @@ var _next_attack := 2.0
 var _shots := 0
 var _shot_timer := 0.0
 var _angle := 0.0
+var _pattern := 0
 var _aim := Vector3.ZERO
 var _ram_direction := Vector3.ZERO
 var _ram_hit := false
@@ -222,8 +223,9 @@ func take_hit(hit: Hit) -> void:
 	hp = maxf(0.0, hp - amount)
 	impact_feedback(hit, amount, hp <= 0.0)
 	if hit.power >= 1.0 or hit.stagger >= 1.0:
-		stagger = maxf(stagger, 1.0)
-		_end_attack()
+		stagger = maxf(stagger, 0.2)
+		if _attack == Attack.RAM and _attack_time < 0.25:
+			_end_attack()
 	if hp <= 0.0:
 		killing_hit = hit.copy()
 		_dying = 1.0
@@ -231,6 +233,7 @@ func take_hit(hit: Hit) -> void:
 		World.current.hitstop(0.15)
 	elif phase == Phase.ARMORED and hp <= max_hp * 0.5:
 		phase = Phase.STRIPPED
+		_pattern = 3 # The newly exposed rack answers immediately, not after another full cycle.
 		for plate in _plates:
 			Wreck.launch(plate, plate.global_position, 2.0, true, Vector3.UP * 8.0)
 		# The fan cowls peel off; the exposed rotors keep working until shot out.
@@ -279,11 +282,13 @@ func behave(delta: float) -> void:
 	for i in _fans.size():
 		if parts["fan_l" if i == 0 else "fan_r"] > 0.0:
 			_fans[i].rotation.z += delta * 30.0
+	var listing := 0.22 if parts.fan_l <= 0.0 and parts.fan_r > 0.0 else -0.22 if parts.fan_r <= 0.0 and parts.fan_l > 0.0 else 0.0
+	model.rotation.z = lerpf(model.rotation.z, listing, minf(delta * 4.0, 1.0))
 	var tank := player()
 	if tank == null or is_staggered():
 		return
 	var before := global_position
-	if _attack != Attack.CANNON and (_attack != Attack.RAM or _attack_time < WIND * Game.telegraph_scale()):
+	if _attack not in [Attack.CANNON, Attack.RAM]:
 		_angle += move_speed() / 46.0 * delta
 		var goal := arena_center() + Vector3(cos(_angle), 0, sin(_angle)) * 46.0
 		global_position = global_position.move_toward(Vector3(goal.x, global_position.y, goal.z), move_speed() * delta)
@@ -344,6 +349,7 @@ func _begin_attack(kind: Attack) -> void:
 	if kind == Attack.MLRS and phase == Phase.ARMORED:
 		return
 	_attack = kind
+	print("ATTACK kind=hovercraft attack=%s phase=%d t=%.2f" % [Attack.keys()[kind], phase + 1, age])
 	_attack_time = 0.0
 	_shots = 0
 	_shot_timer = 0.0
@@ -355,6 +361,8 @@ func _begin_attack(kind: Attack) -> void:
 	_ram_direction = _ram_direction.normalized()
 	var world := World.current
 	if kind == Attack.RAM:
+		var from := global_position + Vector3.UP * 0.6
+		world.fx.beam(from, from + _ram_direction * 120.0, Palette.HOT, 0.6, WIND * Game.telegraph_scale())
 		for i in 10:
 			var at := global_position + _ram_direction * i * 12.0
 			if at.distance_to(arena_center()) <= Stage2.PLAZA_RADIUS:
@@ -378,7 +386,8 @@ func _update_attack(delta: float, tank: Tank) -> void:
 			var options := [Attack.GUN, Attack.CANNON, Attack.RAM]
 			if phase == Phase.STRIPPED:
 				options.append(Attack.MLRS)
-			_begin_attack(options.pick_random())
+			_begin_attack(options[_pattern % options.size()])
+			_pattern += 1
 		return
 	_attack_time += delta
 	if telegraphing():
@@ -429,6 +438,11 @@ func _update_attack(delta: float, tank: Tank) -> void:
 		Attack.RAM:
 			var from := global_position
 			global_position += _ram_direction * RAM_SPEED * move_speed() / SPEED * delta
+			for prop: Prop in World.current.props.near(from, global_position, radius):
+				if not prop.dead and not prop.invulnerable and prop.hit_test(from, global_position, radius) >= 0.0:
+					var crush := Hit.make(Hit.Kind.RAM, prop.hp, prop.hit_center(), _ram_direction)
+					crush.source = self
+					prop.die(crush)
 			if not _ram_hit and Entity.segment_sphere(from, global_position, tank.hit_center(), radius + tank.radius) >= 0.0:
 				_ram_hit = true
 				var hit := Hit.make(Hit.Kind.RAM, 25.0, hit_center(), _ram_direction)
