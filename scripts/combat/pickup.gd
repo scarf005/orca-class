@@ -152,10 +152,9 @@ static func _round(b: LowPoly, kind: String, c: Color) -> void:
 			b.prism(up.call(0.2), 0.225, 0.04, 12, Palette.CYAN)
 			b.glow = false
 		"atgm":
-			# A missile standing on the case: slim body, nose cone, tail fins and a glowing seeker.
+			# A missile standing on the case: slim body, tail fins and a glowing seeker.
 			b.prism(up.call(-0.06), 0.22, 0.3, 12, c, 0.2)
 			b.prism(up.call(0.24), 0.14, 0.5, 12, Palette.STONE, 0.04)
-			b.prism(up.call(0.74), 0.14, 0.2, 12, c, 0.14)
 			for i in 4:
 				b.box(Transform3D(Basis(Vector3.UP, PI * 0.5 * i), Vector3(0, 0.3, 0)).translated_local(Vector3(0.2, 0, 0)), Vector3(0.14, 0.2, 0.02), Palette.DUSK)
 			b.glow = true
@@ -167,7 +166,6 @@ static func _round(b: LowPoly, kind: String, c: Color) -> void:
 			for i in 4:
 				var at := Vector3(0.09, 0, 0.09) * Vector3(1 if i % 2 == 0 else -1, 0, 1 if i < 2 else -1)
 				b.prism(Transform3D(Basis(), at + Vector3(0, 0.14, 0)), 0.075, 0.5, 8, Palette.STONE, 0.03)
-				b.prism(Transform3D(Basis(), at + Vector3(0, 0.64, 0)), 0.075, 0.14, 8, c, 0.0)
 			b.glow = true
 			b.blob(up.call(0.6), 0.05, Palette.WHITE)
 			b.glow = false
