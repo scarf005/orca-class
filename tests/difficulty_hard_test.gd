@@ -1,7 +1,7 @@
 extends TestCase
 
 
-func test_flyers_evade_locks_only_on_hard() -> void:
+func test_flyer_evasion_goals_are_hard_only_and_do_not_move_the_airframe_directly() -> void:
 	var world := stage()
 	for mode: Game.Difficulty in [Game.Difficulty.NORMAL, Game.Difficulty.HARD]:
 		Game.difficulty = mode
@@ -12,13 +12,9 @@ func test_flyers_evade_locks_only_on_hard() -> void:
 			world.player.charge_lock = flyer
 			var before := flyer.global_position
 			flyer._evade(0.1)
-			check_eq(flyer.global_position != before, mode == Game.Difficulty.HARD, kind + " lock jink difficulty gate")
-			if mode == Game.Difficulty.HARD:
-				check(flyer.global_position.y > before.y, "jink climbs")
-				flyer._evade(0.4)
-				before = flyer.global_position
-				flyer._evade(0.1)
-				check_eq(flyer.global_position, before, "cooldown prevents continuous dodging")
+			check_eq(flyer._jink_offset != Vector3.ZERO, mode == Game.Difficulty.HARD, kind + " evasion goal difficulty gate")
+			check_eq(flyer.global_position, before, "the flight controller owns airframe movement")
+			check_eq(world.player.charge_lock, flyer, "evasion does not erase the player's lock")
 	Game.difficulty = Game.Difficulty.NORMAL
 
 
@@ -32,7 +28,7 @@ func test_near_shell_jink_preserves_sure_target() -> void:
 	shot.hit = Hit.make(Hit.Kind.SHELL, 100.0, shot.position)
 	shot.sure_target = flyer
 	flyer._evade(0.1)
-	check(flyer._jink_cooldown > 0.0, "near shell triggers jink without a lock")
+	check(flyer._jink_active, "near shell triggers evasion without a lock")
 	check_eq(shot.sure_target, flyer, "fired charge remains sure")
 	Game.difficulty = Game.Difficulty.NORMAL
 

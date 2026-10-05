@@ -48,10 +48,17 @@ var _ambush_roof := Vector3.ZERO
 var _ambush_exit := Vector3.ZERO
 var _ambush_interceptable := false
 var evasive := false
-var _jink_left := 0.0
-var _jink_cooldown := 0.0
+var _jink_active := false
+var _jink_phase := 0.0
+var _jink_offset := Vector3.ZERO
 var _jink_velocity := Vector3.ZERO
-var _jink_side := 1.0
+var _jink_acceleration := Vector3.ZERO
+var _jink_axis := Vector3.RIGHT
+var _jink_previous := Vector3.ZERO
+var _shell_watch := 0.0
+var _shell_threat := false
+var _jink_banking := false
+var _jink_up := Vector3.UP
 
 
 func _init() -> void:
@@ -100,8 +107,6 @@ func tick(delta: float) -> void:
 	var jitter := Vector3(randf_range(-1, 1), randf_range(-0.5, 1), randf_range(-1, 1)) * _shudder * 1.6
 	model.position = model.position.lerp(Vector3.ZERO, 1.0 - exp(-22.0 * delta)) + jitter
 	behave(delta)
-	if not dead and evasive:
-		_evade(delta)
 	show_damage(delta, death_radius)
 	var moved := global_position - _last_position
 	velocity = moved / maxf(delta, 0.0001)
@@ -175,33 +180,61 @@ func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 	return -1.0 if hidden else super.hit_test(from, to, extra_radius)
 
 
-func _evade(delta: float) -> void:
-	if Game.difficulty != Game.Difficulty.HARD or invulnerable:
-		return
-	_jink_cooldown = maxf(0.0, _jink_cooldown - delta)
+## Move the flight goal, not the airframe: rotorcraft follow it with their flight controller;
+## fixed-wing aircraft turn into it with a bank. Keep weaving while the lock remains.
+func _evade(delta: float, rotorcraft := false) -> void:
 	var tank := player()
-	if tank == null or is_staggered():
+	var threatened := false
+	if evasive and Game.difficulty == Game.Difficulty.HARD and not invulnerable and not is_staggered() and tank != null and not tank.dead:
+		threatened = tank.charge_lock == self
+		if not threatened:
+			# At most 10 scans/s when unlocked; the 0.15 s look-ahead covers the scan interval.
+			_shell_watch -= delta
+			if _shell_watch <= 0.0:
+				_shell_watch = 0.1
+				_shell_threat = false
+				for shot in World.current.projectiles:
+					if shot.team != Team.PLAYER or shot.hit == null or shot.hit.kind != Hit.Kind.SHELL or shot.is_queued_for_deletion():
+						continue
+					var closest := Geometry3D.get_closest_point_to_segment(hit_center(), shot.global_position, shot.global_position + shot.velocity * 0.15)
+					if closest.distance_to(hit_center()) < radius + 6.0:
+						_shell_threat = true
+						break
+			threatened = _shell_threat
+	if threatened and not _jink_active:
+		if rotorcraft:
+			_jink_up = model.global_basis.y.normalized()
+			_jink_banking = true
+			_jink_acceleration = Vector3(_jink_up.x, 0.0, _jink_up.z) * 9.81 / maxf(_jink_up.y, 0.1)
+		_jink_axis = Vector3(model.global_basis.x.x, 0.0, model.global_basis.x.z).normalized()
+		_jink_phase = 0.0
+	_jink_active = threatened
+	if threatened:
+		_jink_phase += delta * 0.9
+	var goal := _jink_axis * sin(_jink_phase) * 12.0 if threatened else Vector3.ZERO
+	# Altitude-holding thrust at a 0.65 rad tilt supplies g*tan(tilt) horizontally.
+	# Limiting jerk to g*roll_rate also bounds the tilt's angular speed.
+	var desired := ((goal - _jink_offset) * 2.0 - _jink_velocity * 4.0).limit_length(9.81 * tan(0.65))
+	_jink_acceleration = _jink_acceleration.move_toward(desired, 9.81 * 0.9 * delta)
+	_jink_velocity += _jink_acceleration * delta
+	_jink_previous = _jink_offset
+	_jink_offset += _jink_velocity * delta
+
+
+## The model's rotor thrust axis supplies the same horizontal acceleration as its movement.
+func _bank_evasion(delta: float) -> void:
+	if not _jink_banking:
 		return
-	if _jink_cooldown <= 0.0:
-		var threatened := tank.charge_lock == self
-		for shot in World.current.projectiles:
-			if shot.team != Team.PLAYER or shot.hit == null or shot.hit.kind != Hit.Kind.SHELL or shot.is_queued_for_deletion():
-				continue
-			var closest := Geometry3D.get_closest_point_to_segment(hit_center(), shot.global_position, shot.global_position + shot.velocity * 0.15)
-			threatened = threatened or closest.distance_to(hit_center()) < radius + 6.0
-		if threatened:
-			if tank.charge_lock == self and tank.is_charging():
-				tank.charge_lock = null
-				tank.charge_part = ""
-				tank.charge_candidate = null
-			_jink_side = -_jink_side
-			_jink_left = 0.35
-			_jink_cooldown = 2.8
-			_jink_velocity = tank.global_basis.x * _jink_side * 28.0 + Vector3.UP * 12.0
-			World.current.fx.dust(hit_center(), 4, 0.8, Palette.MIST)
-	if _jink_left > 0.0:
-		global_position += _jink_velocity * minf(delta, _jink_left)
-		_jink_left = maxf(0.0, _jink_left - delta)
+	# Below 5 cm of displacement and 5 cm/s of drift, finish the attitude handoff.
+	var settling := _jink_active or _jink_offset.length_squared() > 0.0025 or _jink_velocity.length_squared() > 0.0025 or _jink_acceleration.length_squared() > 0.0025
+	var up := (Vector3.UP * 9.81 + _jink_acceleration).normalized() if settling else model.global_basis.y.normalized()
+	var angle := _jink_up.angle_to(up)
+	_jink_up = _jink_up.slerp(up, minf(1.0, delta * 0.9 / maxf(angle, 0.00001))).normalized()
+	if not settling and angle <= delta * 0.9:
+		_jink_banking = false
+		return
+	var heading := Vector3.FORWARD.rotated(Vector3.UP, model.rotation.y).slide(_jink_up).normalized()
+	model.basis = Basis.looking_at(heading, _jink_up)
 
 
 ## Prints for what it drove over since the last frame; none while it is in the reservoir.

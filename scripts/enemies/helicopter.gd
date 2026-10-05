@@ -148,18 +148,23 @@ func behave(delta: float) -> void:
 	var tank := player()
 	if tank == null or tank.dead:
 		return
-	var course := Course.to_course(global_position)
+	_evade(delta, true)
+	var course := Course.to_course(global_position - _jink_previous)
 	if world.rail.mode != Rail.Mode.ARENA:
 		var target_d := world.rail.d + tank.course_offset + KEEP_AHEAD
 		var speed := clampf(world.rail.speed + (target_d - course.x) * 1.2, 0.0, world.rail.speed + 20.0) if age < PACE_TIME else 4.0
 		course.x += speed * delta
 		course.y = lerpf(course.y, _lane + sin(age * 0.8) * 4.0, delta * 1.8)
-		global_position = Course.to_world(course.x, course.y, global_position.y)
+		global_position = Course.to_world(course.x, course.y, global_position.y) + _jink_offset
+	else:
+		global_position += _jink_offset - _jink_previous
 	var altitude := Course.height_at(global_position) + _height + sin(age * 1.7) * 0.8
 	global_position.y = lerpf(global_position.y, altitude - (2.0 if is_staggered() else 0.0), delta * 2.0)
 	var to_tank := tank.hit_center() - global_position
 	model.rotation.y = lerp_angle(model.rotation.y, atan2(-to_tank.x, -to_tank.z), delta * 3.0)
 	model.rotation.z = sin(age * 0.8) * 0.12
+	model.rotation.x = 0.0
+	_bank_evasion(delta)
 	var aim := _aim_point(tank)
 	aim_barrel(_chin, aim, BARREL_SLEW, delta)
 	for pod in _pods:

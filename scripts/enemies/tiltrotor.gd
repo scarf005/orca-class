@@ -221,7 +221,8 @@ func behave(delta: float) -> void:
 		return
 	if tank == null or tank.dead:
 		return
-	var course := Course.to_course(global_position)
+	_evade(delta, true)
+	var course := Course.to_course(global_position - _jink_previous)
 	var target_x := world.rail.d + tank.course_offset + HOVER_AHEAD
 	var remaining := course.x - target_x
 	var tilt_goal := 0.0
@@ -252,12 +253,13 @@ func behave(delta: float) -> void:
 	_apply_tilt()
 	var swing := signf(_lane - course.y) * minf(absf(_lane - course.y), 10.0)
 	course.y = lerpf(course.y, _lane, delta * 1.2)
-	global_position = Course.to_world(course.x, course.y, global_position.y)
+	global_position = Course.to_world(course.x, course.y, global_position.y) + _jink_offset
 	var altitude := Course.height_at(global_position) + _height + sin(age * 1.3) * 0.7
 	global_position.y = lerpf(global_position.y, altitude, delta * 1.5)
 	model.rotation.y = lerp_angle(model.rotation.y, _heading(heading), delta * (2.2 if state == State.HOVER else 1.6))
 	model.rotation.z = lerpf(model.rotation.z, clampf(swing * 0.02, -0.2, 0.2) + sin(age * 0.9) * 0.04, delta * 2.0)
 	model.rotation.x = lerpf(model.rotation.x, 0.08 * (1.0 - _tilt), delta * 2.0)
+	_bank_evasion(delta)
 	_ramp = move_toward(_ramp, 1.0 if state == State.HOVER and _hover > 0.3 else 0.0, delta * 1.6)
 	_ramp_hinge.rotation.x = lerpf(-0.5, 0.45, _ramp)
 

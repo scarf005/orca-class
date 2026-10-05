@@ -689,6 +689,7 @@ func behave(delta: float) -> void:
 		return
 	if tank == null:
 		return
+	_evade(delta)
 	_flare_cooldown -= delta
 	_watch_for_shells()
 	# Orbit the arena center, keeping the tank in front.
@@ -724,7 +725,7 @@ func behave(delta: float) -> void:
 		goal = tank.global_position + Vector3.UP * 5.0
 	if is_staggered():
 		goal.y -= 5.0
-	goal = _flight_space(goal, tank.global_position)
+	goal = _flight_space(goal + _jink_offset, tank.global_position)
 	var accel := (goal - global_position) * 1.6 - _velocity * 1.4
 	_velocity += accel * delta
 	if _attack == Attack.CANNON:

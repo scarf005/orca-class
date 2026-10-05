@@ -18,6 +18,8 @@ var attack := "bomb"
 var from_behind := false ## Arrives from behind the tank on an overtaking pass.
 var _leaving := false
 var _dir := Vector3.BACK
+var _evade_heading := 0.0
+var _evade_bank := 0.0
 var _sense := -1.0 ## -1 while flying back down the road toward the tank, +1 after turning.
 var _pass := 0
 var _turn := 0.0
@@ -130,6 +132,7 @@ func behave(delta: float) -> void:
 	var tank := player()
 	if tank == null:
 		return
+	_evade(delta)
 	_prop.rotation.z += delta * 40.0
 	if is_staggered():
 		# Knocked into a stall: nose dips and it loses height.
@@ -165,8 +168,16 @@ func behave(delta: float) -> void:
 		speed = world.rail.speed
 	elif _pass > 0:
 		speed = world.rail.speed + (LEAVE if _leaving else OVERTAKE)
-	global_position += _dir * speed * delta
-	model.look_at(global_position + _dir, Vector3.UP)
+	# A coordinated turn: bank supplies lateral acceleration without sideslip or a speed jump.
+	var desired_heading := sin(_jink_phase) * 0.6 if _jink_active else 0.0
+	var turn_rate := angle_difference(_evade_heading, desired_heading) * 2.0
+	var bank := clampf(atan(turn_rate * speed / 9.81), -0.65, 0.65)
+	_evade_bank = move_toward(_evade_bank, bank, delta * 0.9)
+	_evade_heading += 9.81 * tan(_evade_bank) / maxf(speed, 1.0) * delta
+	var flight_dir := _dir.rotated(Vector3.UP, _evade_heading)
+	global_position += flight_dir * speed * delta
+	model.look_at(global_position + flight_dir, Vector3.UP)
+	model.rotate_object_local(Vector3.BACK, _evade_bank)
 	if Game.difficulty == Game.Difficulty.HARD:
 		_loiter_drop(delta, ahead)
 	if attack == "bomb":
