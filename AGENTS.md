@@ -1,3 +1,7 @@
+# Effect lifecycle changes
+
+- Enumerate all production representations of the requested remains/effect before changing lifecycle limits, including CPU particles and detached `Wreck` models. Test the reported death path, not only a particle pool.
+
 # Testing policy
 
 - Match every test name to the production oracle it claims to cover.
