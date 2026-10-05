@@ -409,3 +409,15 @@ func test_abel_one_charge_or_two_quick_shells() -> void:
 			if shots == 2 and i == 0:
 				check(not abel.dead, "one quick hull hit leaves an elite hunter alive")
 		check(abel.dead, "%d main-gun hit(s) defeats Abel" % shots)
+
+
+func test_city_mechs_never_wade_into_deep_water() -> void:
+	var world := await _setup(2)
+	var abel := Abel.new()
+	abel.position = Course.ground_at(800.0, 26.0)
+	world.add_enemy(abel)
+	var deep := Course.ground_at(800.0, 45.0)
+	for _i in 240:
+		abel.walk_to(deep, 9.0, STEP)
+	check(Water.surface_at(abel.hit_center()) < abel.hit_center().y, "the hunter stops at the edge instead of sinking: at u %.1f" % Course.to_course(abel.global_position).y)
+	check(absf(Course.to_course(abel.global_position).y) <= Course.stage.lateral_limit(800.0) + 0.5, "it stays on the drowned avenue")

@@ -325,3 +325,11 @@ func test_prop_plan_is_bounded_for_streaming() -> void:
 	check(peak <= 100, "city streaming keeps fewer than 100 nearby props/decor (got %d)" % peak)
 	print("CITY plan=%d peak_window=%d structures=%d" % [scenery.specs.size(), peak, Course.stage.structures.size()])
 	scenery.free()
+
+
+func test_splitters_stay_low_enough_for_the_chase_camera_to_see_over() -> void:
+	var stage := Stage2.new()
+	for structure: Dictionary in stage.structures:
+		if Stage2.SPLITS.any(func(split: Dictionary) -> bool: return is_equal_approx(float(split.d), float(structure.d)) and is_equal_approx(float(split.u), float(structure.u))):
+			var top: float = structure.y + structure.size.y - Stage2.WATER_LEVEL
+			check(top <= 4.5, "splitter at %.0f m rises %.1f m above the water, low enough to see the far lane over" % [structure.d, top])
