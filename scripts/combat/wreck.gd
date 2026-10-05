@@ -9,6 +9,8 @@ var blast_radius := 4.0
 var by_player := false
 var explodes := true ## Pieces (a blown-off turret) just crash and burn.
 var _smoke := 0.0
+var _age := 0.0
+var _travelled := 0.0
 var _size := 1.0
 static var _live: Array[Wreck] = []
 static var BLAST_THROW := 0.04 ## m/s a blast adds to a wreck per point of its damage, at its middle (tuned live in the duel mode).
@@ -57,14 +59,23 @@ static func blast_push(point: Vector3, radius: float, damage: float, push := Vec
 func _process(delta: float) -> void:
 	var world := World.current
 	delta = world.unfrozen(delta)
+	_age += delta
+	if _age >= Fx.PARTICLE_LIFE:
+		queue_free()
+		return
 	velocity.y -= 22.0 * delta
-	global_position += velocity * delta
+	var motion := velocity * delta
+	_travelled += motion.length()
+	if _travelled >= Fx.PARTICLE_DISTANCE:
+		queue_free()
+		return
+	global_position += motion
 	rotation += spin * delta
 	_smoke -= delta
 	if _smoke <= 0.0:
 		_smoke = 0.04
 		world.fx.spawn(Fx.Kind.FLAME, global_position, Vector3.UP, 0.25, 0.9, [Palette.AMBER, Palette.HOT, Palette.BUTTER][randi() % 3], {"drag": 2.0})
-		world.fx.spawn(Fx.Kind.GLOW, global_position, Vector3.UP * 1.5, Fx.DEBRIS_SMOKE_LIFE, 0.9, [Palette.DUSK, Palette.INK, Palette.SLATE][randi() % 3], {"end_size": 2.4, "drag": 1.2, "fade": 0.2})
+		world.fx.spawn(Fx.Kind.GLOW, global_position, Vector3.UP * 1.5, Fx.PARTICLE_LIFE, 0.9, [Palette.DUSK, Palette.INK, Palette.SLATE][randi() % 3], {"end_size": 2.4, "drag": 1.2, "fade": 0.2})
 	var ground := Course.height_at(global_position)
 	var surface := Water.surface_at(global_position) if velocity.y < 0.0 else -INF
 	if surface > ground and global_position.y <= surface:

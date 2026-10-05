@@ -17,8 +17,6 @@ const TRAIL_MIN_SPEED := 4.0 ## Shards stop trailing once they slow down on the 
 static var BLAST_POPS := 2 ## Most secondary pops a big blast sets off (tuned live in the duel mode).
 static var PARTICLE_LIFE := 1.0 ## Maximum age of fragments and smoke, tuned live in duel mode.
 static var PARTICLE_DISTANCE := 50.0 ## Maximum cumulative travel of fragments and smoke in metres.
-static var DEBRIS_LIFE := 3.6 ## Longest a shard lies about before it is gone (tuned live in the duel mode).
-static var DEBRIS_SMOKE_LIFE := 0.5 ## Seconds the smoke a flying shard or wreck leaves hangs in the air (tuned live in the duel mode).
 static var RAIL_SMOKE_SHRINK := 0.9 ## Fraction of its size the railgun smoke loses before vanishing.
 static var RAIL_SMOKE_FADE_SPEED := 1.0 ## Multiplies the railgun smoke's aging rate.
 static var BEAM_SHRINK_SPEED := 0.4 ## Multiplies a hitscan beam's width-collapse rate.
@@ -334,9 +332,9 @@ func _process(delta: float) -> void:
 	for p in trails:
 		if p.bounce:
 			# A flying shard: a thin smoke line, no fire.
-			spawn(Kind.GLOW, p.position, Vector3.UP * 0.4, DEBRIS_SMOKE_LIFE, p.size * 0.6, p.trail, {"end_size": p.size * 1.6, "drag": 2.0, "fade": 0.1})
+			spawn(Kind.GLOW, p.position, Vector3.UP * 0.4, PARTICLE_LIFE, p.size * 0.6, p.trail, {"end_size": p.size * 1.6, "drag": 2.0, "fade": 0.1})
 			continue
-		spawn(Kind.GLOW, p.position, Vector3.UP * 0.8, DEBRIS_SMOKE_LIFE, p.size * 0.9, p.trail, {"end_size": p.size * 2.5, "drag": 1.5, "fade": 0.1})
+		spawn(Kind.GLOW, p.position, Vector3.UP * 0.8, PARTICLE_LIFE, p.size * 0.9, p.trail, {"end_size": p.size * 2.5, "drag": 1.5, "fade": 0.1})
 		if randf() < 0.5:
 			spawn(Kind.FLAME, p.position, Vector3.ZERO, 0.12, p.size * 0.8, [Palette.BUTTER, Palette.PEACH][randi() % 2])
 	_update_delayed(delta)
@@ -679,7 +677,7 @@ func shatter(bounds: AABB, materials: Array, push := Vector3.ZERO, share := 1.0,
 
 ## `heft` 1 for a big chunk: it lingers, tumbles slowly and drops harder.
 func _shard(position: Vector3, velocity: Vector3, size: float, material: Debris, heft := 0.0) -> void:
-	var life := minf(randf_range(2.2, 3.6) if heft > 0.0 else randf_range(0.9, 2.6), DEBRIS_LIFE)
+	var life := minf(randf_range(2.2, 3.6) if heft > 0.0 else randf_range(0.9, 2.6), PARTICLE_LIFE)
 	spawn(Kind.SOLID, position, velocity, life, size, Color.WHITE, {"gravity": 22.0 + 6.0 * heft, "bounce": true, "spin": randf_range(0.7, 1.7) * (0.4 if heft > 0.0 else 1.0), "end_size": size * 0.8, "trail": DEBRIS_TRAILS[material], "material": material})
 
 
