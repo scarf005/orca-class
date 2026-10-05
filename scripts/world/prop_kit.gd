@@ -151,7 +151,16 @@ static func city_shop(variant: int, rng: RandomNumberGenerator) -> Mesh:
 		b.box(_xf(Vector3(0, y, depth * 0.5 + 0.05)), Vector3(width * 0.72, 1.25, 0.08), Palette.SLATE)
 		b.box(_xf(Vector3(0, y - 0.75, depth * 0.5 + 0.1)), Vector3(width * 0.78, 0.12, 0.1), Palette.MIST)
 	b.box(_xf(Vector3(0, height + 0.25, 0)), Vector3(width + 0.5, 0.5, depth + 0.5), Palette.CORAL if variant % 2 else Palette.TEAL)
-	b.box(_xf(Vector3(0, height * 0.82, depth * 0.5 + 0.16)), Vector3(width * 0.8, 0.8, 0.05), Palette.BUTTER)
+	# A Korean shop sign across the front above the ground floor, and a smaller one on the upper floor.
+	for row in 2:
+		var color: Color = CityKit.SIGNS[(variant + row * 3) % CityKit.SIGNS.size()]
+		var y := 2.35 + row * 2.8
+		var sign_width := width * (0.92 if row == 0 else 0.55)
+		b.glow = row == 0 and variant % 2 == 0
+		b.box(_xf(Vector3(0, y, depth * 0.5 + 0.18)), Vector3(sign_width, 0.95, 0.12), color)
+		b.glow = false
+		CityKit._glyphs(b, Vector3(0, y, depth * 0.5 + 0.26), Vector3.RIGHT, Vector3.BACK, sign_width - 0.5, 0.6, Palette.INK if color.get_luminance() > 0.6 else Palette.WHITE, rng)
+	b.box(_xf(Vector3(0, 0.75, depth * 0.5 + 0.06)), Vector3(width * 0.8, 1.5, 0.06), Palette.ASH) # Shutter.
 	return b.mesh()
 
 

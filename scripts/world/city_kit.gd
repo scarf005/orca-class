@@ -7,6 +7,9 @@ static var _cache := {}
 
 const FACADES := [Palette.CONCRETE, Palette.STONE, Palette.SKY, Palette.ASH, Palette.TEAL, Palette.MIST, Palette.BLUSH, Palette.PEACH]
 const AWNINGS := [Palette.CORAL, Palette.TEAL, Palette.BUTTER, Palette.LILAC, Palette.MINT]
+const SIGNS := [Palette.CORAL, Palette.BUTTER, Palette.MINT, Palette.SKY, Palette.BLUSH, Palette.LILAC, Palette.WHITE, Palette.RED]
+## Seven-segment digits for painted apartment block numbers: a, b, c, d, e, f, g.
+const SEGMENTS := ["1111110", "0110000", "1101101", "1111001", "0110011", "1011011", "1011111", "1110000", "1111111", "1111011"]
 
 
 static func decor(kind: String, variant := 0) -> Mesh:
@@ -227,9 +230,15 @@ static func sag_span(size: Vector3, variant: int) -> Mesh:
 
 
 ## A tower: size is the exact collision box. Facade, windows, ground-floor shops, waterline stain and roof clutter vary by variant.
+## Towers come in four kinds by `variant % 4`: 0 offices, 1 apartment slabs, 2 offices hung with shop signs,
+## 3 glass curtain walls.
 static func tower(size: Vector3, variant: int) -> Mesh:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash([size, variant])
+	if variant % 4 == 1:
+		return _apartment(size, variant, rng)
+	if variant % 4 == 3:
+		return _glass(size, variant, rng)
 	var b := LowPoly.new()
 	var wall: Color = FACADES[variant % FACADES.size()]
 	var trim: Color = wall.lightened(0.35)
@@ -299,6 +308,131 @@ static func tower(size: Vector3, variant: int) -> Mesh:
 	if variant % 3 != 1:
 		var y := rng.randf_range(0.5, 0.8) * size.y
 		b.box(_xf(Vector3(size.x * 0.5 - 0.1, y, size.z * 0.3)), Vector3(0.3, 5.0, 4.0), dark)
+	if variant % 4 == 2:
+		_shop_signs(b, size, rng)
+	return b.mesh()
+
+
+## Floors just above the waterline crowded with Korean shop signs on both long faces, plus a vertical sign
+## standing out from one corner.
+static func _shop_signs(b: LowPoly, size: Vector3, rng: RandomNumberGenerator) -> void:
+	for side in [-1.0, 1.0]:
+		var x: float = side * (size.x * 0.5 + 0.12)
+		for row in 3:
+			var y := 5.6 + row * 3.6
+			var z := -size.z * 0.5 + rng.randf_range(0.4, 1.5)
+			while z < size.z * 0.5 - 2.5:
+				var width := minf(rng.randf_range(2.5, 7.0), size.z * 0.5 - 0.6 - z)
+				var height := rng.randf_range(1.3, 2.3)
+				var color: Color = SIGNS[rng.randi() % SIGNS.size()]
+				b.glow = rng.randf() < 0.3
+				b.box(_xf(Vector3(x, y, z + width * 0.5)), Vector3(0.2, height, width), color)
+				b.glow = false
+				_glyphs(b, Vector3(x + side * 0.12, y, z + width * 0.5), Vector3.BACK, Vector3(side, 0, 0), width - 0.6, height * 0.62, Palette.INK if color.get_luminance() > 0.6 else Palette.WHITE, rng)
+				z += width + rng.randf_range(0.2, 1.5)
+		var corner_z: float = rng.randf_range(-0.4, 0.4) * size.z
+		var color: Color = SIGNS[rng.randi() % SIGNS.size()]
+		var at := Vector3(side * (size.x * 0.5 + 0.9), 11.0, corner_z)
+		b.glow = true
+		b.box(_xf(at), Vector3(1.6, 8.0, 0.35), color)
+		b.glow = false
+		for i in 4:
+			_glyphs(b, at + Vector3(0, 2.7 - i * 1.8, -0.2), Vector3.RIGHT, Vector3.FORWARD, 1.1, 1.1, Palette.INK if color.get_luminance() > 0.6 else Palette.WHITE, rng, 1)
+
+
+## Hangul-like syllable blocks across a sign: an initial, a vowel stroke and sometimes a final. `along` runs
+## across the sign, `out` faces the viewer.
+static func _glyphs(b: LowPoly, center: Vector3, along: Vector3, out: Vector3, width: float, height: float, color: Color, rng: RandomNumberGenerator, count := 0) -> void:
+	var n := count if count > 0 else clampi(int(width / height), 1, 5)
+	var cell := minf(width / n, height)
+	for i in n:
+		var c := center + along * ((i + 0.5) * cell - n * cell * 0.5)
+		var depth := out.abs() * 0.04
+		var final := rng.randf() < 0.5
+		var top := 0.18 if final else 0.0
+		b.box(Transform3D(Basis(), c + along * (-cell * 0.12) + Vector3.UP * (cell * top)), along.abs() * cell * 0.38 + Vector3.UP * cell * 0.36 + depth, color)
+		b.box(Transform3D(Basis(), c + along * (cell * 0.22) + Vector3.UP * (cell * top * 0.5)), along.abs() * cell * 0.1 + Vector3.UP * cell * (0.7 - top) + depth, color)
+		if final:
+			b.box(Transform3D(Basis(), c + Vector3.UP * (-cell * 0.3)), along.abs() * cell * 0.62 + Vector3.UP * cell * 0.1 + depth, color)
+
+
+## A Korean apartment slab: balcony bands on every floor of the long faces, the block number painted large on
+## both gable ends under a brand stripe, and lift housings on the roof.
+static func _apartment(size: Vector3, variant: int, rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	var wall: Color = [Palette.CREAM, Palette.WHITE, Palette.MIST, Palette.PEACH][variant / 4 % 4]
+	var accent: Color = [Palette.CORAL, Palette.TEAL, Palette.PERIWINKLE, Palette.MAUVE][variant / 4 % 4]
+	b.box(_xf(Vector3(0, size.y * 0.5, 0)), size, wall)
+	var floors := int(size.y / 2.8)
+	for floor_index in range(2, floors):
+		var y := floor_index * 2.8
+		for side in [-1.0, 1.0]:
+			b.box(_xf(Vector3(side * (size.x * 0.5 + 0.35), y + 0.5, 0)), Vector3(0.7, 1.0, size.z - 1.0), wall.lightened(0.3))
+			var lit := rng.randf() < 0.25
+			b.glow = lit
+			b.box(_xf(Vector3(side * (size.x * 0.5 + 0.03), y + 1.75, 0)), Vector3(0.08, 1.4, size.z - 1.4), Palette.BUTTER if lit else Palette.SLATE)
+			b.glow = false
+			for k in range(1, int(size.z / 6.0)):
+				b.box(_xf(Vector3(side * (size.x * 0.5 + 0.36), y + 1.3, -size.z * 0.5 + k * 6.0)), Vector3(0.72, 2.6, 0.25), wall.darkened(0.12))
+	var number := 101 + variant % 9
+	for side in [-1.0, 1.0]:
+		var z: float = side * (size.z * 0.5 + 0.06)
+		b.box(_xf(Vector3(0, size.y - 3.5, z)), Vector3(size.x, 2.2, 0.06), accent)
+		var digits := str(number)
+		for i in digits.length():
+			var x: float = (i - 1) * 2.6 * side
+			_digit(b, Vector3(x, size.y - 9.5, z + side * 0.04), Vector3(side, 0, 0), int(digits[i]), 3.6, Palette.DUSK)
+	b.box(_xf(Vector3(0, 0.8, 0)), Vector3(size.x * 1.01, 1.6, size.z * 1.01), wall.darkened(0.4))
+	b.box(_xf(Vector3(0, 4.55, 0)), Vector3(size.x * 1.015, 0.42, size.z * 1.015), Palette.INK.darkened(0.25))
+	b.box(_xf(Vector3(0, size.y + 0.25, 0)), Vector3(size.x + 0.3, 0.5, size.z + 0.3), wall.darkened(0.15))
+	for z in [-size.z * 0.25, size.z * 0.25]:
+		b.box(_xf(Vector3(0, size.y + 1.6, z)), Vector3(4.0, 2.7, 3.0), wall.darkened(0.08))
+	return b.mesh()
+
+
+## A seven-segment digit `height` tall centred on `at`, drawn toward `right` on a face.
+static func _digit(b: LowPoly, at: Vector3, right: Vector3, value: int, height: float, color: Color) -> void:
+	var w := height * 0.5
+	var t := height * 0.12
+	var bars := [[Vector2(0, 0.5), true], [Vector2(0.5, 0.25), false], [Vector2(0.5, -0.25), false], [Vector2(0, -0.5), true], [Vector2(-0.5, -0.25), false], [Vector2(-0.5, 0.25), false], [Vector2(0, 0), true]]
+	var depth := Vector3(absf(right.z), 0, absf(right.x)) * 0.06
+	for i in 7:
+		if SEGMENTS[value][i] != "1":
+			continue
+		var spot: Vector2 = bars[i][0]
+		var across: bool = bars[i][1]
+		var size: Vector3 = right.abs() * (w if across else t) + Vector3.UP * (t if across else height * 0.5) + depth
+		b.box(Transform3D(Basis(), at + right * (spot.x * w) + Vector3.UP * (spot.y * height)), size, color)
+
+
+## A glass curtain-wall tower: tinted glass on a mullion grid, a set-back crown and a mast.
+static func _glass(size: Vector3, variant: int, rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	var glass: Color = [Palette.SKY, Palette.TEAL, Palette.PERIWINKLE, Palette.MINT][variant / 4 % 4]
+	b.box(_xf(Vector3(0, size.y * 0.5, 0)), size, glass)
+	var frame := glass.darkened(0.35)
+	for y in range(1, int(size.y / 3.6)):
+		b.box(_xf(Vector3(0, y * 3.6, 0)), Vector3(size.x + 0.12, 0.14, size.z + 0.12), frame)
+	for axis in [0, 2]:
+		var width: float = size.z if axis == 0 else size.x
+		for k in range(1, int(width / 2.4)):
+			var offset := -width * 0.5 + k * 2.4
+			var at := Vector3(0, size.y * 0.5, offset) if axis == 0 else Vector3(offset, size.y * 0.5, 0)
+			b.box(_xf(at), Vector3(size.x + 0.12, size.y, 0.12) if axis == 0 else Vector3(0.12, size.y, size.z + 0.12), frame)
+	b.glow = true
+	for i in 10:
+		var y := rng.randf_range(6.0, size.y - 3.0)
+		var z := rng.randf_range(-0.4, 0.4) * size.z
+		b.box(_xf(Vector3(signf(rng.randf() - 0.5) * (size.x * 0.5 + 0.08), y, z)), Vector3(0.05, 1.2, 2.0), Palette.BUTTER)
+	b.glow = false
+	b.box(_xf(Vector3(0, 0.8, 0)), Vector3(size.x * 1.01, 1.6, size.z * 1.01), frame.darkened(0.3))
+	b.box(_xf(Vector3(0, 4.55, 0)), Vector3(size.x * 1.015, 0.42, size.z * 1.015), Palette.INK.darkened(0.25))
+	b.box(_xf(Vector3(0, size.y + 2.0, 0)), Vector3(size.x * 0.7, 4.0, size.z * 0.7), frame)
+	b.box(_xf(Vector3(0, size.y + 4.2, 0)), Vector3(size.x * 0.72, 0.4, size.z * 0.72), glass.lightened(0.3))
+	b.box(_xf(Vector3(0, size.y + 9.0, 0)), Vector3(0.25, 10.0, 0.25), Palette.ASH)
+	b.glow = true
+	b.box(_xf(Vector3(0, size.y + 14.1, 0)), Vector3(0.45, 0.45, 0.45), Palette.HOT)
+	b.glow = false
 	return b.mesh()
 
 
