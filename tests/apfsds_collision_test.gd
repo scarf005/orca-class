@@ -1,6 +1,29 @@
 extends TestCase
 
 
+class SweepProbe extends Projectile:
+	var sweeps := 0
+
+	func step(delta: float) -> void:
+		sweeps += 1
+		if sweeps > 3:
+			queue_free() # Bound a regressed precision loop without relying on test timeout.
+			return
+		super.step(delta)
+
+
+func test_fractional_hitscan_range_terminates_in_bounded_sweeps() -> void:
+	var world := stage()
+	Course.flat = true
+	for direction in [Vector3.FORWARD, Vector3(1, 0.2, -1).normalized()]:
+		var projectile := SweepProbe.new()
+		projectile.velocity = direction * Armament.SHELL_SPEED
+		world.add_child(projectile)
+		projectile.global_position = Vector3(40, 30, 0)
+		projectile.resolve_now(1.00000001)
+		check_eq(projectile.sweeps, 1, "a sub-coordinate-precision remainder cannot repeat the final sweep")
+
+
 func test_beam_damages_scenery_when_entering_through_roof() -> void:
 	var world := stage()
 	world.director.set_process(false)

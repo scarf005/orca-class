@@ -35,7 +35,8 @@ func test_every_charge_stage_hits_all_overlapping_enemies_once_without_splash() 
 		_fire(world, muzzle, power)
 		var damage := Armament.SHELL_DAMAGE * 2.0 * lerpf(Armament.APFSDS_DAMAGE.x, Armament.APFSDS_DAMAGE.y, power) * Armament.SHELL_DAMAGE_SCALE
 		for victim in victims:
-			check_eq(victim.max_hp - victim.hp, damage, "each overlapping target takes exactly one immediate dart hit at charge %s" % power)
+			# Subtracting damage from 100000 HP introduces floating-point cancellation (< 1e-6 HP).
+			check_near(victim.max_hp - victim.hp, damage, 0.000001, "each overlapping target takes exactly one immediate dart hit at charge %s" % power)
 		check_eq(neighbor.hp, neighbor.max_hp, "no splash beside the beam")
 
 
@@ -50,7 +51,6 @@ func test_locked_beam_hits_enemies_before_and_after_lock_and_damages_surviving_s
 		var prop := Prop.new().setup("test_wall", BoxMesh.new(), 1.0, 4.0, 100000.0)
 		prop.position = muzzle + Vector3.FORWARD * distance - Vector3.UP * 2.0
 		world.props.add_child(prop)
-		world.props.add(prop)
 		props.append(prop)
 	world.player.charge_lock = locked
 	_fire(world, muzzle, 1.0)
@@ -86,16 +86,87 @@ func test_discarded_sabot_flies_out_and_deals_small_damage_off_the_beam() -> voi
 		check(victim.max_hp - victim.hp < 100.0, "sabot damage stays below a main-gun hit")
 
 
+func test_held_apfsds_waits_for_third_box_and_spends_one_round() -> void:
+	var world := _rig()
+	var tank := world.player
+	tank.input_enabled = true
+	tank.load_round(Armament.Round.APFSDS)
+	Input.action_press("fire")
+	tank._update_charge(Armament.TAP_TIME + tank.charge_time() * Armament.STAGE_1)
+	tank._update_weapons(0.0)
+	check_eq(world.stats.shots, 0, "holding through the first box does not auto-fire")
+	tank._update_charge(tank.charge_time() * (Armament.STAGE_2 - Armament.STAGE_1))
+	tank._update_weapons(0.0)
+	check_eq(world.stats.shots, 0, "holding through the second box does not auto-fire")
+	tank._update_charge(tank.charge_time() * (1.0 - Armament.STAGE_2))
+	tank._update_weapons(0.0)
+	check_eq(world.stats.shots, 1, "fires at the same full-charge deadline as APHE")
+	check_eq(world.stats.charged_shots, 1, "the shot has full power")
+	check_eq(tank.round_count, Armament.MAGAZINE[Armament.Round.APFSDS] - 1, "one dart consumes one cartridge, not four sabot petals")
+	Input.action_release("fire")
+
+
+func test_beam_stops_at_exact_range_and_solid_earth() -> void:
+	var world := _rig()
+	Course.flat = true
+	var muzzle := Vector3(40, 30, 0)
+	var power := Armament.STAGE_2
+	var reach := Armament.SHELL_RANGE * lerpf(Armament.APFSDS_RANGE.x, Armament.APFSDS_RANGE.y, power)
+	var inside := _target(world, muzzle + Vector3.FORWARD * (reach - 0.5), 0.1)
+	var outside := _target(world, muzzle + Vector3.FORWARD * (reach + 0.2), 0.1)
+	_fire(world, muzzle, power)
+	check(inside.hp < inside.max_hp, "the beam reaches its charge-scaled range")
+	check_eq(outside.hp, outside.max_hp, "no hit beyond range from the final 6 m sweep")
+	var below := _target(world, Vector3(40, -3, 0))
+	world.player.fire_cannon(muzzle, Vector3.DOWN, 1.0)
+	check_eq(below.hp, below.max_hp, "solid earth remains the non-penetrable boundary")
+
+
+func test_beam_kills_real_armored_ugvs_beyond_destroyed_wall() -> void:
+	var world := _rig()
+	var muzzle := Vector3(40, 30, 0)
+	var wall := Prop.new().setup("test_wall", BoxMesh.new(), 1.0, 4.0, 100.0)
+	wall.position = muzzle + Vector3.FORWARD * 20.0 - Vector3.UP * 2.0
+	world.props.add_child(wall)
+	var victims: Array[Ugv] = []
+	for distance in [30.0, 65.0, 100.0]:
+		var enemy := Ugv.new()
+		enemy.position = muzzle + Vector3.FORWARD * distance - Vector3.UP
+		world.add_enemy(enemy)
+		enemy.set_process(false)
+		victims.append(enemy)
+	world.player.charge_lock = victims[1]
+	_fire(world, muzzle, 1.0)
+	check(wall.dead, "the dart destroys scenery through Prop.take_hit")
+	for enemy in victims:
+		check(enemy.dead, "the production cannon beam kills each real armored UGV, including before the lock")
+
+
+func test_beam_width_is_proportional_to_charge_stage() -> void:
+	for power in [Armament.STAGE_1, Armament.STAGE_2, 1.0]:
+		var world := _rig()
+		var muzzle := Vector3(40, 30, 0)
+		world.player._fire_shell(Armament.Round.APFSDS, muzzle, Vector3.FORWARD, power)
+		var cores: Array = world.fx._transients.filter(func(t: Dictionary) -> bool: return t.life == 0.07)
+		var glows: Array = world.fx._transients.filter(func(t: Dictionary) -> bool: return t.life == 0.12)
+		check_eq(cores.size(), 1, "one bright beam core")
+		check_eq(glows.size(), 1, "one colored beam envelope")
+		var level := Armament.stage(power)
+		# Mesh basis lengths use float32; allow less than 1e-6 m of rounding.
+		check_near(cores[0].node.basis.x.length(), 0.32 * level, 0.000001, "core width scales 1:2:3 with charge boxes")
+		check_near(glows[0].node.basis.x.length(), 0.8 * level, 0.000001, "envelope width scales 1:2:3 with charge boxes")
+
+
 func test_beam_fades_into_a_spiral_trail() -> void:
 	var world := _rig()
 	var muzzle := Vector3(40, 30, 0)
 	_fire(world, muzzle, 1.0)
-	var spiral: Array = world.fx._pools[Fx.Kind.GLOW].filter(func(p: Fx.Particle) -> bool:
+	var spiral: Array = world.fx._pools[Fx.Kind.FLAME].filter(func(p: Fx.Particle) -> bool:
 		return p.color == Palette.CYAN and p.position.z < -20.0)
 	check(spiral.size() > 30, "a continuous spiral extends along the beam")
 	var quadrants := {}
 	for p: Fx.Particle in spiral:
 		var offset := p.position - muzzle
-		quadrants[Vector2i(signi(int(signf(offset.x))), signi(int(signf(offset.y))))] = true
+		quadrants[Vector2i(int(signf(offset.x)), int(signf(offset.y)))] = true
 		check(p.velocity.length() > 0.0, "the spiral disperses after firing")
 	check_eq(quadrants.size(), 4, "the trail coils around all sides of the bore")
