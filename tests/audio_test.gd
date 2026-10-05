@@ -41,11 +41,11 @@ func test_leaving_the_tree_releases_every_audio_channel() -> void:
 
 
 const STAGE2_TRACKS := {
-	"stage2_boulevard": [174.0, 64],
-	"stage2_canyon": [176.0, 64],
-	"stage2_hovercraft": [178.0, 48],
-	"stage2_boss": [180.0, 64],
-	"stage2_boss_phase2": [180.0, 64],
+	"stage2_boulevard": [152.0, 64],
+	"stage2_canyon": [164.0, 64],
+	"stage2_hovercraft": [170.0, 48],
+	"stage2_boss": [160.0, 64],
+	"stage2_boss_phase2": [160.0, 64],
 }
 const STAGE2_SOUNDS := ["losat_lase", "losat_launch", "losat_hit", "mech_step", "mech_step_2", "mech_step_3", "hydraulic_slam", "gatling_spin", "cannon_lowpressure", "rocket_ripple", "atgm_launch", "heli_gatling", "hover_fan", "hover_laser", "mine_beep"]
 var _levels := {}
@@ -122,17 +122,17 @@ func test_stage2_music_levels_and_loop_boundaries() -> void:
 		check(stats.peak < 0.98, "%s has codec headroom" % name)
 		check(stats.seam < 0.035, "%s has no loop-boundary click" % name)
 		check(absf(stats.edge_db[0] - stats.edge_db[1]) < 12.0, "%s has no loop-boundary level dropout beyond a downbeat after a release" % name)
-		check(stats.sub > 0.02 and stats.high > 0.001, "%s carries sub bass and bright breaks" % name)
+		check(stats.sub > 0.02 and stats.high > 0.001, "%s carries sub bass and bright drums" % name)
 
 
-func test_stage2_breaks_build_and_boss_phase_changes() -> void:
+func test_stage2_band_builds_and_boss_phase_changes() -> void:
 	var boulevard := _music_levels("stage2_boulevard")
 	if not boulevard.is_empty():
-		check(boulevard.sections[1] > boulevard.sections[0] * 1.25, "boulevard builds from the piano opening into the breaks")
+		check(boulevard.sections[1] > boulevard.sections[0] * 1.25, "boulevard builds from the quiet opening into the band")
 	var hunter := _music_levels("stage2_boss")
 	var phase := _music_levels("stage2_boss_phase2")
 	if not hunter.is_empty() and not phase.is_empty():
-		check(phase.high > hunter.high * 1.15, "boss phase two audibly intensifies the breaks")
+		check(phase.high > hunter.high * 1.15, "boss phase two audibly intensifies the drums")
 		check_near(phase.length, hunter.length, 0.001, "boss variants share tempo and phrase length")
 
 

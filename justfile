@@ -92,7 +92,7 @@ strings:
 
 # Regenerate synthesized effects and music.
 audio:
-    uv run --with numpy --with pyfluidsynth tools/audio.py
+    uv run --with numpy tools/audio.py
 
 # Regenerate the square stage-select map thumbnails.
 stage-thumbnails: import

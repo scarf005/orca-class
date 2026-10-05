@@ -1,308 +1,271 @@
-"""Stage 2 music: lyrical solo piano over chopped breakcore.
+"""Stage 2 music: a 90s arcade shooter band, Strikers 1945 style, with a lyrical streak.
 
-The piano is rendered by FluidSynth from the General MIDI soundfont (Acoustic Grand), with sustain pedal,
-so the melodies breathe like a real instrument. The drums reuse the Amen-style sampler in audio.py.
-Run through `just audio` (needs numpy and pyfluidsynth, libfluidsynth and a GM soundfont).
+A rock kit, FM slap bass in octaves, overdriven rhythm and lead guitar, synth brass, and FM electric piano, bells and
+strings for the quiet bridges. Every track has its own key, tempo and form; the boss's phase two is the same song a
+whole step up with the drums doubled. Everything is synthesized here and in audio.py.
 """
-
-import os
 
 import numpy as np
 
 import audio
-from audio import RATE, Break, Song, chopped, chord_notes, midi, roll, tone, env, lowpass, highpass, noise, root_of
+from audio import RATE, Song, chord_notes, crash, env, freq, highpass, lead, lowpass, melody, midi, noise, power_chord, saw_stack, t_axis, tom
 
-SOUNDFONT = os.environ.get("SOUNDFONT", "/usr/share/soundfonts/FluidR3_GM.sf2")
-TAIL = 4.0  # seconds of release that wrap around the loop point
-
-
-def phrase(text):
-    """'E5:3 D5:1 | C5:2' -> [(beat, beats, midi or None)]; `|` marks bars and is ignored."""
-    return audio.melody(" ".join(t for t in text.split() if t != "|"))
+NAMES = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"]
 
 
-class Piano:
-    """Collects note and pedal events, then renders them through FluidSynth."""
-
-    def __init__(self, song, seed):
-        self.song = song
-        self.events = []  # (time s, kind, a, b)
-        self.rng = np.random.default_rng(seed)
-
-    def note(self, beat, beats, m, vel=80, human=0.006):
-        t = beat * self.song.beat + float(self.rng.normal(0.0, human))
-        t = max(0.0, t)
-        v = int(np.clip(vel + self.rng.integers(-5, 6), 20, 127))
-        self.events.append((t, 1, m, v))
-        self.events.append((t + max(0.05, beats * self.song.beat * 0.96), 0, m, 0))
-
-    def pedal(self, beat_on, beat_off):
-        self.events.append((beat_on * self.song.beat, 2, 127, 0))
-        self.events.append((max(beat_on * self.song.beat, beat_off * self.song.beat - 0.04), 2, 0, 0))
-
-    def render(self, gain=1.0, pan=0.0):
-        import fluidsynth
-
-        synth = fluidsynth.Synth(samplerate=float(RATE), gain=0.9)
-        font = synth.sfload(SOUNDFONT)
-        synth.program_select(0, font, 0, 0)
-        synth.set_reverb(roomsize=0.62, damping=0.35, width=1.0, level=0.5)
-        synth.set_chorus(nr=2, level=0.9, speed=0.25, depth=3.0)
-        total = int((self.song.length + TAIL) * RATE)
-        order = sorted(range(len(self.events)), key=lambda i: (self.events[i][0], -self.events[i][1]))
-        chunks = []
-        cursor = 0
-        for i in order:
-            t, kind, a, b = self.events[i]
-            at = min(int(round(t * RATE)), total)
-            if at > cursor:
-                chunks.append(synth.get_samples(at - cursor))
-                cursor = at
-            if kind == 1:
-                synth.noteon(0, a, b)
-            elif kind == 0:
-                synth.noteoff(0, a)
-            else:
-                synth.cc(0, 64, a)
-        if total > cursor:
-            chunks.append(synth.get_samples(total - cursor))
-        synth.delete()
-        raw = np.concatenate(chunks).astype(np.float32) / 32768.0
-        stereo = raw.reshape(-1, 2)
-        n = len(self.song.buses["dry"][0])
-        head = stereo[:n].copy()
-        tail = stereo[n:]
-        head[: len(tail)] += tail  # the last release rings into the first bars of the loop
-        left, right = self.song.buses["dry"]
-        left += head[:, 0] * gain
-        right += head[:, 1] * gain
+def transpose(chord, shift):
+    root = chord[:2] if len(chord) > 1 and chord[1] in "#b" else chord[0]
+    return NAMES[(midi(root + "4") + shift) % 12] + chord[len(root):]
 
 
-# --- Left hand, bass, break levels ---------------------------------------------------------
+# --- Instruments ---------------------------------------------------------------------------
 
-def left_hand(piano, bar, chord, style, vel=58):
-    notes = chord_notes(chord, 2)
-    r, third, fifth = notes[0], notes[1], notes[2]
-    top = notes[3] if len(notes) > 3 else r + 12
+def fm(f, seconds, ratio, index, index_decay, decay):
+    """Two-operator FM: a sine carrier phase-modulated by a sine at `ratio` whose depth decays."""
+    t = t_axis(seconds)
+    depth = index * np.exp(-t * index_decay)
+    return np.sin(2 * np.pi * f * t + depth * np.sin(2 * np.pi * f * ratio * t)) * np.exp(-t * decay)
+
+
+def kick():
+    n = int(0.3 * RATE)
+    t = np.arange(n) / RATE
+    body = audio.sweep(130, 46, 0.3, curve=0.2) * np.exp(-t * 9)
+    click = highpass(noise(0.3), 3000) * np.exp(-t * 400) * 0.5
+    return np.tanh((body + click) * 2.0)
+
+
+def snare():
+    """A tight snare with a short gated room, the 90s arcade crack."""
+    n = int(0.32 * RATE)
+    t = np.arange(n) / RATE
+    body = (np.sin(2 * np.pi * 190 * t) + 0.5 * np.sin(2 * np.pi * 340 * t)) * np.exp(-t * 28) * 0.7
+    wires = lowpass(highpass(noise(0.32), 1800), 10000) * np.exp(-t * 16)
+    gate = np.where(t < 0.18, 1.0, np.exp(-(t - 0.18) * 60))
+    room = lowpass(noise(0.32), 6000) * 0.25 * gate
+    return np.tanh((body + wires + room) * 1.4)
+
+
+def hat(open_hat=False):
+    seconds = 0.32 if open_hat else 0.06
+    t = t_axis(seconds)
+    metal = sum(np.sign(np.sin(2 * np.pi * f * t)) for f in (317.0, 433.0, 547.0, 811.0, 1021.0))
+    return highpass(metal * 0.3 + noise(seconds), 7000) * np.exp(-t * (9 if open_hat else 70)) * 0.35
+
+
+def fm_bass(m, seconds):
+    """Slap bass: a bright FM pop that settles into a round note over a sine sub."""
+    f = freq(m)
+    t = t_axis(seconds)
+    sig = fm(f, seconds, 1.0, 3.2, 16, 2.2) + 0.5 * np.sin(2 * np.pi * f * t) * np.exp(-t * 1.5)
+    return np.tanh(sig * 1.6) * env(len(sig), 0.002, 0.03)
+
+
+def epiano(m, seconds):
+    """FM electric piano: a mellow 1:1 body and a short bright tine at 14:1."""
+    f = freq(m)
+    body = fm(f, seconds, 1.0, 1.4, 3.0, 1.6)
+    tine = fm(f, seconds, 14.0, 1.2, 28.0, 9.0) * 0.25
+    return (body + tine) * env(len(body), 0.002, 0.08)
+
+
+def bell(m, seconds):
+    f = freq(m)
+    sig = fm(f, seconds, 3.5, 1.4, 2.0, 1.1) + 0.3 * fm(f * 2, seconds, 1.0, 0.5, 1.0, 2.0)
+    return sig * env(len(sig), 0.002, 0.1)
+
+
+def strings(notes, seconds):
+    raw = sum(saw_stack(freq(m), seconds, (-9.0, 0.0, 8.0)) for m in notes) / len(notes)
+    return lowpass(lowpass(raw, 2200), 3000) * env(len(raw), 0.35, 0.5)
+
+
+def guitar(m, seconds):
+    """Overdriven lead guitar: a slide up into the note, delayed vibrato, a dark cabinet."""
+    t = t_axis(seconds)
+    bend = -80 * np.clip(1 - t / 0.06, 0, 1)
+    vib = np.sin(2 * np.pi * 6.2 * t) * 22 * np.clip((t - 0.25) * 2.5, 0, 1)
+    phase = 2 * np.pi * np.cumsum(freq(m) * 2 ** ((bend + vib) / 1200)) / RATE
+    raw = sum(np.sin(phase * h) / h for h in range(1, 24) if freq(m) * h < RATE / 2.4)
+    sig = lowpass(np.tanh(raw * 4.5), 3600)
+    return highpass(sig, 120) * env(len(t), 0.004, 0.06, decay=0.6, sustain=0.75)
+
+
+def orchestra_hit(notes, song):
+    sig = sum(audio.brass(m, 1.0, song, stab=True) for m in notes + [m + 12 for m in notes]) / 3
+    n = len(sig)
+    sig = sig + highpass(noise(n / RATE), 2500) * np.exp(-np.arange(n) / RATE * 18) * 0.6
+    boom = tom(52)
+    sig[: len(boom)] += boom[:n] * 0.9
+    return sig
+
+
+# --- Parts ---------------------------------------------------------------------------------
+
+class Kit:
+    def __init__(self):
+        self.k, self.s, self.h, self.o, self.c = kick(), snare(), hat(), hat(True), crash()
+        self.toms = [tom(f) for f in (190, 150, 115, 90)]
+
+
+def drum_bar(song, kit, bar, style, fill):
     b = bar * 4
-    if style == "slow":  # rolling eighths, root up and back down
-        seq = [r, fifth, r + 12, third + 12, r + 12, fifth, r + 12, third + 12]
-        for i, m in enumerate(seq):
-            piano.note(b + i * 0.5, 0.5, m, vel - (6 if i % 2 else 0))
-    elif style == "arp16":  # sixteenths; the thumb pushes on every beat
-        seq = [r, fifth, r + 12, third + 12, fifth + 12, third + 12, r + 12, fifth]
+
+    def put(beat, sig, gain, pan=0.0):
+        song.add(b + beat, sig, pan, gain)
+
+    if style == "rock":  # kick on 1 and 3 with a push, snare on 2 and 4, eighth hats
+        for beat in (0, 1.5, 2, 3.5 if bar % 2 else 2.75):
+            put(beat, kit.k, 0.8)
+        for beat in (1, 3):
+            put(beat, kit.s, 0.75)
+        for i in range(8):
+            put(i * 0.5, kit.o if i == 7 and bar % 4 == 3 else kit.h, 0.5 if i % 2 == 0 else 0.32, 0.3)
+    elif style == "double":  # driving: kick on every beat, snare on the offbeats, sixteenth hats
+        for i in range(8):
+            put(i * 0.5, kit.k if i % 2 == 0 else kit.s, 0.75 if i % 2 == 0 else 0.6)
         for i in range(16):
-            m = seq[i % 8]
-            piano.note(b + i * 0.25, 0.25, m, vel + (10 if i % 4 == 0 else -4))
-    elif style == "pulse":  # root pulses with a syncopated chord answer
-        for beat in (0, 1.5, 2, 3.5):
-            piano.note(b + beat, 0.5, r, vel + 8)
-            piano.note(b + beat, 0.5, r - 12 if r - 12 >= 28 else r, vel)
-        for beat in (0.5, 2.5):
-            for m in (third + 12, fifth + 12, top + 12):
-                piano.note(b + beat, 0.4, m, vel - 12)
-    elif style == "whole":  # a held chord under a singing melody
-        for m in (r - 12 if r - 12 >= 28 else r, r, fifth, third + 12):
-            piano.note(b, 4.0, m, vel - 14)
-    elif style == "gallop":  # eighth-triplet drive for fights
-        seq = [r, fifth, third + 12]
-        for i in range(12):
-            piano.note(b + i / 3.0, 0.32, seq[i % 3] + (12 if i % 6 == 5 else 0), vel + (8 if i % 3 == 0 else -6))
+            put(i * 0.25, kit.h, 0.42 if i % 2 == 0 else 0.28, 0.3)
+    elif style == "gallop":  # kick gallop under a backbeat
+        for beat in (0, 0.75, 1.0, 2.0, 2.75, 3.0):
+            put(beat, kit.k, 0.7)
+        for beat in (1, 3):
+            put(beat, kit.s, 0.75)
+        for i in range(8):
+            put(i * 0.5, kit.h, 0.4, 0.3)
+    elif style == "half":  # half time: snare on 3, open hats on the beat
+        put(0, kit.k, 0.8)
+        put(2.5, kit.k, 0.55)
+        put(2, kit.s, 0.75)
+        for i in range(4):
+            put(i, kit.o, 0.22, 0.3)
+    elif style == "toms":  # tom ostinato for menacing intros
+        for i, beat in enumerate((0, 0.75, 1.5, 2, 2.75, 3.5)):
+            put(beat, kit.toms[2 + i % 2], 0.7, -0.3 if i % 2 else 0.3)
+        put(0, kit.k, 0.7)
+    elif style == "light":  # hats and a soft kick under quiet sections
+        put(0, kit.k, 0.45)
+        for i in range(8):
+            put(i * 0.5, kit.h, 0.25, 0.3)
+    if fill:
+        for i in range(8):  # sixteenth tom run down the kit over beats 3-4, closing on the snare
+            put(2 + i * 0.25, kit.toms[i // 2] if i < 7 else kit.s, 0.75, 0.4 - i * 0.1)
 
 
-def sub_bass(song, bar, chord, gain=0.34, pattern="half"):
-    f = root_of(chord, 1)
-    hz = audio.freq(f)
-    if pattern == "half":
-        hits = ((0, 2.3), (2.5, 1.4))
-    elif pattern == "drive":
-        hits = ((0, 0.9), (1, 0.9), (2, 0.9), (3, 0.9))
-    else:
-        hits = ((0, 3.8),)
-    for beat, dur in hits:
-        sig = tone(hz, dur * song.beat)
-        song.add(bar * 4 + beat, sig * env(len(sig), 0.012, 0.06), 0, gain)
+def bass_bar(song, chord, bar, style):
+    r = chord_notes(chord, 1)[0]
+    if r < midi("E1"):
+        r += 12
+    b = bar * 4
+    if style == "oct8":  # octave eighths, the shooter bass signature
+        for i in range(8):
+            song.add(b + i * 0.5, fm_bass(r + (12 if i % 2 else 0), 0.5 * song.beat + 0.04), 0.0, 0.3)
+    elif style == "walk":  # root, fifth, octave and a pickup into the next bar
+        for i, m in enumerate((r, r, r + 7, r + 12, r, r + 7, r + 12, r + 10)):
+            song.add(b + i * 0.5, fm_bass(m, 0.5 * song.beat + 0.04), 0.0, 0.3)
+    elif style == "gallop":
+        for i in range(16):
+            if i % 4 != 1:
+                song.add(b + i * 0.25, fm_bass(r + (12 if i % 4 == 3 else 0), 0.24 * song.beat), 0.0, 0.3)
+    elif style == "long":
+        song.add(b, fm_bass(r, 3.9 * song.beat), 0.0, 0.32)
+        song.add(b + 3.5, fm_bass(r + 12, 0.45 * song.beat), 0.0, 0.22)
 
 
-def drums(br, edits, bar, level, drive):
-    """Break level 0 none, 1 sparse and filtered, 2 chopped, 3 chopped with fills."""
-    if level <= 0:
-        return
-    program = chopped(edits, bar % 4, drive if level >= 2 else 0.0)
-    cutoff = None
-    gain = 0.14 + drive * 0.44
-    if level == 1:
-        program = [event if i in (0, 4, 10, 12) else None for i, event in enumerate(program)]
-        cutoff = 1700
-        gain = 0.13
-    if level >= 3 and bar % 4 == 3:
-        program = roll(program, 8 if bar % 8 == 7 else 12, 9)
-    elif level == 2 and bar % 8 == 7:
-        program = roll(program, 12, 7)
-    br.bar(bar, program, gain, cutoff)
+def guitar_bar(song, chord, bar, style):
+    r = chord_notes(chord, 2)[0]
+    if r < midi("E2"):
+        r += 12
+    b = bar * 4
+    if style == "chug":
+        for i in range(8):
+            accent = i in (0, 3, 6)
+            song.add(b + i * 0.5, power_chord(r, 0.45, song, mute=not accent), -0.55 if i % 2 else 0.55, 0.2 if accent else 0.15)
+    elif style == "gallop":
+        for i in range(16):
+            if i % 4 != 1:
+                song.add(b + i * 0.25, power_chord(r, 0.22, song), -0.55 if i % 2 else 0.55, 0.16)
+    elif style == "ring":
+        for pan in (-0.5, 0.5):
+            song.add(b, power_chord(r, 3.8, song, mute=False), pan, 0.17)
+    elif style == "stab":  # syncopated hits that leave room for the lead
+        for beat in (0, 0.75, 1.5, 3.0):
+            song.add(b + beat, power_chord(r, 0.6, song, mute=False), 0.0, 0.2)
 
 
-def riser(song, bar, bars=1, gain=0.22):
-    """Filtered noise swells into `bar` over the `bars` before it."""
-    seconds = bars * 4 * song.beat
-    n = int(seconds * RATE)
-    t = np.arange(n) / RATE
-    sig = noise(seconds)
-    k = (t / seconds) ** 2
-    sig = highpass(sig, 1200) * k + lowpass(noise(seconds), 600) * k * 0.4
-    sig *= np.linspace(0, 1, n) ** 1.5
-    song.add((bar - bars) * 4, sig, 0.0, gain, "dry")
+def keys_bar(song, chord, bar, style):
+    notes = chord_notes(chord, 4)
+    b = bar * 4
+    if style in ("arp", "both"):
+        seq = notes[:3] + [notes[0] + 12, notes[2] + 12, notes[0] + 12] + notes[2:0:-1]
+        for i in range(8):
+            song.add(b + i * 0.5, epiano(seq[i % len(seq)], 0.9 * song.beat), 0.35 if i % 2 else -0.35, 0.16, "wet")
+    if style in ("pad", "both"):
+        voiced = tuple([chord_notes(chord, 3)[0]] + notes[:3])
+        sig = strings(voiced, 4 * song.beat + 0.3)
+        song.add(b, sig, -0.4, 0.13)
+        song.add(b + 0.01 / song.beat, sig, 0.4, 0.13)
 
 
-def impact(song, bar, gain=0.5):
-    n = int(1.4 * RATE)
-    t = np.arange(n) / RATE
-    sig = (audio.sweep(90, 38, 1.4, curve=0.3) * np.exp(-t * 3.0) + highpass(noise(1.4), 4000) * np.exp(-t * 8) * 0.4)
-    song.add(bar * 4, np.tanh(sig * 1.4), 0, gain, "dry")
+def under(m, chord):
+    """The highest chord tone at least a minor third below `m`: a consonant harmony line."""
+    return max(n + 12 * o for n in chord_notes(chord, 0) for o in range(10) if n + 12 * o <= m - 3)
 
 
-# --- Compositions -------------------------------------------------------------------------
-
-TRACKS = {
-    # name: (bpm, bars, key progression sets, melody phrases, plan)
-    "stage2_boulevard": {
-        "bpm": 174,
-        "chords": {
-            "A": ("Am", "Fmaj7", "Cmaj7", "G", "Am", "Fmaj7", "Dm7", "E7"),
-            "B": ("Fmaj7", "G", "Am7", "Em7", "Fmaj7", "G", "Cmaj7", "E7"),
-            "C": ("Am", "Fmaj7", "Cmaj7", "G", "Dm7", "Am", "E7", "E7"),
-        },
-        "melody": {
-            "A": "E5:3 D5:1 | C5:2 A4:1 C5:1 | E5:2 G5:1 E5:1 | D5:3 B4:1 | A4:1.5 C5:.5 E5:2 | F5:3 E5:1 | D5:2 F5:1 A5:1 | G#5:3 -:1",
-            "B": "A5:3 G5:1 | B5:2 D6:1 B5:1 | C6:3 B5:1 | G5:2 E5:2 | A5:2 C6:1 A5:1 | G5:2 B5:2 | E6:2 D6:1 C6:1 | B5:3 G#5:1",
-            "C": "E5:4 | A5:2 G5:2 | E5:3 C5:1 | D5:4 | F5:3 A5:1 | C6:2 B5:2 | G#5:2 B5:2 | E5:4",
-        },
-        # (section, bars, melody, chords, left hand, drum level, drive, bass)
-        "plan": [
-            ("intro", 8, "A", "A", "slow", 0, 0.0, None),
-            ("verse", 8, "A", "A", "slow", 1, 0.25, "half"),
-            ("rise", 16, "B", "B", "arp16", 2, 0.45, "half"),
-            ("breakdown", 8, "C", "C", "whole", 0, 0.0, None),
-            ("climax", 16, "A", "A", "arp16", 3, 0.75, "drive"),
-            ("outro", 8, "C", "C", "slow", 1, 0.3, "half"),
-        ],
-    },
-    "stage2_canyon": {
-        "bpm": 176,
-        "chords": {
-            "A": ("Dm", "Bbmaj7", "Fmaj7", "C", "Dm", "Bbmaj7", "Gm7", "A7"),
-            "B": ("Gm7", "Dm", "Bbmaj7", "Fmaj7", "Gm7", "Dm", "A7", "A7"),
-            "C": ("Dm", "Bbmaj7", "Gm7", "A7", "Dm", "Bbmaj7", "Gm7", "A7"),
-        },
-        "melody": {
-            "A": "A5:1.5 F5:.5 D5:2 | F5:1 G5:1 A5:2 | C6:3 A5:1 | G5:2 E5:2 | D5:2 F5:1 A5:1 | Bb5:3 A5:1 | G5:2 F5:1 E5:1 | C#5:3 E5:1",
-            "B": "D6:2 C6:1 Bb5:1 | A5:3 F5:1 | D6:3 C6:1 | A5:4 | Bb5:2 D6:1 C6:1 | A5:2 F5:2 | E5:2 A5:2 | C#6:3 -:1",
-            "C": "D5:2 F5:2 | A5:3 G5:1 | F5:2 D5:2 | E5:4 | D5:2 Bb4:2 | F5:3 E5:1 | D5:2 F5:2 | C#5:4",
-        },
-        "plan": [
-            ("intro", 4, "A", "A", "pulse", 2, 0.35, "half"),
-            ("verse", 12, "A", "A", "pulse", 2, 0.5, "half"),
-            ("rise", 16, "B", "B", "gallop", 3, 0.65, "drive"),
-            ("breakdown", 8, "C", "C", "whole", 0, 0.0, None),
-            ("climax", 16, "B", "B", "arp16", 3, 0.85, "drive"),
-            ("outro", 8, "A", "A", "slow", 2, 0.4, "half"),
-        ],
-    },
-    "stage2_hovercraft": {
-        "bpm": 178,
-        "chords": {
-            "A": ("Em7", "Cmaj7", "G", "Dm", "Em7", "Cmaj7", "Am7", "B7"),
-            "B": ("Am7", "Em7", "Cmaj7", "G", "Am7", "Em7", "B7", "B7"),
-        },
-        "melody": {
-            "A": "B4:1 E5:1 G5:2 | F#5:1 E5:1 D5:2 | B4:1 D5:1 G5:2 | A5:3 -:1 | G5:1 B5:1 E6:2 | D6:1 B5:1 G5:2 | A5:1 C6:1 B5:2 | D#6:3 -:1",
-            "B": "C6:1 B5:1 A5:2 | G5:1 E5:1 B5:2 | C6:1 E6:1 G6:2 | F#6:2 D6:2 | E6:1 C6:1 A5:2 | G5:1 B5:1 E6:2 | D#6:2 F#6:2 | B5:3 -:1",
-        },
-        "plan": [
-            ("intro", 4, "A", "A", "gallop", 2, 0.5, "drive"),
-            ("verse", 12, "A", "A", "gallop", 3, 0.7, "drive"),
-            ("rise", 16, "B", "B", "arp16", 3, 0.85, "drive"),
-            ("outro", 16, "A", "A", "pulse", 3, 0.75, "drive"),
-        ],
-    },
-    "stage2_boss": {
-        "bpm": 180,
-        "chords": {
-            "A": ("Bm", "Gmaj7", "D", "A", "Bm", "Gmaj7", "Em7", "F#7"),
-            "B": ("Gmaj7", "A", "Bm", "F#m7", "Gmaj7", "A", "D", "F#7"),
-            "C": ("Bm", "Gmaj7", "D", "A", "Em7", "Bm", "F#7", "F#7"),
-        },
-        "melody": {
-            "A": "F#5:2 B5:1 D6:1 | C#6:3 B5:1 | A5:2 D6:1 F#6:1 | E6:3 C#6:1 | D6:1.5 B5:.5 F#5:2 | G5:2 B5:2 | E6:2 D6:1 C#6:1 | A#5:3 -:1",
-            "B": "D6:2 E6:1 F#6:1 | E6:2 C#6:2 | D6:3 B5:1 | A5:2 C#6:2 | B5:2 D6:1 G6:1 | F#6:3 E6:1 | D6:2 B5:2 | A#5:3 C#6:1",
-            "C": "B4:4 | D5:2 G5:2 | F#5:3 A5:1 | E5:4 | G5:2 B5:2 | D6:3 C#6:1 | A#5:2 C#6:2 | F#5:4",
-        },
-        "plan": [
-            ("intro", 4, "A", "A", "gallop", 2, 0.45, "drive"),
-            ("verse", 12, "A", "A", "gallop", 3, 0.6, "drive"),
-            ("rise", 16, "B", "B", "arp16", 3, 0.75, "drive"),
-            ("breakdown", 8, "C", "C", "whole", 0, 0.0, None),
-            ("climax", 16, "A", "A", "arp16", 3, 0.9, "drive"),
-            ("outro", 8, "C", "C", "pulse", 3, 0.6, "drive"),
-        ],
-    },
-    "stage2_boss_phase2": {
-        "bpm": 180,
-        "chords": {
-            "A": ("Bm", "Gmaj7", "D", "A", "Bm", "Gmaj7", "Em7", "F#7"),
-            "B": ("Gmaj7", "A", "Bm", "F#m7", "Gmaj7", "A", "D", "F#7"),
-        },
-        "melody": {
-            "A": "F#6:1 D6:1 B5:2 | E6:1 C#6:1 A5:2 | D6:1 F#6:1 A6:2 | G6:2 E6:2 | F#6:1 D6:1 B5:2 | G6:1 E6:1 B5:2 | E6:1 G6:1 B6:2 | A#6:3 -:1",
-            "B": "D6:1 F#6:1 B6:2 | A6:2 C#7:2 | B6:1 A6:1 F#6:2 | E6:2 C#6:2 | D6:1 G6:1 B6:2 | A6:1 F#6:1 C#6:2 | D6:1 F#6:1 A6:2 | A#6:2 C#7:2",
-        },
-        "plan": [
-            ("intro", 4, "A", "A", "arp16", 3, 0.7, "drive"),
-            ("verse", 12, "A", "A", "arp16", 3, 0.85, "drive"),
-            ("rise", 16, "B", "B", "arp16", 3, 0.95, "drive"),
-            ("climax", 16, "A", "A", "arp16", 3, 1.0, "drive"),
-            ("outro", 16, "B", "B", "gallop", 3, 0.9, "drive"),
-        ],
-    },
-}
+def lead_line(song, text, start_bar, chords, voice, shift, harmonize):
+    for beat, beats, m in melody(text):
+        if m is None:
+            continue
+        m += shift
+        at = start_bar * 4 + beat
+        beats += 0.12 / song.beat  # legato: each note releases under the next, and the loop's last note across the seam
+        seconds = beats * song.beat
+        if voice in ("brass", "both"):
+            song.add(at, lead(m, beats, song), 0.15, 0.3, "wet")
+        if voice in ("guitar", "both"):
+            song.add(at, guitar(m - (12 if voice == "both" else 0), seconds + 0.05), -0.15, 0.24 if voice == "both" else 0.3, "wet")
+        if voice == "bell":
+            song.add(at, bell(m, seconds + 0.6), 0.1, 0.3, "wet")
+        if voice == "epiano":
+            song.add(at, epiano(m, seconds + 0.4), 0.1, 0.32, "wet")
+        if harmonize:
+            song.add(at, lead(under(m, chords[int(beat // 4) % len(chords)]), beats, song), -0.3, 0.17, "wet")
 
 
-def compose(name, spec):
-    bars = sum(p[1] for p in spec["plan"])
-    song = Song(spec["bpm"], bars)
-    audio.rng = np.random.default_rng(202)
-    br = Break(song)
-    edits = np.random.default_rng(204)
-    piano = Piano(song, seed=hash(name) & 0xFFFF)
+# --- Arrangement ---------------------------------------------------------------------------
+
+def compose(name, bpm, sections, shift=0):
+    """sections: dicts with bars and chords, and optionally lead, voice, octave, harmony, drums, fill, bass, gtr,
+    keys and hits."""
+    song = Song(bpm, sum(s["bars"] for s in sections))
+    audio.rng = np.random.default_rng(301)
+    kit = Kit()
     bar = 0
-    for section, length, mel, chords_key, hand, level, drive, bass in spec["plan"]:
-        chords = spec["chords"][chords_key]
-        lead = phrase(spec["melody"][mel])
-        for i in range(length):
-            chord = chords[i % 8]
-            left_hand(piano, bar, chord, hand)
-            drums(br, edits, bar, level, drive)
-            if bass:
-                sub_bass(song, bar, chord, 0.24, bass)
+    for index, section in enumerate(sections):
+        chords = [transpose(c, shift) for c in section["chords"]]
+        drums = section.get("drums")
+        for i in range(section["bars"]):
+            chord = chords[i % len(chords)]
+            if drums:
+                drum_bar(song, kit, bar, drums, i == section["bars"] - 1 and section.get("fill", True))
+            if section.get("bass"):
+                bass_bar(song, chord, bar, section["bass"])
+            if section.get("gtr"):
+                guitar_bar(song, chord, bar, section["gtr"])
+            if section.get("keys"):
+                keys_bar(song, chord, bar, section["keys"])
+            if section.get("hits") and i % 4 == 0:
+                song.add(bar * 4, orchestra_hit(chord_notes(chord, 3), song), 0.0, 0.32)
             bar += 1
-        # The melody runs in eight-bar phrases through the section, the last bar leaning into the next.
-        start = bar - length
-        for phrase_start in range(0, length, 8):
-            for beat, beats, m in lead:
-                if m is None:
-                    continue
-                at = (start + phrase_start) * 4 + beat
-                octave_double = section == "climax"
-                piano.note(at, beats, m, 96 if section != "breakdown" else 84, human=0.01)
-                if octave_double:
-                    piano.note(at, beats, m - 12, 70)
-        if section in ("verse", "rise", "climax", "breakdown"):
-            riser(song, start + length if start + length < bars else bars, 1, 0.4 if start + length >= bars else 0.22)
-        if section == "climax" or (section == "rise" and level >= 3):
-            impact(song, start, 0.5)
-        for b in range(start, start + length):
-            piano.pedal(b * 4, b * 4 + 3.9)
-    piano.render(gain=3.2)
+        start = bar - section["bars"]
+        if section.get("lead"):
+            text = " ".join(t for t in section["lead"].split() if t != "|")
+            span = int(round(sum(d for _, d, _ in melody(text)) / 4))
+            for phrase in range(start, bar, span):
+                lead_line(song, text, phrase, chords[(phrase - start) % len(chords):] + chords, section.get("voice", "brass"),
+                          shift + section.get("octave", 0), section.get("harmony", False))
+        if drums and drums not in ("light", "half") and index > 0:
+            song.add(start * 4, kit.c, 0.3, 0.4)
     # Bend the last 12 ms onto the first sample, so the loop seam is continuous whatever the waveform's phase.
     ramp = np.linspace(0.0, 1.0, 512)
     for bus in song.buses.values():
@@ -310,10 +273,108 @@ def compose(name, spec):
             channel[-512:] += (channel[0] - channel[-1]) * ramp
             channel[:96] *= 0.5 + 0.5 * np.linspace(0.0, 1.0, 96)
             channel[-96:] *= 0.5 + 0.5 * np.linspace(1.0, 0.0, 96)
-    song.render(name, 0.75, 0.2, 0.0, pump=0, pedal=False)
+    song.render(name, 0.75, 0.25, 0.22, pump=0.0)
+
+
+# --- Compositions --------------------------------------------------------------------------
+# Boulevard: D minor at dawn. FM piano and bells state the theme quietly, the band takes it up, the chorus turns
+# heroic, a bridge in the relative major breathes, then the theme returns, a guitar solo and the chorus close the loop.
+
+D_VERSE = ["Dm", "Bb", "F", "C", "Gm", "Bb", "Asus", "A"]
+D_THEME = "D5:1.5 E5:.5 F5:1 A5:1 | G5:2 F5:1 D5:1 | C5:1.5 D5:.5 F5:1 C6:1 | A5:3 G5:1 | Bb5:1.5 A5:.5 G5:1 F5:1 | D5:1 F5:1 Bb5:1 A5:1 | A5:1 G5:1 F5:1 E5:1 | E5:3 -:1"
+D_THEME_2 = "D5:1.5 E5:.5 F5:1 A5:1 | G5:2 F5:1 D5:1 | C5:1.5 D5:.5 F5:1 C6:1 | A5:3 G5:1 | Bb5:1.5 A5:.5 G5:1 F5:1 | D5:1 F5:1 Bb5:1 D6:1 | D6:1 E6:1 D6:1 C#6:1 | A5:3 -:1"
+D_CHORUS = ["Bb", "C", "Dm", "Dm", "Bb", "C", "F", "A", "Gm", "A", "Dm", "Bb", "Gm", "C", "A", "A"]
+D_HOOK = ("F5:1 Bb5:1 D6:2 | C6:1.5 Bb5:.5 C6:1 E6:1 | F6:3 E6:.5 D6:.5 | D6:2 A5:2 | Bb5:1 D6:1 F6:2 | E6:1.5 D6:.5 C6:1 G5:1 | "
+          "A5:1.5 C6:.5 F6:2 | E6:3 C#6:1 | D6:1.5 Bb5:.5 G5:2 | C#6:1.5 A5:.5 E6:2 | F6:1 E6:1 D6:1 A5:1 | Bb5:2 D6:1 F6:1 | "
+          "G6:2 F6:1 D6:1 | E6:2 C6:1 G5:1 | A5:1 C#6:1 E6:1 G6:1 | A5:4")
+D_BRIDGE = ["Bb", "C", "Am", "Dm", "Gm", "C", "F", "A7"]
+D_SONG = "D5:3 F5:1 | E5:2 G5:2 | A5:2 E5:2 | F5:3 D5:1 | G5:2 Bb5:1 D6:1 | C6:3 Bb5:1 | A5:2 F5:1 C5:1 | C#5:2 E5:1 G5:1"
+D_SOLO = ("D5:.5 F5:.5 A5:.5 D6:.5 C6:.5 A5:.5 F5:.5 A5:.5 | Bb5:.5 D6:.5 F6:.5 D6:.5 Bb5:1 A5:1 | C6:.5 A5:.5 F5:.5 A5:.5 C6:1 F6:1 | "
+          "E6:1.5 D6:.5 C6:1 G5:1 | G5:.5 Bb5:.5 D6:.5 G6:.5 F6:.5 D6:.5 Bb5:.5 D6:.5 | F6:2 D6:1 Bb5:1 | "
+          "A5:.5 D6:.5 E6:.5 D6:.5 A5:.5 D6:.5 E6:.5 G6:.5 | E6:1 C#6:1 A5:2")
+
+BOULEVARD = [
+    {"bars": 8, "chords": D_VERSE, "lead": D_THEME, "voice": "bell", "keys": "pad", "bass": "long"},
+    {"bars": 8, "chords": D_VERSE, "lead": D_THEME, "voice": "brass", "drums": "rock", "bass": "oct8", "gtr": "chug"},
+    {"bars": 16, "chords": D_CHORUS, "lead": D_HOOK, "voice": "both", "harmony": True, "drums": "double", "bass": "oct8", "gtr": "chug", "keys": "pad"},
+    {"bars": 8, "chords": D_BRIDGE, "lead": D_SONG, "voice": "epiano", "keys": "both", "drums": "half", "bass": "long"},
+    {"bars": 8, "chords": D_VERSE, "lead": D_THEME_2, "voice": "both", "drums": "rock", "bass": "oct8", "gtr": "chug", "keys": "pad"},
+    {"bars": 8, "chords": D_VERSE, "lead": D_SOLO, "voice": "guitar", "octave": 12, "drums": "rock", "bass": "walk", "gtr": "stab", "keys": "pad"},
+    {"bars": 8, "chords": D_CHORUS[8:], "lead": "|".join(D_HOOK.split("|")[8:]), "voice": "both", "harmony": True, "drums": "double", "bass": "oct8", "gtr": "chug", "keys": "pad"},
+]
+
+# Canyon: E minor, harmonic-minor tension at a gallop; a bell interlude in the middle like light between towers.
+E_RIFF = ["Em", "C", "D", "B", "Em", "C", "Am", "B"]
+E_THEME = "E5:.5 F#5:.5 G5:1 B5:1.5 A5:.5 | G5:1 E5:1 C6:2 | A5:1.5 F#5:.5 D5:1 F#5:1 | D#5:2 F#5:1 B5:1 | E6:1.5 D6:.5 B5:1 G5:1 | C6:1.5 B5:.5 A5:1 G5:1 | A5:1 C6:1 E6:1 C6:1 | D#6:3 -:1"
+E_RISE = ["C", "D", "Em", "Em", "C", "D", "B", "B"]
+E_CLIMB = "G5:1 C6:1 E6:2 | F#6:1.5 E6:.5 D6:2 | E6:1 B5:1 G5:1 B5:1 | E6:3 -:1 | G6:2 E6:1 C6:1 | F#6:2 D6:1 A5:1 | B5:1 D#6:1 F#6:1 A6:1 | B6:4"
+E_QUIET = ["Em", "C", "G", "D", "Am", "C", "B", "B"]
+E_LIGHT = "B4:3 G4:1 | E5:2 C5:2 | D5:3 B4:1 | A4:2 F#4:2 | C5:3 E5:1 | G5:2 E5:2 | F#5:2 D#5:2 | B4:4"
+
+CANYON = [
+    {"bars": 4, "chords": ["Em"], "drums": "toms", "bass": "gallop"},
+    {"bars": 4, "chords": E_RIFF[:4], "drums": "gallop", "bass": "gallop", "gtr": "gallop"},
+    {"bars": 8, "chords": E_RIFF, "lead": E_THEME, "voice": "guitar", "drums": "gallop", "bass": "gallop", "gtr": "chug"},
+    {"bars": 8, "chords": E_RIFF, "lead": E_THEME, "voice": "both", "harmony": True, "octave": 12, "drums": "rock", "bass": "oct8", "gtr": "chug", "keys": "pad"},
+    {"bars": 16, "chords": E_RISE, "lead": E_CLIMB, "voice": "both", "octave": -12, "harmony": True, "drums": "double", "bass": "oct8", "gtr": "gallop", "hits": True},
+    {"bars": 8, "chords": E_QUIET, "lead": E_LIGHT, "voice": "bell", "octave": 12, "keys": "both", "drums": "half", "bass": "long"},
+    {"bars": 8, "chords": E_RIFF, "lead": E_THEME, "voice": "brass", "drums": "gallop", "bass": "gallop", "gtr": "gallop", "keys": "pad"},
+    {"bars": 8, "chords": E_RISE, "lead": E_CLIMB, "voice": "both", "octave": -12, "harmony": True, "drums": "double", "bass": "oct8", "gtr": "chug", "keys": "pad", "hits": True},
+]
+
+# Hovercraft: C minor, the fastest track: orchestra hits and a soaring counter-melody in the relative major.
+C_RIFF = ["Cm", "Ab", "Bb", "G", "Cm", "Ab", "Fm", "G"]
+C_THEME = "C5:.5 Eb5:.5 G5:.5 C6:.5 Bb5:1 G5:1 | Ab5:1.5 G5:.5 Eb5:2 | F5:.5 G5:.5 Bb5:1 D6:2 | B5:2 G5:1 D5:1 | C6:1.5 D6:.5 Eb6:1 G6:1 | F6:1.5 Eb6:.5 C6:2 | Ab5:1 C6:1 F6:1 Eb6:1 | D6:2 B5:2"
+C_SKY = ["Ab", "Bb", "Gm", "Cm", "Ab", "Bb", "G", "G"]
+C_SOAR = "C6:2 Eb6:2 | D6:3 Bb5:1 | G5:2 Bb5:1 D6:1 | C6:4 | Ab5:2 C6:1 Eb6:1 | F6:2 D6:2 | B5:2 D6:1 F6:1 | G6:4"
+
+HOVERCRAFT = [
+    {"bars": 4, "chords": ["Cm", "Ab", "Bb", "G"], "drums": "toms", "bass": "oct8", "hits": True, "gtr": "ring"},
+    {"bars": 8, "chords": C_RIFF, "lead": C_THEME, "voice": "brass", "drums": "double", "bass": "oct8", "gtr": "chug"},
+    {"bars": 8, "chords": C_RIFF, "lead": C_THEME, "voice": "both", "harmony": True, "drums": "double", "bass": "oct8", "gtr": "gallop", "hits": True},
+    {"bars": 8, "chords": C_SKY, "lead": C_SOAR, "voice": "both", "octave": -12, "drums": "rock", "bass": "walk", "keys": "pad"},
+    {"bars": 4, "chords": ["Cm", "Cm", "Ab", "G"], "drums": "gallop", "bass": "gallop", "gtr": "gallop"},
+    {"bars": 8, "chords": C_RIFF, "lead": C_THEME, "voice": "guitar", "octave": 12, "harmony": True, "drums": "double", "bass": "oct8", "gtr": "chug", "hits": True},
+    {"bars": 8, "chords": C_SKY, "lead": C_SOAR, "voice": "both", "octave": -12, "harmony": True, "drums": "double", "bass": "oct8", "gtr": "chug", "keys": "pad"},
+]
+
+# Boss: A minor. A tom-and-riff opening, a dark theme, a heroic answer and a lyrical breakdown; phase two is the same
+# song a whole step up with the drums driving throughout.
+A_RIFF = ["Am", "F", "G", "E", "Am", "F", "Dm", "E"]
+A_THEME = "A4:1.5 C5:.5 E5:1 A5:1 | G5:1.5 F5:.5 C5:2 | D5:1 G5:1 B5:1 D6:1 | B5:2 G#5:2 | A5:1 C6:1 E6:1.5 D6:.5 | C6:1 A5:1 F5:2 | D6:1.5 C6:.5 A5:1 F5:1 | G#5:2 B5:1 E6:1"
+A_HERO = ["Dm", "G", "C", "Am", "F", "G", "E", "E"]
+A_ANSWER = "F5:1 A5:1 D6:2 | B5:1 D6:1 G6:2 | E6:1.5 D6:.5 C6:1 G5:1 | C6:2 A5:2 | A5:1 C6:1 F6:1.5 E6:.5 | D6:1 B5:1 G5:1 B5:1 | G#5:1 B5:1 E6:2 | D6:2 B5:2"
+A_LAMENT = "A4:3 C5:1 | F5:2 E5:2 | D5:3 B4:1 | G#4:4 | A4:2 C5:1 E5:1 | F5:3 A5:1 | F5:2 D5:2 | E5:4"
+
+
+def boss_sections(phase_two):
+    driving = "double" if phase_two else "rock"
+    return [
+        {"bars": 8, "chords": ["Am", "Am", "F", "E"], "drums": driving if phase_two else "toms", "bass": "long", "gtr": "ring", "hits": True},
+        {"bars": 8, "chords": A_RIFF, "drums": driving, "bass": "oct8", "gtr": "gallop" if phase_two else "chug"},
+        {"bars": 8, "chords": A_RIFF, "lead": A_THEME, "voice": "both" if phase_two else "guitar", "drums": driving, "bass": "oct8", "gtr": "chug"},
+        {"bars": 8, "chords": A_RIFF, "lead": A_THEME, "voice": "both", "harmony": True, "drums": driving, "bass": "oct8", "gtr": "gallop", "keys": "pad"},
+        {"bars": 16, "chords": A_HERO, "lead": A_ANSWER, "voice": "both", "harmony": True, "drums": "double", "bass": "oct8", "gtr": "chug", "keys": "pad", "hits": True},
+        {"bars": 8, "chords": A_RIFF, "lead": A_LAMENT, "voice": "epiano", "octave": 12, "keys": "both", "drums": "gallop" if phase_two else "light", "bass": "long"},
+        {"bars": 8, "chords": A_HERO, "lead": A_ANSWER, "voice": "both", "harmony": True, "drums": "double", "bass": "oct8", "gtr": "gallop", "keys": "pad", "hits": True},
+    ]
+
+
+TRACKS = {
+    "stage2_boulevard": (152, BOULEVARD, 0),
+    "stage2_canyon": (164, CANYON, 0),
+    "stage2_hovercraft": (170, HOVERCRAFT, 0),
+    "stage2_boss": (160, boss_sections(False), 0),
+    "stage2_boss_phase2": (160, boss_sections(True), 2),
+}
 
 
 def stage2_music(only=None):
-    for name, spec in TRACKS.items():
+    for name, (bpm, sections, shift) in TRACKS.items():
         if only is None or name in only:
-            compose(name, spec)
+            compose(name, bpm, sections, shift)
+
+
+if __name__ == "__main__":
+    import sys
+    stage2_music(sys.argv[1:] or None)
