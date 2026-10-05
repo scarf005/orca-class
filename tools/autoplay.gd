@@ -71,6 +71,7 @@ func run() -> int:
 	var boss_phase := 0
 	var boss_kind := ""
 	var active_boss: Entity
+	var tank_structure_violations := 0
 	var mode := world.rail.mode
 	await get_tree().process_frame
 	await _capture("section-%d" % _section)
@@ -94,6 +95,10 @@ func run() -> int:
 				if args.has("spikes") and frame_ms > 30.0:
 					print("SPIKE %.1fms t=%.1f d=%.0f particles=%d enemies=%d props=%d projectiles=%d" % [frame_ms, elapsed, world.rail.d,
 						world.fx.particle_count(), world.enemies.size(), world.props.get_child_count(), world.projectiles.size()])
+		for structure in Course.structure_boxes:
+			if Prop.box_hit(structure.pose, structure.size, world.player.global_position, world.player.global_position, Tank.HULL_RADIUS - 0.01) >= 0.0:
+				tank_structure_violations += 1
+				break
 		_drive(world, elapsed)
 		if args.has("profile") and frames % 60 == 0:
 			print("t=%.1f frame=%.1fms process=%.1fms draw_calls=%d objects=%d particles=%d enemies=%d props=%d" % [elapsed, frame_ms,
@@ -140,13 +145,14 @@ func run() -> int:
 	print("AUTOPLAY d=%.0f score=%d kills=%d/%d lives=%d hp=%.0f enemies=%d projectiles=%d frames=%d slow=%d worst=%.1fms" % [
 		world.rail.d, stats.score, stats.kills, stats.spawned, stats.lives, world.player.hp, world.enemies.size(),
 		world.projectiles.size(), frames, slow_frames, worst])
+	print("STRUCTURE_CHECK tank_inside_structure=%d samples=%d" % [tank_structure_violations, frames])
 	print("PROBE difficulty=%s bot=%s cleared=%s dead=%s time=%.2f d=%.0f lives=%d deaths=%d damage_taken=%.2f kills=%d/%d front_mean=%.2f coax=%d cannon=%d ram=%d dash=%d tail=%d ciws=%d collateral=%d reflect=%d other=%d cannon_shots=%d charged_shots=%d healing_melee=%.2f healing_repair=%.2f" % [
 		difficulty, bot, cleared and not world.player.dead, world.player.dead, stats.time, world.rail.d, stats.lives, deaths, stats.damage_taken, stats.kills, stats.spawned, front_total / maxi(frames, 1),
 		kill_sources.coax, kill_sources.cannon, kill_sources.ram, kill_sources.dash, kill_sources.tail, kill_sources.ciws, kill_sources.collateral, kill_sources.reflect, kill_sources.other, stats.shots, stats.charged_shots, stats.melee_healing, stats.repair_healing])
 	for action in ["fire", "move_left", "move_right"]:
 		Input.action_release(action)
 	Engine.time_scale = 1.0
-	return 1 if args.has("verify") and (not cleared or screen._results == null) else 0
+	return 1 if args.has("verify") and (not cleared or screen._results == null or tank_structure_violations > 0) else 0
 
 
 func _capture(name: String) -> void:

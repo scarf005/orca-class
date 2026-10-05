@@ -79,6 +79,11 @@ func deck_blend(_d: float) -> float:
 	return 0.0
 
 
+## Maximum tank offset from the road centerline outside an all-range arena.
+func lateral_limit(d: float) -> float:
+	return maxf(valley_half_width(d) - 4.0, 14.0)
+
+
 ## The height of standing water at course position `c` (d, u), or -INF when there is none.
 func water_surface(_c: Vector2) -> float:
 	return -INF

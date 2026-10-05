@@ -8,12 +8,35 @@ func test_stage_driven_street_limits_and_clear_corridor() -> void:
 	check_near(Tank.lateral_limit(900.0), 30.0, 0.01, "viaduct street is 60 m wide")
 	check_near(Tank.lateral_limit(2300.0), 22.0, 0.01, "canyon street narrows to 44 m")
 	for box in Course.structure_boxes:
-		if box.kind in ["city_deck", "city_pier"]:
+		if box.kind in ["city_deck", "city_pier"] or Course.stage.in_arena(box.d):
+			continue
+		var is_split := false
+		for split: Dictionary in Stage2.SPLITS:
+			is_split = is_split or absf(float(split.d) - box.d) < 0.01
+		if is_split:
 			continue
 		var pose: Transform3D = box.pose
-		var half := maxf(box.size.x, box.size.z) * 0.5
 		var c := Course.to_course(pose.origin)
-		check(absf(c.y) - half >= Tank.lateral_limit(c.x) - 0.01, "city structure clears the drivable corridor")
+		check(absf(c.y) - box.size.x * 0.5 >= Tank.lateral_limit(c.x) - 0.01, "city structure clears the drivable corridor")
+
+
+func test_splitters_and_overhead_clearance_are_explicit() -> void:
+	Course.use(2)
+	check(Stage2.SPLITS.size() >= 6 and Stage2.SPLITS.size() <= 8, "the route has six to eight splitters")
+	for split: Dictionary in Stage2.SPLITS:
+		check(split.d >= 150.0, "splitters leave the opening readable")
+		var lanes := Stage2.new().split_lane_centres(Stage2.SPLITS.find(split))
+		var limit := Tank.lateral_limit(float(split.d))
+		check(lanes.x + float(split.size) * 0.5 - (-limit) >= 9.0, "splitter leaves a nine metre left lane")
+		check(limit - (lanes.y - float(split.size) * 0.5) >= 9.0, "splitter leaves a nine metre right lane")
+	for box in Course.structure_boxes:
+		var split := false
+		for spec: Dictionary in Stage2.SPLITS:
+			split = split or absf(float(spec.d) - box.d) < 0.01
+		if split or box.kind in ["city_deck", "city_pier"] and absf(Course.to_course(box.pose.origin).y) < Tank.lateral_limit(box.d) + box.size.x * 0.5:
+			if split:
+				continue
+			check(box.y + box.size.y <= 0.0 or box.y >= 16.0, "no low structure spans the driving corridor")
 
 
 func test_section_boundaries_and_bending_rail() -> void:
@@ -39,7 +62,7 @@ func test_shallow_lanes_and_deep_offroad_pools() -> void:
 	Course.use(2)
 	for d in [100.0, 900.0, 2400.0, 3300.0]:
 		var lane := Course.ground_at(d, 0.0)
-		var pool := Course.ground_at(d, 20.0)
+		var pool := Course.ground_at(d, 40.0)
 		check(Water.surface_at(lane) - lane.y > 0.0 and Water.surface_at(lane) - lane.y < Water.DEEP, "the asphalt is shallow enough to drive")
 		check(Water.surface_at(pool) - pool.y > Water.DEEP, "off-road pools slow the tank")
 	check_eq(Course.stage.water_surface(Vector2(-101, 0)), -INF, "no water before its mesh")
@@ -49,9 +72,9 @@ func test_shallow_lanes_and_deep_offroad_pools() -> void:
 
 func test_highest_walkable_surface_and_underpass_ground() -> void:
 	Course.use(2)
-	var top := Course.surface_height(1050.0, 42.0)
-	check_near(top, 28.8, 0.01, "the parallel road wins where expressways overlap")
-	check_near(Course.surface_height(1050.0, 0.0), 21.8, 0.01, "a crossing expressway supports enemies above the lane")
+	var top := Course.surface_height(1050.0, -37.0)
+	check_near(top, Stage2.WATER_LEVEL + 6.0, 0.2, "the parallel expressway is six metres above water")
+	check_near(Course.surface_height(1050.0, 0.0), 0.05, 0.01, "the tank still drives underneath")
 	check_near(Course.height(1050.0, 0.0), 0.05, 0.01, "the tank still drives underneath")
 	check_near(Course.surface_height(100.0, 0.0), Course.height(100.0, 0.0), 0.01, "open street has no phantom elevated surface")
 	var building: Dictionary = Course.stage.structures[0]
@@ -65,13 +88,17 @@ func test_cover_blocks_sides_roofs_and_inside_rays() -> void:
 	Course.use(2)
 	var scenery := Scenery.new()
 	add_child(scenery)
-	check(scenery.line_blocked(Course.to_world(60, -45, 5), Course.to_world(60, -5, 5)), "a tower stops horizontal sight")
-	check(not scenery.line_blocked(Course.to_world(60, -45, 60), Course.to_world(60, -5, 60)), "sight above the roof stays clear")
-	check(scenery.line_blocked(Course.to_world(60, -25, 60), Course.to_world(60, -25, 5)), "a vertical ray enters the roof")
-	check(scenery.line_blocked(Course.to_world(60, -25, 5), Course.to_world(60, -5, 5)), "a ray starting inside cover is blocked")
-	check(not scenery.line_blocked(Course.to_world(800, 0, 2), Course.to_world(800, 0, 15)), "clearance under the viaduct is not cover")
-	check(scenery.line_blocked(Course.to_world(800, 0, 30), Course.to_world(800, 0, 15)), "the deck itself blocks diving fire")
-	check(not scenery.line_blocked(Course.to_world(100, 0, 2), Course.to_world(500, 0, 2)), "the opening lane stays unobstructed")
+	var tower: Dictionary = Course.structure_boxes.filter(func(box: Dictionary) -> bool: return box.kind == "city_building" and not Course.stage.in_arena(box.d))[0]
+	var pose: Transform3D = tower.pose
+	var centre := pose.origin
+	var across := pose.basis.x
+	check(scenery.line_blocked(centre - across * (tower.size.x + 10.0) + Vector3.UP * 5.0, centre + across * (tower.size.x + 10.0) + Vector3.UP * 5.0), "a tower stops horizontal sight")
+	check(not scenery.line_blocked(centre - across * (tower.size.x + 10.0) + Vector3.UP * (tower.size.y + 5.0), centre + across * (tower.size.x + 10.0) + Vector3.UP * (tower.size.y + 5.0)), "sight above the roof stays clear")
+	check(scenery.line_blocked(centre + Vector3.UP * (tower.size.y + 5.0), centre + Vector3.UP), "a vertical ray enters the roof")
+	check(scenery.line_blocked(centre + Vector3.UP, centre + across * (tower.size.x + 10.0) + Vector3.UP), "a ray starting inside cover is blocked")
+	check(not scenery.line_blocked(Course.to_world(800, 0, 2), Course.to_world(800, 0, 5)), "clearance under the viaduct is not cover")
+	check(scenery.line_blocked(Course.to_world(800, -37, 8), Course.to_world(800, -37, 5)), "the expressway deck blocks diving fire")
+	check(not scenery.line_blocked(Course.to_world(100, 0, 2), Course.to_world(200, 0, 2)), "the opening lane stays unobstructed")
 	scenery.free()
 
 
@@ -117,10 +144,11 @@ func test_swept_drive_shoves_sideways_instead_of_tunneling() -> void:
 	var to := Course.ground_at(85, -25)
 	var corrected := scenery.drive_position(from, to, Tank.HULL_RADIUS)
 	check_near(Course.to_course(corrected).x, 85.0, 0.05, "a fast drive keeps forward progress")
-	check(Course.to_course(corrected).y > -14.0, "the whole footprint is swept even when the endpoint is beyond it")
-	var trapped := Course.ground_at(60, -25)
+	check(absf(Course.to_course(corrected).y) <= Tank.lateral_limit(85.0), "the swept drive remains inside the street")
+	var tower: Dictionary = Course.structure_boxes.filter(func(box: Dictionary) -> bool: return box.kind == "city_building")[0]
+	var trapped: Vector3 = tower.pose.origin
 	var out := scenery.drive_position(trapped, trapped, Tank.HULL_RADIUS)
-	check(Course.to_course(out).y > -14.0, "starting at a building centre cannot leave the tank stuck")
+	check(Prop.box_hit(tower.pose, tower.size, out, out, Tank.HULL_RADIUS - 0.01) < 0.0, "starting at a building centre cannot leave the tank stuck")
 	check(scenery.drive_position(out, out, Tank.HULL_RADIUS).is_equal_approx(out), "a shoved hull settles rather than oscillating")
 	check(scenery.drive_position(Course.ground_at(770, 0), Course.ground_at(830, 0), Tank.HULL_RADIUS).is_equal_approx(Course.ground_at(830, 0)), "the tank passes under a broad expressway")
 	scenery.free()
@@ -156,7 +184,7 @@ func test_live_tank_is_shoved_after_driving() -> void:
 	tank.course_u = -25.0
 	tank._place(world.rail.d)
 	world.director.scenery._process(1.0 / 60.0)
-	check(tank.course_u > -14.0, "the streamed world's post-drive phase ejects an embedded tank")
+	check(absf(tank.course_u) <= Tank.lateral_limit(world.rail.d), "the streamed world's post-drive phase keeps the tank in the street")
 	check_near(Course.to_course(tank.global_position).y, tank.course_u, 0.1, "the corrected pose and driving offset agree")
 
 

@@ -10,7 +10,6 @@ signal charge_locked(target: Entity)
 signal sensor_lost(name: String) ## A roof sensor ("laser" or "fcs") was knocked off.
 
 const MAX_ARMOR := 100.0
-const EDGE_MARGIN := 4.0 ## How close to the foot of the valley walls the tank may go.
 const FORWARD_LIMIT := Vector2(-3.0, 16.0)
 ## Arwing-like handling: it crosses the corridor in about a second and stops on a dime.
 const MOVE_SPEED := Vector2(34.0, 20.0) ## Lateral, forward (m/s) in the rail frame.
@@ -273,12 +272,9 @@ func tick(delta: float) -> void:
 		_engine_sound.pitch_scale = 0.8 + clampf(velocity.length() / 25.0, 0.0, 0.6)
 
 
-## How far from the road the tank may range at d: out to the foot of the valley walls, and within
-## the guardrails on the highway deck.
+## How far from the road the tank may range at d, as defined by the active stage.
 static func lateral_limit(d: float) -> float:
-	if Course.deck_blend(d) > 0.5:
-		return 12.0
-	return maxf(Course.valley_half_width(d) - EDGE_MARGIN, 14.0)
+	return Course.stage.lateral_limit(d)
 
 
 func _input_vector() -> Vector2:

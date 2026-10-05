@@ -48,6 +48,35 @@ static func _traffic_light(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
 	return b.mesh()
 
 
+static func _kiosk(variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	var color: Color = AWNINGS[variant % AWNINGS.size()]
+	b.box(_xf(Vector3(0, 1.2, 0)), Vector3(2.6, 2.4, 2.0), Palette.STONE)
+	b.box(_xf(Vector3(0, 2.55, 0)), Vector3(3.0, 0.25, 2.4), color)
+	b.box(_xf(Vector3(0, 1.8, 1.02)), Vector3(2.0, 0.8, 0.08), Palette.INK)
+	return b.mesh()
+
+
+static func _bus_shelter(variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.box(_xf(Vector3(0, 1.8, 0)), Vector3(0.16, 3.6, 0.16), Palette.ASH)
+	b.box(_xf(Vector3(-2.2, 1.8, 0)), Vector3(0.16, 3.6, 0.16), Palette.ASH)
+	b.box(_xf(Vector3(-1.1, 3.55, 0)), Vector3(2.4, 0.18, 0.16), Palette.ASH)
+	b.box(_xf(Vector3(-1.1, 1.7, -0.55)), Vector3(2.4, 1.8, 0.08), Palette.SKY.darkened(0.2))
+	b.box(_xf(Vector3(-1.1, 0.7, 0.2)), Vector3(2.3, 0.3, 0.9), Palette.STONE)
+	return b.mesh()
+
+
+static func _subway_entrance(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.box(_xf(Vector3(0, 0.5, 0)), Vector3(8.0, 1.0, 4.0), Palette.STONE)
+	b.box(_xf(Vector3(0, 1.45, -0.4)), Vector3(7.2, 1.0, 0.3), Palette.INK)
+	for x in [-2.5, 0.0, 2.5]:
+		b.box(_xf(Vector3(x, 1.6, 0.8)), Vector3(0.35, 2.2, 0.35), Palette.ASH)
+	b.box(_xf(Vector3(0, 2.7, 0)), Vector3(8.4, 0.3, 4.4), Palette.PERIWINKLE)
+	return b.mesh()
+
+
 static func _road_sign(variant: int, _rng: RandomNumberGenerator) -> Mesh:
 	var b := LowPoly.new()
 	b.prism(_xf(Vector3.ZERO), 0.08, 4.0, 5, Palette.ASH)
@@ -181,6 +210,8 @@ static func tower(size: Vector3, variant: int) -> Mesh:
 			_window(b, pos + Vector3(0, 1.9, 0), (face[1] as Vector3) * 1.2, Palette.INK, out_dir, 1.0)
 			b.box(Transform3D(Basis(), pos + Vector3(0, 3.0, 0) + out_dir * 0.7), (face[1] as Vector3).abs() * 2.8 + out_dir.abs() * 1.4 + Vector3(0, 0.12, 0), awning)
 	b.box(_xf(Vector3(0, 0.8, 0)), Vector3(size.x * 1.01, 1.6, size.z * 1.01), dark)
+	# A dark wet band marks the permanent second-floor waterline on every drowned tower.
+	b.box(_xf(Vector3(0, 4.55, 0)), Vector3(size.x * 1.015, 0.42, size.z * 1.015), Palette.INK.darkened(0.25))
 	# Roof clutter.
 	b.box(_xf(Vector3(-size.x * 0.25, size.y + 1.1, -size.z * 0.2)), Vector3(4, 2.2, 3), Palette.SLATE)
 	b.prism(_xf(Vector3(size.x * 0.2, size.y + 0.6, size.z * 0.25)), 1.4, 2.4, 8, Palette.TEAL)

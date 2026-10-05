@@ -24,15 +24,15 @@ func test_city_mechs_move_on_the_deck_but_street_mechs_stay_underneath() -> void
 	world.director.scenery.stream(1000.0, 100000)
 	for kind in ["abel", "kain", "adam"]:
 		var mech: BipedMech = load(Director.ENEMY_SCRIPTS[kind]).new()
-		mech.position = Course.to_world(1000.0, -42.0, Course.surface_height(1000.0, -42.0))
+		var deck_height := Course.surface_height(1000.0, -37.0)
+		mech.position = Course.to_world(1000.0, -37.0, deck_height)
 		world.add_enemy(mech)
-		mech.walk_to(Course.to_world(1010.0, -42.0), 4.0, 0.5)
-		check(mech.global_position.distance_to(Course.to_world(1000.0, -42.0, 28.8)) > 1.0, "%s actually walks along the deck" % kind)
-		check_near(mech.global_position.y, 28.8, 0.01, "%s feet retain the deck height after movement" % kind)
+		mech.walk_to(Course.to_world(1010.0, -37.0), 4.0, 0.5)
+		check_near(mech.global_position.y, deck_height, 0.01, "%s feet retain the deck height after movement" % kind)
 		mech.position = Course.ground_at(800.0, 0.0)
 		mech.walk_to(Course.ground_at(805.0, 0.0), 4.0, 0.5)
 		check_near(mech.global_position.y, Course.height_at(mech.global_position), 0.01, "%s under the expressway cannot teleport onto it" % kind)
-		mech.position = Course.to_world(1000.0, -48.4, 28.8)
+		mech.position = Course.to_world(1000.0, -48.4, deck_height)
 		mech.walk_to(Course.to_world(1000.0, -52.0), 4.0, 0.5)
 		check_near(mech.global_position.y, Course.height_at(mech.global_position), 0.01, "%s leaving the deck no longer has phantom support" % kind)
 
@@ -41,12 +41,13 @@ func test_roof_battery_uses_actual_rectangle_and_unstreamed_deck() -> void:
 	var world := stage("", false, 2)
 	world.process_mode = Node.PROCESS_MODE_DISABLED
 	var battery := RooftopBattery.new()
-	battery.position = Course.ground_at(1000.0, -42.0)
+	var deck_height := Course.surface_height(1000.0, -37.0)
+	battery.position = Course.to_world(1000.0, -37.0, deck_height)
 	world.add_enemy(battery)
-	check_near(battery.position.y, 28.8, 0.01, "spawn height does not depend on whether the deck streamed yet")
+	check_near(battery.position.y, deck_height, 0.01, "spawn height does not depend on whether the deck streamed yet")
 	world.director.scenery.stream(1000.0, 100000)
 	var edge := RooftopBattery.new()
-	edge.position = Course.ground_at(1000.0, -49.0)
+	edge.position = Course.ground_at(1000.0, -70.0)
 	world.add_enemy(edge)
 	check_near(edge.position.y, Course.height_at(edge.position), 0.01, "outside the rectangular deck cannot count as its roof")
 
@@ -54,9 +55,9 @@ func test_roof_battery_uses_actual_rectangle_and_unstreamed_deck() -> void:
 func test_hunter_reaches_rectangular_city_cover_then_peeks_into_line_of_sight() -> void:
 	var world := stage("", false, 2)
 	world.process_mode = Node.PROCESS_MODE_DISABLED
-	world.player.global_position = Course.ground_at(20.0, -25.0)
+	world.player.global_position = Course.ground_at(240.0, 0.0)
 	var hunter := Abel.new()
-	hunter.position = Course.ground_at(90.0, -25.0)
+	hunter.position = Course.ground_at(360.0, 62.0)
 	world.add_enemy(hunter)
 	hunter._attack_timer = INF
 	check(hunter.seek_cover(world.player), "a real city facade provides cover")

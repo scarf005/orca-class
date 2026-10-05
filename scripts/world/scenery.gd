@@ -50,6 +50,7 @@ const PROPS := {
 	"overpass_pier": [1.6, 15.0, 200.0, false, false, 300, false, false],
 	"overpass_deck": [11.0, 2.6, 150.0, false, false, 200, false, false],
 	"city_building": [15.0, 36.0, 200.0, false, false, 0, false, false],
+	"city_shop": [4.5, 6.0, 100.0, true, false, 70, false, true],
 	"city_pier": [3.0, 24.0, 200.0, false, false, 0, false, false],
 	"city_deck": [12.0, 1.8, 200.0, false, false, 0, false, false],
 	"container": [7.0, 2.8, 200.0, false, false, 0, false, false],
@@ -70,7 +71,7 @@ const VEHICLES := ["car", "truck", "infested_car", "cultivator"]
 const FALLING := ["pole", "plane_tree", "persimmon", "cordyceps"]
 
 ## Solid buildings and structures: the tank breaks them but is slowed hard (Rail.jolt).
-const HARD := ["house", "infested_house", "hall", "church_nave", "church_tower", "church_spire", "school_wing", "school_center", "gas_station", "overpass_pier", "overpass_deck", "gate", "rock", "fungal_spire", "zelkova_trunk", "city_building", "city_pier", "city_deck", "container", "ship"]
+const HARD := ["house", "infested_house", "hall", "church_nave", "church_tower", "church_spire", "school_wing", "school_center", "gas_station", "overpass_pier", "overpass_deck", "gate", "rock", "fungal_spire", "zelkova_trunk", "city_building", "city_shop", "city_pier", "city_deck", "container", "ship"]
 
 ## Plain props that spawn overgrown more often the deeper the stage goes.
 const INFESTED := {"house": "infested_house", "car": "infested_car"}
@@ -235,8 +236,19 @@ func _city() -> void:
 			continue
 		var lane := rng.randf_range(-9.0, 9.0)
 		add("car", float(d), lane, rng.randf_range(-0.3, 0.3) + (PI if lane > 0.0 else 0.0), rng.randi_range(0, 11))
-	for d in range(100, 1600, 110):
-		add_decor(CityKit.decor("gantry"), float(d) + 45.0, 0.0)
+	# Breakable street frontage is sparse enough to weave through, but as dense as the village.
+	for d in range(130, 3150, 130):
+		if stage.in_arena(float(d), 35.0):
+			continue
+		var shop_u := -18.0 if (d / 130) % 2 == 0 else 18.0
+		add("city_shop", float(d) + rng.randf_range(-18.0, 18.0), shop_u + rng.randf_range(-3.0, 3.0), rng.randf() * TAU, rng.randi_range(0, 11))
+	for d in range(180, 3150, 240):
+		if not stage.in_arena(float(d), 30.0):
+			add_decor(CityKit.decor("bus_shelter", d % 4), float(d), -14.0 if d % 2 else 14.0, 0.0)
+	for d in range(220, 3150, 260):
+		if not stage.in_arena(float(d), 30.0):
+			add_decor(CityKit.decor("kiosk", d % 4), float(d), rng.randf_range(-20.0, 20.0), rng.randf() * TAU)
+	add_decor(CityKit.decor("subway_entrance"), Stage2.PLAZA_D - 65.0, 55.0, 0.0, stage.height(Stage2.PLAZA_D - 65.0, 55.0))
 	for d in range(2250, 3150, 180):
 		add("truck", float(d), 8.0, 0.0, 1)
 

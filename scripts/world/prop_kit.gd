@@ -117,6 +117,10 @@ static func house(variant: int, rng: RandomNumberGenerator) -> Mesh:
 	return _house(LowPoly.new(), variant, Vector2(rng.randf_range(7.0, 9.0), rng.randf_range(5.0, 6.0))).mesh()
 
 
+static func city_shop(variant: int, rng: RandomNumberGenerator) -> Mesh:
+	return _house(LowPoly.new(), variant, Vector2(rng.randf_range(7.0, 9.0), rng.randf_range(5.0, 6.0))).mesh()
+
+
 static func _house(b: LowPoly, variant: int, size: Vector2) -> LowPoly:
 	if variant % 4 in [1, 3]:
 		return _flat_house(b, variant, size)
