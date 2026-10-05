@@ -1,6 +1,12 @@
 extends TestCase
 ## Repeated worlds share immutable terrain geometry, never their scene nodes or flat-mode geometry.
 
+class RaisedGround extends Stage1:
+	var elevation := 0.0
+	func height(d: float, u: float) -> float:
+		return super.height(d, u) + elevation
+
+
 class CountingTerrain extends Terrain:
 	var advances := 0
 	func _advance(job: ChunkBuild, deadline := 0) -> bool:
@@ -49,6 +55,50 @@ func test_flat_ground_does_not_reuse_valley_geometry() -> void:
 		check_eq(flat_mesh.surface_get_arrays(0)[attribute], expected[attribute], "flat cached geometry matches fresh production generation")
 	valley.free()
 	flat.free()
+
+
+func test_stage_switch_keeps_city_and_valley_geometry_separate() -> void:
+	Terrain._meshes.clear()
+	Course.flat = false
+	Course.use(1)
+	var valley := Terrain.new()
+	add_child(valley)
+	valley.stream(0.0, true)
+	var first: Mesh = valley._chunks[0].mesh
+	valley.free()
+	Course.use(2)
+	var city := Terrain.new()
+	add_child(city)
+	city.stream(0.0, true)
+	var expected := city._build_chunk(0).mesh().surface_get_arrays(0)
+	check(city._chunks[0].mesh != first, "city does not share the valley's chunk at the same index")
+	for attribute in [Mesh.ARRAY_VERTEX, Mesh.ARRAY_NORMAL, Mesh.ARRAY_COLOR]:
+		check_eq(city._chunks[0].mesh.surface_get_arrays(0)[attribute], expected[attribute], "city cache matches fresh city generation")
+	city.free()
+	Course.use(1)
+
+
+func test_custom_stage_instances_do_not_share_different_ground() -> void:
+	Terrain._meshes.clear()
+	Course.flat = false
+	Course.use(1)
+	var first: Mesh
+	for elevation in [2.0, 7.0]:
+		var definition := RaisedGround.new()
+		definition.elevation = elevation
+		Course.stage = definition
+		var terrain := Terrain.new()
+		add_child(terrain)
+		terrain.stream(0.0, true)
+		var mesh: Mesh = terrain._chunks[0].mesh
+		var expected := terrain._build_chunk(0).mesh().surface_get_arrays(0)
+		if first:
+			check(mesh != first, "custom definitions with different elevations do not share meshes")
+		for attribute in [Mesh.ARRAY_VERTEX, Mesh.ARRAY_NORMAL, Mesh.ARRAY_COLOR]:
+			check_eq(mesh.surface_get_arrays(0)[attribute], expected[attribute], "custom cache matches its actual production ground")
+		first = mesh
+		terrain.free()
+	Course.stage = Stage1.new()
 
 
 func test_eviction_bounds_shared_meshes_without_changing_live_geometry() -> void:
