@@ -214,7 +214,8 @@ static func _coax_mesh(caliber: int, length: float) -> Mesh:
 	var color := {8: Palette.SLATE, 15: Palette.DUSK, 20: Palette.INK}[caliber] as Color
 	b.box(Transform3D(Basis(), Vector3(0, 0, 0.45)), body, color)
 	var radius := {8: 0.035, 15: 0.055, 20: 0.075}[caliber] as float
-	b.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3(0, 0.02, -0.3)), radius, length, 6, color)
+	var breech := 0.45 - body.z * 0.5
+	b.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3(0, 0.02, breech)), radius, length + 0.3 + breech, 6, color)
 	if caliber == 20:
 		b.box(Transform3D(Basis(), Vector3(0.24, -0.05, 0.45)), Vector3(0.14, 0.3, 0.5), Palette.OCHRE)
 		b.tube(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3(0, 0.02, -length + 0.1)), radius * 1.6, 0.3, 6, color)

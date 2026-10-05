@@ -147,7 +147,7 @@ func build() -> void:
 		b.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), lens), 0.22, 0.15, 6, Palette.HOT)
 	b.glow = false
 	# Tail boom with twin fins and a stabilizer, like the K-MAX it copies.
-	b.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0, 0.6, 12.5)), 0.9, 7.0, 6, Palette.ASH, 0.55)
+	b.prism(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(0, 0.6, 2.5)), 0.9, 10.0, 6, Palette.ASH, 0.55)
 	b.box(Transform3D(Basis(), Vector3(0, 0.7, 12.6)), Vector3(6.0, 0.25, 1.6), Palette.SLATE)
 	for side in [-1.0, 1.0]:
 		b.box(Transform3D(Basis(Vector3.BACK, side * -0.15), Vector3(side * 3.0, 1.6, 12.7)), Vector3(0.25, 2.4, 1.8), Palette.STONE)
