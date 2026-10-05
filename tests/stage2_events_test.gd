@@ -82,6 +82,29 @@ func test_supplies_offer_stage_one_special_rounds_before_plaza() -> void:
 		check(supplies.has(id), "%s is offered before the missile-countering midboss" % id)
 
 
+func test_city_scripted_pickups_load_only_stage_one_special_rounds() -> void:
+	var offered := Armament.OFFERED.map(func(round: Armament.Round) -> String: return Armament.ROUND_IDS[round])
+	for hard in [false, true]:
+		var world := stage("", false, 2)
+		world.process_mode = Node.PROCESS_MODE_DISABLED
+		for event in Stage2.new().events(hard):
+			for key in ["drop", "reward"]:
+				var id: String = event.get(key, "")
+				check(id != "rws", "city rewards never mount CIWS")
+				if id in Armament.ROUND_IDS.values():
+					check(id in offered, "city %s offers a stage-one special round" % key)
+			if event.type != "pickup":
+				continue
+			check(event.id != "rws", "city placed loot never mounts CIWS")
+			world.director._fire(event)
+			var pickup: Pickup = world.pickups.back()
+			if event.id in Armament.ROUND_IDS.values():
+				check(pickup.id in offered, "%s spawns as a stage-one special round" % event.id)
+				world.player.collect(pickup)
+				check_eq(world.player.current_round, Armament.round_from_id(event.id), "collecting the city pickup loads its round")
+				check_eq(world.player.rounds_left, Armament.MAGAZINE[world.player.current_round], "city pickup loads the shared magazine size")
+
+
 func test_boss_events_follow_checkpoints_and_do_not_overlap_waves() -> void:
 	var events := Stage2.new().events(false)
 	for spec in [{"type": "midboss", "kind": "hovercraft", "name": "midboss", "d": Stage2.PLAZA_D - 110.0}, {"type": "boss", "kind": "hi_mo", "name": "boss", "d": Stage2.BAY_D - 110.0}]:
