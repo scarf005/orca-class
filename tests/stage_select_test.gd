@@ -14,7 +14,7 @@ func begin(name: String) -> void:
 	Game.bests_path = "user://stage_select_test.cfg"
 	DirAccess.remove_absolute(Game.bests_path)
 
-func cleanup() -> void:
+func cleanup(restore_environment := false) -> void:
 	if is_instance_valid(_title):
 		remove_child(_title)
 		_title.queue_free()
@@ -24,7 +24,7 @@ func cleanup() -> void:
 	Game.bests_path = _saved_path
 	Game.stage = 1
 	Game.difficulty = Game.Difficulty.NORMAL
-	super.cleanup()
+	super.cleanup(restore_environment)
 
 func _key(code: Key) -> InputEventKey:
 	var event := InputEventKey.new()

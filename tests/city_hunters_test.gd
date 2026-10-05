@@ -92,7 +92,7 @@ func test_battery_uses_roof_and_warns_before_ripple() -> void:
 	var site := world.player.global_position + Vector3(0, 0, -35)
 	var roof := _roof(world, site, 12.0)
 	var battery := RooftopBattery.new()
-	battery.position = site
+	battery.position = site + Vector3(0, 0, 4.5) # Fire from the roof edge without intersecting its top.
 	world.add_enemy(battery)
 	check_near(battery.global_position.y, roof.global_position.y + roof.height, 0.01, "launcher stands on elevated world surface")
 	battery._timer = 0.0

@@ -17,7 +17,7 @@ func begin(name: String) -> void:
 	Game.difficulty = Game.Difficulty.NORMAL
 
 
-func cleanup() -> void:
+func cleanup(restore_environment := false) -> void:
 	if is_instance_valid(_results):
 		remove_child(_results)
 		_results.queue_free()
@@ -31,7 +31,7 @@ func cleanup() -> void:
 	Game.bests_path = _saved_path
 	Game.stage = 1
 	Game.difficulty = Game.Difficulty.NORMAL
-	super.cleanup()
+	super.cleanup(restore_environment)
 
 
 func test_events_are_ordered_and_kinds_are_available() -> void:
