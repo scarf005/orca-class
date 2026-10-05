@@ -49,13 +49,14 @@ func test_every_stage_covers_what_the_framework_reads() -> void:
 	Course.use(1)
 
 
-func test_stage_2_starts_fitted_after_stage_1() -> void:
+func test_stage_2_starts_without_rws_and_with_tier_2_coax_after_stage_1() -> void:
 	var bare := stage("", false, 1)
 	check(not bare.player.modules.laser_online(), "stage 1 starts without the RWS")
 	check_eq(bare.player.coax_tier, 0, "and with the basic coax")
 	var world := stage("", false, 2)
 	check_eq(world.stage_number, 2, "stage 2 replaces the stage 1 world")
-	check(world.player.modules.laser_online(), "the RWS is fitted without being picked up")
+	check(not world.player.modules.laser_online(), "stage 2 starts without the RWS")
+	check(not world.player.model.rws.visible, "the roof has no RWS")
 	check_eq(world.player.coax_tier, 2, "the coax is tier 2")
 	check_eq(world.rail.d, 0.0, "the run starts at the beginning")
 

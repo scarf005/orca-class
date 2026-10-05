@@ -55,8 +55,8 @@ func test_city_frontage_props_are_real_breakable_shop_cover() -> void:
 
 func test_splitters_and_overhead_clearance_are_explicit() -> void:
 	Course.use(2)
-	check(Stage2.SPLITS.size() >= 6 and Stage2.SPLITS.size() <= 8, "the route has six to eight splitters")
-	check(Stage2.SPLITS.any(func(split: Dictionary) -> bool: return split.kind == "toppled"), "the canyon has an explicit toppled tower splitter")
+	check_eq(Stage2.SPLITS.size(), 1, "the route has exactly one central building fork")
+	check_eq(Stage2.SPLITS[0].kind, "tower", "the remaining fork surrounds a building")
 	var leaning := Course.structure_boxes.filter(func(box: Dictionary) -> bool: return box.kind == "city_leaning")
 	check(not leaning.is_empty() and leaning[0].pose.basis.y.dot(Vector3.UP) < 0.99, "the canyon edge landmark is physically leaning")
 	check(Course.structure_boxes.any(func(box: Dictionary) -> bool: return box.kind == "city_sag_span"), "the parallel expressway has a broken sagging span")
@@ -86,6 +86,57 @@ func test_splitters_and_overhead_clearance_are_explicit() -> void:
 				var c := Course.to_course(box.pose * Vector3(local_x, 0.0, local_z))
 				low_overlap = low_overlap or absf(c.y) < Tank.lateral_limit(c.x) and box.y < 16.0 and box.y + box.size.y > 0.0
 		check(not low_overlap, "no non-splitter low structure spans the driving corridor")
+
+
+func test_live_drive_forks_before_contact_and_smoothly_rejoins() -> void:
+	var world := stage("", false, 2)
+	var tank := world.player
+	var scenery := world.director.scenery
+	var tower: Dictionary = Course.structure_boxes.filter(func(box: Dictionary) -> bool: return box.d == Stage2.SPLITS[0].d and box.u == 0.0)[0]
+	for start_u in [-0.25, 0.0, 0.25, -20.0, 20.0]:
+		for delta in [1.0 / 60.0, 1.0 / 30.0]:
+			world.rail.d = 190.0
+			tank.course_u = start_u
+			tank.course_offset = 0.0
+			tank.local_velocity = Vector2.ZERO
+			tank._place(world.rail.d)
+			scenery._last_tank = tank.global_position
+			var side := -1.0 if start_u < 0.0 else 1.0
+			var early := false
+			var around := false
+			while world.rail.d < 410.0:
+				var before_d := world.rail.d
+				var before_u := tank.course_u
+				tank._update_movement(delta)
+				scenery._process(delta)
+				var step := world.rail.d - before_d
+				# smoothstep's maximum slope is 1.5; the 17 m fork opens over 88 m.
+				check(absf(tank.course_u - before_u) <= 17.0 * 1.5 / 88.0 * step + 0.001, "the live hull follows the fork without a collision shove")
+				check(tank.course_u * side >= 0.0, "the selected branch stays stable")
+				check(Prop.box_hit(tower.pose, tower.size, tank.global_position, tank.global_position, Tank.HULL_RADIUS) < 0.0, "the live hull never touches the central tower")
+				if world.rail.d >= 250.0 and world.rail.d < 260.0:
+					early = early or absf(tank.course_u) > 5.0
+				if absf(world.rail.d - 300.0) < 1.0:
+					around = around or absf(tank.course_u) >= 17.0 - 0.001
+			check(early, "the fork guides the hull well before the facade")
+			check(around, "the fork reaches the side lane at the building")
+			check_near(tank.course_u, start_u, 0.01, "both branches smoothly rejoin their original street offset")
+			check_near(Course.to_course(tank.global_position).x, world.rail.d, 0.01, "fork guidance preserves forward progress")
+
+
+func test_fork_keeps_steering_and_leaves_other_sections_unchanged() -> void:
+	Course.use(2)
+	var scenery := Scenery.new()
+	add_child(scenery)
+	for u in [-20.0, 20.0]:
+		var from := Course.ground_at(250.0, u)
+		var neutral := scenery.drive_position(from, Course.ground_at(251.0, u), Tank.HULL_RADIUS)
+		var steered := scenery.drive_position(from, Course.ground_at(251.0, u + signf(u)), Tank.HULL_RADIUS)
+		check((Course.to_course(steered).y - Course.to_course(neutral).y) * signf(u) > 0.5, "the invisible fork preserves lateral steering")
+	for d in [580.0, 900.0, 1450.0, 1720.0, 2080.0, 2400.0, 2750.0]:
+		var result := scenery.drive_position(Course.ground_at(d - 1.0, 0.0), Course.ground_at(d, 0.0), Tank.HULL_RADIUS)
+		check_near(Course.to_course(result).y, 0.0, 0.01, "removed splitters leave the centre lane straight")
+	scenery.free()
 
 
 func test_frontage_edges_and_gaps_use_measured_layout_data() -> void:

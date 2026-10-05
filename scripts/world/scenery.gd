@@ -267,8 +267,11 @@ func _city() -> void:
 		var shop_d := 120.0 + (0.0 if side < 0.0 else 9.0)
 		while shop_d < 3150.0:
 			var kerb := stage.lateral_limit(shop_d) - 4.0
-			if not stage.in_arena(shop_d, 35.0) and not _near_split(shop_d, 26.0) and rng.randf() < 0.65:
-				add("city_shop", shop_d, side * kerb, -side * PI * 0.5, rng.randi_range(0, 11))
+			# Sample candidates even when a fork removes them, so exclusions do not reshuffle the frontage.
+			var has_shop := rng.randf() < 0.65
+			var variant := rng.randi_range(0, 11)
+			if has_shop and not stage.in_arena(shop_d, 35.0) and not _near_split(shop_d, 26.0):
+				add("city_shop", shop_d, side * kerb, -side * PI * 0.5, variant)
 			shop_d += rng.randf_range(15.0, 24.0)
 	for d in range(180, 3150, 150):
 		var side := -1.0 if d / 150 % 2 else 1.0
@@ -289,7 +292,7 @@ var _last_tank := Vector3.INF
 
 ## Whether `d` is within `reach` of one of stage 2's splitter towers, where the street divides into lanes.
 static func _near_split(d: float, reach: float) -> bool:
-	return Stage2.SPLITS.any(func(split: Dictionary) -> bool: return absf(d - float(split.d)) < reach)
+	return Stage2.SPLITS.any(func(split: Dictionary) -> bool: return absf(d - float(split.d)) < maxf(reach, 100.0))
 
 
 func _process(_delta: float) -> void:
@@ -315,7 +318,11 @@ func _process(_delta: float) -> void:
 ## A swept hull is sent sideways, not stopped inside a broad building or tunneled through it.
 func drive_position(from: Vector3, to: Vector3, radius: float) -> Vector3:
 	var result := to
-	var d := Course.to_course(to).x
+	var destination := Course.to_course(to)
+	var d := destination.x
+	if Course.stage is Stage2:
+		var city := Course.stage as Stage2
+		result = Course.to_world(d, city.fork_u(Course.to_course(from).x, d, destination.y), to.y)
 	for pass_index in 8:
 		var moved := false
 		var travel := from.distance_to(result)

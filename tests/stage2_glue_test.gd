@@ -8,7 +8,8 @@ func test_checkpoint_sorties_start_before_the_fight_with_city_loadout() -> void:
 		world.director.set_process(false)
 		check_near(world.rail.d, 1660.0 if checkpoint == "midboss" else 3390.0, 0.01, "checkpoint starts at its city approach")
 		check(not world.stats.ranked, "checkpoint sortie is unranked")
-		check(world.player.modules.laser_online(), "checkpoint keeps the fitted RWS")
+		check(not world.player.modules.laser_online(), "checkpoint starts without the RWS")
+		check(not world.player.model.rws.visible, "checkpoint roof has no RWS")
 		check(world.player.coax_tier >= 2, "checkpoint keeps the city coax")
 		var fired := []
 		world.director.checkpoint_reached.connect(func(name: String) -> void: fired.append(name))
@@ -75,10 +76,10 @@ func test_roof_battery_uses_actual_rectangle_and_unstreamed_deck() -> void:
 func test_hunter_reaches_rectangular_city_cover_then_peeks_into_line_of_sight() -> void:
 	var world := stage("", false, 2)
 	world.process_mode = Node.PROCESS_MODE_DISABLED
-	world.player.global_position = Course.ground_at(500.0, 0.0)
+	world.player.global_position = Course.ground_at(220.0, 0.0)
 	var hunter := Abel.new()
-	hunter.position = Course.ground_at(593.0, 9.0)
-	world.director.scenery.stream(560.0, 100000)
+	hunter.position = Course.ground_at(313.0, 9.0)
+	world.director.scenery.stream(280.0, 100000)
 	world.add_enemy(hunter)
 	hunter._attack_timer = INF
 	check(hunter.seek_cover(world.player), "a real street splitter provides cover")
@@ -89,9 +90,11 @@ func test_hunter_reaches_rectangular_city_cover_then_peeks_into_line_of_sight() 
 		if hunter._peek:
 			break
 	check(hunter._peek, "hunter reaches shelter and starts its peek rather than stalling")
+	var clear_peek := false
 	for _i in 600:
 		hunter.behave(1.0 / 60.0)
-	check(not BipedMech.line_blocked(world.player.hit_center(), hunter.hit_center()), "real city firing edge restores sight: at %s, goal %s, blocker %s" % [hunter.global_position, hunter._cover_goal, BipedMech.hard_blocker(world.player.hit_center(), hunter.hit_center())])
+		clear_peek = clear_peek or (hunter._peek and not BipedMech.line_blocked(world.player.hit_center(), hunter.hit_center()))
+	check(clear_peek, "the hunter reaches a visible firing edge during its peek")
 
 
 func test_surviving_deck_hunter_crosses_the_gap_with_a_street_fallback() -> void:

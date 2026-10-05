@@ -15,13 +15,6 @@ const BAY_RADIUS := 128.0
 const PLAN := [[1100.0, 0.0], [500.0, 35.0], [500.0, -35.0], [600.0, 0.0], [500.0, -40.0], [500.0, 40.0], [800.0, 0.0]]
 const SPLITS: Array[Dictionary] = [
 	{"d": 300.0, "u": 0.0, "size": 8.0, "kind": "tower"},
-	{"d": 580.0, "u": 8.0, "size": 8.0, "kind": "tower"},
-	{"d": 900.0, "u": -8.0, "size": 8.0, "kind": "tower"},
-	{"d": 1450.0, "u": 0.0, "size": 8.0, "kind": "span"},
-	{"d": 1720.0, "u": 0.0, "size": 8.0, "kind": "tower"},
-	{"d": 2080.0, "u": 5.0, "size": 6.0, "kind": "tower"},
-	{"d": 2400.0, "u": -5.0, "size": 6.0, "kind": "toppled"},
-	{"d": 2750.0, "u": 4.0, "size": 6.0, "kind": "tower"},
 ]
 
 var frontage_gaps: Array[Dictionary] = []
@@ -31,7 +24,6 @@ func _init() -> void:
 	number = 2
 	plan = PLAN
 	section_starts.assign(SECTION_STARTS)
-	start_rws = true
 	water_slows = true
 	checkpoints = {"": 0.0, "midboss": 1660.0, "boss": 3390.0}
 	coax_tiers = {"": 2, "midboss": 2, "boss": 2}
@@ -169,6 +161,25 @@ func split_lane_centres(index: int) -> Vector2:
 	var left_edge := float(split.u) - float(split.size) * 0.5
 	var right_edge := float(split.u) + float(split.size) * 0.5
 	return Vector2((-limit + left_edge) * 0.5, (right_edge + limit) * 0.5)
+
+
+## An invisible median eases out to the lane centres before the tower, then rejoins the street.
+## Remapping the remaining lane width preserves steering without snapping at the building face.
+func fork_u(from_d: float, d: float, u: float) -> float:
+	var split: Dictionary = SPLITS[0]
+	var before := _fork_width(from_d)
+	var after := _fork_width(d)
+	if before == 0.0 and after == 0.0:
+		return u
+	var side := -1.0 if u < float(split.u) else 1.0
+	var limit := lateral_limit(float(split.d))
+	var offset := maxf(absf(u - float(split.u)) - before, 0.0)
+	return float(split.u) + side * (after + offset * (limit - after) / (limit - before))
+
+
+func _fork_width(d: float) -> float:
+	var distance := absf(d - float(SPLITS[0].d))
+	return split_lane_centres(0).y * (1.0 - smoothstep(12.0, 100.0, distance))
 
 
 ## The camera trails the tank's lane but keeps 6 m inside the wall line at its own distance, so on bends it never
@@ -324,7 +335,7 @@ func events(hard: bool) -> Array[Dictionary]:
 	wave.call(1665.0, "kain", {"u": -17.0, "ahead": 50.0, "squad": [
 		{"kind": "ugv", "u": -10.0, "ahead": 70.0},
 		{"kind": "drone_boat", "count": 1, "spacing": 6.0, "ahead": 65.0}]})
-	e.append({"d": 1750.0, "type": "pickup", "id": "apfsds", "ahead": 15.0})
+	e.append({"d": 1750.0, "type": "pickup", "id": "dragon", "ahead": 15.0})
 	e.append({"d": PLAZA_D - 110.0, "type": "midboss", "kind": "hovercraft", "peak": true, "hold": PLAZA_D - 56.0, "music": "res://assets/music/stage2_hovercraft.ogg"})
 	wave.call(2050.0, "abel", {"u": 19.0, "ahead": 45.0, "squad": [
 		{"kind": "walker", "u": 10.0, "ahead": 75.0},
@@ -348,19 +359,19 @@ func events(hard: bool) -> Array[Dictionary]:
 
 	wave.call(3240.0, "hind", {"u": 8.0, "height": 5.0, "ahead": 85.0, "peak": true, "squad": [{"kind": "drone_boat", "u": -8.0, "ahead": 65.0}]})
 	e.append({"d": 3260.0, "type": "pickup", "id": "era", "u": -4.0})
-	e.append({"d": 3330.0, "type": "pickup", "id": "heat", "u": 4.0})
+	e.append({"d": 3330.0, "type": "pickup", "id": "atgm", "u": 4.0})
 	e.append({"d": 3390.0, "type": "checkpoint", "name": "boss"})
 	e.append({"d": 3450.0, "type": "pickup", "id": "repair", "u": -4.0, "ahead": 20.0})
-	e.append({"d": 3490.0, "type": "pickup", "id": "apfsds", "ahead": 15.0})
+	e.append({"d": 3490.0, "type": "pickup", "id": "dragon", "ahead": 15.0})
 	e.append({"d": BAY_D - 110.0, "type": "boss", "kind": "hi_mo", "height": 0.0, "music": "res://assets/music/stage2_boss.ogg"})
 
-	var counters := ["heat", "apfsds", "airburst", "heat", "apfsds", "airburst", "canister", "apfsds"]
+	var counters := Armament.OFFERED.map(func(round: Armament.Round) -> String: return Armament.ROUND_IDS[round])
 	for index in SPLITS.size():
 		var split: Dictionary = SPLITS[index]
 		var lanes := split_lane_centres(index)
 		var rich_left := index % 2 == 0
 		for side in 2:
-			e.append({"d": split.d - 70.0, "ahead": 70.0, "type": "pickup", "u": lanes[side], "id": counters[index] if (side == 0) == rich_left else ("repair" if index % 3 == 0 else "era")})
+			e.append({"d": split.d - 70.0, "ahead": 70.0, "type": "pickup", "u": lanes[side], "id": counters[index % counters.size()] if (side == 0) == rich_left else ("repair" if index % 3 == 0 else "era")})
 
 	if hard:
 		var pressure := {240.0: {"fpv": 2}, 1140.0: {"fpv": 2}, 1665.0: {"drone_boat": 1}}
