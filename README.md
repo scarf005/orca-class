@@ -12,7 +12,12 @@ Needs Godot 4.7.2+ (stable)
 ```sh
 godot --path .
 godot --path . -- --play # skip title screen
+godot --path . -- --tutorial # practice movement, aiming and firing
 ```
+
+Choose **LEARN THE CONTROLS** to follow painted controls through a concrete obstacle course at normal
+arena speed. Shoot the gate to open the route, then follow the arrows and hold a lock to destroy the
+next target. Escape opens settings and replay; completing the course offers the main game on Easy.
 
 ### Web
 
