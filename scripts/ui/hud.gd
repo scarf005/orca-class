@@ -499,11 +499,12 @@ func _draw_reticle() -> void:
 	if cam.is_position_behind(far):
 		return
 	var c := cam.unproject_position(far) * SCALE
-	if p.is_charging() and p.current_round in Tank.AREA_ROUNDS:
+	var fcs_lost := p.modules.state("fcs") == TankModules.State.DESTROYED
+	var box := p.charge_ring_radius() * SCALE * 0.7 if p.current_round == Armament.Round.CANISTER else 16.0
+	if p.is_charging() and (fcs_lost or p.current_round in Tank.AREA_ROUNDS):
 		# Rounds without a lock stack the same boxes on the far sight, where they will burst; the
 		# canister's boxes are its cone's footprint, choking down step by step.
-		var box := p.charge_ring_radius() * SCALE * 0.7 if p.current_round == Armament.Round.CANISTER else 16.0
-		_draw_lock_boxes(c, box, p.charge, Armament.ROUND_COLORS[p.current_round])
+		_draw_lock_boxes(c, box, p.charge, Armament.ROUND_COLORS[p.current_round], false, fcs_lost)
 	# Chevron and stadia.
 	draw_polyline(PackedVector2Array([c + Vector2(-9, 9), c, c + Vector2(9, 9)]), color, 2.0)
 	for side in [-1.0, 1.0]:
@@ -607,6 +608,7 @@ func _draw_near_sight(at: Vector2, color: Color) -> void:
 ## to the moment the gun fires by itself (`auto_left`, 1 to 0).
 ## Ex-Zodiac style: the charge stacks up to LOCK_BOXES orange square sights on the lock, each one
 ## spinning in from wide as it is added (one at the lock, the last at full charge).
+const OFFLINE_SIGHT_COLOR := Color("cccccc")
 const LOCK_BOXES := 3
 const LOCK_BOX_IN := 0.16 ## Seconds a new box takes to spin in and settle.
 var _lock_boxes := 0
@@ -615,7 +617,7 @@ var _micro_times: Array[float] = [] ## When each micro-missile lock landed, in s
 
 
 ## `tint` is the loaded round's color, so the sight says what is about to fire.
-func _draw_lock_boxes(center: Vector2, size: float, charge: float, tint: Color, settled := false) -> void:
+func _draw_lock_boxes(center: Vector2, size: float, charge: float, tint: Color, settled := false, offline := false) -> void:
 	var count := Armament.stage(charge)
 	while _lock_boxes < count:
 		_lock_box_times[_lock_boxes] = _time
@@ -627,15 +629,15 @@ func _draw_lock_boxes(center: Vector2, size: float, charge: float, tint: Color, 
 		var settle := ease(k, 0.35)
 		# Spins in a half turn as it lands, then keeps turning slowly, alternate boxes the other way.
 		var angle := (1.0 - settle) * PI * 0.5 + _time * (0.8 + i * 0.5) * (1.0 if i % 2 == 0 else -1.0)
-		var color := Palette.WHITE if k < 1.0 or (full and fmod(_time, 0.2) < 0.08) else tint
+		var color := OFFLINE_SIGHT_COLOR if offline else (Palette.WHITE if k < 1.0 or (full and fmod(_time, 0.2) < 0.08) else tint)
 		_draw_lock_box(center, lerpf(size * 3.0, size * (1.0 + i * 0.32), settle), angle, color)
 	# The next box is already on its way: it swings in from wide as the charge climbs to its step,
 	# so even a round that fires on its first box shows that box locking in.
-	if count < LOCK_BOXES:
+	if count < LOCK_BOXES and (not offline or count > 0):
 		var steps := [0.0, Armament.STAGE_1, Armament.STAGE_2, 1.0]
 		var progress := clampf(inverse_lerp(steps[count], steps[count + 1], charge), 0.0, 1.0)
 		var settle := ease(progress, 0.6)
-		var color := Color(Palette.WHITE, 0.35 + 0.65 * progress)
+		var color := Color(OFFLINE_SIGHT_COLOR if offline else Palette.WHITE, 0.35 + 0.65 * progress)
 		_draw_lock_box(center, lerpf(size * 3.4, size * (1.0 + count * 0.32), settle), (1.0 - settle) * PI + _time * 0.8, color)
 
 
@@ -669,7 +671,9 @@ func _draw_micro_locks(p: Tank) -> void:
 		var settle := ease(k, 0.35)
 		var half := 18.0 + size * 3.0
 		var angle := (1.0 - settle) * PI * 0.5 + _time * (0.8 + n * 0.5) * (1.0 if n % 2 == 0 else -1.0)
-		_draw_lock_box(cam.unproject_position(focus) * SCALE, lerpf(half * 3.0, half * (1.0 + n * 0.32), settle), angle, Palette.WHITE if k < 1.0 else tint)
+		var center := cam.unproject_position(focus) * SCALE
+		var offline := painted >= 0 and p.is_charging() and p.modules.state("fcs") == TankModules.State.DESTROYED
+		_draw_lock_box(center, lerpf(half * 3.0, half * (1.0 + n * 0.32), settle), angle, OFFLINE_SIGHT_COLOR if offline else (Palette.WHITE if k < 1.0 else tint))
 
 
 ## One lock box: four corner brackets of a square `half` wide, turned by `angle`.

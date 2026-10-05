@@ -5,9 +5,40 @@ const DT := 1.0 / 60.0
 
 class LockHud extends Hud:
 	var boxes: Array[float] = []
+	var drawn: Array[Dictionary] = []
 
-	func _draw_lock_box(_center: Vector2, half: float, _angle: float, _color: Color) -> void:
+	func _draw() -> void:
+		boxes.clear()
+		drawn.clear()
+		_draw_reticle()
+
+	func _draw_lock_box(center: Vector2, half: float, angle: float, color: Color) -> void:
 		boxes.append(half)
+		drawn.append({"center": center, "half": half, "angle": angle, "color": color})
+
+
+func test_offline_charge_boxes_match_normal_geometry_animation_and_opacity() -> void:
+	var hud := LockHud.new()
+	hud.world = _rig()
+	add_child(hud)
+	for charge in [Armament.STAGE_1, Armament.STAGE_2, 1.0]:
+		for time in [0.0, 0.1, 1.0]:
+			hud._time = time
+			hud._lock_boxes = 0
+			hud.drawn.clear()
+			hud._draw_lock_boxes(Vector2.ZERO, 20.0, charge, Palette.HOT)
+			var normal := hud.drawn.duplicate(true)
+			hud._lock_boxes = 0
+			hud.drawn.clear()
+			hud._draw_lock_boxes(Vector2.ZERO, 20.0, charge, Palette.HOT, false, true)
+			check_eq(hud.drawn.size(), normal.size(), "normal and offline sights have identical box counts after charging")
+			for i in mini(hud.drawn.size(), normal.size()):
+				check_eq(hud.drawn[i].center, normal[i].center, "only color changes, not center")
+				check_eq(hud.drawn[i].half, normal[i].half, "only color changes, not size")
+				check_eq(hud.drawn[i].angle, normal[i].angle, "only color changes, not rotation")
+				check_eq(hud.drawn[i].color, Color(Hud.OFFLINE_SIGHT_COLOR, normal[i].color.a), "light gray retains the normal opacity")
+	hud.queue_free()
+	await frames(2)
 
 
 func test_fired_full_charge_draws_all_three_boxes_already_settled() -> void:
@@ -20,6 +51,63 @@ func test_fired_full_charge_draws_all_three_boxes_already_settled() -> void:
 		check_near(hud.boxes[i], 20.0 * (1.0 + i * 0.32), 0.001, "fired boxes are converged, not still spinning in")
 	hud.queue_free()
 	await frames(2)
+
+
+func test_destroyed_fcs_draws_light_gray_brackets_only_after_first_charge_stage() -> void:
+	var world := _rig()
+	var tank := world.player
+	var hud := LockHud.new()
+	hud.world = world
+	add_child(hud)
+	tank.damage_module("fcs", 999.0)
+	Input.action_press("fire")
+	_frame(tank)
+	check(tank.is_charging(), "the destroyed FCS still permits charging")
+	check(tank.charge_lock == null, "the display does not need a target lock")
+	hud.queue_redraw()
+	await frames(2)
+	check(hud.drawn.is_empty(), "pressing fire does not immediately draw unearned offline brackets")
+	for round in [Armament.Round.APHE, Armament.Round.CANISTER, Armament.Round.MICRO]:
+		tank.current_round = round
+		for charge in [0.0, Armament.STAGE_1 * 0.5, Armament.STAGE_1 - 0.001, Armament.STAGE_1, Armament.STAGE_2, 1.0]:
+			tank.charge = charge
+			hud._time = 0.0
+			hud.queue_redraw()
+			await frames(2)
+			var count := Armament.stage(charge)
+			check_eq(hud.drawn.size(), 0 if count == 0 else mini(count + 1, Hud.LOCK_BOXES), "no offline brackets appear before the first charged stage")
+			for box: Dictionary in hud.drawn:
+				check_eq(Color(box.color, 1.0), Hud.OFFLINE_SIGHT_COLOR, "offline brackets are light gray even during the full-charge flash")
+	Input.action_release("fire")
+	_frame(tank)
+	hud.queue_redraw()
+	await frames(2)
+	check(hud.drawn.is_empty(), "offline charge boxes disappear outside charging")
+	hud.queue_free()
+
+
+func test_offline_micro_charge_is_light_gray_but_fired_boxes_keep_their_style() -> void:
+	var world := _rig()
+	var tank := world.player
+	var enemy := _enemy(world, tank.hit_center() - Vector3(0, 0, 60))
+	var hud := LockHud.new()
+	hud.world = world
+	add_child(hud)
+	tank.current_round = Armament.Round.MICRO
+	tank.damage_module("fcs", 999.0)
+	Input.action_press("fire")
+	_frame(tank)
+	tank.charge = Armament.STAGE_1
+	tank.micro_marked = [[enemy, ""]]
+	tank.micro_locks = [[enemy, ""]]
+	await frames(2)
+	check(hud.drawn.size() >= 3, "both micro locks and the far charge sight are drawn")
+	if hud.drawn.size() >= 2:
+		check_eq(hud.drawn[0].color, Armament.ROUND_COLORS[Armament.Round.MICRO], "the already-fired box retains its round color")
+		check_eq(hud.drawn[1].color, Hud.OFFLINE_SIGHT_COLOR, "the charging micro box is light gray")
+		check(hud.drawn[1].angle != 0.0, "the charging micro box retains its normal rotation")
+	Input.action_release("fire")
+	hud.queue_free()
 
 
 func _rig() -> World:
