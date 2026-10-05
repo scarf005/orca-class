@@ -4,6 +4,7 @@
 
 # Testing policy
 
+- For articulated models, parenting and clearance do not prove a visible connection: verify actual mesh continuity across each joint.
 - Match every test name to the production oracle it claims to cover.
 - Gameplay-effect regressions must assert accepted outcomes through the production path, not only events, configuration, or invulnerable fixtures.
 - Justify numerical tolerances from the contract or scheduling behavior; prove each critical new oracle with a mutation test.

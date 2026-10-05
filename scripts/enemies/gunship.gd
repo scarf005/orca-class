@@ -169,11 +169,15 @@ func build() -> void:
 		_build_rotor(side)
 	# Shoulder gatling turrets: four barrels each on a ball mount.
 	for side in [-1.0, 1.0]:
+		var joint := Node3D.new()
+		joint.position = Vector3(side * 6.4, -2.55, -0.6) # Ball top meets the rocket rack's bottom.
+		model.add_child(joint)
+		var ball := MeshInstance3D.new()
+		ball.mesh = LowPoly.new().blob(Transform3D(), 0.75, Palette.STONE, 1, 0.0, 3).mesh()
+		joint.add_child(ball)
 		var turret := Node3D.new()
-		turret.position = Vector3(side * 6.4, -2.4, -0.6) # Slung under the rocket rack.
-		model.add_child(turret)
+		joint.add_child(turret)
 		var t := LowPoly.new()
-		t.blob(Transform3D(), 0.75, Palette.STONE, 1, 0.0, 3)
 		t.box(Transform3D(Basis(), Vector3(0, 0, -0.6)), Vector3(0.8, 0.6, 0.6), Palette.INK)
 		var mount := MeshInstance3D.new()
 		mount.mesh = t.mesh()
@@ -196,8 +200,8 @@ func build() -> void:
 		_barrels.append(barrels)
 		_gatling_muzzles.append(muzzle)
 		var gatling := "gatling_l" if side < 0.0 else "gatling_r"
-		_add_part(gatling, turret.position, 1.1, MODULE_HP[gatling], null)
-		parts[gatling].node = turret
+		_add_part(gatling, joint.position, 1.1, MODULE_HP[gatling], null)
+		parts[gatling].node = joint
 	# Chin rocket turret: an eight-tube drum under the nose; losing it silences the gun runs too.
 	_chin.position = Vector3(0, -2.3, -5.2)
 	model.add_child(_chin)
@@ -219,6 +223,8 @@ func build() -> void:
 	_add_part("era_front", Vector3(0, 0.4, -6.9), 1.6, ERA_HP, _nose_mesh())
 	_add_part("pod_l", Vector3(-6.4, -0.4, 0.2), 2.4, MODULE_HP.pod_l, _pod_mesh())
 	_add_part("pod_r", Vector3(6.4, -0.4, 0.2), 2.4, MODULE_HP.pod_r, _pod_mesh())
+	for i in _gatlings.size():
+		parts[GATLINGS[i]].node.reparent(parts["pod_l" if i == 0 else "pod_r"].node, true)
 	_add_part("chin", _chin.position, 1.1, MODULE_HP.chin, null)
 	parts.chin.node = _chin
 	_add_part("nose_gun", Vector3(0, -1.3, -7.6), 1.0, MODULE_HP.nose_gun, _nose_gun_mesh())
@@ -362,6 +368,11 @@ func _live(part_name: String) -> bool:
 	return parts[part_name].hp > 0.0
 
 
+## Rack-mounted guns move with their parent; their hit and lock centers follow the mount.
+func _part_offset(part: Part) -> Vector3:
+	return model.to_local(part.node.global_position) if part.name in GATLINGS and is_instance_valid(part.node) else part.offset
+
+
 func aim_parts() -> Dictionary:
 	var result := {}
 	if _crash > 0.0:
@@ -369,7 +380,7 @@ func aim_parts() -> Dictionary:
 	for name: String in MODULE_HP:
 		if _live(name):
 			var part: Part = parts[name]
-			result[name] = [model.global_transform * part.offset, part.radius * MODEL_SCALE, PART_LABELS[name]]
+			result[name] = [model.global_transform * _part_offset(part), part.radius * MODEL_SCALE, PART_LABELS[name]]
 	return result
 
 
@@ -389,7 +400,7 @@ func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 	for part: Part in parts.values():
 		if part.hp <= 0.0:
 			continue
-		var t := Entity.segment_sphere(from, to, model.global_transform * part.offset, part.radius * MODEL_SCALE + extra_radius)
+		var t := Entity.segment_sphere(from, to, model.global_transform * _part_offset(part), part.radius * MODEL_SCALE + extra_radius)
 		if t >= 0.0 and (module < 0.0 or t < module):
 			module = t
 	var local_from := model.to_local(from)
@@ -528,7 +539,7 @@ func _struck_part(at: Vector3) -> Part:
 	for part: Part in parts.values():
 		if part.hp <= 0.0 or part.name in PLATES:
 			continue
-		var distance := at.distance_to(model.global_transform * part.offset) - part.radius * MODEL_SCALE
+		var distance := at.distance_to(model.global_transform * _part_offset(part)) - part.radius * MODEL_SCALE
 		if distance < nearest_distance:
 			nearest_distance = distance
 			nearest = part
@@ -545,9 +556,9 @@ static func _plate_facing(local: Vector3) -> String:
 	return ""
 
 
-func _lose_part(part: Part, direction := Vector3.ZERO) -> void:
+func _lose_part(part: Part, direction := Vector3.ZERO, detach := true) -> void:
 	var world := World.current
-	var at: Vector3 = model.global_transform * part.offset
+	var at: Vector3 = model.global_transform * _part_offset(part)
 	part.hp = 0.0
 	var push := (at - global_position).normalized() if direction == Vector3.ZERO else direction.normalized()
 	world.fx.explosion(at, 2.5 if part.module else 1.6)
@@ -556,7 +567,7 @@ func _lose_part(part: Part, direction := Vector3.ZERO) -> void:
 	world.hitstop(0.06)
 	world.award(1500, at, false)
 	Sfx.play("blast", at)
-	if part.node:
+	if part.node and detach:
 		# Torn off, it tumbles away burning and blows up where it lands.
 		Wreck.launch(part.node, at, part.radius * MODEL_SCALE, true, push * 10.0 + Vector3.UP * 6.0)
 	match part.name:
@@ -584,7 +595,7 @@ func _lose_part(part: Part, direction := Vector3.ZERO) -> void:
 			# The gatling slung under the rack goes down with it.
 			var gatling: Part = parts["gatling_l" if part.name == "pod_l" else "gatling_r"]
 			if gatling.hp > 0.0:
-				_lose_part(gatling, direction)
+				_lose_part(gatling, direction, false)
 	_update_phase()
 
 
@@ -717,14 +728,15 @@ func behave(delta: float) -> void:
 func _aim_weapons(delta: float, tank: Tank) -> void:
 	if _live("chin"):
 		aim_barrel(_chin, tank.hit_center(), CHIN_SLEW, delta)
+	# Aim parents first so their motion cannot undo the child guns' world-space aim.
+	for side: String in _rack_muzzles:
+		if _live(side):
+			aim_barrel(parts[side].node, _rack_aim.get(side, tank.global_position), RACK_SLEW, delta)
 	for i in _gatlings.size():
 		var gatling := _gatlings[i]
 		if gatling:
 			var lead := tank.hit_center() + tank.velocity * (gatling.global_position.distance_to(tank.hit_center()) / GUN_SPEED) * 0.7
 			aim_barrel(gatling, lead, GATLING_SLEW, delta)
-	for side: String in _rack_muzzles:
-		if _live(side):
-			aim_barrel(parts[side].node, _rack_aim.get(side, tank.global_position), RACK_SLEW, delta)
 	if _live("nose_gun"):
 		var gun: Node3D = parts.nose_gun.node
 		if _cannon_hold != Vector3.ZERO:
@@ -741,7 +753,7 @@ func _smoke_modules(delta: float) -> void:
 		var wear: float = 1.0 - part.hp / MODULE_HP[name]
 		if part.hp > 0.0 and wear > 0.0 and randf() < delta * 12.0 * wear:
 			# A hurt module trails smoke and throws sparks the worse it is.
-			var at: Vector3 = model.global_transform * part.offset
+			var at: Vector3 = model.global_transform * _part_offset(part)
 			world.fx.smoke(at, 1, 1.5, [Palette.STONE, Palette.ASH, Palette.DUSK])
 			world.fx.sparks(at, Vector3.UP, 3, Palette.BUTTER, 6.0)
 		if part.hp <= 0.0 and randf() < delta * 16.0:
