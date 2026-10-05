@@ -87,6 +87,27 @@ func box(xf: Transform3D, size: Vector3, color: Color, top := Color(0, 0, 0, 0))
 	return self
 
 
+## Tapered block from a `bottom` rectangle (x, z) at `xf.origin` up `height` to a `top` rectangle offset by `shift`
+## (x, z): sloped armor, wedges (a zero top size) and hulls. `top_color` recolors the upper face.
+func frustum(xf: Transform3D, bottom: Vector2, top: Vector2, height: float, color: Color, top_color := Color(0, 0, 0, 0), shift := Vector2.ZERO) -> LowPoly:
+	var c: Array[Vector3] = []
+	for level in 2:
+		var half := (bottom if level == 0 else top) * 0.5
+		var offset := Vector2.ZERO if level == 0 else shift
+		for corner in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+			c.append(xf * Vector3(offset.x + corner.x * half.x, height * level, offset.y + corner.y * half.y))
+	var center := xf * Vector3(shift.x * 0.5, height * 0.5, shift.y * 0.5)
+	var faces := [[c[0], c[1], c[2], c[3], color], [c[4], c[5], c[6], c[7], top_color if top_color.a > 0.0 else color]]
+	for i in 4:
+		faces.append([c[i], c[(i + 1) % 4], c[(i + 1) % 4 + 4], c[i + 4], color])
+	for f: Array in faces:
+		var mid: Vector3 = (f[0] + f[1] + f[2] + f[3]) * 0.25
+		for t in [[f[0], f[1], f[2]], [f[0], f[2], f[3]]]:
+			if (t[1] - t[0]).cross(t[2] - t[0]).length_squared() > 1e-10:
+				tri(t[0], t[1], t[2], f[4], mid - center)
+	return self
+
+
 ## Prism along local +Y from `xf.origin` (bottom) with `sides` sides. A zero top radius makes a cone.
 func prism(xf: Transform3D, radius: float, height: float, sides: int, color: Color, top_radius := -1.0, cap := Color(0, 0, 0, 0)) -> LowPoly:
 	var top := radius if top_radius < 0.0 else top_radius
