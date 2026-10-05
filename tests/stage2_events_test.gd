@@ -102,7 +102,7 @@ func test_city_scripted_pickups_load_only_stage_one_special_rounds() -> void:
 				check(pickup.id in offered, "%s spawns as a stage-one special round" % event.id)
 				world.player.collect(pickup)
 				check_eq(world.player.current_round, Armament.round_from_id(event.id), "collecting the city pickup loads its round")
-				check_eq(world.player.rounds_left, Armament.MAGAZINE[world.player.current_round], "city pickup loads the shared magazine size")
+				check_eq(world.player.round_count, Armament.MAGAZINE[world.player.current_round], "city pickup loads the shared magazine size")
 
 
 func test_boss_events_follow_checkpoints_and_do_not_overlap_waves() -> void:
@@ -273,7 +273,7 @@ func test_checkpoint_unlock_selection_and_game_over_retry_stay_in_city() -> void
 		var world := stage(checkpoint, false, 2)
 		world.process_mode = Node.PROCESS_MODE_DISABLED
 		check_near(world.rail.d, 1660.0 if checkpoint == "midboss" else 3390.0, 0.01, "retry loads the city approach")
-		check(world.player.coax_tier >= 2 and world.player.modules.laser_online(), "retry restores the city loadout")
+		check(world.player.coax_tier >= 2 and not world.player.modules.laser_online(), "retry restores the city coax without CIWS")
 		check(not world.stats.ranked, "retry remains unranked")
 
 

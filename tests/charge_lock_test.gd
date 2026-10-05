@@ -37,8 +37,8 @@ func test_offline_charge_boxes_match_normal_geometry_animation_and_opacity() -> 
 				check_eq(hud.drawn[i].half, normal[i].half, "only color changes, not size")
 				check_eq(hud.drawn[i].angle, normal[i].angle, "only color changes, not rotation")
 				check_eq(hud.drawn[i].color, Color(Hud.OFFLINE_SIGHT_COLOR, normal[i].color.a), "light gray retains the normal opacity")
-	hud.queue_free()
 	await frames(2)
+	hud.free()
 
 
 func test_fired_full_charge_draws_all_three_boxes_already_settled() -> void:
@@ -49,8 +49,8 @@ func test_fired_full_charge_draws_all_three_boxes_already_settled() -> void:
 	check_eq(hud.boxes.size(), 3, "the full-charge display includes every box")
 	for i in 3:
 		check_near(hud.boxes[i], 20.0 * (1.0 + i * 0.32), 0.001, "fired boxes are converged, not still spinning in")
-	hud.queue_free()
 	await frames(2)
+	hud.free()
 
 
 func test_destroyed_fcs_draws_light_gray_brackets_only_after_first_charge_stage() -> void:
@@ -83,7 +83,7 @@ func test_destroyed_fcs_draws_light_gray_brackets_only_after_first_charge_stage(
 	hud.queue_redraw()
 	await frames(2)
 	check(hud.drawn.is_empty(), "offline charge boxes disappear outside charging")
-	hud.queue_free()
+	hud.free()
 
 
 func test_offline_micro_charge_is_light_gray_but_fired_boxes_keep_their_style() -> void:
@@ -107,7 +107,7 @@ func test_offline_micro_charge_is_light_gray_but_fired_boxes_keep_their_style() 
 		check_eq(hud.drawn[1].color, Hud.OFFLINE_SIGHT_COLOR, "the charging micro box is light gray")
 		check(hud.drawn[1].angle != 0.0, "the charging micro box retains its normal rotation")
 	Input.action_release("fire")
-	hud.queue_free()
+	hud.free()
 
 
 func _rig() -> World:

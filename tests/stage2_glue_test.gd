@@ -9,7 +9,6 @@ func test_checkpoint_sorties_start_before_the_fight_with_city_loadout() -> void:
 		check_near(world.rail.d, 1660.0 if checkpoint == "midboss" else 3390.0, 0.01, "checkpoint starts at its city approach")
 		check(not world.stats.ranked, "checkpoint sortie is unranked")
 		check(not world.player.modules.laser_online(), "checkpoint starts without the RWS")
-		check(not world.player.model.rws.visible, "checkpoint roof has no RWS")
 		check(world.player.coax_tier >= 2, "checkpoint keeps the city coax")
 		var fired := []
 		world.director.checkpoint_reached.connect(func(name: String) -> void: fired.append(name))
@@ -17,6 +16,8 @@ func test_checkpoint_sorties_start_before_the_fight_with_city_loadout() -> void:
 		check_eq(fired, [checkpoint], "retry skips earlier unlocks and reaches its own checkpoint")
 		var next: Dictionary = world.director.events[world.director._next_event]
 		check(next.d > world.rail.d and next.d < (1780.0 if checkpoint == "midboss" else 3540.0), "retry keeps supplies before the boss entrance")
+		await frames(1)
+		check(not world.player.model.rws.visible, "checkpoint first rendered frame has no RWS")
 
 
 func test_director_deck_events_use_the_live_parallel_expressway() -> void:

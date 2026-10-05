@@ -124,6 +124,26 @@ func test_live_drive_forks_before_contact_and_smoothly_rejoins() -> void:
 			check_near(Course.to_course(tank.global_position).x, world.rail.d, 0.01, "fork guidance preserves forward progress")
 
 
+func test_fork_pause_and_reverse_keep_the_selected_branch() -> void:
+	Course.use(2)
+	var scenery := Scenery.new()
+	add_child(scenery)
+	for start_u in [-0.25, 0.25, -20.0, 20.0]:
+		var at := Course.ground_at(190.0, start_u)
+		for d in range(191, 411):
+			at = scenery.drive_position(at, Course.ground_at(float(d), Course.to_course(at).y), Tank.HULL_RADIUS)
+			if d in [220, 260, 300, 340, 380]:
+				var paused := at
+				for _i in 60:
+					at = scenery.drive_position(at, at, Tank.HULL_RADIUS)
+				check_near(at.distance_to(paused), 0.0, 0.001, "a paused hull does not repeatedly drift sideways")
+		for d in range(409, 189, -1):
+			at = scenery.drive_position(at, Course.ground_at(float(d), Course.to_course(at).y), Tank.HULL_RADIUS)
+			check(Course.to_course(at).y * start_u > 0.0, "reversing through the fork keeps the chosen branch")
+		check_near(Course.to_course(at).y, start_u, 0.01, "a reverse traversal rejoins the original street offset")
+	scenery.free()
+
+
 func test_fork_keeps_steering_and_leaves_other_sections_unchanged() -> void:
 	Course.use(2)
 	var scenery := Scenery.new()
