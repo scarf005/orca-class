@@ -180,12 +180,17 @@ func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 	return -1.0 if hidden else super.hit_test(from, to, extra_radius)
 
 
+## Normal shows the maneuver at one tenth of Hard's goal offset, tilt and roll rate.
+func _evasion_scale() -> float:
+	return 1.0 if Game.difficulty == Game.Difficulty.HARD else 0.1
+
+
 ## Move the flight goal, not the airframe: rotorcraft follow it with their flight controller;
 ## fixed-wing aircraft turn into it with a bank. React to a nearby bore before it locks.
 func _evade(delta: float, rotorcraft := false) -> void:
 	var tank := player()
 	var threatened := false
-	if evasive and Game.difficulty == Game.Difficulty.HARD and not invulnerable and not is_staggered() and tank != null and not tank.dead:
+	if evasive and Game.difficulty != Game.Difficulty.EASY and not invulnerable and not is_staggered() and tank != null and not tank.dead:
 		threatened = tank.charge_lock == self
 		if not threatened:
 			var muzzle := tank.model.muzzle.global_position
@@ -215,11 +220,12 @@ func _evade(delta: float, rotorcraft := false) -> void:
 	_jink_active = threatened
 	if threatened:
 		_jink_phase += delta * 0.9
-	var goal := _jink_axis * sin(_jink_phase) * 12.0 if threatened else Vector3.ZERO
+	var scale := _evasion_scale()
+	var goal := _jink_axis * sin(_jink_phase) * 12.0 * scale if threatened else Vector3.ZERO
 	# Altitude-holding thrust at a 0.65 rad tilt supplies g*tan(tilt) horizontally.
 	# Limiting jerk to g*roll_rate also bounds the tilt's angular speed.
-	var desired := ((goal - _jink_offset) * 2.0 - _jink_velocity * 4.0).limit_length(9.81 * tan(0.65))
-	_jink_acceleration = _jink_acceleration.move_toward(desired, 9.81 * 0.9 * delta)
+	var desired := ((goal - _jink_offset) * 2.0 - _jink_velocity * 4.0).limit_length(9.81 * tan(0.65 * scale))
+	_jink_acceleration = _jink_acceleration.move_toward(desired, 9.81 * 0.9 * scale * delta)
 	_jink_velocity += _jink_acceleration * delta
 	_jink_previous = _jink_offset
 	_jink_offset += _jink_velocity * delta
@@ -233,8 +239,9 @@ func _bank_evasion(delta: float) -> void:
 	var settling := _jink_active or _jink_offset.length_squared() > 0.0025 or _jink_velocity.length_squared() > 0.0025 or _jink_acceleration.length_squared() > 0.0025
 	var up := (Vector3.UP * 9.81 + _jink_acceleration).normalized() if settling else model.global_basis.y.normalized()
 	var angle := _jink_up.angle_to(up)
-	_jink_up = _jink_up.slerp(up, minf(1.0, delta * 0.9 / maxf(angle, 0.00001))).normalized()
-	if not settling and angle <= delta * 0.9:
+	var roll_step := delta * 0.9 * _evasion_scale()
+	_jink_up = _jink_up.slerp(up, minf(1.0, roll_step / maxf(angle, 0.00001))).normalized()
+	if not settling and angle <= roll_step:
 		_jink_banking = false
 		return
 	var heading := Vector3.FORWARD.rotated(Vector3.UP, model.rotation.y).slide(_jink_up).normalized()

@@ -1,9 +1,9 @@
 extends TestCase
 
 
-func test_flyer_evasion_goals_are_hard_only_and_do_not_move_the_airframe_directly() -> void:
+func test_flyer_evasion_goals_are_normal_and_hard_only_and_do_not_move_the_airframe_directly() -> void:
 	var world := stage()
-	for mode: Game.Difficulty in [Game.Difficulty.NORMAL, Game.Difficulty.HARD]:
+	for mode: Game.Difficulty in [Game.Difficulty.EASY, Game.Difficulty.NORMAL, Game.Difficulty.HARD]:
 		Game.difficulty = mode
 		for kind: String in ["helicopter", "tiltrotor", "uav", "gunship"]:
 			var flyer: Enemy = load(Director.ENEMY_SCRIPTS[kind]).new()
@@ -12,7 +12,7 @@ func test_flyer_evasion_goals_are_hard_only_and_do_not_move_the_airframe_directl
 			world.player.charge_lock = flyer
 			var before := flyer.global_position
 			flyer._evade(0.1)
-			check_eq(flyer._jink_offset != Vector3.ZERO, mode == Game.Difficulty.HARD, kind + " evasion goal difficulty gate")
+			check_eq(flyer._jink_offset != Vector3.ZERO, mode != Game.Difficulty.EASY, kind + " evasion goal difficulty gate")
 			check_eq(flyer.global_position, before, "the flight controller owns airframe movement")
 			check_eq(world.player.charge_lock, flyer, "evasion does not erase the player's lock")
 	Game.difficulty = Game.Difficulty.NORMAL

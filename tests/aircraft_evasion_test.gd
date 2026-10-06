@@ -73,81 +73,107 @@ func test_all_evasive_aircraft_repeat_lateral_maneuvers_through_eight_seconds_of
 		check(late_motion > 4.0, kind + " keeps changing its flight path after the old 2.8-second cooldown")
 
 
-func test_normal_difficulty_lock_does_not_change_any_aircraft_flight_path() -> void:
+func test_easy_difficulty_lock_does_not_change_any_aircraft_flight_path() -> void:
 	for kind in ["helicopter", "tiltrotor", "uav", "gunship"]:
-		var ordinary := _path(kind, false, Game.Difficulty.NORMAL)
-		var locked := _path(kind, true, Game.Difficulty.NORMAL)
-		check(locked == ordinary, kind + " retains its normal flight path")
+		var ordinary := _path(kind, false, Game.Difficulty.EASY)
+		var locked := _path(kind, true, Game.Difficulty.EASY)
+		check(locked == ordinary, kind + " retains its easy flight path")
+
+
+func test_normal_aircraft_attempt_evasion_with_less_than_a_quarter_of_hards_displacement() -> void:
+	for kind in ["helicopter", "tiltrotor", "uav", "gunship"]:
+		var normal_base := _path(kind, false, Game.Difficulty.NORMAL)
+		var normal := _path(kind, true, Game.Difficulty.NORMAL)
+		var hard_base := _path(kind, false, Game.Difficulty.HARD)
+		var hard := _path(kind, true, Game.Difficulty.HARD)
+		var slow := 0.0
+		var fast := 0.0
+		for i in normal.size():
+			slow = maxf(slow, normal[i].distance_to(normal_base[i]))
+			fast = maxf(fast, hard[i].distance_to(hard_base[i]))
+		check(slow > 0.05, kind + " performs a real, nonzero evasive movement on Normal")
+		# A tenfold-smaller goal and slower response must give clearly smaller travel even
+		# though each airframe's flight controller filters the maneuver differently.
+		check(slow < fast * 0.25, kind + " sluggish Normal evasion travels less than a quarter of Hard")
 
 
 func test_fixed_wing_evasion_banks_and_turns_without_side_slipping_or_changing_airspeed() -> void:
-	Game.difficulty = Game.Difficulty.HARD
-	var world := _rig()
-	var flyer := _flyer(world, "uav") as Uav
-	flyer.global_position.y = Uav.ALTITUDE
-	world.player.charge_lock = flyer
-	var previous := flyer.global_position
-	var bank := 0.0
-	var saw_bank := false
-	for i in 60:
-		flyer.tick(1.0 / 60.0)
-		var motion := flyer.global_position - previous
-		motion.y = 0.0
-		# Float roundoff over a 1/60 s step at course coordinates; 1 mm is far below the airframe size.
-		check_near(motion.length(), Uav.HEAD_ON_SPEED / 60.0, 0.001, "turning preserves cruise speed")
-		check(motion.normalized().dot(-flyer.model.global_basis.z) > 0.999, "the nose follows travel, not a lateral position kick")
-		check(absf(flyer._evade_bank - bank) <= 0.9 / 60.0 + 0.00001, "bank changes at the commanded roll-rate bound")
-		check(flyer.model.global_basis.x.y * flyer._evade_bank >= 0.0, "the inside wing lowers into the turn")
-		saw_bank = saw_bank or absf(flyer.model.rotation.z) > 0.1
-		previous = flyer.global_position
-		bank = flyer._evade_bank
-	check(saw_bank, "the production airframe visibly banks into its evasive turn")
+	for mode in [Game.Difficulty.NORMAL, Game.Difficulty.HARD]:
+		Game.difficulty = mode
+		var scale := 0.1 if mode == Game.Difficulty.NORMAL else 1.0
+		var world := _rig()
+		var flyer := _flyer(world, "uav") as Uav
+		flyer.global_position.y = Uav.ALTITUDE
+		world.player.charge_lock = flyer
+		var previous := flyer.global_position
+		var bank := 0.0
+		var saw_bank := false
+		for i in 60:
+			flyer.tick(1.0 / 60.0)
+			var motion := flyer.global_position - previous
+			motion.y = 0.0
+			# Float roundoff over a 1/60 s step at course coordinates; 1 mm is far below the airframe size.
+			check_near(motion.length(), Uav.HEAD_ON_SPEED / 60.0, 0.001, "turning preserves cruise speed")
+			check(motion.normalized().dot(-flyer.model.global_basis.z) > 0.999, "the nose follows travel, not a lateral position kick")
+			check(absf(flyer._evade_bank - bank) <= 0.9 * scale / 60.0 + 0.00001, "bank changes at the difficulty's roll-rate bound")
+			check(flyer.model.global_basis.x.y * flyer._evade_bank >= 0.0, "the inside wing lowers into the turn")
+			saw_bank = saw_bank or absf(flyer.model.rotation.z) > 0.1 * scale
+			previous = flyer.global_position
+			bank = flyer._evade_bank
+		check(saw_bank, "the production airframe banks into its turn on both difficulties")
 
 
 func test_rotorcraft_start_without_a_velocity_kick_and_settle_when_the_lock_ends() -> void:
-	Game.difficulty = Game.Difficulty.HARD
-	var world := _rig()
-	var flyer := _flyer(world, "helicopter")
-	var origin := flyer.global_position
-	world.player.charge_lock = flyer
-	var previous := origin
-	var lateral_speed := 0.0
-	for i in 180:
-		flyer.tick(1.0 / 60.0)
-		var speed := (flyer.global_position.x - previous.x) * 60.0
-		var acceleration := (speed - lateral_speed) * 60.0
-		var thrust := flyer.model.global_basis.y
-		# Double differencing 32-bit positions at x=10 m introduces <0.02 m/s² of roundoff.
-		check_near(acceleration, 9.81 * thrust.x / thrust.y, 0.02, "visible rotor thrust supplies the actual horizontal acceleration")
-		check(absf(acceleration) <= 9.81 * tan(0.65) + 0.02, "rotorcraft accelerates within its achievable tilt")
-		previous = flyer.global_position
-		lateral_speed = speed
-	world.player.charge_lock = null
-	# The 2/4 position controller has a roughly 2 s slow pole; allow five time constants to settle.
-	for i in 600:
-		flyer.tick(1.0 / 60.0)
-	check(flyer.global_position.distance_to(Vector3(origin.x, flyer.global_position.y, origin.z)) < 0.05, "losing the lock returns to the original arena position without drift: %s" % flyer._jink_offset)
-	check(not flyer._jink_active, "an ended lock does not begin another weave")
+	for mode in [Game.Difficulty.NORMAL, Game.Difficulty.HARD]:
+		Game.difficulty = mode
+		var scale := 0.1 if mode == Game.Difficulty.NORMAL else 1.0
+		var world := _rig()
+		var flyer := _flyer(world, "helicopter")
+		var origin := flyer.global_position
+		world.player.charge_lock = flyer
+		var previous := origin
+		var lateral_speed := 0.0
+		for i in 180:
+			flyer.tick(1.0 / 60.0)
+			var speed := (flyer.global_position.x - previous.x) * 60.0
+			var acceleration := (speed - lateral_speed) * 60.0
+			var thrust := flyer.model.global_basis.y
+			# Double differencing 32-bit positions at x=10 m introduces <0.02 m/s² of roundoff.
+			check_near(acceleration, 9.81 * thrust.x / thrust.y, 0.02, "visible rotor thrust supplies the actual horizontal acceleration")
+			check(absf(acceleration) <= 9.81 * tan(0.65 * scale) + 0.02, "rotorcraft accelerates within its difficulty's achievable tilt")
+			previous = flyer.global_position
+			lateral_speed = speed
+		world.player.charge_lock = null
+		# The 2/4 position controller has a roughly 2 s slow pole; allow five time constants to settle.
+		for i in 600:
+			flyer.tick(1.0 / 60.0)
+		check(flyer.global_position.distance_to(Vector3(origin.x, flyer.global_position.y, origin.z)) < 0.05, "losing the lock returns to the original arena position without drift: %s" % flyer._jink_offset)
+		check(not flyer._jink_active, "an ended lock does not begin another weave")
 
 
 func test_rotorcraft_attitude_is_continuous_when_acquiring_and_releasing_a_lock_after_ordinary_flight() -> void:
-	Game.difficulty = Game.Difficulty.HARD
-	for kind in ["helicopter", "tiltrotor"]:
-		var world := _rig()
-		var flyer := _flyer(world, kind)
-		for i in 150:
-			flyer.tick(1.0 / 60.0)
-		var up := flyer.model.global_basis.y.normalized()
-		check(up.angle_to(Vector3.UP) > 0.02, kind + " starts acquisition from an established nonzero ordinary attitude")
-		world.player.charge_lock = flyer
-		for i in 960:
-			if i == 360:
-				world.player.charge_lock = null
-			flyer.tick(1.0 / 60.0)
-			var next := flyer.model.global_basis.y.normalized()
-			check(up.angle_to(next) <= 0.9 / 60.0 + 0.00001, kind + " thrust axis stays within the roll-rate bound during takeover, reversal and handoff")
-			up = next
-		check(not flyer._jink_banking, kind + " eventually hands attitude control back to ordinary flight")
+	for mode in [Game.Difficulty.NORMAL, Game.Difficulty.HARD]:
+		Game.difficulty = mode
+		var rate := 0.09 if mode == Game.Difficulty.NORMAL else 0.9
+		for kind in ["helicopter", "tiltrotor"]:
+			var world := _rig()
+			var flyer := _flyer(world, kind)
+			for i in 150:
+				flyer.tick(1.0 / 60.0)
+			var up := flyer.model.global_basis.y.normalized()
+			check(up.angle_to(Vector3.UP) > 0.02, kind + " starts acquisition from an established nonzero ordinary attitude")
+			world.player.charge_lock = flyer
+			for i in 960:
+				if i == 360:
+					world.player.charge_lock = null
+				var banking := flyer._jink_banking
+				flyer.tick(1.0 / 60.0)
+				var next := flyer.model.global_basis.y.normalized()
+				# Ordinary bobbing keeps its existing rate after evasion has handed control back.
+				if banking or flyer._jink_banking:
+					check(up.angle_to(next) <= rate / 60.0 + 0.00001, kind + " thrust axis stays within the difficulty's roll-rate bound during takeover, reversal and handoff")
+				up = next
+			check(not flyer._jink_banking, kind + " eventually hands attitude control back to ordinary flight")
 
 
 func test_rotorcraft_evasion_preserves_nominal_travel_through_a_curved_road() -> void:
@@ -273,7 +299,7 @@ func test_all_evasive_aircraft_move_as_soon_as_an_unlocked_barrel_points_near_th
 		check(threatened.back().distance_to(ordinary.back()) > 0.01, kind + " changes its actual flight path before the player charges or locks")
 
 
-func test_barrel_near_miss_starts_flight_but_away_behind_out_of_range_and_normal_do_not() -> void:
+func test_barrel_near_miss_starts_flight_but_away_behind_out_of_range_and_easy_do_not() -> void:
 	for scenario in ["near", "away", "behind", "range", "normal", "easy"]:
 		Game.difficulty = Game.Difficulty.NORMAL if scenario == "normal" else (Game.Difficulty.EASY if scenario == "easy" else Game.Difficulty.HARD)
 		var world := _rig()
@@ -293,12 +319,12 @@ func test_barrel_near_miss_starts_flight_but_away_behind_out_of_range_and_normal
 			flyer.tick(1.0 / 60.0)
 		var horizontal := flyer.global_position - origin
 		horizontal.y = 0.0
-		check_eq(horizontal.length() > 0.01, scenario == "near", scenario + " flight outcome respects direction, range and difficulty gates")
+		check_eq(horizontal.length() > 0.01, scenario in ["near", "normal"], scenario + " flight outcome respects direction, range and difficulty gates")
 		check(tank.charge_lock == null and not tank.is_charging(), "the near-miss warning precedes charging")
 
 
-func _stage_one_release_at_100_m(evade: bool) -> Dictionary:
-	Game.difficulty = Game.Difficulty.HARD
+func _stage_one_release_at_100_m(evade: bool, mode := Game.Difficulty.HARD) -> Dictionary:
+	Game.difficulty = mode
 	var world := _rig()
 	var flyer := _flyer(world, "helicopter")
 	flyer.global_position.x = 0.0 # Fire down the open road, not through a roadside building.
@@ -355,13 +381,19 @@ func test_barrel_tracking_moves_the_helicopter_before_a_real_stage_one_charge_an
 	print("100 m stage-one release: control hit=%s, early-warning hit=%s" % [control.hit, warned.hit])
 
 
-func _quick_shot(power: float, evade: bool, delay: float) -> bool:
-	Game.difficulty = Game.Difficulty.HARD
+func _quick_shot(power: float, evade: bool, delay: float, options := {}) -> bool:
+	Game.difficulty = options.get("difficulty", Game.Difficulty.HARD)
 	var world := _rig()
-	var flyer := _flyer(world, "helicopter")
+	var flyer := _flyer(world, options.get("kind", "helicopter"))
+	if not options.is_empty() and not flyer is Gunship:
+		flyer.global_position.x = 0.0 # Keep the test shot clear of roadside buildings.
+		if flyer is Helicopter or flyer is Tiltrotor:
+			flyer._lane = 0.0
+		flyer._last_position = flyer.global_position
 	world.player.charge_lock = flyer
 	flyer.evasive = evade
-	world.player.global_position = flyer.global_position + Vector3.FORWARD * 360.0
+	var side := Vector3.BACK if flyer is Uav else Vector3.FORWARD
+	world.player.global_position = flyer.global_position + side * float(options.get("distance", 360.0))
 	world.player.global_position.y = 0.0
 	# Sample releases throughout the weave; natural motion need not avoid every shot.
 	for i in roundi(delay * 60.0):
@@ -380,6 +412,23 @@ func _quick_shot(power: float, evade: bool, delay: float) -> bool:
 			shell.step(1.0 / 60.0)
 	check_eq(world.player.charge_lock, flyer, "flight does not cancel the lock to manufacture a miss")
 	return flyer.hp < hp or flyer.dead
+
+
+func test_normal_barrel_warning_moves_before_charging_but_cannot_avoid_the_real_100_m_first_stage_release() -> void:
+	var warned := _stage_one_release_at_100_m(true, Game.Difficulty.NORMAL)
+	check(warned.precharge_motion > 0.05, "Normal begins a nonzero evasive movement before the player charges")
+	check(warned.hit, "the real sight, barrel, lead and first-stage release still damage the vulnerable Normal helicopter")
+
+
+func test_sluggish_normal_evasion_still_takes_real_first_stage_shells_on_all_four_aircraft() -> void:
+	for kind in ["helicopter", "tiltrotor", "uav", "gunship"]:
+		for distance in [100.0, 360.0]:
+			# The gunship starts at its orbit goal, then settles after the ground tank is placed.
+			var phases := [5.5, 7.5, 9.5] if kind == "gunship" else [1.5, 3.5, 5.5]
+			for delay in phases:
+				var options := {"difficulty": Game.Difficulty.NORMAL, "kind": kind, "distance": distance}
+				check(_quick_shot(Armament.STAGE_1, false, delay, options), "%s control accepts the real first-stage shell from an initial %.0f m separation / %.1f s" % [kind, distance, delay])
+				check(_quick_shot(Armament.STAGE_1, true, delay, options), "%s sluggish Normal evasion cannot avoid the first-stage shell from an initial %.0f m separation / %.1f s" % [kind, distance, delay])
 
 
 func test_continuous_flight_can_avoid_real_led_stage_one_and_two_shells_that_hit_without_evasion() -> void:

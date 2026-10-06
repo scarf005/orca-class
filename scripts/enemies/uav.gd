@@ -169,10 +169,11 @@ func behave(delta: float) -> void:
 	elif _pass > 0:
 		speed = world.rail.speed + (LEAVE if _leaving else OVERTAKE)
 	# A coordinated turn: bank supplies lateral acceleration without sideslip or a speed jump.
-	var desired_heading := sin(_jink_phase) * 0.6 if _jink_active else 0.0
+	var scale := _evasion_scale()
+	var desired_heading := sin(_jink_phase) * 0.6 * scale if _jink_active else 0.0
 	var turn_rate := angle_difference(_evade_heading, desired_heading) * 2.0
-	var bank := clampf(atan(turn_rate * speed / 9.81), -0.65, 0.65)
-	_evade_bank = move_toward(_evade_bank, bank, delta * 0.9)
+	var bank := clampf(atan(turn_rate * speed / 9.81), -0.65 * scale, 0.65 * scale)
+	_evade_bank = move_toward(_evade_bank, bank, delta * 0.9 * scale)
 	_evade_heading += 9.81 * tan(_evade_bank) / maxf(speed, 1.0) * delta
 	var flight_dir := _dir.rotated(Vector3.UP, _evade_heading)
 	global_position += flight_dir * speed * delta
