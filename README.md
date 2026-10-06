@@ -25,8 +25,9 @@ python3 tools/serve_web.py
 
 Open [the local game](http://127.0.0.1:8000) in a desktop browser with WebGL 2 and WebAssembly.
 
-Play or download the game on [itch.io](https://scarf005.itch.io/orca-class). Pushing to `main` exports the web,
-Linux, Windows, and macOS builds and updates the `html`, `linux`, `windows`, and `osx` channels. Each OS has
+Play or download the game on [itch.io](https://scarf005.itch.io/orca-class). Pushing a SemVer tag (such as
+`1.2.3` or `v1.2.3`, including prerelease and build metadata) exports the web, Linux, Windows, and macOS builds
+and updates the `html`, `linux`, `windows`, and `osx` channels. Branch pushes do not deploy. Each OS has
 its own downloadable ZIP. The GitHub repository needs a `BUTLER_API_KEY` Actions secret from `butler login`.
 
 ## Develop
