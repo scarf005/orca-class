@@ -238,13 +238,13 @@ func _city() -> void:
 		if stage.in_arena(float(d), 60.0):
 			continue
 		add("traffic_light", float(d), 11.0, PI, 0).set_meta("y", stage.height(float(d), 11.0))
-		add("road_sign", float(d) + 55.0, -11.5, 0.0, d % 4).set_meta("y", stage.height(float(d), -11.5))
+		add("road_sign", float(d) + 55.0, -11.5, 0.0, d % 4).set_meta("y", stage.height(float(d) + 55.0, -11.5))
 	for d in range(150, int(Stage2.LENGTH) - 300, 95):
 		if stage.in_arena(float(d), 40.0):
 			continue
 		var u := rng.randf_range(-12.0, 12.0)
 		var variant := rng.randi_range(0, 5)
-		add("raft", float(d), u, rng.randf() * TAU, variant).set_meta("y", Stage2.WATER_LEVEL + 0.02)
+		add("raft", float(d), u, rng.randf() * TAU, variant).set_meta("y", _afloat(stage, float(d), u))
 	for d in range(220, int(Stage2.LENGTH) - 300, 210):
 		if stage.in_arena(float(d), 50.0):
 			continue
@@ -254,7 +254,7 @@ func _city() -> void:
 		if stage.in_arena(float(d), 50.0):
 			continue
 		add("barricade", float(d), rng.randf_range(-6.0, 6.0), rng.randf_range(-0.3, 0.3), rng.randi_range(0, 3))
-		add("city_rubble", float(d) + 20.0, 11.0 if d % 2 == 0 else -11.0, rng.randf() * TAU, d % 4).set_meta("y", stage.height(float(d), 11.0))
+		add("city_rubble", float(d) + 20.0, 11.0 if d % 2 == 0 else -11.0, rng.randf() * TAU, d % 4).set_meta("y", stage.height(float(d) + 20.0, 11.0 if d % 2 == 0 else -11.0))
 	# Deep-water gap dressing is placed from the generated frontage data, never inside a tower box.
 	var gap_index := 0
 	for gap: Dictionary in stage.frontage_gaps:
@@ -265,8 +265,8 @@ func _city() -> void:
 			add("bus_wreck", float(gap.d), float(gap.u), rng.randf_range(-0.4, 0.4), rng.randi_range(0, 5))
 		else:
 			add("car", float(gap.d), float(gap.u), rng.randf() * TAU, rng.randi_range(0, 11))
-		add("streetlamp", float(gap.d) - 5.0, float(gap.u) + gap.side * 3.0, 0.0, int(gap.d) % 6).set_meta("y", Stage2.WATER_LEVEL + 0.02)
-		add("road_sign", float(gap.d) + 6.0, float(gap.u) - gap.side * 2.0, 0.0, int(gap.d) % 4).set_meta("y", Stage2.WATER_LEVEL + 0.02)
+		add("streetlamp", float(gap.d) - 5.0, float(gap.u) + gap.side * 3.0, 0.0, int(gap.d) % 6).set_meta("y", _afloat(stage, float(gap.d) - 5.0, float(gap.u) + gap.side * 3.0))
+		add("road_sign", float(gap.d) + 6.0, float(gap.u) - gap.side * 2.0, 0.0, int(gap.d) % 4).set_meta("y", _afloat(stage, float(gap.d) + 6.0, float(gap.u) - gap.side * 2.0))
 	for i in 5:
 		var side := -1.0 if i % 2 == 0 else 1.0
 		add_decor(CityKit.decor("crane"), Stage2.BAY_D - 110.0 + i * 55.0, side * 158.0, PI * 0.5 * side, Stage2.WATER_LEVEL - 4.0)
@@ -303,6 +303,11 @@ func _city() -> void:
 	add("subway_entrance", Stage2.PLAZA_D - 65.0, 55.0, 0.0, 0).set_meta("y", stage.height(Stage2.PLAZA_D - 65.0, 55.0))
 	for d in range(2250, 3150, 180):
 		add("truck", float(d), 8.0, 0.0, 1)
+
+
+## Where a prop floating at the waterline sits: on top of rubble or pavement that rises above the water.
+static func _afloat(stage: Stage2, d: float, u: float) -> float:
+	return maxf(Stage2.WATER_LEVEL + 0.02, stage.height(d, u))
 
 
 var _last_tank := Vector3.INF

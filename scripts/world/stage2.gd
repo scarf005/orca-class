@@ -17,6 +17,31 @@ const SPLITS: Array[Dictionary] = [
 	{"d": 300.0, "u": 0.0, "size": 8.0, "kind": "tower"},
 ]
 
+const KERB_HEIGHT := 0.7 ## Pavement shelf above the drowned road on the boulevard and in the canyon.
+const KERB_RAMP := 3.0 ## Metres of road it takes to climb onto the shelf (about 0.22 rise/run).
+## Smooth bumps (h > 0) and hollows (h < 0) added to the road. The weight falls off as a cosine from the flat
+## `flat` fraction of the footprint (half-extents rx across, rz along; rx INF spans the whole street) to zero at its
+## edge, so slopes stay below h * PI / 2 / ((1 - flat) * extent) and the tank can ride over all of it.
+const RELIEF: Array[Dictionary] = [
+	# Rubble and collapsed-road ramps. Off-centre ones narrow one side of the street; the two canyon mounds sit on it.
+	{"d": 150.0, "u": -15.0, "rx": 9.0, "rz": 14.0, "h": 1.2},
+	{"d": 230.0, "u": 18.0, "rx": 9.0, "rz": 12.0, "h": 1.0},
+	{"d": 430.0, "u": 16.0, "rx": 8.0, "rz": 12.0, "h": 1.1},
+	{"d": 520.0, "u": -16.0, "rx": 8.0, "rz": 11.0, "h": 1.4},
+	{"d": 790.0, "u": 17.0, "rx": 10.0, "rz": 15.0, "h": 1.3},
+	{"d": 960.0, "u": -18.0, "rx": 12.0, "rz": 13.0, "h": 1.2},
+	{"d": 1050.0, "u": 16.0, "rx": 9.0, "rz": 12.0, "h": 1.0},
+	{"d": 1420.0, "u": -17.0, "rx": 10.0, "rz": 14.0, "h": 1.4},
+	{"d": 1590.0, "u": 15.0, "rx": 9.0, "rz": 12.0, "h": 1.1},
+	{"d": 2600.0, "u": 0.0, "rx": 8.0, "rz": 11.0, "h": 1.2},
+	{"d": 2950.0, "u": -2.0, "rx": 8.0, "rz": 10.0, "h": 1.2},
+	# Collapsed subway and sinkholes across the whole street.
+	{"d": 620.0, "u": 0.0, "rx": INF, "rz": 22.0, "h": -1.5, "flat": 0.4},
+	{"d": 1260.0, "u": 0.0, "rx": INF, "rz": 22.0, "h": -1.5, "flat": 0.4},
+	{"d": 2430.0, "u": 0.0, "rx": INF, "rz": 22.0, "h": -1.5, "flat": 0.4},
+	{"d": 3000.0, "u": 0.0, "rx": INF, "rz": 22.0, "h": -1.5, "flat": 0.4},
+]
+
 var frontage_gaps: Array[Dictionary] = []
 
 
@@ -199,10 +224,29 @@ func height(d: float, u: float) -> float:
 			return -0.15
 	# Under the expressway the drowned road runs on to the piers, so its hunters can come down to the street.
 	var reach := lateral_limit(d) + (14.0 if section_at(d) == Section.VIADUCT and signf(u) == _expressway_side(d) else 0.0)
-	return 0.05 if absf(u) <= reach else WATER_LEVEL - 4.5
+	if absf(u) > reach:
+		return WATER_LEVEL - 4.5
+	return 0.05 + _kerb(d, absf(u)) + _relief(d, u)
 
 
-func ground_color(d: float, u: float, _h: float, _slope: float) -> Color:
+## The pavement shelf rises along the boulevard and canyon walls and fades out where the section ends.
+func _kerb(d: float, au: float) -> float:
+	var weight := (1.0 - smoothstep(660.0, 700.0, d)) + smoothstep(2150.0, 2190.0, d) * (1.0 - smoothstep(3160.0, 3200.0, d))
+	var edge := lateral_limit(d) - 4.0
+	return KERB_HEIGHT * weight * clampf((au - edge + KERB_RAMP) / KERB_RAMP, 0.0, 1.0)
+
+
+func _relief(d: float, u: float) -> float:
+	var total := 0.0
+	for feature in RELIEF:
+		var r := Vector2((d - feature.d) / feature.rz, (u - feature.u) / feature.rx).length()
+		if r < 1.0:
+			var flat: float = feature.get("flat", 0.0)
+			total += feature.h * 0.5 * (1.0 + cos(PI * clampf((r - flat) / (1.0 - flat), 0.0, 1.0)))
+	return total
+
+
+func ground_color(d: float, u: float, h: float, _slope: float) -> Color:
 	var au := absf(u)
 	if section_at(d) == Section.PLAZA and Vector2(d - PLAZA_D, u).length() < PLAZA_RADIUS:
 		return Palette.MIST if int(Vector2(d - PLAZA_D, u).length() / 8.0) % 2 else Palette.STONE
@@ -212,7 +256,9 @@ func ground_color(d: float, u: float, _h: float, _slope: float) -> Color:
 	if au > limit:
 		return Palette.MOSS
 	# Terrain vertices are metres apart, so painted lines would smear into big triangles: only broad surfaces.
-	return Palette.CONCRETE if au > limit - 4.0 else Palette.SLATE
+	if au > limit - 4.0:
+		return Palette.CONCRETE
+	return Palette.STONE if h > WATER_LEVEL else Palette.SLATE
 
 
 func water_surface(c: Vector2) -> float:
@@ -223,15 +269,16 @@ func water_mesh() -> ArrayMesh:
 	var b := LowPoly.new()
 	for d in range(-100, int(LENGTH), 20):
 		for u in range(-180, 180, 10):
-			if height(d + 10.0, u + 5.0) >= WATER_LEVEL:
+			var depth := height(d + 10.0, u + 5.0)
+			if minf(depth, minf(height(d, u), minf(height(d + 20.0, u), minf(height(d, u + 10.0), height(d + 20.0, u + 10.0))))) >= WATER_LEVEL:
 				continue
 			var a := Course.to_world(float(d), float(u), WATER_LEVEL)
 			var c := Course.to_world(d + 20.0, float(u), WATER_LEVEL)
 			var e := Course.to_world(d + 20.0, u + 10.0, WATER_LEVEL)
 			var f := Course.to_world(float(d), u + 10.0, WATER_LEVEL)
-			# One sheet of water from wall to wall, a shade darker over the deep lots than over the drowned avenue.
-			var shallow := height(d + 10.0, u + 5.0) > WATER_LEVEL - 1.0
-			var color := Color(Palette.SKY, 0.82) if shallow else Color(Palette.SKY.darkened(0.22), 0.95)
+			# One sheet of water from wall to wall, darker where it is deeper: drowned avenue, sinkholes, deep lots.
+			var shade := 0.0 if depth > WATER_LEVEL - 0.5 else (0.5 if depth > WATER_LEVEL - 1.6 else 1.0)
+			var color := Color(Palette.SKY, 0.82).lerp(Color(Palette.SKY.darkened(0.22), 0.95), shade)
 			b.tri(a, c, e, color, Vector3.UP)
 			b.tri(a, e, f, color, Vector3.UP)
 	var rng := RandomNumberGenerator.new()
