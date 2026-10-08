@@ -1,6 +1,6 @@
 extends Node
 ## Runs every tests/*_test.gd. Exit code is 1 when any check, compile error, or harness error fails.
-## Usage: godot --headless --fixed-fps 60 --path . -- --run=res://tests/run.gd [--only=name]
+## Usage: godot --headless --fixed-fps 60 --path . -- --run=res://tests/run.gd [--only=name[,name...]]
 
 
 class TestLogger extends Logger:
@@ -31,15 +31,17 @@ func _runtime_failures(errors: Array[Dictionary], label: String) -> Array[String
 
 func run() -> int:
 	var only: String = preload("res://scripts/main.gd").args().get("only", "")
+	var filters := only.split(",", false)
 	var files: Array[String] = []
 	for file in DirAccess.get_files_at("res://tests"):
-		if file.ends_with("_test.gd") and (only.is_empty() or file.contains(only)):
+		if file.ends_with("_test.gd") and (filters.is_empty() or Array(filters).any(func(f: String) -> bool: return file.contains(f))):
 			files.append(file)
 	files.sort()
 	var total_failures: Array[String] = []
 	var total_skips: Array[String] = []
 	var count := 0
 	var passed := 0
+	var durations: Array[Array] = []
 	print("Test user data directory: ", OS.get_user_data_dir())
 	var isolated := TestCase.is_isolated()
 	print("Test sandbox verified: ", isolated)
@@ -56,6 +58,7 @@ func run() -> int:
 	var logger := TestLogger.new()
 	OS.add_logger(logger)
 	for file in files:
+		var started := Time.get_ticks_msec()
 		var script: GDScript = load("res://tests/" + file)
 		if script == null or not script.can_instantiate():
 			total_failures.append("%s: failed to compile" % file)
@@ -100,6 +103,7 @@ func run() -> int:
 		total_failures.append_array(_runtime_failures(teardown_errors, "%s teardown" % file))
 		if not teardown_errors.is_empty():
 			passed -= suite_passed
+		durations.append([Time.get_ticks_msec() - started, file])
 	await get_tree().process_frame
 	var final_errors := logger.take_errors()
 	OS.remove_logger(logger)
@@ -116,5 +120,8 @@ func run() -> int:
 		printerr("FAIL ", failure)
 	for skipped in total_skips:
 		print("SKIP ", skipped)
+	durations.sort_custom(func(a: Array, b: Array) -> bool: return a[0] > b[0])
+	for entry in durations.slice(0, 5):
+		print("SLOW %.1f s %s" % [entry[0] / 1000.0, entry[1]])
 	print("%d tests, %d passed, %d skipped, %d failed checks" % [count, passed, total_skips.size(), total_failures.size()])
 	return 1 if not total_failures.is_empty() else 0

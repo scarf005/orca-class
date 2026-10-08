@@ -62,7 +62,7 @@ Set `GODOT`, `BUTLER`, or `ITCH_PROJECT` to override the executable paths or `sc
 
 ```sh
 just test                 # isolated settings/bests/tuning and strict error reporting
-just test tail            # run one filename filter
+just test tail,aim        # run only files matching any comma-separated filter
 ```
 
 Direct Godot runs are diagnostic-only and may write `user://` files; provide temporary XDG paths
