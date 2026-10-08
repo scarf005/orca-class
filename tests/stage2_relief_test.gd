@@ -99,8 +99,64 @@ func test_pinned_scenery_is_never_buried_by_relief() -> void:
 	var scenery := stage("", false, 2).director.scenery
 	var checked := 0
 	for spec in scenery.specs:
-		if spec.size != Vector3.ZERO or not spec.has_meta("y"):
+		if spec.size != Vector3.ZERO or spec.decor or not spec.has_meta("y"):
 			continue
 		checked += 1
 		check(float(spec.get_meta("y")) >= Course.stage.height(spec.d, spec.u) - 0.001, "%s at d=%d u=%.1f stands on the ground, not inside it" % [spec.kind, int(spec.d), spec.u])
 	check(checked > 100, "streetlamps, signs, rafts and rubble are all checked (%d)" % checked)
+
+
+func _footprint(block: Dictionary) -> Rect2:
+	return Rect2(block.d - block.size.z * 0.5, block.u - block.size.x * 0.5, block.size.z, block.size.x)
+
+
+func test_backdrop_never_touches_front_structures_road_or_arenas() -> void:
+	var stage := Stage2.new()
+	check(not stage.backdrop.is_empty(), "the street has a skyline behind its frontage")
+	for block in stage.backdrop:
+		var rect := _footprint(block)
+		check(minf(absf(rect.position.y), absf(rect.end.y)) >= stage.lateral_limit(block.d) + 30.0, "backdrop at d=%d u=%.0f keeps clear of the street" % [int(block.d), block.u])
+		for structure in stage.structures:
+			check(not rect.intersects(Rect2(structure.d - structure.size.z * 0.5, structure.u - structure.size.x * 0.5, structure.size.z, structure.size.x)), "backdrop at d=%d u=%.0f is clear of the %s at d=%d" % [int(block.d), block.u, structure.kind, int(structure.d)])
+		for arena in stage.arenas:
+			var corner := Vector2(clampf(arena.d, rect.position.x, rect.end.x), clampf(0.0, rect.position.y, rect.end.y))
+			check(corner.distance_to(Vector2(arena.d, 0.0)) >= arena.radius + 20.0, "backdrop at d=%d u=%.0f stays out of the arena at d=%d" % [int(block.d), block.u, int(arena.d)])
+		check(block.d + block.size.z * 0.5 <= Stage2.BAY_D - Stage2.BAY_RADIUS, "backdrop at d=%d stays on the land side of the bay" % int(block.d))
+	for index in stage.backdrop.size():
+		for other in range(index + 1, stage.backdrop.size()):
+			check(not _footprint(stage.backdrop[index]).intersects(_footprint(stage.backdrop[other])), "backdrop blocks %d and %d do not overlap" % [index, other])
+
+
+func test_backdrop_count_and_heights_are_bounded() -> void:
+	var stage := Stage2.new()
+	check(stage.backdrop.size() >= 250 and stage.backdrop.size() <= 350, "backdrop holds 250..350 blocks (%d)" % stage.backdrop.size())
+	var rows := [[], []] # roof heights of the near and far rows
+	for block in stage.backdrop:
+		var roof: float = block.size.y - 4.5
+		var warehouse: bool = block.d >= Stage2.SECTION_STARTS[Stage2.Section.BAY]
+		check(roof >= (8.0 if warehouse else 22.0) and roof <= (14.0 if warehouse else 70.0), "backdrop at d=%d rises %.0f m, inside its class's range" % [int(block.d), roof])
+		var setback: float = absf(block.u) - block.size.x * 0.5 - stage.lateral_limit(block.d)
+		if not warehouse and (setback < 60.0 or setback > 85.0) and absf(block.u) < 150.0 and not stage.in_arena(block.d, 100.0):
+			rows[0 if setback < 60.0 else 1].append(roof)
+	check(not rows[0].is_empty() and not rows[1].is_empty(), "both backdrop rows exist")
+	check(rows[1].reduce(func(a: float, b: float) -> float: return a + b, 0.0) / maxi(rows[1].size(), 1) >= rows[0].reduce(func(a: float, b: float) -> float: return a + b, 0.0) / maxi(rows[0].size(), 1) + 10.0, "the far row averages at least 10 m taller so the skyline rises")
+
+
+func test_backdrop_plan_is_deterministic() -> void:
+	var first := Stage2.new().backdrop
+	var second := Stage2.new().backdrop
+	check_eq(first.size(), second.size(), "the same seed lays out the same number of blocks")
+	check_eq(first, second, "the same seed lays out the same blocks")
+
+
+func test_backdrop_streams_as_non_colliding_chunked_decor() -> void:
+	var scenery := stage("", false, 2).director.scenery
+	var decor := scenery.specs.filter(func(spec: Scenery.Spec) -> bool: return spec.decor and spec.has_meta("range"))
+	var boxes := Course.structure_boxes.size()
+	check(decor.size() > 80 and decor.size() <= Stage2.LENGTH / Scenery.BACKDROP_CHUNK, "backdrop is merged to at most one decor per chunk (%d)" % decor.size())
+	check_eq(Course.structure_boxes.size(), boxes, "backdrop adds no collision boxes")
+	scenery.stream(900.0, 100000)
+	var live := decor.filter(func(spec: Scenery.Spec) -> bool: return is_instance_valid(spec.node))
+	check(not live.is_empty(), "backdrop chunks near the rail are streamed in")
+	for spec: Scenery.Spec in live:
+		check_near((spec.node as GeometryInstance3D).visibility_range_end, Scenery.BACKDROP_RANGE, 0.01, "backdrop stays visible out to the fog")

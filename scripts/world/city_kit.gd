@@ -487,6 +487,30 @@ static func _crane(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
 	return b.mesh()
 
 
+## Distant skyline for one chunk of street: plain blocks with floor bands, a roof box and a few lit ribbons, no per-window
+## geometry. Each block is {"x": across, "z": along (local -Z is forward), "size", "variant"}; y = 0 is the block's base.
+static func backdrop(blocks: Array) -> Mesh:
+	var b := LowPoly.new()
+	for block: Dictionary in blocks:
+		var size: Vector3 = block.size
+		var variant: int = block.variant
+		var rng := RandomNumberGenerator.new()
+		rng.seed = hash([block.x, block.z, size, variant])
+		var wall: Color = FACADES[variant % FACADES.size()]
+		var at := Vector3(block.x, 0.0, block.z)
+		b.box(_xf(at + Vector3(0, size.y * 0.5, 0)), size, wall)
+		for band in 2 + variant % 2:
+			b.box(_xf(at + Vector3(0, size.y * (0.4 + 0.22 * band), 0)), Vector3(size.x + 0.5, 0.6, size.z + 0.5), wall.lightened(0.3))
+		b.box(_xf(at + Vector3(-size.x * 0.1, size.y + 1.25, 0)), Vector3(size.x * 0.45, 2.5, size.z * 0.4), Palette.SLATE)
+		b.glow = true
+		for face in [Vector3(size.x * 0.5, 0, 0), Vector3(-size.x * 0.5, 0, 0), Vector3(0, 0, size.z * 0.5), Vector3(0, 0, -size.z * 0.5)]:
+			if rng.randf() < 0.6:
+				var ribbon := Vector3(0.1, 1.0, size.z * 0.5) if face.x != 0.0 else Vector3(size.x * 0.5, 1.0, 0.1)
+				b.box(_xf(at + face + Vector3(0, size.y * rng.randf_range(0.3, 0.9), 0)), ribbon, Palette.BUTTER)
+		b.glow = false
+	return b.mesh()
+
+
 static func _window(b: LowPoly, center: Vector3, half_width: Vector3, color: Color, outward: Vector3, half_height: float) -> void:
 	var up := Vector3.UP * half_height
 	var a := center - half_width - up

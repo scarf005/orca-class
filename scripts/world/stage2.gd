@@ -42,7 +42,11 @@ const RELIEF: Array[Dictionary] = [
 	{"d": 3000.0, "u": 0.0, "rx": INF, "rz": 22.0, "h": -1.5, "flat": 0.4},
 ]
 
+const BACKDROP_ROWS := [45.0, 95.0] ## Setback of each backdrop row from the wall line, beyond the front tower row.
+
 var frontage_gaps: Array[Dictionary] = []
+## Non-colliding skyline blocks behind the front towers: {"d", "u", "size", "variant"}; size.y includes the sunken base.
+var backdrop: Array[Dictionary] = []
 
 
 func _init() -> void:
@@ -90,6 +94,7 @@ func _init() -> void:
 				_structure("container", d, u + 0.4, Vector3(12.0, 2.8, 5.0), WATER_LEVEL + 1.5, tint + 1)
 	_structure("ship", BAY_D + 26.0, -104.0, Vector3(64.0, 7.0, 16.0), WATER_LEVEL - 3.5, 1)
 	_structure("ship", BAY_D - 52.0, 108.0, Vector3(54.0, 6.0, 14.0), WATER_LEVEL - 3.0, 3)
+	_generate_backdrop()
 
 
 func _generate_walls() -> void:
@@ -115,6 +120,58 @@ func _generate_walls() -> void:
 					frontage_gaps.append({"d": d + along + gap * 0.5, "u": side * (setback + across + 8.0), "gap": gap, "side": side})
 				d = next_d
 				along = next_along
+
+
+## Two rows of lower, plainer blocks behind the frontage so the street never ends in a void. They climb with
+## distance, ring the plaza rim, and stop on the land side of the bay where low warehouses stand instead.
+func _generate_backdrop() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20261008
+	var land_end := BAY_D - BAY_RADIUS - 2.0
+	for row in BACKDROP_ROWS.size():
+		for side: float in [-1.0, 1.0]:
+			var d := rng.randf_range(0.0, 20.0)
+			while d < land_end:
+				var along := float(rng.randi_range(0, 2)) * 6.0 + 28.0
+				var across := float(rng.randi_range(0, 2)) * 6.0 + 24.0
+				var base := 22.0 if section_at(d) == Section.CANYON else 30.0
+				var inner := base + float(BACKDROP_ROWS[row]) + rng.randf_range(0.0, 6.0)
+				var warehouse := d >= SECTION_STARTS[Section.BAY]
+				var roof := float(rng.randi_range(4, 7) if warehouse else (rng.randi_range(11, 22) if row == 0 else rng.randi_range(22, 35))) * 2.0
+				var variant := rng.randi_range(0, 7)
+				if d + along * 0.5 <= land_end:
+					_backdrop(d, side * (inner + across * 0.5), Vector3(across, roof + 4.5, along), variant)
+				d += along + rng.randf_range(0.0, 10.0)
+	# The plaza arena stays clear; blocks ring its rim just outside the keep-out radius.
+	var ring := PLAZA_RADIUS + 20.0 + 24.0
+	for step in 24:
+		var angle := TAU * step / 24.0
+		_backdrop(PLAZA_D + cos(angle) * ring, sin(angle) * ring, Vector3(30.0, float(rng.randi_range(11, 22)) * 2.0 + 4.5, 30.0), rng.randi_range(0, 7))
+
+
+## Adds a backdrop block unless it would touch the street, an arena's rim, a front structure or an earlier block.
+func _backdrop(d: float, u: float, size: Vector3, variant: int) -> void:
+	var rect := Rect2(d - size.z * 0.5, u - size.x * 0.5, size.z, size.x)
+	for arena in arenas:
+		var near := Vector2(clampf(arena.d, rect.position.x, rect.end.x), clampf(0.0, rect.position.y, rect.end.y))
+		if near.distance_to(Vector2(arena.d, 0.0)) < arena.radius + 20.0:
+			return
+	if _backdrop_clear(rect):
+		backdrop.append({"d": d, "u": u, "size": size, "variant": variant})
+
+
+## Whether a (d, u) footprint overlaps neither the street, a front structure, nor another backdrop block.
+func _backdrop_clear(rect: Rect2) -> bool:
+	if absf(rect.get_center().y) - rect.size.y * 0.5 < lateral_limit(rect.get_center().x) + 30.0:
+		return false
+	for structure in structures:
+		var other := Rect2(structure.d - structure.size.z * 0.5, structure.u - structure.size.x * 0.5, structure.size.z, structure.size.x)
+		if rect.grow(4.0).intersects(other):
+			return false
+	for block in backdrop:
+		if rect.intersects(Rect2(block.d - block.size.z * 0.5, block.u - block.size.x * 0.5, block.size.z, block.size.x)):
+			return false
+	return true
 
 
 ## Each part of town has its own mix of tower kinds (see CityKit.tower): shop signs on the boulevard, apartment

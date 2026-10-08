@@ -3,6 +3,8 @@ extends Node3D
 ## Lays out the stage's props and decor from a seeded plan, and streams them in and out around
 ## the rail so only the nearby stretch exists as nodes.
 
+const BACKDROP_CHUNK := 40.0
+const BACKDROP_RANGE := 330.0 ## Visibility range of the skyline; the fog hides what lies beyond.
 const AHEAD := 330.0
 const BEHIND := 45.0
 const STREAM_BUDGET_USEC := 1000
@@ -227,6 +229,7 @@ func _city() -> void:
 				container_groups[key] = spec.group
 				_groups.append({})
 	var stage := Course.stage as Stage2
+	_backdrop_chunks(stage)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20261004
 	for d in range(100, int(Stage2.LENGTH) - 300, 36):
@@ -303,6 +306,19 @@ func _city() -> void:
 	add("subway_entrance", Stage2.PLAZA_D - 65.0, 55.0, 0.0, 0).set_meta("y", stage.height(Stage2.PLAZA_D - 65.0, 55.0))
 	for d in range(2250, 3150, 180):
 		add("truck", float(d), 8.0, 0.0, 1)
+
+
+## The skyline behind the front towers, merged into one mesh per BACKDROP_CHUNK of street to keep the live count low.
+func _backdrop_chunks(stage: Stage2) -> void:
+	var chunks := {}
+	for block in stage.backdrop:
+		var chunk := int(block.d / BACKDROP_CHUNK)
+		var centre := (float(chunk) + 0.5) * BACKDROP_CHUNK
+		var blocks: Array = chunks.get_or_add(chunk, [])
+		blocks.append({"x": block.u, "z": centre - block.d, "size": block.size, "variant": block.variant})
+	for chunk: int in chunks:
+		var spec := add_decor(CityKit.backdrop(chunks[chunk]), (float(chunk) + 0.5) * BACKDROP_CHUNK, 0.0, 0.0, Stage2.WATER_LEVEL - 4.5)
+		spec.set_meta("range", BACKDROP_RANGE)
 
 
 ## Where a prop floating at the waterline sits: on top of rubble or pavement that rises above the water.
@@ -772,7 +788,7 @@ func _instantiate(spec: Spec) -> void:
 	elif spec.decor:
 		var decor := MeshInstance3D.new()
 		decor.mesh = spec.mesh
-		decor.visibility_range_end = 260.0
+		decor.visibility_range_end = spec.get_meta("range", 260.0)
 		add_child(decor)
 		decor.global_position = position
 		decor.rotation.y = yaw
