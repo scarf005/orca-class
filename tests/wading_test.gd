@@ -4,7 +4,7 @@ extends TestCase
 const DRY_U := 0.0
 const SHALLOW_U := 20.0
 const DEEP_U := -20.0
-const D := 300.0
+const D := 380.0 # Clear of the d=300 splitter tower, which would shove a pinned tank into a lane.
 
 
 ## Stage 2's road with a shallow sheet to the right and a deep one to the left; the road itself is dry.

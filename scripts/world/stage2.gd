@@ -357,6 +357,15 @@ func water_mesh() -> ArrayMesh:
 				p.append(centre + basis * corner)
 			b.tri(p[0], p[1], p[2], Palette.CREAM, Vector3.UP)
 			b.tri(p[0], p[2], p[3], Palette.CREAM, Vector3.UP)
+	# Foam lines where the water drops into a sinkhole, so its edge reads from the road.
+	for feature in RELIEF:
+		if feature.h >= 0.0:
+			continue
+		for edge: float in [-0.78, 0.78]:
+			var d: float = feature.d + edge * feature.rz
+			var reach := lateral_limit(d)
+			b.tri(Course.to_world(d - 0.7, -reach, WATER_LEVEL + 0.03), Course.to_world(d + 0.7, -reach, WATER_LEVEL + 0.03), Course.to_world(d + 0.7, reach, WATER_LEVEL + 0.03), Palette.CREAM, Vector3.UP)
+			b.tri(Course.to_world(d - 0.7, -reach, WATER_LEVEL + 0.03), Course.to_world(d + 0.7, reach, WATER_LEVEL + 0.03), Course.to_world(d - 0.7, reach, WATER_LEVEL + 0.03), Palette.CREAM, Vector3.UP)
 	# Current streaks: pale slivers drifting along the street, so the flood reads as moving water.
 	for i in 3200:
 		var d := rng.randf_range(0.0, LENGTH)
