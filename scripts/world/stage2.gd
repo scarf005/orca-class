@@ -315,7 +315,9 @@ func ground_color(d: float, u: float, h: float, _slope: float) -> Color:
 	# Terrain vertices are metres apart, so painted lines would smear into big triangles: only broad surfaces.
 	if au > limit - 4.0:
 		return Palette.CONCRETE
-	return Palette.STONE if h > WATER_LEVEL else Palette.SLATE
+	if h > WATER_LEVEL:
+		return Palette.ASH if (int(d / 3.0) + int(u / 3.0)) % 2 == 0 else Palette.STONE
+	return Palette.SLATE.darkened(0.35) if h < -0.5 else Palette.SLATE
 
 
 func water_surface(c: Vector2) -> float:
@@ -334,8 +336,8 @@ func water_mesh() -> ArrayMesh:
 			var e := Course.to_world(d + 20.0, u + 10.0, WATER_LEVEL)
 			var f := Course.to_world(float(d), u + 10.0, WATER_LEVEL)
 			# One sheet of water from wall to wall, darker where it is deeper: drowned avenue, sinkholes, deep lots.
-			var shade := 0.0 if depth > WATER_LEVEL - 0.5 else (0.5 if depth > WATER_LEVEL - 1.6 else 1.0)
-			var color := Color(Palette.SKY, 0.82).lerp(Color(Palette.SKY.darkened(0.22), 0.95), shade)
+			var shade := 0.0 if depth > WATER_LEVEL - 0.5 else (0.5 if depth > WATER_LEVEL - 1.0 else 1.0)
+			var color := Color(Palette.SKY, 0.82).lerp(Color(Palette.SKY.darkened(0.4), 0.97), shade)
 			b.tri(a, c, e, color, Vector3.UP)
 			b.tri(a, e, f, color, Vector3.UP)
 	var rng := RandomNumberGenerator.new()

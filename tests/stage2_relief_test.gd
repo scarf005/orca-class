@@ -77,7 +77,9 @@ func test_pavement_shelf_stands_above_the_water_on_boulevard_and_canyon_only() -
 func test_rubble_is_painted_stone_and_awash_road_stays_slate() -> void:
 	Course.use(2)
 	var stage := Course.stage as Stage2
-	check(stage.ground_color(790.0, 17.0, stage.height(790.0, 17.0), 0.0) == Palette.STONE, "a rubble mound reads as stone")
+	var mound := stage.ground_color(790.0, 17.0, stage.height(790.0, 17.0), 0.0)
+	check(mound == Palette.STONE or mound == Palette.ASH, "a rubble mound reads as stone or ash")
+	check(stage.ground_color(1260.0, 0.0, -1.45, 0.0) == Palette.SLATE.darkened(0.35), "a sinkhole floor is darker than the road")
 	check(stage.ground_color(790.0, 0.0, 0.05, 0.0) == Palette.SLATE, "the drowned road stays slate")
 
 

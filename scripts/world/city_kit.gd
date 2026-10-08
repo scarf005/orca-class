@@ -502,6 +502,10 @@ static func backdrop(blocks: Array) -> Mesh:
 		for band in 2 + variant % 2:
 			b.box(_xf(at + Vector3(0, size.y * (0.4 + 0.22 * band), 0)), Vector3(size.x + 0.5, 0.6, size.z + 0.5), wall.lightened(0.3))
 		b.box(_xf(at + Vector3(-size.x * 0.1, size.y + 1.25, 0)), Vector3(size.x * 0.45, 2.5, size.z * 0.4), Palette.SLATE)
+		# Dark window strips on the face toward the street read as storeys instead of a bare slab.
+		var toward := -signf(block.x)
+		for strip in int(size.y / 6.0) - 1:
+			b.box(_xf(at + Vector3(toward * (size.x * 0.5 + 0.05), 7.0 + strip * 6.0, 0)), Vector3(0.12, 2.2, size.z - 3.0), Palette.SLATE)
 		b.glow = true
 		for face in [Vector3(size.x * 0.5, 0, 0), Vector3(-size.x * 0.5, 0, 0), Vector3(0, 0, size.z * 0.5), Vector3(0, 0, -size.z * 0.5)]:
 			if rng.randf() < 0.6:
