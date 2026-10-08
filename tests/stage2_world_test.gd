@@ -393,7 +393,7 @@ func test_prop_plan_is_bounded_for_streaming() -> void:
 			if spec.d >= d - Scenery.BEHIND and spec.d < d + Scenery.AHEAD:
 				count += 1
 		peak = maxi(peak, count)
-	check(peak <= 100, "city streaming keeps fewer than 100 nearby props/decor (got %d)" % peak)
+	check(peak <= 130, "city streaming keeps at most 130 nearby props/decor, 30 %% over the 100 before the skyline chunks (got %d)" % peak)
 	print("CITY plan=%d peak_window=%d structures=%d" % [scenery.specs.size(), peak, Course.stage.structures.size()])
 	scenery.free()
 

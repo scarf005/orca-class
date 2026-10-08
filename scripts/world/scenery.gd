@@ -117,6 +117,7 @@ class Spec:
 	var group := -1 ## Compound this piece belongs to.
 	var rests_on := -1 ## Index within the group of the piece holding this one up.
 	var index := 0
+	var seq := 0 ## Position in the plan before sorting by distance.
 	var size := Vector3.ZERO
 
 var specs: Array[Spec] = []
@@ -143,7 +144,9 @@ func build() -> void:
 	else:
 		_city()
 	process_priority = 90 # Resolve solid scenery after driving, before the chase camera.
-	specs.sort_custom(func(a: Spec, b: Spec) -> bool: return a.d < b.d)
+	for i in specs.size():
+		specs[i].seq = i
+	specs.sort_custom(func(a: Spec, b: Spec) -> bool: return a.d < b.d or (a.d == b.d and a.seq < b.seq)) # Stable: stacked pieces share a d.
 	_prewarm()
 
 
