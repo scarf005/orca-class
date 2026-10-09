@@ -25,6 +25,7 @@ var stagger := 0.0
 var burning := 0.0
 var can_stagger := true
 var trails := false ## Flyers leave a fading trail (FlyerTrail).
+const WADE_DEPTH := 0.45 ## How far under the surface a ground unit rides over deep water.
 var despawn_behind := 30.0 ## Removed once this far behind the rail; 0 keeps it.
 var mark_offsets: Array[float] = [] ## Ground vehicles print a line into World.enemy_marks at each of these lateral offsets.
 var mark_width := 1.0 ## How wide those prints are next to a tank's tread.
@@ -386,6 +387,16 @@ func take_hit(hit: Hit) -> void:
 ## Cancels a telegraphed attack (tail stab, heavy stagger).
 func interrupt() -> void:
 	stagger = maxf(stagger, 1.0)
+
+
+## Ground standing for a vehicle or walker: on the street bed, or riding just under the surface where the city is
+## drowned deeper than it can stand, so a sinkhole never swallows a hunter.
+static func wading_at(d: float, u: float) -> Vector3:
+	var p := Course.ground_at(d, u)
+	var surface := Water.surface_at(p)
+	if Course.stage is Stage2 and surface > p.y + WADE_DEPTH:
+		p.y = surface - WADE_DEPTH
+	return p
 
 
 func despawn() -> void:

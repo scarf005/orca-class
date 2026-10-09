@@ -160,7 +160,7 @@ func behave(delta: float) -> void:
 	if not collapsed() and not is_staggered() and _stomp <= 0.0:
 		move = Vector2(clampf(target_d - here.x, -16.0, 16.0), clampf(_lane - here.y, -3.5, 3.5)) * pace
 	var next := here + move * delta
-	global_position = Course.ground_at(next.x, next.y)
+	global_position = wading_at(next.x, next.y)
 	_animate(delta)
 	_stomp_cooldown = maxf(0.0, _stomp_cooldown - delta)
 	if collapsed() or is_staggered():

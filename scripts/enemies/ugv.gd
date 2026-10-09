@@ -150,7 +150,7 @@ func behave(delta: float) -> void:
 	if weapon == "gun":
 		move = _ram_step(delta, tank, here, move)
 	var next := here + move * delta
-	var p := Course.ground_at(next.x, next.y)
+	var p := wading_at(next.x, next.y)
 	global_position = p
 	var heading := Vector3(move.y, 0, -maxf(absf(move.x), 1.0) * signf(move.x + 0.01))
 	if heading.length() > 0.1:

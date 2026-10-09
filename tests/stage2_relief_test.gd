@@ -162,3 +162,11 @@ func test_backdrop_streams_as_non_colliding_chunked_decor() -> void:
 	check(not live.is_empty(), "backdrop chunks near the rail are streamed in")
 	for spec: Scenery.Spec in live:
 		check_near((spec.node as GeometryInstance3D).visibility_range_end, Scenery.BACKDROP_RANGE, 0.01, "backdrop stays visible out to the fog")
+
+
+func test_ground_units_ride_over_a_sinkhole_instead_of_sinking_into_it() -> void:
+	Course.use(2)
+	var hole := Enemy.wading_at(620.0, 0.0)
+	check_near(hole.y, Stage2.WATER_LEVEL - Enemy.WADE_DEPTH, 0.001, "a unit over the sinkhole rides just under the surface")
+	var road := Enemy.wading_at(300.0, 4.0)
+	check_near(road.y, Course.height(300.0, 4.0), 0.001, "a unit on the shallow road keeps the street bed")

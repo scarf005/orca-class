@@ -178,7 +178,7 @@ func behave(delta: float) -> void:
 		var chase := world.rail.speed + 12.0
 		move = Vector2(clampf(target_d - here.x, -chase, chase), clampf(_lane - here.y, -SKATE_SPEED, SKATE_SPEED) * 0.9)
 	var next := here + move * delta
-	global_position = Course.ground_at(next.x, next.y)
+	global_position = wading_at(next.x, next.y)
 	# Face the tank; the body leans into acceleration as it rolls.
 	var to_tank := tank.global_position - global_position
 	model.rotation.y = lerp_angle(model.rotation.y, atan2(-to_tank.x, -to_tank.z), 5.0 * delta)
