@@ -255,7 +255,7 @@ func _fire_missile(tank: Tank) -> void:
 	missile.blast_damage = 12.0
 	missile.homing_target = tank
 	missile.homing_lead = true
-	missile.turn_rate = 2.1
+	missile.turn_rate = 1.6
 	missile.interceptable = true
 	missile.intercept_hp = 0.7
 	missile.trail = Projectile.ROCKET_SMOKE

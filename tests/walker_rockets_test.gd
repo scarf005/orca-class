@@ -75,10 +75,10 @@ func test_a_fired_walker_rocket_damages_a_vulnerable_tank() -> void:
 	check(world.stats.damage_taken > before_stats, "the rocket damage reaches run stats (%.1f -> %.1f)" % [before_stats, world.stats.damage_taken])
 
 
-func test_rockets_without_lead_overfly_a_tank_holding_course() -> void:
+func test_rockets_need_lead_to_reach_a_tank_holding_course() -> void:
 	seed(3)
 	var share := await _volley(stage("", false), 0.0, false)
-	check(share < 0.35, "chasing the tank's current position mostly misses (%.2f)" % share)
+	check(share < 0.7, "chasing the tank's current position falls short of the 70%% that leading reaches (%.2f)" % share)
 
 
 func test_rockets_miss_a_tank_strafing_hard() -> void:

@@ -102,8 +102,7 @@ func step(delta: float) -> void:
 		velocity = velocity.normalized() * minf(velocity.length() + thrust * delta, max_speed)
 	turn_rate += turn_rate_increment * delta
 	if is_instance_valid(homing_target) and turn_rate > 0.0:
-		var desired := (_homing_point(delta) - global_position).normalized() * velocity.length()
-		velocity = velocity.slerp(desired, clampf(turn_rate * delta, 0.0, 1.0))
+		_steer(_homing_point(delta) - global_position, delta)
 	velocity.y -= gravity * delta
 	var from := global_position
 	var to := from + velocity * delta
@@ -132,6 +131,18 @@ func step(delta: float) -> void:
 		_burn_motor(delta, to)
 	if flame_trail:
 		_stream_flame(delta, to)
+
+
+## Turns toward `offset` by only as much as it needs, at most `turn_rate`. A target inside the
+## turning circle cannot be reached by turning, which would only orbit it: it flies on until it can.
+func _steer(offset: Vector3, delta: float) -> void:
+	var angle := velocity.angle_to(offset)
+	if angle < 0.0001 or offset.length() * turn_rate < 2.0 * velocity.length() * sin(angle):
+		return
+	var axis := velocity.cross(offset)
+	if axis.length_squared() < 0.0001:
+		axis = velocity.cross(Vector3.UP if absf(velocity.normalized().y) < 0.99 else Vector3.RIGHT)
+	velocity = velocity.rotated(axis.normalized(), minf(angle, turn_rate * delta))
 
 
 ## Where the homing shot steers: the target, or with `homing_lead` the intercept point for this
