@@ -116,6 +116,10 @@ func boss_music(_phase := 0) -> String:
 	return "res://assets/music/boss.ogg"
 
 
+func fog_tint(_d: float) -> Color:
+	return fog_color
+
+
 func fog_distance(_d: float) -> float:
 	return fog_end
 

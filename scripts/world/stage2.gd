@@ -395,6 +395,14 @@ func water_mesh() -> ArrayMesh:
 	return b.mesh()
 
 
+## Each part of town has its own haze, blended over the first 120 m of the section: dawn blush on the boulevard,
+## lilac shade under the expressway, bright cream on the plaza, a deep periwinkle canyon, teal over the bay.
+func fog_tint(d: float) -> Color:
+	var tints := [fog_color, fog_color.lerp(Palette.LILAC, 0.4).darkened(0.08), fog_color.lerp(Palette.CREAM, 0.5), fog_color.lerp(Palette.PERIWINKLE, 0.5).darkened(0.1), fog_color.lerp(Palette.TEAL, 0.45)]
+	var section := section_at(d)
+	return (tints[maxi(section - 1, 0)] as Color).lerp(tints[section], smoothstep(SECTION_STARTS[section], SECTION_STARTS[section] + 120.0, d))
+
+
 func fog_distance(d: float) -> float:
 	match section_at(d):
 		Section.BOULEVARD:

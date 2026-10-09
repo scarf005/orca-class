@@ -404,3 +404,15 @@ func test_splitters_stay_low_enough_for_the_chase_camera_to_see_over() -> void:
 		if Stage2.SPLITS.any(func(split: Dictionary) -> bool: return is_equal_approx(float(split.d), float(structure.d)) and is_equal_approx(float(split.u), float(structure.u))):
 			var top: float = structure.y + structure.size.y - Stage2.WATER_LEVEL
 			check(top <= 4.5, "splitter at %.0f m rises %.1f m above the water, low enough to see the far lane over" % [structure.d, top])
+
+
+func test_each_section_has_its_own_haze_that_blends_in_without_a_jump() -> void:
+	var stage := Stage2.new()
+	for section in range(1, Stage2.SECTION_STARTS.size()):
+		var start: float = Stage2.SECTION_STARTS[section]
+		var before := stage.fog_tint(start - 0.5)
+		var after := stage.fog_tint(start + 0.5)
+		check(absf(before.r - after.r) + absf(before.g - after.g) + absf(before.b - after.b) < 0.02, "haze is continuous across the start of section %d" % section)
+		var settled := stage.fog_tint(start + 200.0)
+		var previous := stage.fog_tint(start - 1.0)
+		check(absf(settled.r - previous.r) + absf(settled.g - previous.g) + absf(settled.b - previous.b) > 0.08, "section %d has a different haze from the one before it" % section)
