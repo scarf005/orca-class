@@ -136,7 +136,7 @@ func firing_spot_valid(at: Vector3, tank: Tank) -> bool:
 	var deck := get_meta("slot", Vector3.ZERO) as Vector3
 	var limit := 40.0 if deck.y > 0.0 else Course.stage.lateral_limit(c.x) - radius
 	var supported := deck.y <= 0.0 or (at.y >= Stage2.WATER_LEVEL + 5.5 and absf(Course.surface_height(c.x, c.y, surface + 6.01) - at.y) < 0.1)
-	return supported and c.x - t.x >= 40.0 and c.x - t.x <= 120.0 and absf(c.y) <= limit and at.y <= surface + 6.01
+	return supported and c.x - t.x >= 65.0 * Course.stage.standoff and c.x - t.x <= 125.0 * Course.stage.standoff and absf(c.y) <= limit and at.y <= surface + 6.01
 
 
 func clear_firing_spot(tank: Tank) -> bool:
@@ -151,7 +151,8 @@ func city_firing_spot(tank: Tank) -> Vector3:
 	var t := Course.to_course(tank.global_position)
 	var slot := get_meta("slot", Vector3.ZERO) as Vector3
 	var lanes := PackedFloat32Array([signf(slot.x) * 38.5] if slot.y > 0.0 else [clampf(Course.to_course(global_position).y, -12.0, 12.0), -8.0, 8.0, 0.0])
-	for ahead in [65.0, 85.0, 105.0, 115.0]:
+	for ahead: float in [70.0, 85.0, 105.0, 115.0]:
+		ahead *= Course.stage.standoff
 		for u in lanes:
 			var at := Course.to_world(t.x + ahead, u)
 			at.y = CityCover.surface_at(at, maxf(tank.global_position.y, Stage2.WATER_LEVEL) + 6.01)

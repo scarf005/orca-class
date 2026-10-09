@@ -179,6 +179,8 @@ func test_opening_hunter_is_outside_cover_and_cannot_fire_through_it() -> void:
 	var hunter := world.director.spawn_wave(event)[0] as Abel
 	check(not world.director.scenery.line_blocked(world.player.hit_center(), hunter.hit_center()), "first LOSAT hunter offers a clear shot inside the street")
 	check(not world.director.scenery.line_blocked(hunter.hit_center(), hunter.hit_center()), "hunter is not embedded in the building")
+	check(Course.to_course(hunter.global_position).x - event.d > 160.0, "the hunter spawns out in the haze, not mid-street")
+	hunter.global_position = Course.ground_at(event.d + 110.0, float(event.u))
 	var shots := world.projectiles.size()
 	hunter._attack_timer = 0.0
 	hunter.behave(0.01)

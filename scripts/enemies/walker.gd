@@ -172,7 +172,7 @@ func behave(delta: float) -> void:
 		_lane = randf_range(-1.0, 1.0) * Tank.lateral_limit(here.x) * 0.8
 	var target_d := here.x
 	if age < PACE_TIME and world.rail.mode != Rail.Mode.ARENA:
-		target_d = world.rail.d + tank.course_offset + KEEP_AHEAD
+		target_d = world.rail.d + tank.course_offset + KEEP_AHEAD * Course.stage.standoff
 	var move := Vector2.ZERO
 	if not planted:
 		var chase := world.rail.speed + 12.0

@@ -7,6 +7,7 @@ enum Section { BOULEVARD, VIADUCT, PLAZA, CANYON, BAY }
 const SECTION_STARTS := [0.0, 700.0, 1650.0, 2150.0, 3200.0]
 const LENGTH := 4000.0
 const DECK_TOP := 6.25 ## Expressway deck hunters stand this high above the drowned road under it.
+const HORIZON_SHIFT := 120.0 ## Squads spawn this much farther out, in the haze, and walk in instead of popping up mid-street.
 const WATER_LEVEL := 0.3
 const PLAZA_D := 1900.0
 const PLAZA_RADIUS := 72.0
@@ -51,6 +52,7 @@ var backdrop: Array[Dictionary] = []
 
 func _init() -> void:
 	number = 2
+	standoff = 1.4
 	plan = PLAN
 	section_starts.assign(SECTION_STARTS)
 	water_slows = true
@@ -217,6 +219,19 @@ func _generate_expressway() -> void:
 		_structure("city_sag_span" if d == 1390 else "city_deck", float(d), side * 40.0, Vector3(6.0, 2.6 if d == 1390 else 1.8, span), deck_y - (0.4 if d == 1390 else 0.0), int(d / 90) % 6)
 		for offset: float in [-span * 0.32, span * 0.32]:
 			_structure("city_pier", float(d) + offset, side * 40.0, Vector3(3.0, 10.5, 3.0), WATER_LEVEL - 4.5, int(d / 90) % 4)
+
+
+## Pushes a wave and its squad out to the haze. A unit on the expressway deck stays short of the last span on its side, before the deck changes sides at d=1120.
+func _to_horizon(event: Dictionary, d: float) -> void:
+	if event.kind == "fpv" and not event.has("ahead"):
+		event.ahead = 90.0 # The director's default slot, which would pop the drone up mid-street.
+	if event.has("ahead"):
+		var shift := HORIZON_SHIFT
+		if is_equal_approx(float(event.get("height", 0.0)), DECK_TOP):
+			shift = clampf(1060.0 - d - float(event.ahead), 0.0, shift)
+		event.ahead += shift
+	for member: Dictionary in event.get("squad", []):
+		_to_horizon(member, d)
 
 
 func in_arena(d: float, margin := 0.0) -> bool:
@@ -436,7 +451,7 @@ func events(hard: bool) -> Array[Dictionary]:
 		{"kind": "ugv", "u": -16.0, "ahead": 75.0, "props": {"weapon": "atgm"}},
 		{"kind": "drone_boat", "u": 10.0, "ahead": 65.0}]})
 	wave.call(870.0, "sea_mine", {"count": 2, "u": 12.0, "spacing": 4.0, "ahead": 45.0})
-	wave.call(970.0, "rooftop_battery", {"u": -40.0, "ahead": 80.0, "height": DECK_TOP})
+	wave.call(900.0, "rooftop_battery", {"u": -40.0, "ahead": 150.0, "height": DECK_TOP})
 	e.append({"d": 1070.0, "type": "pickup", "id": "atgm"})
 	wave.call(1140.0, "hind", {"u": 8.0, "height": 5.0, "ahead": 90.0, "drop": "micro", "squad": [
 		{"kind": "fpv", "count": 2, "height": 5.0, "spacing": 7.0},
@@ -500,6 +515,9 @@ func events(hard: bool) -> Array[Dictionary]:
 				member.ahead = 50.0 if member.kind == "drone_boat" else 65.0
 				if member.kind == "ugv":
 					member.props = {"weapon": "atgm"}
-		wave.call(990.0, "rooftop_battery", {"u": -40.0, "ahead": 80.0, "height": DECK_TOP})
+		wave.call(920.0, "rooftop_battery", {"u": -40.0, "ahead": 150.0, "height": DECK_TOP})
+	for event in e:
+		if event.type == "wave":
+			_to_horizon(event, event.d)
 	e.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.d < b.d)
 	return e

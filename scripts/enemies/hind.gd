@@ -131,11 +131,11 @@ func behave(delta: float) -> void:
 		var t := Course.to_course(tank.global_position)
 		var c := Course.to_course(global_position)
 		var blocked := BipedMech.line_blocked(World.current.camera.global_position, hit_center()) or BipedMech.line_blocked(_chin_muzzle.global_position, tank.hit_center())
-		if blocked or c.x - t.x < 40.0 or c.x - t.x > 120.0:
+		if blocked or c.x - t.x < 65.0 * Course.stage.standoff or c.x - t.x > 125.0 * Course.stage.standoff:
 			_telegraph = 0.0
 			_burst = 0
 			_lane = -8.0 if c.y > 0.0 else 8.0
-			var goal := Course.to_world(t.x + 85.0, _lane, maxf(tank.global_position.y, Stage2.WATER_LEVEL) + 5.0)
+			var goal := Course.to_world(t.x + 85.0 * Course.stage.standoff, _lane, maxf(tank.global_position.y, Stage2.WATER_LEVEL) + 5.0)
 			global_position = global_position.move_toward(goal, delta * (World.current.rail.speed + 24.0))
 		else:
 			_lane = clampf(_lane, -12.0, 12.0)
