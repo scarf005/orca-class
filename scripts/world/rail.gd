@@ -77,7 +77,8 @@ func jolt() -> void:
 func speed_cap() -> float:
 	var hit_speed := lerpf(1.0, HARD_HIT_SPEED, 0.25) if Game.difficulty == Game.Difficulty.EASY else HARD_HIT_SPEED
 	var jolted := lerpf(hit_speed * CRUISE, OVERDRIVE + 1.0, clampf(_since_jolt / HARD_RECOVER, 0.0, 1.0))
-	return minf(jolted, WADE_SPEED * CRUISE if wading else INF)
+	var wade := Course.stage.wade_scale if Course.stage != null and Course.stage.wade_scale > 0.0 else WADE_SPEED
+	return minf(jolted, wade * CRUISE if wading else INF)
 
 
 ## Anchor stop: the rail halts almost instantly, then resumes.

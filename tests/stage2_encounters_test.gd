@@ -2,36 +2,20 @@ extends TestCase
 ## Encounter density, lane choices and the main-gun contract use the live city.
 
 
-func test_density_tracks_stage_one_over_the_same_distance() -> void:
-	var starts := Stage2.SECTION_STARTS.duplicate()
-	starts.append(Stage2.LENGTH)
+func test_stage_sends_few_enemies_one_group_at_a_time_at_an_even_pace() -> void:
 	for hard in [false, true]:
-		for section in Stage2.SECTION_STARTS.size():
-			var baseline := 0
-			var city := 0
-			for event in Stage1.new().events(hard):
-				if event.d < starts[section] or event.d >= starts[section + 1]:
-					continue
-				if event.type == "wave":
-					var count := int(event.get("count", 1))
-					baseline += ceili(count * float(event.get("hard_scale", 1.4))) if hard else count
-				elif event.type in ["ambush", "midboss", "boss"]:
-					baseline += 1
-			for event in Stage2.new().events(hard):
-				if event.d < starts[section] or event.d >= starts[section + 1]:
-					continue
-				if event.type in ["midboss", "boss"]:
-					city += 1
-					continue
-				if event.type != "wave" or event.kind in ["sea_mine", "rooftop_battery"]:
-					continue
-				city += int(event.get("count", 1))
-				for member: Dictionary in event.get("squad", []):
-					city += int(member.get("count", 1))
-			if hard and section == Stage2.Section.BAY:
-				check_eq(city, 5, "six baseline enemies have no integer 70-80% band; Hard Bay uses five including the unchanged boss")
-			else:
-				check(city >= ceili(baseline * 0.7) and city <= floori(baseline * 0.8), "section %d hard=%s density: %d city / %d Stage 1" % [section, hard, city, baseline])
+		var waves := Stage2.new().events(hard).filter(func(e: Dictionary) -> bool: return e.type == "wave" and e.kind not in ["sea_mine", "rooftop_battery"])
+		var total := 0
+		var last := -INF
+		for event in waves:
+			var group := int(event.get("count", 1))
+			for member: Dictionary in event.get("squad", []):
+				group += int(member.get("count", 1))
+			total += group
+			check(group <= (6 if hard else 3), "the group at d=%d is %d enemies, a hunter with at most two escorts (hard=%s)" % [event.d, group, hard])
+			check(event.d - last >= 200.0, "the group at d=%d follows the previous one by %d m, no bunching (hard=%s)" % [event.d, event.d - last, hard])
+			last = event.d
+		check(total <= (40 if hard else 24), "the whole course sends %d enemies besides the bosses (hard=%s)" % [total, hard])
 
 
 func test_every_split_offers_two_different_lane_rewards() -> void:

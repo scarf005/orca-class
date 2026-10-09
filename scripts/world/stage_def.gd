@@ -11,6 +11,7 @@ var checkpoints := {"": 0.0} ## Name -> rail distance to start from.
 var coax_tiers := {} ## Checkpoint name -> the coax tier a run starts with there.
 var start_rws := false ## Whether the tank starts with the RWS fitted.
 var standoff := 1.0 ## How far ahead of the tank hunters hold, relative to stage 1.
+var wade_scale := 0.0 ## Share of cruise the rail may run at in water; 0 uses the tuned `Rail.WADE_SPEED`.
 var water_slows := false ## Whether wading changes how the tank drives.
 var midboss_d := 0.0
 var arena_center_d := 0.0

@@ -381,3 +381,12 @@ func test_each_arena_has_a_visible_edge_just_outside_the_hull_limit() -> void:
 		var reach := mesh.get_aabb().size.x * 0.5
 		check(reach > float(arena.radius) - 6.0 and reach <= float(arena.radius), "the ring at d=%d lies beyond the hull limit and inside the arena" % int(arena.d))
 	scenery.free()
+
+
+func test_the_flooded_city_lets_the_rail_run_faster_than_the_default_water_cap() -> void:
+	var rail := Rail.new()
+	rail.wading = true
+	Course.use(2)
+	check_near(rail.speed_cap(), Rail.CRUISE * 0.8, 0.01, "the city caps wading at 80% of cruise")
+	Course.use(1)
+	check_near(rail.speed_cap(), Rail.CRUISE * Rail.WADE_SPEED, 0.01, "stage 1 keeps the tuned water cap")

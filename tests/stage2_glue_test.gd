@@ -24,15 +24,15 @@ func test_director_deck_events_use_the_live_parallel_expressway() -> void:
 	for hard in [false, true]:
 		var world := stage("", false, 2)
 		world.director._hard = hard
-		world.rail.d = 720.0 if not hard else 920.0
+		world.rail.d = 890.0
 		var specs := Stage2.new().events(hard)
-		var kain_event: Dictionary = specs.filter(func(event: Dictionary) -> bool: return event.type == "wave" and event.kind == "kain" and event.d == 720.0)[0]
+		var kain_event: Dictionary = specs.filter(func(event: Dictionary) -> bool: return event.type == "wave" and event.kind == "kain" and event.d == 890.0)[0]
 		world.rail.d = kain_event.d
 		var kain := world.director.spawn_wave(kain_event)[0]
 		var kc := Course.to_course(kain.global_position)
 		check_near(kc.y, -38.5, 0.1, "director Kain stands at the street-facing parapet")
 		check_near(kain.global_position.y, Stage2.WATER_LEVEL + 6.0, 0.2, "Kain feet are on the low deck")
-		var battery_event: Dictionary = specs.filter(func(event: Dictionary) -> bool: return event.type == "wave" and event.kind == "rooftop_battery" and event.d == (920.0 if hard else 900.0))[0]
+		var battery_event: Dictionary = specs.filter(func(event: Dictionary) -> bool: return event.type == "wave" and event.kind == "rooftop_battery" and event.d == (720.0 if hard else 700.0))[0]
 		world.rail.d = battery_event.d
 		var battery := world.director.spawn_wave(battery_event)[0]
 		var bc := Course.to_course(battery.global_position)
