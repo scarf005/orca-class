@@ -366,3 +366,18 @@ func test_each_section_has_its_own_haze_that_blends_in_without_a_jump() -> void:
 		var settled := stage.fog_tint(start + 200.0)
 		var previous := stage.fog_tint(start - 1.0)
 		check(absf(settled.r - previous.r) + absf(settled.g - previous.g) + absf(settled.b - previous.b) > 0.08, "section %d has a different haze from the one before it" % section)
+
+
+func test_each_arena_has_a_visible_edge_just_outside_the_hull_limit() -> void:
+	Course.use(2)
+	var stage := Course.stage as Stage2
+	var scenery := Scenery.new()
+	add_child(scenery)
+	scenery.build()
+	var rings := scenery.specs.filter(func(spec: Scenery.Spec) -> bool: return spec.decor and spec.mesh == CityKit.decor("arena_ring", 0) or spec.decor and spec.mesh == CityKit.decor("arena_ring", 1))
+	check_eq(rings.size(), stage.arenas.size(), "every arena has one ring")
+	for arena: Dictionary in stage.arenas:
+		var mesh := CityKit.decor("arena_ring", 0 if arena.d == Stage2.PLAZA_D else 1)
+		var reach := mesh.get_aabb().size.x * 0.5
+		check(reach > float(arena.radius) - 6.0 and reach <= float(arena.radius), "the ring at d=%d lies beyond the hull limit and inside the arena" % int(arena.d))
+	scenery.free()

@@ -5,6 +5,8 @@ extends RefCounted
 
 static var _cache := {}
 
+const ARENA_RING_INSET := 4.0 ## Metres inside the arena radius; the hull is held 6 m inside, so the ring sits just beyond it.
+
 const FACADES := [Palette.CONCRETE, Palette.STONE, Palette.SKY, Palette.ASH, Palette.TEAL, Palette.MIST, Palette.BLUSH, Palette.PEACH]
 const AWNINGS := [Palette.CORAL, Palette.TEAL, Palette.BUTTER, Palette.LILAC, Palette.MINT]
 const SIGNS := [Palette.CORAL, Palette.BUTTER, Palette.MINT, Palette.SKY, Palette.BLUSH, Palette.LILAC, Palette.WHITE, Palette.RED]
@@ -151,6 +153,24 @@ static func _roof_island(variant: int, rng: RandomNumberGenerator) -> Mesh:
 	b.prism(_xf(Vector3(w * 0.22, 1.0, l * 0.12)), 1.3, 2.2, 8, [Palette.TEAL, Palette.CORAL, Palette.BUTTER][variant % 3])
 	for i in 2 + variant % 2:
 		b.box(_xf(Vector3(rng.randf_range(-0.4, 0.4) * w, 1.3, rng.randf_range(-0.4, 0.4) * l), rng.randf() * TAU), Vector3(1.6, 0.9, 1.2), Palette.MIST)
+	return b.mesh()
+
+
+## The visible edge of an arena: a ring of buoys with a lamp on every fourth, just outside where the hull is held.
+## variant 0 rings the plaza, 1 the bay.
+static func _arena_ring(variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	var radius: float = [Stage2.PLAZA_RADIUS, Stage2.BAY_RADIUS][variant] - ARENA_RING_INSET
+	var count := int(TAU * radius / 5.0)
+	for i in count:
+		var angle := TAU * i / count
+		var at := Vector3(cos(angle) * radius, 0.0, sin(angle) * radius)
+		b.prism(_xf(at + Vector3(0, 0.3, 0)), 0.55, 1.3, 6, Palette.CORAL if i % 2 == 0 else Palette.CREAM, 0.35)
+		if i % 4 == 0:
+			b.box(_xf(at + Vector3(0, 1.9, 0)), Vector3(0.12, 2.6, 0.12), Palette.ASH)
+			b.glow = true
+			b.box(_xf(at + Vector3(0, 3.3, 0)), Vector3(0.45, 0.45, 0.45), Palette.BUTTER)
+			b.glow = false
 	return b.mesh()
 
 

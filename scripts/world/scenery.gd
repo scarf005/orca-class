@@ -286,6 +286,10 @@ func _city() -> void:
 		var angle := TAU * i / 18.0 + bay.randf_range(-0.12, 0.12)
 		var radius := bay.randf_range(48.0, Stage2.BAY_RADIUS - 14.0)
 		add_decor(CityKit.decor("roof_island", i), Stage2.BAY_D + sin(angle) * radius, cos(angle) * radius, bay.randf() * TAU, Stage2.WATER_LEVEL - 0.6)
+	# The arenas' invisible hull limit gets a visible edge: a ring of buoys just outside it.
+	for arena: Dictionary in stage.arenas:
+		var ring := add_decor(CityKit.decor("arena_ring", 0 if arena.d == Stage2.PLAZA_D else 1), float(arena.d), 0.0, 0.0, Stage2.WATER_LEVEL - 0.2)
+		ring.set_meta("range", float(arena.radius) + 260.0)
 	# Stalled traffic filling the drowned lanes, thicker in the quiet opening; wrecks wake out at the harbour.
 	for d in range(100, int(Stage2.LENGTH) - 350, 55):
 		if stage.in_arena(float(d), 30.0) or rng.randf() < (0.25 if d > 700 else 0.1):
