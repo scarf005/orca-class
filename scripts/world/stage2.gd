@@ -341,14 +341,14 @@ func water_surface(c: Vector2) -> float:
 
 func water_mesh() -> ArrayMesh:
 	var b := LowPoly.new()
-	for d in range(-100, int(LENGTH), 20):
+	for d in range(-100, int(LENGTH), 10):
 		for u in range(-180, 180, 10):
-			var depth := height(d + 10.0, u + 5.0)
-			if minf(depth, minf(height(d, u), minf(height(d + 20.0, u), minf(height(d, u + 10.0), height(d + 20.0, u + 10.0))))) >= WATER_LEVEL:
+			var depth := height(d + 5.0, u + 5.0)
+			if minf(depth, minf(height(d, u), minf(height(d + 10.0, u), minf(height(d, u + 10.0), height(d + 10.0, u + 10.0))))) >= WATER_LEVEL:
 				continue
 			var a := Course.to_world(float(d), float(u), WATER_LEVEL)
-			var c := Course.to_world(d + 20.0, float(u), WATER_LEVEL)
-			var e := Course.to_world(d + 20.0, u + 10.0, WATER_LEVEL)
+			var c := Course.to_world(d + 10.0, float(u), WATER_LEVEL)
+			var e := Course.to_world(d + 10.0, u + 10.0, WATER_LEVEL)
 			var f := Course.to_world(float(d), u + 10.0, WATER_LEVEL)
 			# One sheet of water from wall to wall, darker where it is deeper: drowned avenue, sinkholes, deep lots.
 			var shade := 0.0 if depth > WATER_LEVEL - 0.5 else (0.5 if depth > WATER_LEVEL - 1.0 else 1.0)
@@ -382,9 +382,9 @@ func water_mesh() -> ArrayMesh:
 			b.tri(Course.to_world(d - 0.7, -reach, WATER_LEVEL + 0.03), Course.to_world(d + 0.7, -reach, WATER_LEVEL + 0.03), Course.to_world(d + 0.7, reach, WATER_LEVEL + 0.03), Palette.CREAM, Vector3.UP)
 			b.tri(Course.to_world(d - 0.7, -reach, WATER_LEVEL + 0.03), Course.to_world(d + 0.7, reach, WATER_LEVEL + 0.03), Course.to_world(d - 0.7, reach, WATER_LEVEL + 0.03), Palette.CREAM, Vector3.UP)
 	# Current streaks: pale slivers drifting along the street, so the flood reads as moving water.
-	for i in 3200:
+	for i in 7000:
 		var d := rng.randf_range(0.0, LENGTH)
-		var u := rng.randf_range(-70.0, 70.0)
+		var u := rng.randf_range(-45.0, 45.0)
 		if height(d, u) >= WATER_LEVEL - 0.1:
 			continue
 		var length := rng.randf_range(4.0, 14.0)
