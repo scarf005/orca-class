@@ -137,6 +137,23 @@ static func _rubble(variant: int, rng: RandomNumberGenerator) -> Mesh:
 	return b.mesh()
 
 
+## The roof of a drowned block breaking the surface: slab, parapet, stair hut, water tank and a few units.
+static func _roof_island(variant: int, rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	var w := rng.randf_range(10.0, 18.0)
+	var l := rng.randf_range(8.0, 14.0)
+	b.box(_xf(Vector3(0, 0.3, 0)), Vector3(w, 1.4, l), Palette.CONCRETE)
+	for side in [-1.0, 1.0]:
+		b.box(_xf(Vector3(side * (w * 0.5 - 0.15), 1.25, 0)), Vector3(0.3, 0.7, l), Palette.STONE)
+		b.box(_xf(Vector3(0, 1.25, side * (l * 0.5 - 0.15))), Vector3(w, 0.7, 0.3), Palette.STONE)
+	b.box(_xf(Vector3(-w * 0.25, 2.2, -l * 0.15)), Vector3(3.4, 2.4, 3.0), Palette.SLATE)
+	b.box(_xf(Vector3(-w * 0.25, 3.5, -l * 0.15)), Vector3(3.8, 0.3, 3.4), Palette.ASH)
+	b.prism(_xf(Vector3(w * 0.22, 1.0, l * 0.12)), 1.3, 2.2, 8, [Palette.TEAL, Palette.CORAL, Palette.BUTTER][variant % 3])
+	for i in 2 + variant % 2:
+		b.box(_xf(Vector3(rng.randf_range(-0.4, 0.4) * w, 1.3, rng.randf_range(-0.4, 0.4) * l), rng.randf() * TAU), Vector3(1.6, 0.9, 1.2), Palette.MIST)
+	return b.mesh()
+
+
 ## A road-wide gantry with the drowned route's signs.
 static func _gantry(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
 	var b := LowPoly.new()

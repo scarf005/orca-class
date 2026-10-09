@@ -279,6 +279,13 @@ func _city() -> void:
 	for i in 14:
 		var angle := TAU * i / 14.0 + 0.2
 		add("raft", Stage2.BAY_D + sin(angle) * 70.0, cos(angle) * 70.0, angle, i % 6).set_meta("y", Stage2.WATER_LEVEL + 0.02)
+	# Drowned rooftops dress the bay arena so the boss fight has landmarks to read distances against; they are decor only.
+	var bay := RandomNumberGenerator.new()
+	bay.seed = 20261009
+	for i in 18:
+		var angle := TAU * i / 18.0 + bay.randf_range(-0.12, 0.12)
+		var radius := bay.randf_range(48.0, Stage2.BAY_RADIUS - 14.0)
+		add_decor(CityKit.decor("roof_island", i), Stage2.BAY_D + sin(angle) * radius, cos(angle) * radius, bay.randf() * TAU, Stage2.WATER_LEVEL - 0.6)
 	# Stalled traffic filling the drowned lanes, thicker in the quiet opening; wrecks wake out at the harbour.
 	for d in range(100, int(Stage2.LENGTH) - 350, 55):
 		if stage.in_arena(float(d), 30.0) or rng.randf() < (0.25 if d > 700 else 0.1):
