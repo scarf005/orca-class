@@ -260,25 +260,6 @@ func split_lane_centres(index: int) -> Vector2:
 	return Vector2((-limit + left_edge) * 0.5, (right_edge + limit) * 0.5)
 
 
-## An invisible median eases out to the lane centres before the tower, then rejoins the street.
-## Remapping the remaining lane width preserves steering without snapping at the building face.
-func fork_u(from_d: float, d: float, u: float) -> float:
-	var split: Dictionary = SPLITS[0]
-	var before := _fork_width(from_d)
-	var after := _fork_width(d)
-	if before == 0.0 and after == 0.0:
-		return u
-	var side := -1.0 if u < float(split.u) else 1.0
-	var limit := lateral_limit(float(split.d))
-	var offset := maxf(absf(u - float(split.u)) - before, 0.0)
-	return float(split.u) + side * (after + offset * (limit - after) / (limit - before))
-
-
-func _fork_width(d: float) -> float:
-	var distance := absf(d - float(SPLITS[0].d))
-	return split_lane_centres(0).y * (1.0 - smoothstep(12.0, 100.0, distance))
-
-
 ## The camera trails the tank's lane but keeps 6 m inside the wall line at its own distance, so on bends it never
 ## runs into the towers and has to be pulled in behind the hull.
 func camera_u(d: float, u: float) -> float:

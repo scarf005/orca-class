@@ -369,9 +369,6 @@ func drive_position(from: Vector3, to: Vector3, radius: float) -> Vector3:
 	var result := to
 	var destination := Course.to_course(to)
 	var d := destination.x
-	if Course.stage is Stage2:
-		var city := Course.stage as Stage2
-		result = Course.to_world(d, city.fork_u(Course.to_course(from).x, d, destination.y), to.y)
 	for pass_index in 8:
 		var moved := false
 		var travel := from.distance_to(result)

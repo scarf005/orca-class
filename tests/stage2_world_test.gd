@@ -88,74 +88,24 @@ func test_splitters_and_overhead_clearance_are_explicit() -> void:
 		check(not low_overlap, "no non-splitter low structure spans the driving corridor")
 
 
-func test_live_drive_forks_before_contact_and_smoothly_rejoins() -> void:
-	var world := stage("", false, 2)
-	var tank := world.player
-	var scenery := world.director.scenery
-	var tower: Dictionary = Course.structure_boxes.filter(func(box: Dictionary) -> bool: return box.d == Stage2.SPLITS[0].d and box.u == 0.0)[0]
-	for start_u in [-0.25, 0.0, 0.25, -20.0, 20.0]:
-		for delta in [1.0 / 60.0, 1.0 / 30.0]:
-			world.rail.d = 190.0
-			tank.course_u = start_u
-			tank.course_offset = 0.0
-			tank.local_velocity = Vector2.ZERO
-			tank._place(world.rail.d)
-			scenery._last_tank = tank.global_position
-			var side := -1.0 if start_u < 0.0 else 1.0
-			var early := false
-			var around := false
-			while world.rail.d < 410.0:
-				var before_d := world.rail.d
-				var before_u := tank.course_u
-				tank._update_movement(delta)
-				scenery._process(delta)
-				var step := world.rail.d - before_d
-				# smoothstep's maximum slope is 1.5; the 17 m fork opens over 88 m.
-				check(absf(tank.course_u - before_u) <= 17.0 * 1.5 / 88.0 * step + 0.001, "the live hull follows the fork without a collision shove")
-				check(tank.course_u * side >= 0.0, "the selected branch stays stable")
-				check(Prop.box_hit(tower.pose, tower.size, tank.global_position, tank.global_position, Tank.HULL_RADIUS) < 0.0, "the live hull never touches the central tower")
-				if world.rail.d >= 250.0 and world.rail.d < 260.0:
-					early = early or absf(tank.course_u) > 5.0
-				if absf(world.rail.d - 300.0) < 1.0:
-					around = around or absf(tank.course_u) >= 17.0 - 0.001
-			check(early, "the fork guides the hull well before the facade")
-			check(around, "the fork reaches the side lane at the building")
-			check_near(tank.course_u, start_u, 0.01, "both branches smoothly rejoin their original street offset")
-			check_near(Course.to_course(tank.global_position).x, world.rail.d, 0.01, "fork guidance preserves forward progress")
-
-
-func test_fork_pause_and_reverse_keep_the_selected_branch() -> void:
+func test_hull_can_cross_the_street_everywhere_except_through_a_visible_building() -> void:
 	Course.use(2)
 	var scenery := Scenery.new()
 	add_child(scenery)
-	for start_u in [-0.25, 0.25, -20.0, 20.0]:
-		var at := Course.ground_at(190.0, start_u)
-		for d in range(191, 411):
-			at = scenery.drive_position(at, Course.ground_at(float(d), Course.to_course(at).y), Tank.HULL_RADIUS)
-			if d in [220, 260, 300, 340, 380]:
-				var paused := at
-				for _i in 60:
-					at = scenery.drive_position(at, at, Tank.HULL_RADIUS)
-				check_near(at.distance_to(paused), 0.0, 0.001, "a paused hull does not repeatedly drift sideways")
-		for d in range(409, 189, -1):
-			at = scenery.drive_position(at, Course.ground_at(float(d), Course.to_course(at).y), Tank.HULL_RADIUS)
-			check(Course.to_course(at).y * start_u > 0.0, "reversing through the fork keeps the chosen branch")
-		check_near(Course.to_course(at).y, start_u, 0.01, "a reverse traversal rejoins the original street offset")
-	scenery.free()
-
-
-func test_fork_keeps_steering_and_leaves_other_sections_unchanged() -> void:
-	Course.use(2)
-	var scenery := Scenery.new()
-	add_child(scenery)
-	for u in [-20.0, 20.0]:
-		var from := Course.ground_at(250.0, u)
-		var neutral := scenery.drive_position(from, Course.ground_at(251.0, u), Tank.HULL_RADIUS)
-		var steered := scenery.drive_position(from, Course.ground_at(251.0, u + signf(u)), Tank.HULL_RADIUS)
-		check((Course.to_course(steered).y - Course.to_course(neutral).y) * signf(u) > 0.5, "the invisible fork preserves lateral steering")
-	for d in [580.0, 900.0, 1450.0, 1720.0, 2080.0, 2400.0, 2750.0]:
-		var result := scenery.drive_position(Course.ground_at(d - 1.0, 0.0), Course.ground_at(d, 0.0), Tank.HULL_RADIUS)
-		check_near(Course.to_course(result).y, 0.0, 0.01, "removed splitters leave the centre lane straight")
+	var tower: Dictionary = Stage2.SPLITS[0]
+	var d := 20.0
+	while d < Stage2.BAY_D - Stage2.BAY_RADIUS - 20.0:
+		var limit := Tank.lateral_limit(d)
+		var in_tower := absf(d - float(tower.d)) < float(tower.size) * 0.5 + 8.0
+		for dir: float in [1.0, -1.0]:
+			var u := -dir * (limit - 1.0)
+			var at := Course.ground_at(d, u)
+			for step in 12:
+				u = Course.to_course(at).y + dir * (2.0 * limit - 2.0) / 12.0 # Steer from where the hull really is.
+				at = scenery.drive_position(at, Course.ground_at(d, u), Tank.HULL_RADIUS)
+			if not in_tower:
+				check(Course.to_course(at).y * dir > limit - 5.0, "the hull crosses the whole street at d=%d dir=%d (reached u=%.1f)" % [d, dir, Course.to_course(at).y])
+		d += 40.0 if absf(d - float(tower.d)) > 200.0 else 10.0
 	scenery.free()
 
 
