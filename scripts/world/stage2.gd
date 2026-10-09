@@ -52,7 +52,7 @@ var backdrop: Array[Dictionary] = []
 
 func _init() -> void:
 	number = 2
-	standoff = 1.4
+	standoff = 1.25
 	plan = PLAN
 	section_starts.assign(SECTION_STARTS)
 	water_slows = true
