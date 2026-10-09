@@ -173,3 +173,50 @@ func test_an_empty_magazine_falls_back_to_aphe() -> void:
 	for _i in 6:
 		tank.fire_cannon()
 	check_eq(tank.current_round, Armament.Round.APHE, "back to the plain shell")
+
+
+## Puts `enemy` so that its hit center, which a seeker steers at, lies at `at`.
+func _center_at(enemy: Enemy, at: Vector3) -> void:
+	enemy.global_position += at - enemy.hit_center()
+
+
+func test_a_seeker_turns_only_as_far_as_its_target_needs_up_to_its_turn_rate() -> void:
+	var world := _rig()
+	var origin := world.player.hit_center() + Vector3(0, 60, -40)
+	var missile := world.player._spawn_missile(Armament.Round.ATGM, origin, Vector3.FORWARD, null, "")
+	missile.turn_rate = 3.0
+	missile.turn_rate_increment = 0.0
+	missile.thrust = 0.0
+	var enemy := _enemy(world, Vector3.ZERO)
+	_center_at(enemy, origin + Vector3.RIGHT * 400.0)
+	missile.homing_target = enemy
+	missile.step(DT)
+	check_near(Vector3.FORWARD.angle_to(missile.velocity), 3.0 * DT, 0.0001, "a wide turn is capped at the turn rate")
+	var small := 0.5 * 3.0 * DT
+	missile.velocity = Vector3.FORWARD * missile.velocity.length()
+	_center_at(enemy, missile.global_position + Vector3(sin(small), 0, -cos(small)) * 400.0)
+	missile.step(DT)
+	check_near(Vector3.FORWARD.angle_to(missile.velocity), small, 0.0001, "a narrow turn stops on the target instead of swinging past it")
+
+
+func test_a_seeker_reaches_a_target_inside_its_turning_circle_instead_of_orbiting_it() -> void:
+	var original := [Armament.ATGM_SPEED, Armament.ATGM_TURN, Armament.ATGM_TURN_INCREMENT]
+	Armament.ATGM_SPEED = 245.0
+	Armament.ATGM_TURN = 3.5
+	Armament.ATGM_TURN_INCREMENT = 2.5
+	for bearing in [30.0, 90.0, 150.0]:
+		var world := _rig()
+		var origin := world.player.hit_center() + Vector3(0, 60, -40)
+		var b := deg_to_rad(bearing)
+		var enemy := _enemy(world, Vector3.ZERO)
+		_center_at(enemy, origin + Vector3(sin(b), 0, -cos(b)) * 30.0)
+		var hp := enemy.hp
+		var missile := world.player._spawn_missile(Armament.Round.ATGM, origin, Vector3.FORWARD, enemy, "")
+		missile.hit.damage = 1.0
+		_fly(world, Armament.ATGM_LIFE)
+		check(enemy.hp < hp, "a missile launched with the target %d degrees off its nose, 30 m away, struck it" % bearing)
+		cleanup()
+		await frames(1)
+	Armament.ATGM_SPEED = original[0]
+	Armament.ATGM_TURN = original[1]
+	Armament.ATGM_TURN_INCREMENT = original[2]
