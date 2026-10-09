@@ -366,6 +366,9 @@ func test_each_section_has_its_own_haze_that_blends_in_without_a_jump() -> void:
 		var settled := stage.fog_tint(start + 200.0)
 		var previous := stage.fog_tint(start - 1.0)
 		check(absf(settled.r - previous.r) + absf(settled.g - previous.g) + absf(settled.b - previous.b) > 0.08, "section %d has a different haze from the one before it" % section)
+		var water := stage.water_tint(start + 200.0)
+		var water_before := stage.water_tint(start - 1.0)
+		check(absf(water.r - water_before.r) + absf(water.g - water_before.g) + absf(water.b - water_before.b) > 0.08, "section %d floods in a different colour from the one before it" % section)
 
 
 func test_each_arena_has_a_visible_edge_just_outside_the_hull_limit() -> void:

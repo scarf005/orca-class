@@ -334,7 +334,8 @@ func water_mesh() -> ArrayMesh:
 			var f := Course.to_world(float(d), u + 10.0, WATER_LEVEL)
 			# One sheet of water from wall to wall, darker where it is deeper: drowned avenue, sinkholes, deep lots.
 			var shade := 0.0 if depth > WATER_LEVEL - 0.5 else (0.5 if depth > WATER_LEVEL - 1.0 else 1.0)
-			var color := Color(Palette.SKY, 0.82).lerp(Color(Palette.SKY.darkened(0.4), 0.97), shade)
+			var tint := water_tint(d + 5.0)
+			var color := Color(tint, 0.82).lerp(Color(tint.darkened(0.4), 0.97), shade)
 			b.tri(a, c, e, color, Vector3.UP)
 			b.tri(a, e, f, color, Vector3.UP)
 	var rng := RandomNumberGenerator.new()
@@ -380,9 +381,17 @@ func water_mesh() -> ArrayMesh:
 ## Each part of town has its own haze, blended over the first 120 m of the section: dawn blush on the boulevard,
 ## lilac shade under the expressway, bright cream on the plaza, a deep periwinkle canyon, teal over the bay.
 func fog_tint(d: float) -> Color:
-	var tints := [fog_color, fog_color.lerp(Palette.LILAC, 0.4).darkened(0.08), fog_color.lerp(Palette.CREAM, 0.5), fog_color.lerp(Palette.PERIWINKLE, 0.5).darkened(0.1), fog_color.lerp(Palette.TEAL, 0.45)]
+	return _section_blend([fog_color, fog_color.lerp(Palette.LILAC, 0.4).darkened(0.08), fog_color.lerp(Palette.CREAM, 0.5), fog_color.lerp(Palette.PERIWINKLE, 0.5).darkened(0.1), fog_color.lerp(Palette.TEAL, 0.45)], d)
+
+
+## The flood's own colour per section, so the water that fills every frame says where the tank is.
+func water_tint(d: float) -> Color:
+	return _section_blend([Palette.SKY, Palette.PERIWINKLE, Palette.SKY, Palette.SKY.lerp(Palette.LILAC, 0.55), Palette.MINT.lerp(Palette.SKY, 0.3)], d)
+
+
+func _section_blend(colors: Array, d: float) -> Color:
 	var section := section_at(d)
-	return (tints[maxi(section - 1, 0)] as Color).lerp(tints[section], smoothstep(SECTION_STARTS[section], SECTION_STARTS[section] + 120.0, d))
+	return (colors[maxi(section - 1, 0)] as Color).lerp(colors[section], smoothstep(SECTION_STARTS[section], SECTION_STARTS[section] + 120.0, d))
 
 
 func fog_distance(d: float) -> float:
