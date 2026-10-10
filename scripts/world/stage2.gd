@@ -456,7 +456,7 @@ func events(hard: bool) -> Array[Dictionary]:
 
 	e.append({"d": 1660.0, "type": "checkpoint", "name": "midboss"})
 	e.append({"d": 1750.0, "type": "pickup", "id": "dragon", "ahead": 15.0})
-	e.append({"d": PLAZA_D - 110.0, "type": "midboss", "kind": "hovercraft", "peak": true, "hold": PLAZA_D - 56.0, "music": "res://assets/music/stage2_hovercraft.ogg"})
+	e.append({"d": PLAZA_D - 110.0, "type": "midboss", "kind": "hovercraft", "ahead": 60.0, "peak": true, "hold": PLAZA_D - 56.0, "music": "res://assets/music/stage2_hovercraft.ogg"})
 	wave.call(2060.0, "abel", {"u": 19.0, "ahead": 45.0, "squad": [
 		{"kind": "walker", "u": 10.0, "ahead": 75.0, "props": {"weapon": "missile"}}]})
 

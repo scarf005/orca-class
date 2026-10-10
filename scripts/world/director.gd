@@ -373,7 +373,7 @@ func _start_midboss(event: Dictionary) -> void:
 	world.rail.mode = Rail.Mode.ARENA if event.kind == "hovercraft" else Rail.Mode.HOLD
 	world.rail.hold_at = event.hold
 	var boss: Enemy = load(ENEMY_SCRIPTS[event.kind]).new()
-	boss.position = Course.ground_at(Course.stage.midboss_d, 0.0)
+	boss.position = Course.ground_at(Course.stage.midboss_d + float(event.get("ahead", 0.0)), 0.0)
 	world.add_enemy(boss)
 	world.boss = boss
 	world.boss_changed.emit(boss)

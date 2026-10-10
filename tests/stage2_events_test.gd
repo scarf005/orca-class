@@ -118,6 +118,17 @@ func test_boss_events_follow_checkpoints_and_do_not_overlap_waves() -> void:
 		check(not events.any(func(e: Dictionary) -> bool: return e.type == "wave" and absf(e.d - spec.d) < 100.0), "boss gets a clean entrance")
 
 
+func test_hovercraft_is_first_seen_at_the_range_every_other_hunter_is_revealed() -> void:
+	var world := stage("", false, 2)
+	world.process_mode = Node.PROCESS_MODE_DISABLED
+	var event: Dictionary = Stage2.new().events(false).filter(func(e: Dictionary) -> bool: return e.type == "midboss")[0]
+	world.rail.d = event.d
+	world.player._place(event.d)
+	world.director._start_midboss(event)
+	var ahead := Course.to_course(world.boss.global_position).x - Course.to_course(world.player.global_position).x
+	check(ahead >= 150.0, "the plaza midboss appears %.0f m ahead, not out of open air" % ahead)
+
+
 func test_music_matches_sections_and_bay_leaves_boss_phase_alone() -> void:
 	var city := Stage2.new()
 	for section in [Stage2.Section.BOULEVARD, Stage2.Section.VIADUCT]:
