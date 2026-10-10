@@ -171,6 +171,7 @@ func _draw() -> void:
 	_draw_hit_marker()
 	_draw_threats()
 	_draw_popups()
+	_draw_enemy_alerts()
 	_draw_status()
 	_draw_weapons()
 	_draw_score()
@@ -825,6 +826,23 @@ func _draw_ciws_lock(cam: Camera3D) -> void:
 		var c: Vector2 = at + corner * r
 		draw_line(c, c - Vector2(corner.x * 5, 0), Palette.MINT, 2.0)
 		draw_line(c, c - Vector2(0, corner.y * 5), Palette.MINT, 2.0)
+
+
+## A blinking red WARNING plate floating over every enemy that is lining up a heavy shot.
+func _draw_enemy_alerts() -> void:
+	var cam := world.camera
+	for enemy: Enemy in world.enemies:
+		var text := enemy.alert_text()
+		if text.is_empty() or fmod(_time, 0.24) > 0.17:
+			continue
+		var above := enemy.hit_center() + Vector3.UP * (enemy.center_height + 3.0)
+		if cam.is_position_behind(above):
+			continue
+		var at := cam.unproject_position(above) * SCALE
+		var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 24).x + 18.0
+		draw_rect(Rect2(at + Vector2(-width * 0.5, -28), Vector2(width, 36)), Palette.RED)
+		draw_rect(Rect2(at + Vector2(-width * 0.5, -28), Vector2(width, 36)), Palette.WHITE, false, 3.0)
+		_text(at + Vector2(0, -3), text, Palette.WHITE, 24, HORIZONTAL_ALIGNMENT_CENTER, 0)
 
 
 func _draw_popups() -> void:

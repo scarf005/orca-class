@@ -60,6 +60,43 @@ func test_abel_lases_before_losat_and_spins_before_gatling() -> void:
 	check(world.projectiles.size() > 1, "the warned gatling fires visible tracers")
 
 
+func test_losat_names_its_shot_over_the_abel_from_the_aim_to_a_moment_after_launch() -> void:
+	for number in [1, 2]:
+		var world := await _setup(number)
+		var abel := Abel.new()
+		_spawn(world, abel, 100.0 if number == 2 else 65.0) # Inside the city hunters' legal firing window.
+		check_eq(abel.alert_text(), "", "an idle Abel shows no warning")
+		abel._losat = true
+		abel._attack_timer = 0.0
+		abel.behave(STEP)
+		check_eq(abel.alert_text(), tr("WARN_LOSAT"), "the LOSAT wind-up flags WARNING over the Abel in stage %d" % number)
+		_run(abel, 0.6)
+		check_eq(abel.alert_text(), tr("WARN_LOSAT"), "the warning stays up through the aim")
+		_run(abel, 0.5)
+		check_eq(world.projectiles.size(), 1, "the dart leaves after a full one-second aim in stage %d" % number)
+		check_eq(abel.alert_text(), tr("WARN_LOSAT"), "the warning stays up as the dart flies")
+		abel._cancel() # The hunter relocating after its volley must not strip the warning from the dart in flight.
+		check_eq(abel.alert_text(), tr("WARN_LOSAT"), "relocating after launch keeps the warning")
+		_run(abel, 1.4)
+		check_eq(abel.alert_text(), "", "the warning clears once the dart has landed")
+
+
+func test_abel_gatling_burst_and_broken_launcher_raise_no_losat_warning() -> void:
+	var world := await _setup()
+	var abel := Abel.new()
+	_spawn(world, abel)
+	abel._losat = false
+	abel._attack_timer = 0.0
+	abel.behave(STEP)
+	check_eq(abel.alert_text(), "", "the gatling wind-up is not a LOSAT warning")
+	abel._losat = true
+	abel._attack_timer = 0.0
+	abel.behave(STEP)
+	abel.disarmed = true
+	abel._cancel()
+	check_eq(abel.alert_text(), "", "breaking the launcher withdraws the warning")
+
+
 func test_losat_close_range_denies_kinetic_energy_even_head_on() -> void:
 	var damage: Array[float] = []
 	for distance in [15.0, 24.0, 85.0, 110.0]:

@@ -377,6 +377,11 @@ func telegraphing() -> bool:
 	return false
 
 
+## Text the HUD flashes above this enemy while it is about to hit hard, else empty.
+func alert_text() -> String:
+	return ""
+
+
 ## A full-charge main-gun hit that lands on a wind-up earns INTERRUPT, kill or not.
 func take_hit(hit: Hit) -> void:
 	if hit.power >= 1.0 and not dead and not invulnerable and telegraphing() and hit.damage * damage_multiplier(hit) > 0.0:

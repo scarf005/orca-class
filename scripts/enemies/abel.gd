@@ -7,6 +7,8 @@ var launcher_hp := 45.0
 var disarmed := false
 var _attack_timer := 1.5
 var _wind := 0.0
+var _wind_total := 1.0
+var _alert := 0.0 ## Seconds the WARNING label stays up: the whole LOSAT wind-up and the flight after it.
 var _losat := true
 var _burst := 0
 var _shot_timer := 0.0
@@ -18,6 +20,7 @@ var _barrels := Node3D.new()
 var _muzzle := Node3D.new()
 
 
+const LOSAT_ALERT_AFTER := 1.2
 const LOSAT_MIN_FIRE := 45.0 ## Closer than this the dart has not gained its speed, so the gatling answers instead.
 
 
@@ -124,6 +127,7 @@ func behave(delta: float) -> void:
 	var tank := player()
 	if tank == null:
 		return
+	_alert = maxf(0.0, _alert - delta)
 	move_hunter(tank, delta, _wind > 0.0 or _burst > 0)
 	if toppled or is_staggered():
 		_cancel()
@@ -157,7 +161,7 @@ func behave(delta: float) -> void:
 	if _wind > 0.0:
 		_wind -= delta
 		if _losat:
-			World.current.fx.beam(_launch_muzzle.global_position, tank.hit_center(), Palette.CORAL, 0.035, 0.05)
+			_designate(tank)
 		else:
 			_barrels.rotation.z += delta * 25.0
 			if fmod(_wind, 0.16) < 0.05:
@@ -175,7 +179,9 @@ func behave(delta: float) -> void:
 	_attack_timer -= delta
 	if _attack_timer <= 0.0 and global_position.distance_to(tank.global_position) < 150.0:
 		_losat = _losat and not disarmed and global_position.distance_to(tank.global_position) >= LOSAT_MIN_FIRE
-		_wind = ((0.65 if Course.stage is Stage2 else 1.0) if _losat else 0.65) * Game.telegraph_scale()
+		_wind = (1.0 if _losat else 0.65) * Game.telegraph_scale()
+		_wind_total = _wind
+		_alert = _wind + LOSAT_ALERT_AFTER if _losat else 0.0
 		_attack_timer = 2.0 if _hard else 2.6
 		Sfx.play("warn", global_position, -4.0)
 
@@ -187,7 +193,44 @@ func _fire_losat(tank: Tank) -> void:
 	missile.hit.source = self
 	World.current.add_child(missile)
 	muzzle_blast(missile.position, missile.velocity.normalized(), Muzzle.HEAVY, "rocket")
-	Sfx.play("launch", missile.position, 1.0, 1.3)
+	_launch_blaze(missile.position, missile.velocity.normalized())
+	_alert = LOSAT_ALERT_AFTER
+	Sfx.play("launch", missile.position, 6.0, 1.15)
+	Sfx.play("warn", global_position, 2.0, 1.8)
+
+
+## The aim: a fat flickering red beam with a white core to the tank, a glow that swells in the tube and a star that
+## blinks on the hull, so the target knows exactly who is being lased.
+func _designate(tank: Tank) -> void:
+	var fx := World.current.fx
+	var from := _launch_muzzle.global_position
+	var charge := 1.0 - clampf(_wind / maxf(_wind_total, 0.01), 0.0, 1.0)
+	var pulse := 0.5 + 0.5 * sin(_wind * 50.0)
+	fx.beam(from, tank.hit_center(), Palette.RED, 0.5 + 0.7 * pulse * charge + 0.3 * charge, 0.05)
+	fx.beam(from, tank.hit_center(), Palette.WHITE, 0.18 + 0.1 * charge, 0.05)
+	fx.light_flash(from, 10.0 + 30.0 * charge, Palette.RED, 20.0 + 20.0 * charge)
+	fx.muzzle_flash(from, (tank.hit_center() - from).normalized(), 3.0 + 8.0 * charge * pulse, Palette.CORAL)
+	if fmod(_wind, 0.16) < 0.05:
+		fx.impact_star(tank.hit_center(), 5.0 + 5.0 * charge, Palette.RED)
+		fx.shockwave(tank.global_position, 9.0, Palette.RED, 0.16)
+		Sfx.play("warn", global_position, 0.0, 1.5 + charge * 0.6)
+
+
+## The launch: a white-hot fireball and a long flame jet out of the tube, a backblast of fire and smoke behind it.
+func _launch_blaze(at: Vector3, dir: Vector3) -> void:
+	var fx := World.current.fx
+	fx.muzzle_flash(at + dir * 2.0, dir, 22.0, Palette.WHITE)
+	fx.muzzle_flash(at + dir * 1.5, dir, 15.0, Palette.AMBER)
+	fx.muzzle_flash(at - dir * 2.0, -dir, 16.0, Palette.AMBER)
+	for i in 40:
+		var jet := (dir + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 0.22).normalized()
+		fx.spawn(Fx.Kind.FLAME, at + dir * 0.8, jet * randf_range(26.0, 60.0), 0.7, 5.0, [Palette.BUTTER, Palette.AMBER, Palette.CORAL][i % 3], {"drag": 3.0})
+	for i in 24:
+		var back := (-dir + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 0.4).normalized()
+		fx.spawn(Fx.Kind.FLAME, at - dir * 0.8, back * randf_range(12.0, 34.0), 0.6, 4.0, [Palette.AMBER, Palette.CORAL][i % 2], {"drag": 3.0})
+	fx.smoke(at - dir * 2.0, 24, 5.0, [Palette.ASH, Palette.STONE, Palette.MIST])
+	fx.light_flash(at, 90.0, Palette.AMBER, 60.0)
+	fx.shockwave(at, 18.0, Palette.WHITE, 0.45)
 
 
 func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
@@ -224,7 +267,13 @@ func telegraphing() -> bool:
 	return _wind > 0.0
 
 
+func alert_text() -> String:
+	return tr("WARN_LOSAT") if _alert > 0.0 and not dead else ""
+
+
 func _cancel() -> void:
+	if _wind > 0.0:
+		_alert = 0.0 # A broken aim withdraws the warning; a dart already in flight keeps it.
 	_wind = 0.0
 	_burst = 0
 
