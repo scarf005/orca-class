@@ -275,11 +275,12 @@ func valley_half_width(d: float) -> float:
 
 func height(d: float, u: float) -> float:
 	for arena in arenas:
-		if Vector2(d - arena.d, u).length() < arena.radius:
+		# The hull may roam the whole strip the limit allows, so the floor covers it, not just the drawn circle.
+		if Vector2(d - arena.d, u).length() < arena.radius or (absf(d - arena.d) <= arena.radius + 2.0 * HULL_MARGIN and absf(u) <= arena.radius - 6.0 + HULL_MARGIN):
 			return -0.15
 	# Under the expressway the drowned road runs on to the piers, so its hunters can come down to the street.
-	# The floor runs 3 m past the hull's limit so the track samples at the kerb never hang over the drop.
-	var reach := lateral_limit(d) + HULL_MARGIN + (14.0 if section_at(d) == Section.VIADUCT and signf(u) == _expressway_side(d) else 0.0)
+	# The floor runs 3 m past the hull's limit, fore and aft, so the track samples at the kerb never hang over the drop.
+	var reach := maxf(lateral_limit(d - HULL_MARGIN), lateral_limit(d + HULL_MARGIN)) + HULL_MARGIN + (14.0 if section_at(d) == Section.VIADUCT and signf(u) == _expressway_side(d) else 0.0)
 	if absf(u) > reach:
 		return WATER_LEVEL - 4.5
 	return 0.05 + _kerb(d, absf(u)) + _relief(d, u)
