@@ -5,6 +5,8 @@ extends Node
 ##        [--range=3000,3300] # print frame times within a course-distance interval
 ##        [--milestones] [--verify] # capture sections, authored peaks, boss phases and results; fail unless results arrive
 ##        [--compare-city] [--trace-elites] # same-distance Stage 1 census and hunter sight/fire diagnostics
+##        [--lane=-1|1] # hold the tank against the left or right kerb
+##        [--trace-ranges] # every 6 frames: each live enemy's distance ahead of the tank and lateral offset
 
 var screen: GameScreen
 var bot := "hold"
@@ -32,6 +34,7 @@ var _peak_capture_at := -1.0
 var _compare_city := false
 var _compare_section := 0
 var _compare_kills := 0
+var _lane := 0.0 ## -1 or 1 pins the tank against that kerb.
 var _compare_spawned := 0
 
 
@@ -51,6 +54,7 @@ func run() -> int:
 	_out = out
 	_milestones = args.has("milestones")
 	_compare_city = args.has("compare-city")
+	_lane = float(args.get("lane", "0"))
 	DirAccess.make_dir_recursive_absolute(out)
 	var seconds := float(args.get("seconds", "20"))
 	var shots: Array = []
@@ -164,6 +168,10 @@ func run() -> int:
 				if enemy is BipedMech or enemy is Hind:
 					print("ELITE t=%.2f kind=%s hp=%.0f position=%s warning=%s timer=%s shots=%d" % [elapsed, enemy.get_script().resource_path.get_file(), enemy.hp, Course.to_course(enemy.global_position), enemy.telegraphing(), enemy.get("_attack_timer"), world.projectiles.size()])
 					print("ELITE_VIEW pixel=%s blocked=%s stance=%s" % [world.camera.unproject_position(enemy.hit_center()) / Vector2(DitherView.RESOLUTION), world.director.scenery.line_blocked(world.camera.global_position, enemy.hit_center()), enemy.get("_stance")])
+		if args.has("trace-ranges") and frames % 6 == 0:
+			for enemy in world.enemies:
+				if not enemy.dead:
+					print("RANGE t=%.1f id=%d kind=%s ahead=%.0f u=%.0f" % [elapsed, enemy.get_instance_id(), enemy.get_script().resource_path.get_file().get_basename(), Course.to_course(enemy.global_position).x - world.rail.d - world.player.course_offset, Course.to_course(enemy.global_position).y])
 		if args.has("profile") and frames % 60 == 0:
 			print("t=%.1f frame=%.1fms process=%.1fms draw_calls=%d objects=%d particles=%d enemies=%d props=%d" % [elapsed, frame_ms,
 				Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
@@ -306,6 +314,8 @@ func _killed(_victim: Entity, hit: Hit) -> void:
 func _drive(world: World, t: float) -> void:
 	var tank := world.player
 	tank.using_gamepad = true
+	if _lane != 0.0:
+		tank.course_u = _lane * Tank.lateral_limit(world.rail.d)
 	var target: Entity = null
 	var best := INF
 	for enemy in world.enemies:
