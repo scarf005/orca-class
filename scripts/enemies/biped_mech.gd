@@ -318,8 +318,10 @@ func walk_to(goal: Vector3, speed: float, delta: float) -> void:
 			next = global_position
 	var floor := CityCover.surface_at(next, next.y + 1.0)
 	var here := CityCover.surface_at(global_position, global_position.y + 1.0)
-	if Water.surface_at(next) - floor > Water.DEEP and Water.surface_at(global_position) - here <= Water.DEEP:
-		next = global_position # Deep water off the avenue: the hunter stops at its edge rather than sinking.
+	var course := Course.to_course(next)
+	var past_kerb := Course.stage is Stage2 and floor < Stage2.WATER_LEVEL + 3.0 and absf(course.y) > Course.stage.lateral_limit(course.x) and absf(course.y) <= Course.stage.lateral_limit(course.x) + Stage2.HULL_MARGIN and absf(course.y) > absf(Course.to_course(global_position).y)
+	if past_kerb or (Water.surface_at(next) - floor > Water.DEEP and Water.surface_at(global_position) - here <= Water.DEEP):
+		next = global_position # Off the avenue (the shelf past the kerb, deep water): the hunter stops at its edge.
 		floor = here
 	_walk += global_position.distance_to(next)
 	global_position = next

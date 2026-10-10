@@ -9,6 +9,7 @@ const LENGTH := 4000.0
 const DECK_TOP := 6.25 ## Expressway deck hunters stand this high above the drowned road under it.
 const HORIZON_SHIFT := 120.0 ## Squads spawn this much farther out, in the haze, and walk in instead of popping up mid-street.
 const WATER_LEVEL := 0.3
+const HULL_MARGIN := 3.0
 const PLAZA_D := 1900.0
 const PLAZA_RADIUS := 72.0
 const BAY_D := 3650.0
@@ -277,7 +278,8 @@ func height(d: float, u: float) -> float:
 		if Vector2(d - arena.d, u).length() < arena.radius:
 			return -0.15
 	# Under the expressway the drowned road runs on to the piers, so its hunters can come down to the street.
-	var reach := lateral_limit(d) + (14.0 if section_at(d) == Section.VIADUCT and signf(u) == _expressway_side(d) else 0.0)
+	# The floor runs 3 m past the hull's limit so the track samples at the kerb never hang over the drop.
+	var reach := lateral_limit(d) + HULL_MARGIN + (14.0 if section_at(d) == Section.VIADUCT and signf(u) == _expressway_side(d) else 0.0)
 	if absf(u) > reach:
 		return WATER_LEVEL - 4.5
 	return 0.05 + _kerb(d, absf(u)) + _relief(d, u)

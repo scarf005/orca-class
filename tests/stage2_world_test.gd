@@ -109,6 +109,21 @@ func test_hull_can_cross_the_street_everywhere_except_through_a_visible_building
 	scenery.free()
 
 
+func test_hull_at_either_kerb_stays_on_the_road_surface_and_level() -> void:
+	var world := stage("", false, 2)
+	world.process_mode = Node.PROCESS_MODE_DISABLED
+	var tank := world.player
+	var d := 20.0
+	while d < Stage2.BAY_D - Stage2.BAY_RADIUS - 20.0:
+		for side: float in [1.0, -1.0]:
+			tank.course_u = side * Tank.lateral_limit(d)
+			tank._place(d)
+			var road := Course.height(d, tank.course_u)
+			check(absf(tank.global_position.y - road) < 0.6, "the hull at the %s limit, d=%d, rides %.2f m from the road (not sunk)" % ["right" if side > 0.0 else "left", d, tank.global_position.y - road])
+			check(absf(tank.global_basis.get_euler().z) < 0.12, "the hull at the %s limit, d=%d, does not roll off the kerb (%.2f rad)" % ["right" if side > 0.0 else "left", d, tank.global_basis.get_euler().z])
+		d += 35.0
+
+
 func test_frontage_edges_and_gaps_use_measured_layout_data() -> void:
 	Course.use(2)
 	for gap: Dictionary in (Course.stage as Stage2).frontage_gaps:
