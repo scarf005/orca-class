@@ -26,6 +26,7 @@ static func default_bindings() -> Dictionary:
 		"roll_left": [_button(JOY_BUTTON_LEFT_SHOULDER)],
 		"roll_right": [_button(JOY_BUTTON_RIGHT_SHOULDER)],
 		"pause": [_key(KEY_P), _key(KEY_ESCAPE), _button(JOY_BUTTON_START)],
+		"restart": [_key(KEY_R), _button(JOY_BUTTON_BACK)], ## The tutorial's restart.
 	}
 
 const REBINDABLE: Array[StringName] = [&"move_forward", &"move_back", &"move_left", &"move_right", &"fire", &"coax", &"dash", &"pause"]

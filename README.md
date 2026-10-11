@@ -12,7 +12,16 @@ Needs Godot 4.7.2+ (stable)
 ```sh
 godot --path .
 godot --path . -- --play # skip title screen
+godot --path . -- --tutorial # practice movement, aiming and firing
 ```
+
+Choose **TUTORIAL** to drive a training ground of floating islands at your own pace. A maze of crushable walls with
+painted keys teaches moving (and that scenery breaks); then the islands turn left and right, and each station holds
+you until you use the skill the TV beside it plays: shoot paper and steel targets so a bridge rises, break the
+armoured pillbox with a locked full charge, lock onto the drone to lower the drawbridge, dash over the broken road,
+dash through the turret's paint walls, ram unarmed scarecrows to heal the armour the thorns took, and clear a swarm
+with one micro-missile salvo from the armoury's crate. Then the main game is offered on Easy.
+R or the controller's Back button restarts the tutorial.
 
 ### Web
 
