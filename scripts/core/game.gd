@@ -119,6 +119,13 @@ func apply_settings() -> void:
 			events.push_front(custom)
 		for event: InputEvent in events:
 			InputMap.action_add_event(action, event)
+	# Godot provides D-pad navigation, but confirm/cancel need explicit controller bindings.
+	var menu_buttons := {"ui_accept": JOY_BUTTON_A, "ui_cancel": JOY_BUTTON_B}
+	for action: String in menu_buttons:
+		var event := _button(menu_buttons[action])
+		event.device = -1
+		if not InputMap.action_has_event(action, event):
+			InputMap.action_add_event(action, event)
 
 
 func rebind(action: StringName, event: InputEvent) -> void:
