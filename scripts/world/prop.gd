@@ -27,6 +27,7 @@ var _topple_by_player := false
 var _topple_start := Transform3D.IDENTITY
 var rubble_mesh: Mesh
 var score := 0
+var min_charge := 0 ## Main-gun charge stage (Armament.stage) a hit needs to break this prop. Above 0, a free-driving tank stops against it instead of crushing it.
 
 
 const DRAW_DISTANCE := 150.0 ## Fog hides small props well before this.
@@ -221,6 +222,15 @@ func setup(kind_value: String, mesh: Mesh, footprint_value: float, height_value:
 	return self
 
 
+## A hit too weak for its armor or charge stage ricochets in sparks and does nothing.
+func take_hit(hit: Hit) -> void:
+	if Armament.stage(hit.power) < min_charge or glances(hit):
+		if not dead and hit.kind != Hit.Kind.FIRE:
+			World.current.fx.sparks(hit.position, -hit.direction, 6, Palette.WHITE, 14.0)
+		return
+	super.take_hit(hit)
+
+
 static var _see_through := _make_see_through()
 static var _stain_material := _make_stain()
 
@@ -366,6 +376,8 @@ func _flatten(world: World) -> void:
 
 
 func damage_multiplier(hit: Hit) -> float:
+	if glances(hit):
+		return 0.0
 	if hit.kind == Hit.Kind.FIRE:
 		return 3.0 if burnable else 0.3
 	return 1.0

@@ -30,6 +30,10 @@ const REFLECT_SPEED := 1.2
 const REFLECT_DAMAGE := 120.0
 const DASH_DISTANCE := 13.0 ## Twice the hull's length.
 const DASH_TIME := 0.35
+const FALL_TIME := 1.4 ## Seconds a hull that dashed off the arena's land falls before it is set back.
+const FALL_GRAVITY := 9.8
+const LEDGE := 0.6 ## A falling hull this far below the land it reaches lands on it; any lower, it hits the side.
+const FUNNEL := 2.5 ## A hull driving into an edge slides sideways onto land this close beside it: into a bridge's mouth.
 const DASH_SPEED := 2.0 * DASH_DISTANCE / DASH_TIME ## Starts this fast and eases to a stop, covering DASH_DISTANCE.
 const COAX_RANGE := 140.0
 const SOFT_LOCK_RADIUS := 40.0 ## Screen pixels (3D view) around the reticle; the FCS scales it.
@@ -130,6 +134,11 @@ var _drift_dir := 0.0
 var _drift_yaw := 0.0
 var _dust_wait := 0.0
 var _spray_wait := 0.0
+var _dry := Vector2.INF ## Last (d, u) the hull stood wholly on the arena's land.
+var _dashing := false ## A dash was carrying the hull over the arena's land last frame.
+var _fall := 0.0 ## Seconds left of a fall off the arena's land, from the moment a dash carries the hull's centre off it.
+var _fall_velocity := Vector3.ZERO
+var _fall_axis := Vector3.RIGHT ## The hull tips about this, toward where it was going.
 var _stage_rung := 0 ## The last lock box whose note has rung.
 var _stabilized_yaw := 0.0 ## Hull yaw the turret was last laid against. ## The nose's swing against a sideways dash, eased in and out.
 var _respawn := 0.0
@@ -251,7 +260,7 @@ func tick(delta: float) -> void:
 	tail.update(delta, global_basis, lateral_velocity)
 	auto_tail() # The tail and the coax work on their own; only driving and the main gun take input.
 	_update_pickups()
-	tracks.press(global_transform, delta)
+	tracks.press(global_transform, delta, _off_land())
 	model.rotation.x = move_toward(model.rotation.x, 0.0, delta * 0.8)
 	velocity = (global_position - _last_position) / maxf(delta, 0.0001)
 	_last_position = global_position
@@ -328,6 +337,74 @@ func _wade_spray(delta: float) -> void:
 			fx.juice(at, global_basis.z)
 
 
+## Holds the hull, at course (d, u) `at`, on the ground the (u, d) rectangles of `land` make up: its rim stays
+## inside their union, sliding along an edge it drives into and sideways into a gap in it, like a bridge's mouth, up
+## to FUNNEL away. A dash carries it over gaps: the moment its centre is over none of the land it falls (see _tumble),
+## and one that ends with only the rim off is nudged on.
+func _keep_on(at: Vector2, land: Array[Rect2]) -> Vector2:
+	if land.is_empty():
+		return at
+	if _drift > 0.0 or _dashing:
+		_dashing = _drift > 0.0
+		if not _over(at, land):
+			_take_off(at)
+			return at
+		if _dashing:
+			return at
+		if not _on_land(at, land):
+			for step in range(1, 11):
+				for k in 8:
+					var nudged := at + Vector2.RIGHT.rotated(TAU * k / 8.0) * HULL_RADIUS * step / 10.0
+					if _on_land(nudged, land):
+						_dry = nudged
+						return nudged
+	if _on_land(at, land):
+		_dry = at
+		return at
+	if _dry == Vector2.INF:
+		return at
+	var move := at - _dry
+	for candidate: Vector2 in [Vector2(at.x, _dry.y), Vector2(_dry.x, at.y)]:
+		if candidate != _dry and _on_land(candidate, land):
+			_dry = candidate
+			return candidate
+	var side := move.orthogonal().normalized()
+	for i in range(1, roundi(FUNNEL / 0.25) + 1):
+		for sign: float in [1.0, -1.0]:
+			if _on_land(at + side * sign * i * 0.25, land):
+				var slid := _dry + side * sign * minf(i * 0.25, move.length())
+				if _on_land(slid, land):
+					_dry = slid
+					return slid
+	return _dry
+
+
+## Whether course (d, u) `at` is over any of `land`.
+static func _over(at: Vector2, land: Array[Rect2]) -> bool:
+	return land.any(func(rect: Rect2) -> bool: return rect.has_point(Vector2(at.y, at.x)))
+
+
+## The hull, its centre at course (d, u) `at` over no land, leaves the ground keeping its speed.
+func _take_off(at: Vector2) -> void:
+	_fall = FALL_TIME
+	_drift = 0.0
+	_dashing = false
+	_fall_velocity = Vector3(local_velocity.x, 0, local_velocity.y)
+	_fall_axis = Vector3.UP.cross(_fall_velocity).normalized() if _fall_velocity.length() > 0.1 else global_basis.x
+	if _dry == Vector2.INF:
+		_dry = Course.to_course(global_position)
+	global_position = Course.ground_at(at.x, at.y)
+
+
+## Whether the hull's centre and rim at course (d, u) `at` all stand on `land`.
+static func _on_land(at: Vector2, land: Array[Rect2]) -> bool:
+	for k in 9:
+		var p := Vector2(at.y, at.x) + (Vector2.RIGHT.rotated(TAU * k / 8.0) * HULL_RADIUS if k < 8 else Vector2.ZERO)
+		if not land.any(func(rect: Rect2) -> bool: return rect.has_point(p)):
+			return false
+	return true
+
+
 ## While a charge lock is held, sideways driving slows as the locked target nears the edge of the
 ## lock's hold on screen, down to a stop, so weaving left and right never shakes the lock off.
 func _lock_move_factor() -> float:
@@ -348,6 +425,9 @@ func _lock_move_factor() -> float:
 
 
 func _move_arena(delta: float, input: Vector2) -> void:
+	if _fall > 0.0:
+		_tumble(delta)
+		return
 	var cam := World.current.camera
 	var forward := -cam.global_basis.z
 	forward.y = 0.0
@@ -361,13 +441,16 @@ func _move_arena(delta: float, input: Vector2) -> void:
 		current = right * _drift_dir * DASH_SPEED * (_drift / DASH_TIME) if absf(_drift_dir) > 0.0 else current
 	local_velocity = Vector2(current.x, current.z)
 	var p := global_position + current * delta
-	var center := Course.to_world(Course.ARENA_CENTER_D, 0.0)
+	var rail := World.current.rail
+	var center := Course.to_world(rail.arena_d, 0.0)
 	var flat := Vector2(p.x - center.x, p.z - center.z)
-	if flat.length() > Course.ARENA_RADIUS - 6.0:
-		flat = flat.normalized() * (Course.ARENA_RADIUS - 6.0)
+	if flat.length() > rail.arena_radius - 6.0:
+		flat = flat.normalized() * (rail.arena_radius - 6.0)
 		p.x = center.x + flat.x
 		p.z = center.z + flat.y
 	var c := Course.to_course(p)
+	c.y = clampf(c.y, -rail.arena_u, rail.arena_u)
+	c = _keep_on(c, rail.arena_land)
 	course_u = c.y
 	lateral_velocity = current.dot(right)
 	if current.length() > 1.0:
@@ -379,6 +462,52 @@ func _move_arena(delta: float, input: Vector2) -> void:
 	_collide_props()
 	_ram_enemies()
 	model.animate_tracks(delta, current.length(), current.length())
+
+
+## Over a gap in the arena's land, or falling through one: no ground for the tracks to print on.
+func _off_land() -> bool:
+	var land := World.current.rail.arena_land
+	if _fall > 0.0:
+		return true
+	if land.is_empty():
+		return false
+	var c := Course.to_course(global_position)
+	return not land.any(func(rect: Rect2) -> bool: return rect.has_point(Vector2(c.y, c.x)))
+
+
+## The hull flies on from where it left the land under gravity, tipping toward where it was going. Over land again
+## no more than LEDGE below it, it lands and rolls on; lower, it strikes the side and drops. Then it is set back
+## where it last stood wholly on the land.
+func _tumble(delta: float) -> void:
+	_fall -= delta
+	if _fall <= 0.0:
+		_fall = 0.0
+		local_velocity = Vector2.ZERO
+		course_u = _dry.y
+		_set_pose(Course.ground_at(_dry.x, _dry.y), hull_yaw)
+		World.current.fx.dust(global_position, 10, 2.5, Palette.MIST)
+		return
+	_fall_velocity.y -= FALL_GRAVITY * delta
+	var p := global_position + _fall_velocity * delta
+	var c := Course.to_course(p)
+	var ground := Course.ground_at(c.x, c.y)
+	if _over(c, World.current.rail.arena_land):
+		if p.y > ground.y - LEDGE:
+			_fall = 0.0
+			_dashing = true # Nudged wholly on next frame if only the centre made it.
+			local_velocity = Vector2(_fall_velocity.x, _fall_velocity.z)
+			course_u = c.y
+			_set_pose(ground, hull_yaw)
+			World.current.fx.dust(global_position, 6, 1.5, Palette.MIST)
+			return
+		_fall_velocity.x = 0.0
+		_fall_velocity.z = 0.0
+		p = global_position + _fall_velocity * delta
+	local_velocity = Vector2.ZERO
+	var tip := (FALL_TIME - _fall) * 1.2
+	_set_pose(p, hull_yaw)
+	global_position.y = p.y
+	global_basis = Basis(_fall_axis, tip) * global_basis
 
 
 ## Space or the right button dashes the way the tank is steered: sideways if A or D is held, else forward on W alone or a
@@ -420,6 +549,10 @@ func _dash_trail(delta: float) -> void:
 
 func is_dashing() -> bool:
 	return _drift > 0.0
+
+
+func is_falling() -> bool:
+	return _fall > 0.0
 
 
 ## While dashing, every hostile shot within REFLECT_RANGE of the hull is turned back on its shooter.
@@ -560,12 +693,29 @@ func _collide_props() -> void:
 			continue
 		if prop.global_position.y > global_position.y + 2.5:
 			continue # Resting up high (a tree crown, a spire): the hull passes under it.
+		if prop.min_charge > 0:
+			_stop_against(prop)
+			continue
 		var ram := Hit.make(Hit.Kind.RAM, 99999.0, prop.global_position, travel_direction())
 		ram.source = self
 		prop.take_hit(ram)
 		_ram_jolt(prop.footprint)
 		if prop.hard and World.current.rail.mode == Rail.Mode.RAIL:
 			_hard_jolt()
+
+
+## A prop that only a charged shot breaks holds the hull outside its footprint and takes the speed driving into it. Only
+## free driving can be held; on the rail the road carries the tank on.
+func _stop_against(prop: Prop) -> void:
+	if World.current.rail.mode != Rail.Mode.ARENA:
+		return
+	var away := Vector2(global_position.x - prop.global_position.x, global_position.z - prop.global_position.z)
+	var gap := HULL_RADIUS + prop.footprint
+	var normal := away.normalized() if away.length() > 0.001 else Vector2.DOWN
+	var out := global_position + Vector3(normal.x, 0.0, normal.y) * (gap - away.length())
+	local_velocity -= normal * minf(local_velocity.dot(normal), 0.0)
+	_set_pose(out, hull_yaw)
+	course_u = Course.to_course(out).y
 
 
 ## The camera bucks and the hull rocks, more for bigger things; no frozen frame. Only hard
