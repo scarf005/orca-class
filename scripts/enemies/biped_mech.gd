@@ -30,6 +30,7 @@ var _walk := 0.0
 var _hip := 3.0
 var _firing_goal := Vector3.INF
 var _firing_search := 0.0
+var _tank_d := INF ## Where the tank was along the road on the last hunter step.
 
 
 func _init() -> void:
@@ -148,6 +149,7 @@ func city_firing_spot(tank: Tank) -> Vector3:
 		return _firing_goal
 	_firing_search = 0.25
 	_firing_goal = Vector3.INF
+	var fallback := Vector3.INF
 	var t := Course.to_course(tank.global_position)
 	var slot := get_meta("slot", Vector3.ZERO) as Vector3
 	var lanes := PackedFloat32Array([signf(slot.x) * 38.5] if slot.y > 0.0 else [clampf(Course.to_course(global_position).y, -12.0, 12.0), -8.0, 8.0, 0.0])
@@ -158,11 +160,16 @@ func city_firing_spot(tank: Tank) -> Vector3:
 			at.y = CityCover.surface_at(at, maxf(tank.global_position.y, Stage2.WATER_LEVEL) + 6.01)
 			if slot.y > 0.0 and at.y < Stage2.WATER_LEVEL + 5.5:
 				continue
-			if not firing_spot_valid(at, tank) or line_blocked(at + Vector3.UP * center_height, tank.hit_center()) or World.current.director.scenery.line_blocked(World.current.camera.global_position, at + Vector3.UP * center_height):
+			if not firing_spot_valid(at, tank):
+				continue
+			if fallback == Vector3.INF:
+				fallback = at
+			if line_blocked(at + Vector3.UP * center_height, tank.hit_center()) or World.current.director.scenery.line_blocked(World.current.camera.global_position, at + Vector3.UP * center_height):
 				continue
 			_firing_goal = at
 			return at
-	return Vector3.INF
+	_firing_goal = fallback # No open line this moment: still keep up in the band, or the tank drives out of range.
+	return fallback
 
 
 func walk_city_firing(goal: Vector3, speed: float, delta: float) -> void:
@@ -278,6 +285,13 @@ func on_exposed() -> void:
 	pass
 
 
+## Walks on with the tank, even while winding up, so the street ahead it stands on does not slide out of its firing band.
+func keep_pace(advance: float, delta: float) -> void:
+	if advance > 0.0 and delta > 0.0:
+		var c := Course.to_course(global_position)
+		walk_to(Course.to_world(c.x + 10.0, c.y, global_position.y), advance / delta, delta)
+
+
 ## Walk around a footprint, keeping the current deck without climbing overhead roofs.
 func walk_to(goal: Vector3, speed: float, delta: float) -> void:
 	var offset := goal - global_position
@@ -330,6 +344,9 @@ func walk_to(goal: Vector3, speed: float, delta: float) -> void:
 
 func move_hunter(tank: Tank, delta: float, planted: bool, keep := 52.0) -> void:
 	_firing_search = maxf(0.0, _firing_search - delta)
+	var tank_d := Course.to_course(tank.global_position).x
+	var advance := tank_d - _tank_d if is_finite(_tank_d) else 0.0
+	_tank_d = tank_d
 	var toward := tank.global_position - global_position
 	model.rotation.y = lerp_angle(model.rotation.y, atan2(-toward.x, -toward.z), minf(delta * 4.0, 1.0))
 	if toppled:
@@ -344,9 +361,11 @@ func move_hunter(tank: Tank, delta: float, planted: bool, keep := 52.0) -> void:
 		if goal != Vector3.INF:
 			walk_city_firing(goal, World.current.rail.speed + 18.0, delta)
 		return
+	var slot := get_meta("slot", Vector3.ZERO) as Vector3
+	if Course.stage is Stage2 and slot.y <= 0.0 and not is_staggered():
+		keep_pace(advance, delta)
 	if planted or is_staggered():
 		return
-	var slot := get_meta("slot", Vector3.ZERO) as Vector3
 	if Course.stage is Stage2 and slot.y > 0.0:
 		var goal := city_firing_spot(tank)
 		if goal != Vector3.INF:
@@ -405,12 +424,14 @@ func move_hunter(tank: Tank, delta: float, planted: bool, keep := 52.0) -> void:
 			if _stance_time > EXPOSE_TIME or line_blocked(hit_center(), tank.hit_center()):
 				relocate()
 			return
+	if Course.stage is Stage2:
+		return # keep_pace holds the band; walking up to `keep` would drive it out of its own firing range.
 	var here := Course.to_course(global_position)
 	var target_d := World.current.rail.d + tank.course_offset + keep
 	if World.current.rail.mode == Rail.Mode.ARENA:
 		target_d = Course.to_course(tank.global_position).x + keep
 	var u := clampf(here.y + _side * 6.0, -12.0, 12.0) if Course.stage is Stage2 else here.y + _side * 6.0
-	walk_to(Course.ground_at(target_d, u), World.current.rail.speed + 9.0 if Course.stage is Stage2 else 9.0, delta)
+	walk_to(Course.ground_at(target_d, u), 9.0, delta)
 
 
 func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:

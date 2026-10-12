@@ -437,6 +437,7 @@ func events(hard: bool) -> Array[Dictionary]:
 	# Few enemies, each deadly: one hunter and at most one escort (the first duty is two boats) every 230 m (about 10 s at wading speed), never a
 	# crowd. Boulevard builds from one hunter to a pair, the viaduct adds deck and air threats, the canyon repeats
 	# them tighter, and quiet stretches before the plaza and the bay let the tank refit.
+	wave.call(30.0, "fpv", {"height": 5.0}) # Contact within seconds: a lone drone crosses the horizon before the first hunter.
 	wave.call(240.0, "abel", {"u": -17.0, "ahead": 85.0, "drop": "coax", "squad": [
 		{"kind": "fpv", "height": 5.0}]})
 	wave.call(450.0, "kain", {"u": 21.0, "ahead": 85.0, "peak": true, "squad": [

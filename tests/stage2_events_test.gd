@@ -54,7 +54,8 @@ func test_quiet_opening_and_release_keep_the_elite_count_low() -> void:
 	check(not waves.is_empty(), "city has hunters")
 	if waves.is_empty():
 		return
-	check(waves[0].d >= 180.0 and waves[0].kind == "abel" and waves[0].get("count", 1) == 1, "quiet opening teaches one LOSAT hunter")
+	check(waves[0].d <= 60.0 and waves[0].kind == "fpv" and waves[0].get("count", 1) == 1, "the first contact is a lone drone within seconds of the start")
+	check(waves[1].d >= 180.0 and waves[1].kind == "abel" and waves[1].get("count", 1) == 1, "the first hunter teaches the LOSAT alone")
 	var city_count := 0
 	var farm_count := 0
 	for event in waves:
@@ -147,7 +148,7 @@ func test_hard_adds_flank_pressure_without_filling_releases() -> void:
 	check(hard.size() > normal.size(), "hard remixes the build beats")
 	for event in hard:
 		if event.type == "wave":
-			check(event.d >= 180.0 and event.d < 3290.0, "hard preserves opening and bay release")
+			check(event.d >= 30.0 and event.d < 3290.0, "hard preserves opening and bay release")
 			check_eq(event.get("hard_scale", 1.4), 1.0, "elite formations do not silently double on hard")
 
 
@@ -181,7 +182,7 @@ func test_city_results_store_only_city_bests_and_offer_retry_and_title() -> void
 func test_opening_hunter_is_outside_cover_and_cannot_fire_through_it() -> void:
 	var world := stage("", false, 2)
 	world.director.set_process(false)
-	var event: Dictionary = Stage2.new().events(false).filter(func(e: Dictionary) -> bool: return e.type == "wave")[0]
+	var event: Dictionary = Stage2.new().events(false).filter(func(e: Dictionary) -> bool: return e.type == "wave" and e.kind == "abel")[0]
 	world.rail.d = event.d
 	world.player._place(event.d)
 	world.camera.snap()
@@ -337,3 +338,89 @@ func test_clear_heading_is_localized_for_the_completed_stage() -> void:
 		_results = null
 		Game.stage = 2
 	TranslationServer.set_locale(locale)
+
+
+func _street_hind(world: World, ahead: float) -> Hind:
+	world.director.events.clear()
+	world.rail.mode = Rail.Mode.HOLD
+	var tank := world.player
+	var d := Course.to_course(tank.global_position).x + ahead
+	var heli := Hind.new()
+	heli.position = Course.to_world(d, 0.0, tank.global_position.y + 5.0)
+	world.add_enemy(heli)
+	heli._attack_timer = 0.0
+	return heli
+
+
+func test_hind_holds_its_station_for_the_whole_fight_instead_of_leaving_after_its_pacing_pass() -> void:
+	var world := stage("", false, 2)
+	var heli := _street_hind(world, 85.0 * Course.stage.standoff)
+	heli.age = 60.0
+	heli.behave(0.1)
+	check(not heli.dead, "a stage 2 hunter does not fly off unkilled")
+	var before := world.projectiles.size()
+	for i in 80:
+		heli.behave(0.1)
+	check(world.projectiles.size() > before, "late in the fight it still attacks")
+
+
+func test_hind_flies_to_a_lane_with_a_clear_shot_instead_of_firing_into_a_roadside_prop() -> void:
+	var world := stage("", false, 2)
+	var heli := _street_hind(world, 85.0 * Course.stage.standoff)
+	var shop := Prop.new()
+	shop.setup("city_shop", PropKit.mesh("city_shop", 0), 4.5, 7.5, 1000.0)
+	shop.position = world.player.global_position.lerp(heli.global_position, 0.7)
+	shop.position.y = world.player.global_position.y
+	world.props.add_child(shop)
+	check(CityCover.blocker(heli._chin_muzzle.global_position, world.player.hit_center()) == shop, "the shop screens the straight shot")
+	var before := world.projectiles.size()
+	for i in 120:
+		heli.behave(0.1)
+		if world.projectiles.size() > before:
+			break
+	check(world.projectiles.size() > before, "the gunship eventually fires")
+	check(CityCover.blocker(heli._chin_muzzle.global_position, world.player.hit_center()) == null, "it fires only along a line free of the prop")
+
+
+func test_hind_keeps_station_ahead_of_a_driving_tank_and_attacks_every_few_seconds() -> void:
+	var world := stage("", false, 2)
+	var heli := _street_hind(world, 85.0 * Course.stage.standoff)
+	world.rail.speed = 23.0
+	var tank := world.player
+	var d := Course.to_course(tank.global_position).x
+	var bursts := 0
+	var last := world.projectiles.size()
+	var worst := INF
+	for i in 400:
+		d += 23.0 * 0.025
+		tank.global_position = Course.to_world(d, 0.0, tank.global_position.y)
+		heli.behave(0.025)
+		worst = minf(worst, Course.to_course(heli.global_position).x - d)
+		bursts += maxi(world.projectiles.size() - last, 0)
+		last = world.projectiles.size()
+	check(worst >= 65.0 * Course.stage.standoff, "it never falls behind its firing band (closest %.0f m)" % worst)
+	check(bursts >= 10, "over ten driven seconds it lands two attacks, not one warning after another (%d rounds)" % bursts)
+
+
+func test_ground_hunter_keeps_its_firing_band_ahead_of_a_driving_tank_and_shoots() -> void:
+	var world := stage("", false, 2)
+	world.director.events.clear()
+	world.rail.mode = Rail.Mode.HOLD
+	var tank := world.player
+	var d := Course.to_course(tank.global_position).x
+	var kain := Kain.new()
+	kain.position = Course.ground_at(d + 95.0, 0.0)
+	world.add_enemy(kain)
+	kain._attack_timer = 0.0
+	var worst := INF
+	var rounds := 0
+	var last := world.projectiles.size()
+	for i in 400:
+		d += 29.0 * 0.025
+		tank.global_position = Course.to_world(d, 0.0, tank.global_position.y)
+		kain.behave(0.025)
+		worst = minf(worst, Course.to_course(kain.global_position).x - d)
+		rounds += maxi(world.projectiles.size() - last, 0)
+		last = world.projectiles.size()
+	check(worst >= 65.0, "a tank doing 29 m/s never overruns it inside the stage 1 standoff, and any dip out of the band is recovered (closest %.0f m)" % worst)
+	check(rounds >= 6, "it gets its shots off during ten driven seconds (%d rounds)" % rounds)

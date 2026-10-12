@@ -15,7 +15,7 @@ func test_stage_sends_few_enemies_one_group_at_a_time_at_an_even_pace() -> void:
 			check(group <= (6 if hard else 3), "the group at d=%d is %d enemies, a hunter with at most two escorts (hard=%s)" % [event.d, group, hard])
 			check(event.d - last >= 200.0, "the group at d=%d follows the previous one by %d m, no bunching (hard=%s)" % [event.d, event.d - last, hard])
 			last = event.d
-		check(total <= (40 if hard else 24), "the whole course sends %d enemies besides the bosses (hard=%s)" % [total, hard])
+		check(total <= (41 if hard else 25), "the whole course sends %d enemies besides the bosses (hard=%s)" % [total, hard])
 
 
 func test_every_split_offers_two_different_lane_rewards() -> void:

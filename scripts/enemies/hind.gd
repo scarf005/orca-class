@@ -4,6 +4,9 @@ extends Helicopter
 
 enum Attack { GUN, ROCKETS, ATGM }
 
+const LANES: Array[float] = [-12.0, -6.0, 0.0, 6.0, 12.0] ## Lateral offsets it may take up at its station.
+const MUZZLE_REACH := 6.0 ## Meters from the airframe's centre to the chin gun's muzzle, which points at the tank.
+
 var attack := Attack.GUN
 var _cover_wait := 0.0
 var _tail_hp := 8.0
@@ -130,15 +133,23 @@ func behave(delta: float) -> void:
 		_height = 5.0
 		var t := Course.to_course(tank.global_position)
 		var c := Course.to_course(global_position)
-		var blocked := BipedMech.line_blocked(World.current.camera.global_position, hit_center()) or BipedMech.line_blocked(_chin_muzzle.global_position, tank.hit_center())
-		if blocked or c.x - t.x < 65.0 * Course.stage.standoff or c.x - t.x > 125.0 * Course.stage.standoff:
-			_telegraph = 0.0
-			_burst = 0
-			_lane = -8.0 if c.y > 0.0 else 8.0
-			var goal := Course.to_world(t.x + 85.0 * Course.stage.standoff, _lane, maxf(tank.global_position.y, Stage2.WATER_LEVEL) + 5.0)
+		var blocked := BipedMech.line_blocked(World.current.camera.global_position, hit_center()) or _shot_blocked(_chin_muzzle.global_position, tank)
+		var station := 85.0 * Course.stage.standoff
+		var off_band: bool = c.x - t.x < 65.0 * Course.stage.standoff or c.x - t.x > 125.0 * Course.stage.standoff
+		if blocked or off_band:
+			if off_band: # Cover only pauses a warning while it sidesteps; leaving the band drops it.
+				_telegraph = 0.0
+				_burst = 0
+			var altitude := maxf(tank.global_position.y, Stage2.WATER_LEVEL) + 5.0
+			_lane = _open_lane(tank, t.x + station, altitude, c.y)
+			var goal := Course.to_world(t.x + station, _lane, altitude)
 			global_position = global_position.move_toward(goal, delta * (World.current.rail.speed + 24.0))
+			var to_tank := tank.hit_center() - global_position
+			model.rotation.y = lerp_angle(model.rotation.y, atan2(-to_tank.x, -to_tank.z), delta * 3.0)
 		else:
-			_lane = clampf(_lane, -12.0, 12.0)
+			var held := Course.to_course(global_position) # Keeps pace with the rail, or the tank would drive it out of its band mid-warning.
+			held.x = move_toward(held.x, t.x + station, (World.current.rail.speed + 24.0) * delta)
+			global_position = Course.to_world(held.x, held.y, global_position.y)
 			super(delta)
 		global_position.y = minf(global_position.y, maxf(tank.global_position.y, Stage2.WATER_LEVEL) + 6.0)
 		for lid in _lids:
@@ -171,6 +182,29 @@ func behave(delta: float) -> void:
 		lid.rotation.x = lerpf(lid.rotation.x, -1.7 if attack == Attack.ROCKETS and (_telegraph > 0.0 or _burst > 0) else 0.0, minf(delta * 12.0, 1.0))
 	for rail in _rails:
 		aim_barrel(rail, tank.hit_center(), BARREL_SLEW, delta)
+
+
+## The lane at the station from which it can see the tank past the street's props and scenery, nearest its own first.
+func _open_lane(tank: Tank, d: float, altitude: float, from_u: float) -> float:
+	var lanes := LANES.duplicate()
+	lanes.sort_custom(func(a: float, b: float) -> bool: return absf(a - from_u) < absf(b - from_u))
+	for lane: float in lanes:
+		var at := Course.to_world(d, lane, altitude)
+		if not _shot_blocked(at + (tank.hit_center() - at).normalized() * MUZZLE_REACH + Vector3.DOWN * 1.2, tank):
+			return lane
+	return lanes[0]
+
+
+func _shot_blocked(from: Vector3, tank: Tank) -> bool:
+	return BipedMech.line_blocked(from, tank.hit_center()) or CityCover.blocker(from, tank.hit_center()) != null
+
+
+func _rest() -> float:
+	return super() * 0.6 if Course.stage is Stage2 else super()
+
+
+func _paces() -> bool:
+	return not Course.stage is Stage2
 
 
 func _next_attack() -> void:

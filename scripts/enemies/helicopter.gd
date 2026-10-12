@@ -150,7 +150,7 @@ func behave(delta: float) -> void:
 		return
 	_evade(delta, true)
 	var course := Course.to_course(global_position - _jink_previous)
-	if world.rail.mode != Rail.Mode.ARENA:
+	if world.rail.mode != Rail.Mode.ARENA and _paces():
 		var target_d := world.rail.d + tank.course_offset + KEEP_AHEAD
 		var speed := clampf(world.rail.speed + (target_d - course.x) * 1.2, 0.0, world.rail.speed + 20.0) if age < PACE_TIME else 4.0
 		course.x += speed * delta
@@ -169,7 +169,7 @@ func behave(delta: float) -> void:
 	aim_barrel(_chin, aim, BARREL_SLEW, delta)
 	for pod in _pods:
 		aim_barrel(pod, aim, BARREL_SLEW, delta)
-	if age > PACE_TIME + 12.0:
+	if _paces() and age > PACE_TIME + 12.0:
 		despawn()
 		return
 	if is_staggered():
@@ -191,7 +191,7 @@ func behave(delta: float) -> void:
 			_shot_timer = 0.05 if _strafing else (0.22 if _rockets else 0.12)
 			if _burst == 0:
 				_next_attack()
-				_attack_timer = 2.4 if _hard else 3.2
+				_attack_timer = _rest()
 	else:
 		_attack_timer -= delta
 		if _attack_timer <= 0.0 and to_tank.length() < 130.0:
@@ -260,6 +260,16 @@ func _fire(tank: Tank) -> void:
 		shot.life = 4.0
 	World.current.fx.spawn(Fx.Kind.FLAME, from, Vector3.ZERO, 0.08, 0.5, Palette.CORAL)
 	Sfx.play("launch" if _rockets else "enemy_gun", from, -4.0)
+
+
+## Seconds between the end of one attack and the next warning.
+func _rest() -> float:
+	return 2.4 if _hard else 3.2
+
+
+## Whether it flies its own rail-pacing pass and then leaves, instead of holding a station somebody else assigns.
+func _paces() -> bool:
+	return true
 
 
 func telegraphing() -> bool:
