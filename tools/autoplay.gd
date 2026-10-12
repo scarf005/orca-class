@@ -7,6 +7,7 @@ extends Node
 ##        [--compare-city] [--trace-elites] # same-distance Stage 1 census and hunter sight/fire diagnostics
 ##        [--lane=-1|1] # hold the tank against the left or right kerb
 ##        [--trace-ranges] # every 6 frames: each live enemy's distance ahead of the tank and lateral offset
+##        [--trace-fire] # one line per enemy projectile with the shooter's kind, to see who actually attacks and how often
 
 var screen: GameScreen
 var bot := "hold"
@@ -36,6 +37,7 @@ var _compare_section := 0
 var _compare_kills := 0
 var _lane := 0.0 ## -1 or 1 pins the tank against that kerb.
 var _compare_spawned := 0
+var _fired := {}
 
 
 func run() -> int:
@@ -168,6 +170,12 @@ func run() -> int:
 				if enemy is BipedMech or enemy is Hind:
 					print("ELITE t=%.2f kind=%s hp=%.0f position=%s warning=%s timer=%s shots=%d" % [elapsed, enemy.get_script().resource_path.get_file(), enemy.hp, Course.to_course(enemy.global_position), enemy.telegraphing(), enemy.get("_attack_timer"), world.projectiles.size()])
 					print("ELITE_VIEW pixel=%s blocked=%s stance=%s" % [world.camera.unproject_position(enemy.hit_center()) / Vector2(DitherView.RESOLUTION), world.director.scenery.line_blocked(world.camera.global_position, enemy.hit_center()), enemy.get("_stance")])
+		if args.has("trace-fire"):
+			for projectile in world.projectiles:
+				if not _fired.has(projectile.get_instance_id()):
+					_fired[projectile.get_instance_id()] = true
+					if projectile.hit != null and projectile.hit.source is Enemy:
+						print("FIRE t=%.2f kind=%s" % [elapsed, projectile.hit.source.get_script().resource_path.get_file().get_basename()])
 		if args.has("trace-ranges") and frames % 6 == 0:
 			for enemy in world.enemies:
 				if not enemy.dead:
