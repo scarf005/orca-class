@@ -62,11 +62,11 @@ func test_stage_2_starts_without_rws_and_with_tier_2_coax_after_stage_1() -> voi
 	check(not world.player.model.rws.visible, "the first rendered frame has no RWS")
 
 
-func test_stage_2_geography_scrolls_through_the_quiet_opening() -> void:
+func test_stage_2_geography_scrolls_under_a_single_distant_opening_drone() -> void:
 	check(not Stage2.new().events(true).is_empty() and not Stage2.new().events(false).is_empty(), "stage 2 has normal and hard encounters")
 	var world := stage("", false, 2)
 	world.player.invulnerable = true
 	await frames(180)
 	check(world.rail.d > 20.0, "the rail runs (d = %.0f)" % world.rail.d)
-	check(world.enemies.is_empty(), "the opening gives time to read the flooded street")
+	check(world.enemies.size() == 1 and Course.to_course(world.enemies[0].global_position).x - world.rail.d > 100.0, "the opening shows one drone far down the flooded street, not a crowd")
 	check_eq(world.rail.mode, Rail.Mode.RAIL, "the opening does not hold the rail")
