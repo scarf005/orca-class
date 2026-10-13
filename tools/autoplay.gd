@@ -175,7 +175,7 @@ func run() -> int:
 				if not _fired.has(projectile.get_instance_id()):
 					_fired[projectile.get_instance_id()] = true
 					if projectile.hit != null and projectile.hit.source is Enemy:
-						print("FIRE t=%.2f kind=%s" % [elapsed, projectile.hit.source.get_script().resource_path.get_file().get_basename()])
+						print("FIRE t=%.2f id=%d kind=%s" % [elapsed, projectile.hit.source.get_instance_id(), projectile.hit.source.get_script().resource_path.get_file().get_basename()])
 		if args.has("trace-ranges") and frames % 6 == 0:
 			for enemy in world.enemies:
 				if not enemy.dead:
