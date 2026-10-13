@@ -7,6 +7,7 @@ enum Stance { ADVANCE, COVER, HIDE, PEEK, EXPOSED }
 const HIDE_TIME := 1.1 ## Seconds behind cover before it peeks.
 const EXPOSE_TIME := 8.0 ## Seconds in the open before it ducks away again.
 const VOLLEYS_PER_PEEK := 2 ## Attacks it makes from one firing position before it moves.
+const WADE_LIMIT := 2.5 ## Deepest water it strides through: a sinkhole across the street, never a drowned lot.
 
 var min_range := 0.0 ## Nearest it will stand to the tank when picking cover.
 var legs_hp := 30.0
@@ -334,7 +335,7 @@ func walk_to(goal: Vector3, speed: float, delta: float) -> void:
 	var here := CityCover.surface_at(global_position, global_position.y + 1.0)
 	var course := Course.to_course(next)
 	var past_kerb := Course.stage is Stage2 and floor < Stage2.WATER_LEVEL + 3.0 and absf(course.y) > Course.stage.lateral_limit(course.x) and absf(course.y) <= Course.stage.lateral_limit(course.x) + Stage2.HULL_MARGIN and absf(course.y) > absf(Course.to_course(global_position).y)
-	if past_kerb or (Water.surface_at(next) - floor > Water.DEEP and Water.surface_at(global_position) - here <= Water.DEEP):
+	if past_kerb or (Water.surface_at(next) - floor > WADE_LIMIT and Water.surface_at(global_position) - here <= WADE_LIMIT):
 		next = global_position # Off the avenue (the shelf past the kerb, deep water): the hunter stops at its edge.
 		floor = here
 	_walk += global_position.distance_to(next)
