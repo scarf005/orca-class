@@ -20,7 +20,7 @@ const TURRET_AT := {
 const LABELS := {"flak": "WING_FLAK", "rocket": "WING_ROCKET", "beam": "WING_BEAM", "bomb": "WING_BOMB", "hangar": "WING_HANGAR"}
 const TURRET_HP := 160.0
 const ROUND_DAMAGE := 40.0 ## Like the other bosses, main-gun damage counts in rounds.
-const TURRET_RADIUS := 2.6
+const TURRET_RADIUS := 3.2
 const HULL_RADIUS := 13.0
 const HULL_SPHERES: Array[Vector3] = [Vector3(0, 0, 6.0), Vector3(-11, 2, 5.0), Vector3(11, 2, 5.0)] ## (x, z, radius) in the model.
 const DRIFT_SPEED := Vector2(34.0, 80.0) ## Metres per second at the foot and at the lip of a ramp.
@@ -242,7 +242,7 @@ func take_hit(hit: Hit) -> void:
 		amount *= ROUND_DAMAGE / Armament.SHELL_DAMAGE
 	var struck := ""
 	for name in _exposed():
-		if hit.position.distance_to(_turret_world(name)) <= TURRET_RADIUS + 1.0:
+		if hit.position.distance_to(_turret_world(name)) <= TURRET_RADIUS + 1.5:
 			struck = name
 			break
 	if struck.is_empty():
@@ -428,7 +428,7 @@ func _open_next() -> void:
 		if parts[TURRETS[index]] > 0.0:
 			_active = index
 			_next = index + 1
-			_cool = 0.8
+			_cool = 0.4
 			_end_volley(0.8)
 			return
 
@@ -506,12 +506,12 @@ func _fire(name: String, tank: Tank) -> void:
 	var muzzle := _muzzles[name]
 	match name:
 		"flak":
-			var shot := fire_along("bullet", muzzle, MG_SPEED, 6.0, Palette.HOT, Gunnery.sensor_lead(tank, muzzle.global_position, MG_SPEED) - muzzle.global_position, 3.0, 0.02, Muzzle.AUTO)
+			var shot := fire_along("bullet", muzzle, MG_SPEED, 5.0, Palette.HOT, Gunnery.sensor_lead(tank, muzzle.global_position, MG_SPEED) - muzzle.global_position, 3.0, 0.02, Muzzle.AUTO)
 			shot.hit.caliber = 30
 			Sfx.play("enemy_gun", muzzle.global_position, -2.0)
 			_shots += 1
 			_shot_timer = 0.07
-			if _shots >= 16:
+			if _shots >= 14:
 				_end_volley(1.6)
 		"rocket":
 			var target := _aim + Course.right(Course.to_course(_aim).x) * (_shots - 2.5) * 3.5
@@ -522,7 +522,7 @@ func _fire(name: String, tank: Tank) -> void:
 			shot.hit = Hit.make(Hit.Kind.SHELL, 0.0, from)
 			shot.hit.source = self
 			shot.blast_radius = 4.0
-			shot.blast_damage = 22.0
+			shot.blast_damage = 20.0
 			shot.interceptable = true
 			shot.trail = Projectile.ROCKET_SMOKE
 			world.fx.marker(target, 4.0, 1.4, Palette.RED)
@@ -539,7 +539,7 @@ func _fire(name: String, tank: Tank) -> void:
 			Sfx.play("cannon", from, 2.0)
 			var closest := Geometry3D.get_closest_point_to_segment(tank.hit_center(), from, to)
 			if closest.distance_to(tank.hit_center()) < 4.5:
-				var hit := Hit.make(Hit.Kind.SHELL, 45.0, tank.hit_center(), (to - from).normalized())
+				var hit := Hit.make(Hit.Kind.SHELL, 40.0, tank.hit_center(), (to - from).normalized())
 				hit.caliber = 120
 				hit.source = self
 				tank.take_hit(hit)
@@ -572,7 +572,7 @@ func _drop_bomb(from: Vector3, tank: Tank, index: int) -> void:
 	shell.hit = Hit.make(Hit.Kind.SHELL, 0.0, from)
 	shell.hit.source = self
 	shell.blast_radius = 4.0
-	shell.blast_damage = 26.0
+	shell.blast_damage = 24.0
 	shell.interceptable = true
 	shell.intercept_hp = 2.0
 	shell.life = flight + 1.0
