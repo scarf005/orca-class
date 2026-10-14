@@ -173,3 +173,12 @@ func test_flying_shards_puff_their_own_color() -> void:
 		fx._process(0.05)
 	check(fx._pools[Fx.Kind.GLOW].is_empty(), "a glass shard leaves no puffs")
 	fx.queue_free()
+
+
+func test_a_shower_of_shards_lays_a_bounded_number_of_water_rings() -> void:
+	var world := stage("", false, 2)
+	var fx := world.fx
+	var before := fx._transients.size()
+	for i in 20:
+		fx.splash(world.player.global_position + Vector3(i * 0.5, 0, 0), 0.4, Stage2.WATER_LEVEL)
+	check_eq(fx._transients.size() - before, Fx.SPLASH_RING_CAP, "twenty shards landing at once lay %d rings, not %d" % [Fx.SPLASH_RING_CAP, 60])

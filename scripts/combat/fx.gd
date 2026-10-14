@@ -89,6 +89,8 @@ var _buffers := {} ## Kind -> PackedFloat32Array uploaded to the MultiMesh in on
 static var _mesh_cache := {} ## Unit-sized transient meshes by name and color.
 static var _shaders_warmed := false
 var _transients: Array[Dictionary] = []
+const SPLASH_RING_CAP := 12 ## Live splash rings at most: a collapsing block's shards would otherwise sheet the water white.
+var _splash_rings: Array[Node3D] = []
 var _scorches: Array[MeshInstance3D] = []
 var _flashes: Array[OmniLight3D] = []
 var _delayed: Array[Dictionary] = [] ## Secondary blasts waiting to go off.
@@ -330,7 +332,7 @@ func _process(delta: float) -> void:
 	for kind: Kind in _pools:
 		_advance_pool(kind, delta, trails, splashes)
 	for p in splashes:
-		splash(p.position, p.size, p.ground, false) # A collapsing block drops dozens of shards: spray only, or their rings sheet the water.
+		splash(p.position, p.size, p.ground)
 	for p in trails:
 		if p.bounce:
 			# A flying shard: a thin smoke line, no fire.
@@ -511,8 +513,9 @@ func splash(position: Vector3, size: float, surface := Stage1.WATER_LEVEL, rings
 	var at := Vector3(position.x, surface + 0.05, position.z)
 	var spread := minf(size, 2.5) # Big wrecks throw more water up, not a wider white sheet.
 	var reach := minf(spread, 1.2) # Rings wider than about 8 m wall off the tank and the enemies around it.
-	for ring in [[2.5, 0.8], [4.5, 1.3], [7.0, 1.9]] if rings else []:
-		_transient(_cached("wake_ring", Palette.CREAM, _thin_ring_builder), Transform3D(Basis(), at), ring[1] * (0.6 + reach * 0.4), true, Vector2(reach * 0.5, reach * ring[0]), 0.2, false)
+	_splash_rings = _splash_rings.filter(func(node: Node3D) -> bool: return is_instance_valid(node) and not node.is_queued_for_deletion())
+	for ring in [[2.5, 0.8], [4.5, 1.3], [7.0, 1.9]] if rings and _splash_rings.size() < SPLASH_RING_CAP else []:
+		_splash_rings.append(_transient(_cached("wake_ring", Palette.CREAM, _thin_ring_builder), Transform3D(Basis(), at), ring[1] * (0.6 + reach * 0.4), true, Vector2(reach * 0.5, reach * ring[0]), 0.2, false))
 	for i in int(4 + size * 6):
 		var dir := Vector3(randf_range(-0.4, 0.4), 1.0, randf_range(-0.4, 0.4)).normalized()
 		spawn(Kind.GLOW, at, dir * randf_range(3.0, 7.0) * (0.6 + size * 0.5), randf_range(0.4, 0.8), randf_range(0.15, 0.3) * (1.0 + size), [Palette.WHITE, Palette.SKY, Palette.CREAM][i % 3], {"gravity": 18.0, "end_size": 0.05, "fade": 0.6})
