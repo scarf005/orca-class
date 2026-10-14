@@ -16,22 +16,21 @@ func run() -> int:
 		TranslationServer.set_locale(locale)
 		title._show_main()
 		await get_tree().process_frame
+		_press_key(KEY_DOWN) # The tutorial leads the menu; the first sortie follows it.
+		await get_tree().process_frame
 		_press_key(KEY_ENTER) # Open the cards through the real sortie menu input path.
 		for _i in 12:
 			await get_tree().process_frame
-		await RenderingServer.frame_post_draw
-		var frame := get_viewport().get_texture().get_image()
-		frame.save_png("%s/stage-select-%s.png" % [out, locale])
-		if args.has("verify") and not _verify_card(frame, 1, locale, out):
-			return 1
-		_press_key(KEY_D)
-		for _i in 6:
-			await get_tree().process_frame
-		await RenderingServer.frame_post_draw
-		frame = get_viewport().get_texture().get_image()
-		frame.save_png("%s/stage-select-%s-stage2.png" % [out, locale])
-		if args.has("verify") and not _verify_card(frame, 2, locale, out):
-			return 1
+		for stage in range(1, Game.STAGE_COUNT + 1):
+			if stage > 1:
+				_press_key(KEY_D)
+				for _i in 6:
+					await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			var frame := get_viewport().get_texture().get_image()
+			frame.save_png("%s/stage-select-%s%s.png" % [out, locale, "" if stage == 1 else "-stage%d" % stage])
+			if args.has("verify") and not _verify_card(frame, stage, locale, out):
+				return 1
 		print("saved stage select %s" % locale)
 	return 0
 
