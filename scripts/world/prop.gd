@@ -10,6 +10,7 @@ signal felled(prop: Prop) ## It started to topple.
 var kind := ""
 var footprint := 1.0
 var height := 2.0
+var spread := 0.0 ## Widest horizontal reach of the drawn mesh from its base: a tree's crown overhangs its trunk footprint.
 var box_size := Vector3.ZERO ## Measured city structure; older props keep their cylinder footprint.
 var crushable := false
 var hard := false ## A solid building: the tank breaks it but loses most of its speed doing so.
@@ -220,6 +221,8 @@ func setup(kind_value: String, mesh: Mesh, footprint_value: float, height_value:
 	hp = hp_value
 	radius = footprint_value
 	center_height = height_value * 0.5
+	var bounds := mesh.get_aabb() if mesh != null else AABB()
+	spread = maxf(footprint_value, maxf(maxf(-bounds.position.x, bounds.end.x), maxf(-bounds.position.z, bounds.end.z)))
 	var instance := MeshInstance3D.new()
 	instance.mesh = mesh
 	instance.name = "Mesh"

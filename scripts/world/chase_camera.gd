@@ -104,8 +104,10 @@ func _fade_occluders(target: Vector3) -> void:
 		if prop.dead:
 			continue
 		var base := prop.global_position
-		var t := Entity.segment_sphere(global_position, target, Vector3(base.x, clampf(target.y, base.y, base.y + prop.height), base.z), prop.footprint + 1.0)
-		var beside := Vector2(base.x - global_position.x, base.z - global_position.z).length() < prop.footprint + 6.0
+		var reach := maxf(prop.footprint, prop.spread)
+		var passing := Geometry3D.get_closest_point_to_segment(Vector3(base.x, target.y, base.z), global_position, target) # The sight line's height where it passes the prop.
+		var t := Entity.segment_sphere(global_position, target, Vector3(base.x, clampf(passing.y, base.y, base.y + prop.height), base.z), reach + 1.0)
+		var beside := Vector2(base.x - global_position.x, base.z - global_position.z).length() < reach + 6.0
 		if t >= 0.0 or beside:
 			still.append(prop)
 	for prop in _faded:
