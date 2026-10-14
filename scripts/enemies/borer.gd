@@ -27,6 +27,8 @@ var phase := Phase.ARMORED
 var parts := {"cutter": CUTTER_HP, "pod_1": POD_HP, "pod_2": POD_HP, "pod_3": POD_HP, "pod_4": POD_HP}
 var _cutter := Node3D.new()
 var _segments: Array[Node3D] = []
+var _plates: Array[Node3D] = []
+var _legs: Array[Node3D] = [] ## Two per segment, left then right.
 var _pods := {}
 var _trail: Array[Vector3] = []
 var _attack := Attack.NONE
@@ -43,6 +45,7 @@ var _burrowed := false
 var _hit_done := false
 var _dying := 0.0
 var _heading := Vector3.FORWARD
+var _gait := 0.0
 
 
 func _init() -> void:
@@ -62,46 +65,89 @@ func _init() -> void:
 
 func build() -> void:
 	var b := LowPoly.new()
-	# Head: a dark drill housing with pincers either side of the cutterhead and a fungus crest.
-	b.box(Transform3D(Basis(), Vector3(0, 2.0, 1.0)), Vector3(5.0, 3.6, 5.6), Palette.SLATE, Palette.ASH)
-	b.blob(Transform3D(Basis(), Vector3(0, 3.8, 1.6)), 1.6, Palette.FUNGUS, 0, 0.25)
+	# Head: the borer's drive housing, grown over by the centipede's head capsule. Hooked forcipules flank the
+	# cutterhead, antennae sweep back over a fungus crest, and two hot sensor eyes look out above the drill.
+	b.frustum(Transform3D(Basis(), Vector3(0, 0.9, 0.6)), Vector2(5.4, 5.6), Vector2(4.2, 4.4), 2.8, Palette.DUSK, Palette.SLATE)
+	b.box(Transform3D(Basis(), Vector3(0, 2.4, -1.5)), Vector3(4.6, 2.6, 0.6), Palette.CORAL)
+	b.frustum(Transform3D(Basis(), Vector3(0, 3.7, 1.0)), Vector2(4.0, 3.8), Vector2(2.4, 2.4), 0.8, Palette.STONE, Palette.ASH)
+	b.blob(Transform3D(Basis(), Vector3(-0.8, 4.6, 1.8)), 1.1, Palette.FUNGUS, 0, 0.3, 3)
+	b.blob(Transform3D(Basis(), Vector3(0.7, 4.4, 2.6)), 0.8, Palette.BLUSH, 0, 0.3, 5)
 	for side in [-1.0, 1.0]:
-		b.tube(Transform3D(Basis.from_euler(Vector3(0, side * 0.35, 0)), Vector3(side * 2.9, 1.2, -2.0)), 0.5, 4.4, 6, Palette.OCHRE, 0.12)
+		# Forcipule: a thick root at the jaw and a hooked tip curling inward ahead of the cutter.
+		var root := Vector3(side * 2.4, 1.2, -1.2)
+		var knee := Vector3(side * 3.4, 1.0, -3.4)
+		var tip := Vector3(side * 1.6, 0.9, -5.2)
+		_strut(b, root, knee, 0.55, Palette.OCHRE)
+		_strut(b, knee, tip, 0.35, Palette.INK, 0.08)
+		b.blob(Transform3D(Basis(), knee), 0.6, Palette.OCHRE)
+		_strut(b, Vector3(side * 1.2, 4.0, -1.0), Vector3(side * 3.0, 6.4, 3.0), 0.12, Palette.INK)
+		_strut(b, Vector3(side * 3.0, 6.4, 3.0), Vector3(side * 3.8, 6.0, 6.0), 0.09, Palette.INK)
 		b.glow = true
-		b.box(Transform3D(Basis(), Vector3(side * 1.1, 2.9, -1.55)), Vector3(0.7, 0.4, 0.1), Palette.HOT)
+		b.box(Transform3D(Basis(), Vector3(side * 1.2, 3.2, -1.85)), Vector3(0.9, 0.5, 0.12), Palette.HOT)
 		b.glow = false
 	_add_mesh(model, b.mesh())
-	_cutter.position = Vector3(0, 2.0, -2.4)
+	_cutter.position = Vector3(0, 2.3, -2.0)
 	model.add_child(_cutter)
 	var c := LowPoly.new()
-	c.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5)), 2.9, 0.9, 12, Palette.STONE, 2.2)
-	for i in 6:
-		c.box(Transform3D(Basis(Vector3.BACK, i * PI / 3.0), Vector3.ZERO), Vector3(0.7, 5.8, 0.5), Palette.ASH)
+	c.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5)), 2.6, 0.8, 12, Palette.STONE, 2.1)
+	for i in 8:
+		var a := i * TAU / 8.0
+		c.frustum(Transform3D(Basis(Vector3.BACK, a), Vector3(0, 0, -0.8)) * Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3.ZERO), Vector2(0.5, 4.8), Vector2(0.1, 4.2), 0.7, Palette.ASH)
+		c.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(cos(a), sin(a), 0) * 2.3 + Vector3(0, 0, -0.8)), 0.28, 0.9, 4, Palette.CREAM, 0.0)
 	c.glow = true
-	c.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0, 0, -0.45)), 0.7, 0.2, 8, Palette.AMBER)
+	c.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0, 0, -0.9)), 0.7, 0.4, 8, Palette.AMBER, 0.0)
 	_add_mesh(_cutter, c.mesh())
 	for i in SEGMENTS:
 		var seg := Node3D.new()
 		seg.top_level = true
 		add_child(seg)
+		var size := lerpf(1.0, 0.55, float(i) / (SEGMENTS - 1))
+		# Each segment rides high on its legs: a dark belly, an arched carapace with a hazard-striped trailing edge
+		# left over from the machine, and a pair of jointed legs.
 		var s := LowPoly.new()
-		var size := lerpf(1.0, 0.55, float(i) / SEGMENTS)
-		s.frustum(Transform3D(Basis(), Vector3(0, 0.0, 0)), Vector2(4.6, 4.0) * size, Vector2(4.0, 3.6) * size, 3.2 * size, Palette.SLATE if i % 2 == 0 else Palette.DUSK, Palette.ASH)
-		s.box(Transform3D(Basis(), Vector3(0, 3.5 * size, 0)), Vector3(3.0, 0.5, 2.4) * size, Palette.OCHRE)
-		for side in [-1.0, 1.0]:
-			s.tube(Transform3D(Basis.from_euler(Vector3(0, 0, side * 1.1)), Vector3(side * 2.6 * size, 0.6, 0)), 0.2, 3.0 * size, 5, Palette.INK)
-			s.tube(Transform3D(Basis.from_euler(Vector3(0, 0, side * 0.4)), Vector3(side * 3.9 * size, -1.0, 0)), 0.14, 2.2 * size, 5, Palette.OCHRE)
+		s.frustum(Transform3D(Basis(), Vector3(0, 1.3, 0) * size), Vector2(3.4, 3.2) * size, Vector2(4.4, 3.6) * size, 1.0 * size, Palette.INK)
+		s.box(Transform3D(Basis(), Vector3(0, 2.35, 1.75) * size), Vector3(4.2, 0.9, 0.3) * size, Palette.CORAL if i % 2 == 0 else Palette.BUTTER)
+		if i == SEGMENTS - 1:
+			for side in [-1.0, 1.0]:
+				_strut(s, Vector3(side * 1.2, 2.2, 1.6) * size, Vector3(side * 2.6, 3.6, 6.0) * size, 0.18, Palette.INK)
 		_add_mesh(seg, s.mesh())
+		var plate := Node3D.new()
+		seg.add_child(plate)
+		var p := LowPoly.new()
+		p.frustum(Transform3D(Basis(), Vector3(0, 2.3, 0) * size), Vector2(4.8, 3.8) * size, Vector2(2.6, 2.4) * size, 1.3 * size, Palette.DUSK if i % 2 == 0 else Palette.SLATE, Palette.STONE)
+		if i % 3 == 1:
+			p.blob(Transform3D(Basis(), Vector3(1.0, 3.7, 0.4) * size), 0.7 * size, Palette.FUNGUS, 0, 0.3, i)
+		_add_mesh(plate, p.mesh())
+		_plates.append(plate)
+		for side in [-1.0, 1.0]:
+			var leg := Node3D.new()
+			leg.position = Vector3(side * 1.9, 1.8, 0) * size
+			seg.add_child(leg)
+			var l := LowPoly.new()
+			var knee := Vector3(side * 2.4, 1.0, -0.4) * size
+			var foot := Vector3(side * 3.4, -1.8, -0.8) * size
+			_strut(l, Vector3.ZERO, knee, 0.34 * size, Palette.OCHRE)
+			l.blob(Transform3D(Basis(), knee), 0.38 * size, Palette.OCHRE)
+			_strut(l, knee, foot, 0.24 * size, Palette.INK, 0.06)
+			_add_mesh(leg, l.mesh())
+			_legs.append(leg)
 		_segments.append(seg)
 	for n in POD_AT.size():
 		var pod := Node3D.new()
-		pod.position = Vector3(0, 4.2, 0)
+		pod.position = Vector3(0, 3.9, 0) * lerpf(1.0, 0.55, float(POD_AT[n]) / (SEGMENTS - 1))
 		_segments[POD_AT[n]].add_child(pod)
 		_pods["pod_%d" % (n + 1)] = pod
 		var g := LowPoly.new()
+		g.blob(Transform3D(Basis(), Vector3(0, -0.4, 0)), 1.3, Palette.MAUVE, 0, 0.2, n)
 		g.glow = true
-		g.blob(Transform3D(), 1.5, Palette.FUNGUS, 0, 0.25)
+		g.blob(Transform3D(), 1.3, Palette.FUNGUS, 0, 0.25, n + 7)
 		_add_mesh(pod, g.mesh())
+
+
+## A limb piece from `a` to `b`: a prism along the segment, tapering to `end_radius` when given.
+func _strut(b: LowPoly, from: Vector3, to: Vector3, radius: float, color: Color, end_radius := -1.0) -> void:
+	var axis := (to - from).normalized()
+	b.prism(Transform3D(Basis(Quaternion(Vector3.UP, axis)), from), radius, from.distance_to(to), 5, color, end_radius)
 
 
 func _add_mesh(parent: Node3D, mesh: Mesh) -> void:
@@ -197,9 +243,9 @@ func take_hit(hit: Hit) -> void:
 		World.current.hitstop(0.15)
 	elif phase == Phase.ARMORED and hp <= max_hp * 0.5:
 		phase = Phase.STRIPPED
-		for seg in _segments:
-			var plate := seg.get_child(0) as Node3D
-			plate.scale = Vector3(1.0, 1.0, 1.0) * 0.9
+		for i in range(0, _plates.size(), 2):
+			var plate := _plates[i]
+			Wreck.launch(plate, plate.global_position, 1.6, true, Vector3.UP * 8.0 + hit.direction * 4.0)
 		World.current.fx.explosion(hit_center(), 4.0)
 		Sfx.play("blast", global_position)
 
@@ -255,22 +301,28 @@ func behave(delta: float) -> void:
 ## Segments trail the head along its recent path, undulating as they go.
 func _follow(delta: float) -> void:
 	if _trail.is_empty() or _trail[0].distance_to(global_position) > SPACING / 8.0:
+		_gait += _trail[0].distance_to(global_position) * 0.9 if not _trail.is_empty() else 0.0
 		_trail.push_front(global_position)
 		if _trail.size() > SEGMENTS * 8 + 8:
 			_trail.resize(SEGMENTS * 8 + 8)
+	_gait += delta * 1.5
 	for i in SEGMENTS:
 		var seg := _segments[i]
 		var at := _trail[mini((i + 1) * 8, _trail.size() - 1)]
 		var ahead := _trail[mini((i + 1) * 8 - 4, _trail.size() - 1)]
 		var toward := ahead - at
 		toward.y = 0.0
-		seg.visible = not _burrowed
-		seg.global_position = at + Vector3.UP * (0.4 + 0.3 * sin(age * 4.0 - i * 0.8))
+		seg.global_position = Vector3(at.x, Course.height_at(at) + 0.15 * sin(_gait - i * 0.7), at.z)
 		if toward.length() > 0.01:
 			seg.global_basis = Basis.looking_at(toward.normalized(), Vector3.UP)
-	visible = not _burrowed
-	for seg in _segments:
+		# A wave of steps runs back along the body; each pair alternates.
+		for side in 2:
+			var phase := _gait - i * 0.7 + side * PI
+			var leg := _legs[i * 2 + side]
+			var sign_value := -1.0 if side == 0 else 1.0
+			leg.rotation = Vector3(0.0, sin(phase) * 0.45, sign_value * maxf(0.0, cos(phase)) * 0.35)
 		seg.visible = not _burrowed
+	visible = not _burrowed
 
 
 func _begin_attack(kind: Attack) -> void:
