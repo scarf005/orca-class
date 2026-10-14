@@ -129,7 +129,7 @@ func test_firing_spots_reject_side_towers_rear_and_high_roofs() -> void:
 	hunter.position = Course.ground_at(565.0, -10.0)
 	world.add_enemy(hunter)
 	var t := Course.to_course(world.player.global_position)
-	for spec in [[100.0, 8.0, 0.05, true], [75.0, 0.0, 0.05, false], [165.0, 0.0, 0.05, false], [110.0, 45.0, 0.05, false], [110.0, 0.0, 7.0, false]]:
+	for spec in [[100.0, 8.0, 0.05, true], [65.0 * Course.stage.standoff - 5.0, 0.0, 0.05, false], [125.0 * Course.stage.standoff + 10.0, 0.0, 0.05, false], [110.0, 45.0, 0.05, false], [110.0, 0.0, 7.0, false]]:
 		check_eq(hunter.firing_spot_valid(Course.to_world(t.x + spec[0], spec[1], spec[2]), world.player), spec[3], "front/height/street envelope at %s" % [spec])
 	var spot := hunter.city_firing_spot(world.player)
 	check(spot != Vector3.INF and hunter.firing_spot_valid(spot, world.player), "a legal street firing spot exists")

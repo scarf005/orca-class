@@ -53,7 +53,7 @@ var backdrop: Array[Dictionary] = []
 
 func _init() -> void:
 	number = 2
-	standoff = 1.25
+	standoff = 1.0
 	wade_scale = 0.8
 	plan = PLAN
 	section_starts.assign(SECTION_STARTS)

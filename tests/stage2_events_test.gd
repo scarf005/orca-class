@@ -422,5 +422,6 @@ func test_ground_hunter_keeps_its_firing_band_ahead_of_a_driving_tank_and_shoots
 		worst = minf(worst, Course.to_course(kain.global_position).x - d)
 		rounds += maxi(world.projectiles.size() - last, 0)
 		last = world.projectiles.size()
-	check(worst >= 65.0, "a tank doing 29 m/s never overruns it inside the stage 1 standoff, and any dip out of the band is recovered (closest %.0f m)" % worst)
+	# Its firing spot is re-picked every 0.25 s, so a 29 m/s tank can gain about 7 m on the band edge in between.
+	check(worst >= 65.0 * Course.stage.standoff - 29.0 * 0.25, "a tank doing 29 m/s never overruns it, and any dip out of the band is recovered (closest %.0f m)" % worst)
 	check(rounds >= 6, "it gets its shots off during ten driven seconds (%d rounds)" % rounds)
