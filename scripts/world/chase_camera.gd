@@ -79,7 +79,7 @@ func follow(delta: float) -> void:
 		eye = Course.to_world(d - RAIL_BACK, camera_u)
 		eye.y = maxf(Course.height(d - RAIL_BACK, camera_u), player.global_position.y - 1.0) + RAIL_HEIGHT
 		look = Course.to_world(d + RAIL_LOOK_AHEAD, u * 0.85, player.global_position.y - 1.0)
-		roll = -player.lateral_velocity * 0.006
+		roll = clampf(-player.lateral_velocity * 0.006, -0.1, 0.1) # A 74 m/s dash would otherwise bank the view 25 degrees.
 	var k := 1.0 - exp(-9.0 * delta)
 	if not _initialized:
 		_eye = eye
