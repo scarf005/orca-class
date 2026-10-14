@@ -215,6 +215,7 @@ func _draw() -> void:
 			draw_rect(rect, Color(0, 0, 0, 0.12))
 		draw_rect(rect, Color(Palette.INK, 0.5), false, 1.0)
 		var label := "%d  %s" % [i + 1, tr(STAGE_NAMES[i])]
+		draw_rect(Rect2(rect.position, Vector2(rect.size.x, 36)), Color(Palette.INK, 0.6)) # Keeps the name legible over a bright map.
 		draw_string(font, rect.position + Vector2(10, 25), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Palette.CREAM)
 		if i >= 1:
 			var band := Rect2(rect.position + Vector2(0, 202), Vector2(rect.size.x, 32))
