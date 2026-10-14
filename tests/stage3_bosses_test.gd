@@ -249,3 +249,23 @@ func test_a_player_shell_aimed_at_the_open_turret_breaks_it_not_the_hull() -> vo
 	shot.hit = _shell(world.player, from, 60.0)
 	shot._sweep(from, to)
 	check_near(wing.parts.flak, Wing.TURRET_HP - 60.0, 1.0, "the shell reaches the turret")
+
+
+func test_a_borer_crawling_between_the_chase_camera_and_the_tank_turns_see_through() -> void:
+	var borer := _borer()
+	var world := World.current
+	var camera := world.camera
+	camera.snap()
+	camera.follow(STEP)
+	var target := world.player.hit_center()
+	var seg: Node3D = borer._segments[2]
+	seg.global_position = camera.global_position.lerp(target, 0.5) - Vector3.UP * 1.5
+	check(borer.hit_test(camera.global_position, target) >= 0.0, "a body segment sits on the sight line to the tank")
+	camera._fade_occluders(target)
+	var faded := seg.find_children("*", "MeshInstance3D", true, false).all(func(mesh: MeshInstance3D) -> bool: return mesh.material_override != null)
+	check(faded, "the segment over the line to the tank is drawn see-through")
+	seg.global_position += Vector3.RIGHT * 60.0
+	borer.global_position += Vector3.RIGHT * 60.0
+	camera._fade_occluders(target)
+	var restored := seg.find_children("*", "MeshInstance3D", true, false).all(func(mesh: MeshInstance3D) -> bool: return mesh.material_override == null)
+	check(restored, "clear of the line, it is solid again")
