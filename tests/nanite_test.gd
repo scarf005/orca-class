@@ -36,7 +36,7 @@ func test_ram_kill_heals_over_time_and_follows_tank() -> void:
 	enemy.set_process(false)
 	enemy.hp = 1.0
 	var expected := clampf(enemy.death_radius * 4.0, 2.0, 15.0)
-	world.player._ram_enemies()
+	world.player._ram_enemies(1.0 / 60.0)
 	check(enemy.dead, "tank's ram kills")
 	check_near(world.player.hp, 40.0, 0.001, "no instant healing on death")
 	check_eq(world._nanites.size(), ceili(expected / World.NANITE_HP), "one particle per half HP")
