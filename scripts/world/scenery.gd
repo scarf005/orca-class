@@ -379,6 +379,14 @@ func _buried_city() -> void:
 		var u := 11.0 if d % 2 == 0 else -11.0
 		add("barricade", float(d), rng.randf_range(-6.0, 6.0), rng.randf_range(-0.3, 0.3), rng.randi_range(0, 3))
 		add("city_rubble", float(d) + 20.0, u, rng.randf() * TAU, d % 4).set_meta("y", stage.height(float(d) + 20.0, u))
+	# Along the dune run the city is buried to its crowns: tower tops stick out of the sand far beyond the ramps.
+	for d in range(int(Stage3.SECTION_STARTS[Stage3.Section.RUN]) + 40, int(Stage3.LENGTH), 70):
+		var side := -1.0 if rng.randf() < 0.5 else 1.0
+		var u := side * rng.randf_range(130.0, 220.0)
+		var size := Vector3(rng.randf_range(16.0, 26.0), 70.0, rng.randf_range(16.0, 26.0))
+		var crown := add_decor(CityKit.tower(size, rng.randi_range(0, 15)), float(d) + rng.randf_range(-20.0, 20.0), u, rng.randf_range(-0.4, 0.4), stage.height(float(d), u) - size.y + rng.randf_range(20.0, 44.0))
+		crown.tilt = Vector3(rng.randf_range(-0.12, 0.12), 0.0, rng.randf_range(-0.12, 0.12))
+		crown.set_meta("range", 700.0)
 	# The canyon's landmark: a glass tower that fell across the street and came to rest on the far roofs. The tank
 	# runs under it; its underside stays high over the whole drivable width.
 	var fallen := add_decor(CityKit.tower(Stage3.FALLEN_SIZE, 3), Stage3.FALLEN_D, Stage3.FALLEN_U, 0.0, -6.0)
