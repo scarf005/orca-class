@@ -511,3 +511,18 @@ func test_city_mechs_open_fire_from_the_far_edge_of_their_firing_band() -> void:
 			warned = warned or hunter.telegraphing()
 		check(warned, "%s %.0f m ahead of a halted tank winds up within 3 s" % [hunter.get_script().resource_path.get_file(), 125.0 * Course.stage.standoff - 1.0])
 		hunter.despawn()
+
+
+func test_a_city_adam_strides_into_a_driving_tanks_lane_and_swings() -> void:
+	var world := await _setup(2)
+	var adam := Adam.new()
+	adam.position = Course.ground_at(world.rail.d + 185.0, 17.0)
+	world.add_enemy(adam)
+	var d := Course.to_course(world.player.global_position).x
+	var warned := false
+	for i in 720:
+		d += 23.0 * STEP
+		world.player.global_position = Course.ground_at(d, -17.0)
+		adam.behave(STEP)
+		warned = warned or adam.telegraphing()
+	check(warned, "Adam winds up on a tank wading past the far kerb at 23 m/s within 12 s (it ended %.0f m ahead, u %.0f)" % [Course.to_course(adam.global_position).x - d, Course.to_course(adam.global_position).y])
