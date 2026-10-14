@@ -81,7 +81,11 @@ func follow(delta: float) -> void:
 		look = Course.to_world(d + RAIL_LOOK_AHEAD, u * 0.85, player.global_position.y - 1.0)
 		# A boss fought along the road (the flying wing) asks to be kept in frame while it is ahead.
 		if is_instance_valid(world.boss) and world.boss.has_meta("frame") and Course.to_course(world.boss.global_position).x > d:
-			look = look.lerp(world.boss.global_position, float(world.boss.get_meta("frame")))
+			# Turn the view about the eye, keeping the look point's height and distance so the tank keeps its place.
+			var boss := world.boss.global_position
+			var flat := Vector2(look.x - eye.x, look.z - eye.z)
+			var turned := flat.rotated(flat.angle_to(Vector2(boss.x - eye.x, boss.z - eye.z)) * float(world.boss.get_meta("frame")))
+			look = Vector3(eye.x + turned.x, look.y, eye.z + turned.y)
 		roll = clampf(-player.lateral_velocity * 0.006, -0.1, 0.1) # A 74 m/s dash would otherwise bank the view 25 degrees.
 	var k := 1.0 - exp(-9.0 * delta)
 	if not _initialized:

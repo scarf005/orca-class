@@ -77,7 +77,7 @@ func _init() -> void:
 	despawn_behind = 0.0
 	set_meta("title", "BOSS_WING")
 	set_meta("phase_marks", [0.8, 0.6, 0.4, 0.2])
-	set_meta("frame", 0.35) # The rail camera leans this far toward it.
+	set_meta("frame", 0.22) # The rail camera leans this far toward it.
 
 
 func _ready() -> void:

@@ -226,3 +226,10 @@ func test_rail_camera_leans_toward_the_wing_on_its_ramp() -> void:
 	var plain: float = toward.call()
 	check(framed < plain - 5.0, "the view turns toward the wing (%.0f vs %.0f degrees off)" % [framed, plain])
 	check(framed < 45.0, "the wing sits inside the frame (%.0f degrees off centre)" % framed)
+	var size := world.camera.get_viewport().get_visible_rect().size
+	var unframed := world.camera.unproject_position(world.player.hit_center()) / size
+	wing.set_meta("frame", 0.22)
+	toward.call()
+	var tank := world.camera.unproject_position(world.player.hit_center()) / size
+	check(tank.x > 0.25 and tank.x < 0.75, "the tank stays between the bottom-corner panels (x %.2f)" % tank.x)
+	check_near(tank.y, unframed.y, 0.03, "leaning toward the wing keeps the tank's height on screen")
