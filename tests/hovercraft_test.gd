@@ -289,3 +289,15 @@ func test_death_emits_once_and_rewards_without_clearing_stage() -> void:
 	check(not cleared[0], "the mid-boss does not clear the whole stage")
 	boss.take_hit(_shell(boss, Vector3.ZERO, 9999.0))
 	check_eq(deaths[0], 1, "late hits cannot award a second kill")
+
+
+func test_a_micro_missile_counts_as_one_main_gun_round() -> void:
+	var boss := _boss()
+	var hit := Hit.make(Hit.Kind.SHELL, Armament.SHELL_DAMAGE, boss.hit_center(), Vector3.FORWARD) # What a micro-missile lands with.
+	hit.caliber = Armament.MICRO_CALIBER
+	hit.weapon = "cannon"
+	hit.source = boss.player()
+	var before := boss.hp
+	boss.take_hit(hit)
+	check(boss.hp < before, "a micro-missile that gets through damages the hull")
+	check(before - boss.hp <= Hovercraft.ROUND_DAMAGE * 1.5, "but only as one round (%.0f of %.0f hull)" % [before - boss.hp, boss.max_hp])
