@@ -11,6 +11,8 @@ const WADE_LIMIT := 2.5 ## Deepest water it strides through: a sinkhole across t
 const STRIDE := 0.42 ## Radians a leg swings either side of upright while it walks.
 const BOOST_SPEED := 12.0 ## Metres per second past which it stops stepping and skates.
 const BRACE: Array[float] = [0.3, -0.25] ## Skating stance: one leg reached ahead, the other pushed back.
+const BAND_FAR := 125.0 ## Metres ahead of the tank (at stage 1's standoff) past which a street hunter will not fire.
+const BAND_INSET := 0.05 ## Metres inside that edge a pacing hunter holds: float positions round its step far finer.
 
 var min_range := 0.0 ## Nearest it will stand to the tank when picking cover.
 var legs_hp := 30.0
@@ -144,7 +146,7 @@ func firing_spot_valid(at: Vector3, tank: Tank) -> bool:
 	var deck := get_meta("slot", Vector3.ZERO) as Vector3
 	var limit := 40.0 if deck.y > 0.0 else Course.stage.lateral_limit(c.x) - radius
 	var supported := deck.y <= 0.0 or (at.y >= Stage2.WATER_LEVEL + 5.5 and absf(Course.surface_height(c.x, c.y, surface + 6.01) - at.y) < 0.1)
-	return supported and c.x - t.x >= 65.0 * Course.stage.standoff and c.x - t.x <= 125.0 * Course.stage.standoff and absf(c.y) <= limit and at.y <= surface + 6.01
+	return supported and c.x - t.x >= 65.0 * Course.stage.standoff and c.x - t.x <= BAND_FAR * Course.stage.standoff and absf(c.y) <= limit and at.y <= surface + 6.01
 
 
 ## Within `reach` metres of the tank, or anywhere in the city firing band: a hunter parked at the band's far edge
@@ -413,7 +415,9 @@ func move_hunter(tank: Tank, delta: float, planted: bool, keep := 52.0) -> void:
 		return
 	var slot := get_meta("slot", Vector3.ZERO) as Vector3
 	if Course.stage.city and slot.y <= 0.0 and not is_staggered():
-		keep_pace(advance, delta)
+		# No further than the far edge as `behave` judges it after this step: a walk-in stops just inside that edge, and
+		# riding along from there would put it a step past, dropping every wind-up.
+		keep_pace(minf(advance, tank_d + BAND_FAR * Course.stage.standoff - BAND_INSET - Course.to_course(global_position).x), delta)
 	if planted or is_staggered():
 		return
 	if Course.stage.city and slot.y > 0.0:
