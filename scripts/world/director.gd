@@ -384,6 +384,8 @@ func _start_midboss(event: Dictionary) -> void:
 	boss.died.connect(func(_e: Entity) -> void:
 		world.boss = null
 		world.boss_changed.emit(null)
+		if event.has("music") and section + 1 < Course.stage.section_starts.size():
+			Sfx.play_music(Course.stage.music(section + 1)) # Its theme sinks with it; the road ahead takes over.
 		get_tree().create_timer(MIDBOSS_RESUME).timeout.connect(func() -> void:
 			if event.kind == "hovercraft":
 				world.rail.d = maxf(world.rail.d, Course.to_course(world.player.global_position).x - world.player.course_offset)
