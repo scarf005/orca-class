@@ -501,6 +501,35 @@ func test_city_hunters_walk_in_out_of_reach_until_their_first_attack_is_released
 		hunter.despawn()
 
 
+
+func test_a_hunter_whose_first_wind_up_is_cancelled_stays_out_of_reach_until_it_fires() -> void:
+	var world := await _setup(3)
+	var hunter := world.director.spawn_wave({"kind": "kain", "u": 0.0, "ahead": 200.0})[0] as Kain
+	for i in 900:
+		hunter.tick(STEP)
+		if hunter.telegraphing():
+			break
+	check(hunter.telegraphing(), "the kain winds up")
+	# The tank surges 80 m: the kain's firing spot falls out of its band and the wind-up is dropped.
+	var d := Course.to_course(world.player.global_position).x + 80.0
+	world.player.global_position = Course.ground_at(d, 0.0)
+	world.rail.d += 80.0
+	hunter.tick(STEP)
+	check(not hunter.telegraphing(), "the wind-up is cancelled")
+	check(hunter.hit_test(world.player.hit_center(), hunter.hit_center()) < 0.0, "having thrown nothing, it is still out of reach")
+	var shots := 0
+	for i in 900:
+		var before := world.projectiles.size()
+		hunter.tick(STEP)
+		for projectile: Projectile in world.projectiles.slice(before):
+			if projectile.hit != null and projectile.hit.source == hunter:
+				shots += 1
+		if shots > 0:
+			break
+	check(shots > 0, "it gets its attack out")
+	hunter.tick(STEP)
+	check(hunter.hit_test(world.player.hit_center(), hunter.hit_center()) >= 0.0, "and is hittable after")
+
 func test_city_mechs_open_fire_from_the_far_edge_of_their_firing_band() -> void:
 	var world := await _setup(2)
 	for hunter: BipedMech in [Abel.new(), Kain.new()]:
