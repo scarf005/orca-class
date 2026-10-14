@@ -15,7 +15,7 @@ const SPACING := 4.2
 const SPEED := 15.0
 const BORE_SPEED := 52.0
 const WIND := 1.0
-const WINDOW := 1.6
+const WINDOW := 2.4 ## Rest between attacks: room to reposition and return fire.
 const POD_AT := [3, 6, 9, 12] ## Segment index of each spore pod.
 const POD_HP := 110.0
 const CUTTER_HP := 160.0
@@ -46,6 +46,8 @@ var _hit_done := false
 var _dying := 0.0
 var _heading := Vector3.FORWARD
 var _gait := 0.0
+var _spore_center := Vector3.ZERO
+var _spore_turn := 0.0
 
 
 func _init() -> void:
@@ -353,7 +355,7 @@ func _begin_attack(kind: Attack) -> void:
 
 func _end_attack() -> void:
 	_attack = Attack.NONE
-	_next_attack = WINDOW * (0.7 if phase == Phase.STRIPPED else 1.0)
+	_next_attack = WINDOW * (0.8 if phase == Phase.STRIPPED else 1.0)
 
 
 func _update_attack(delta: float, tank: Tank) -> void:
@@ -376,7 +378,7 @@ func _update_attack(delta: float, tank: Tank) -> void:
 			world.fx.dust(global_position, 2, 3.0, Palette.STRAW)
 			if not _hit_done and Entity.segment_sphere(from, global_position, tank.hit_center(), radius + tank.radius) >= 0.0:
 				_hit_done = true
-				var hit := Hit.make(Hit.Kind.RAM, 30.0, hit_center(), _direction)
+				var hit := Hit.make(Hit.Kind.RAM, 22.0, hit_center(), _direction)
 				hit.source = self
 				tank.take_hit(hit)
 			if _attack_time >= WIND * Game.telegraph_scale() + 1.7 or global_position.distance_to(arena_center()) >= Stage3.PIT_RADIUS - radius - 1.0:
@@ -405,7 +407,7 @@ func _update_attack(delta: float, tank: Tank) -> void:
 				_lob(tank)
 				_shots += 1
 				_shot_timer = 0.25
-				if _shots >= 5:
+				if _shots >= 4:
 					_end_attack()
 
 
@@ -423,7 +425,7 @@ func _erupt(tank: Tank) -> void:
 	world.shake(0.5, global_position)
 	Sfx.play("blast", global_position)
 	if tank.global_position.distance_to(global_position) <= 8.0:
-		var hit := Hit.make(Hit.Kind.BLAST, 30.0, global_position, Vector3.UP)
+		var hit := Hit.make(Hit.Kind.BLAST, 24.0, global_position, Vector3.UP)
 		hit.source = self
 		tank.take_hit(hit)
 	_trail.clear()
@@ -434,7 +436,12 @@ func _erupt(tank: Tank) -> void:
 func _lob(tank: Tank) -> void:
 	var world := World.current
 	var from := hit_center() + Vector3.UP * 3.0
-	var target := tank.global_position + tank.velocity * 1.3 + Vector3(randf_range(-7, 7), 0, randf_range(-7, 7))
+	# The first spore falls where the tank is heading; the rest ring it 9 m out, so leaving the centre marker
+	# is the dodge and staying put costs one hit.
+	if _shots == 0:
+		_spore_center = tank.global_position + tank.velocity * 1.3
+		_spore_turn = randf() * TAU
+	var target := _spore_center if _shots == 0 else _spore_center + Vector3.FORWARD.rotated(Vector3.UP, _spore_turn + _shots * TAU / 3.0) * 9.0
 	target.y = Course.height_at(target)
 	var flight := 1.4
 	var velocity := (target - from) / flight + Vector3.UP * 0.5 * 20.0 * flight
@@ -443,7 +450,7 @@ func _lob(tank: Tank) -> void:
 	shell.hit = Hit.make(Hit.Kind.SHELL, 0.0, from)
 	shell.hit.source = self
 	shell.blast_radius = 4.5
-	shell.blast_damage = 18.0
+	shell.blast_damage = 12.0
 	shell.interceptable = true
 	shell.life = flight + 1.0
 	world.fx.marker(target, 4.5, flight, Palette.RED)
