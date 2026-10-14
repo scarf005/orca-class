@@ -209,7 +209,7 @@ func take_hit(hit: Hit) -> void:
 	if dead or invulnerable or _dying > 0.0 or hit.damage <= 0.0:
 		return
 	var amount := hit.damage * damage_multiplier(hit)
-	if hit.caliber >= 100 and (hit.kind == Hit.Kind.SHELL or hit.kind == Hit.Kind.BLAST and hit.weapon == "cannon"):
+	if (hit.kind == Hit.Kind.SHELL and (hit.caliber >= 100 or hit.weapon == "cannon")) or (hit.kind == Hit.Kind.BLAST and hit.weapon == "cannon"):
 		amount *= ROUND_DAMAGE / Armament.SHELL_DAMAGE
 	if hit.kind == Hit.Kind.SHELL:
 		var local := model.to_local(hit.position)
