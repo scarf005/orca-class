@@ -131,6 +131,8 @@ func _pod_mesh() -> Mesh:
 
 
 func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
+	if arriving:
+		return -1.0
 	var best := -1.0
 	# Preserve the original airframe's long tail and outboard rocket-pod hit areas.
 	for sphere: Vector4 in [Vector4(0, 0.2, -1.2, 1.6), Vector4(0, 0.2, 1.4, 1.6), Vector4(0, 0.3, 4.5, 0.9), Vector4(0, 1.4, 7.6, 0.9), Vector4(-2.6, -0.4, 0.2, 0.8), Vector4(2.6, -0.4, 0.2, 0.8), Vector4(0, 1.9, 0.2, 0.7)]:

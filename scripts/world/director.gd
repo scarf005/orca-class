@@ -311,6 +311,8 @@ func spawn_wave(event: Dictionary) -> Array[Enemy]:
 		if slot.z < 0.0:
 			enemy.despawn_behind = maxf(enemy.despawn_behind, -slot.z + 60.0)
 		world.add_enemy(enemy)
+		if Course.stage is Stage2 and slot.z > 0.0 and (enemy is Hind or (enemy is BipedMech and not enemy is Adam)):
+			enemy.walk_in()
 		if enemy is BipedMech or enemy is Hind:
 			var toward := world.player.hit_center() - enemy.hit_center()
 			enemy.model.rotation.y = atan2(-toward.x, -toward.z)

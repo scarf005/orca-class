@@ -1225,7 +1225,7 @@ func _pick_coax_target() -> Entity:
 
 ## Screen distance from the reticle to an enemy the FCS could lock, else INF.
 func _lock_distance(enemy: Entity) -> float:
-	if not is_instance_valid(enemy) or enemy.dead or enemy is Flare or (enemy is Enemy and (enemy as Enemy).hidden):
+	if not is_instance_valid(enemy) or enemy.dead or enemy is Flare or (enemy is Enemy and ((enemy as Enemy).hidden or (enemy as Enemy).arriving)):
 		return INF
 	var cam := World.current.camera
 	if cam.is_position_behind(enemy.hit_center()) or enemy.hit_center().distance_to(global_position) > COAX_RANGE:

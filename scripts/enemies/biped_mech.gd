@@ -442,7 +442,7 @@ func move_hunter(tank: Tank, delta: float, planted: bool, keep := 52.0) -> void:
 
 
 func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
-	if hidden:
+	if hidden or arriving:
 		return -1.0
 	var best := super(from, to, extra_radius)
 	for leg in _legs:

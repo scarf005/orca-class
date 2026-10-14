@@ -25,6 +25,7 @@ var stagger := 0.0
 var burning := 0.0
 var can_stagger := true
 var trails := false ## Flyers leave a fading trail (FlyerTrail).
+const ARRIVE_LIMIT := 10.0 ## Seconds after which a hunter that has not attacked yet becomes hittable anyway.
 const WADE_DEPTH := 0.45 ## How far under the surface a ground unit rides over deep water.
 var despawn_behind := 30.0 ## Removed once this far behind the rail; 0 keeps it.
 var mark_offsets: Array[float] = [] ## Ground vehicles print a line into World.enemy_marks at each of these lateral offsets.
@@ -43,6 +44,8 @@ var _burn_hit: Hit
 var killing_hit: Hit ## The lethal hit retained through a delayed crash or death throes.
 var _flame_tick := 0.0
 var hidden := false
+var arriving := false ## Walking in from the haze: out of reach until its first wind-up is over.
+var _warned := false
 var ambush_host: Prop
 var _ambush_wind := -1.0
 var _ambush_roof := Vector3.ZERO
@@ -108,6 +111,12 @@ func tick(delta: float) -> void:
 	var jitter := Vector3(randf_range(-1, 1), randf_range(-0.5, 1), randf_range(-1, 1)) * _shudder * 1.6
 	model.position = model.position.lerp(Vector3.ZERO, 1.0 - exp(-22.0 * delta)) + jitter
 	behave(delta)
+	if arriving:
+		var warning := telegraphing()
+		if (_warned and not warning) or age > ARRIVE_LIMIT:
+			arriving = false
+			invulnerable = false
+		_warned = warning
 	show_damage(delta, death_radius)
 	var moved := global_position - _last_position
 	velocity = moved / maxf(delta, 0.0001)
@@ -178,7 +187,14 @@ func _update_ambush(delta: float) -> void:
 
 
 func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
-	return -1.0 if hidden else super.hit_test(from, to, extra_radius)
+	return -1.0 if hidden or arriving else super.hit_test(from, to, extra_radius)
+
+
+## A hunter that spawns in the haze walks in untouchable and stays so through its first warning, so it always gets
+## to throw something at the tank before it can be shot down.
+func walk_in() -> void:
+	arriving = true
+	invulnerable = true
 
 
 ## Normal shows the maneuver at one tenth of Hard's goal offset, tilt and roll rate.
