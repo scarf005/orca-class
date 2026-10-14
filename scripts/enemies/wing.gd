@@ -22,6 +22,7 @@ const TURRET_HP := 160.0
 const ROUND_DAMAGE := 40.0 ## Like the other bosses, main-gun damage counts in rounds.
 const TURRET_RADIUS := 2.6
 const HULL_RADIUS := 13.0
+const HULL_SPHERES: Array[Vector3] = [Vector3(0, 0, 6.0), Vector3(-11, 2, 5.0), Vector3(11, 2, 5.0)] ## (x, z, radius) in the model.
 const DRIFT_SPEED := Vector2(34.0, 80.0) ## Metres per second at the foot and at the lip of a ramp.
 const FLIGHT_TIME := 6.5
 const LOFT := 22.0 ## Extra height the glide arcs to between two ramps.
@@ -212,12 +213,20 @@ func module_states() -> Array:
 	return TURRETS.map(func(name: String) -> Array: return [tr(LABELS[name]), maxf(parts[name], 0.0) / TURRET_HP])
 
 
+## An open turret hangs below the belly, so a round that reaches it is the turret's even where it also
+## crosses the hull's outline; otherwise the flat hull is three spheres across the span (body and both wings).
 func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 	if _state == State.DYING:
 		return -1.0
-	var best := Entity.segment_sphere(from, to, global_position, radius + extra_radius)
+	var best := -1.0
 	for spec: Array in aim_parts().values():
 		var distance := Entity.segment_sphere(from, to, spec[0], spec[1] + extra_radius)
+		if distance >= 0.0 and (best < 0.0 or distance < best):
+			best = distance
+	if best >= 0.0:
+		return best
+	for spot in HULL_SPHERES:
+		var distance := Entity.segment_sphere(from, to, model.global_transform * Vector3(spot.x, 0.0, spot.y), spot.z + extra_radius)
 		if distance >= 0.0 and (best < 0.0 or distance < best):
 			best = distance
 	return best
