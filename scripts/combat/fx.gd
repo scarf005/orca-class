@@ -330,7 +330,7 @@ func _process(delta: float) -> void:
 	for kind: Kind in _pools:
 		_advance_pool(kind, delta, trails, splashes)
 	for p in splashes:
-		splash(p.position, p.size, p.ground)
+		splash(p.position, p.size, p.ground, false) # A collapsing block drops dozens of shards: spray only, or their rings sheet the water.
 	for p in trails:
 		if p.bounce:
 			# A flying shard: a thin smoke line, no fire.
