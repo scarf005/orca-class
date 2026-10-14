@@ -47,6 +47,24 @@ func test_ramming_hurts_ground_enemies() -> void:
 	check(not is_instance_valid(ugv) or ugv.hp <= hp - Tank.RAM_DAMAGE + 0.1, "a UGV in the way takes a crushing hit")
 
 
+
+func test_ramming_a_big_enemy_hits_it_once_per_shove_not_every_frame() -> void:
+	var world := stage()
+	var tank := world.player
+	await frames(3)
+	var ugv: Ugv = load("res://scripts/enemies/ugv.gd").new()
+	world.add_enemy(ugv)
+	ugv.max_hp = 1000000.0
+	ugv.hp = ugv.max_hp
+	var held := 0.0
+	while held < 1.0:
+		ugv.global_position = tank.global_position + tank.travel_direction() * 1.0
+		await frames(1)
+		held += tank.get_process_delta_time()
+	var hits := roundi((ugv.max_hp - ugv.hp) / Tank.RAM_DAMAGE)
+	check(hits >= 1 and hits <= 3, "a second pinned against the hull deals %d ram hits, at most one per half second" % hits)
+
+
 func test_collateral_chain_kill_scores_style() -> void:
 	var world := stage()
 	var crawler := Crawler.new()
