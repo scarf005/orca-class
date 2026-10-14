@@ -187,7 +187,8 @@ func _collapse(world: World, hit: Hit, style: CollapseStyle) -> void:
 			# A ram flings the walls on ahead of the hull; anything else bursts them outward.
 			out = (out.normalized() + direction * (1.6 if rammed else 0.35) + Vector3.UP * 0.4).normalized()
 			var size := maxf(piece.mesh.get_aabb().size.length() * 0.25, 0.3)
-			Wreck.launch(piece, at, size, hit.by_player(), out * (10.0 + energy * 7.0) * sqrt(maxf(size, 1.0)), i == biggest)
+			var wreck := Wreck.launch(piece, at, size, hit.by_player(), out * (10.0 + energy * 7.0) * sqrt(maxf(size, 1.0)), i == biggest)
+			wreck.smokes = i == biggest # A smoke column per chunk walls in the road behind a ram.
 		world.fx.shatter(visual_bounds(), debris, push, 0.25)
 		return
 	var motion := Collapse.new()
