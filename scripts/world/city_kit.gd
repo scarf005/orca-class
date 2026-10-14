@@ -157,10 +157,10 @@ static func _roof_island(variant: int, rng: RandomNumberGenerator) -> Mesh:
 
 
 ## The visible edge of an arena: a ring of buoys with a lamp on every fourth, just outside where the hull is held.
-## variant 0 rings the plaza, 1 the bay.
+## variant 0 rings the plaza, 1 the bay, 2 the pit.
 static func _arena_ring(variant: int, _rng: RandomNumberGenerator) -> Mesh:
 	var b := LowPoly.new()
-	var radius: float = [Stage2.PLAZA_RADIUS, Stage2.BAY_RADIUS][variant] - ARENA_RING_INSET
+	var radius: float = [Stage2.PLAZA_RADIUS, Stage2.BAY_RADIUS, Stage3.PIT_RADIUS][variant] - ARENA_RING_INSET
 	var count := int(TAU * radius / 5.0)
 	for i in count:
 		var angle := TAU * i / count

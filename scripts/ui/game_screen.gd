@@ -61,7 +61,7 @@ func _process(delta: float) -> void:
 		var k := clampf(minf(_storm_time, _storm_total - _storm_time) / 2.0, 0.0, 1.0)
 		world.environment.fog_depth_end = lerpf(Course.stage.fog_end, 110.0, k)
 		world.environment.fog_depth_begin = lerpf(Course.stage.fog_begin, 20.0, k)
-		world.environment.fog_light_color = Course.stage.fog_color.lerp(Palette.BLUSH, k)
+		world.environment.fog_light_color = Course.stage.fog_color.lerp(Course.stage.storm_color, k)
 		hud.set_storm(k)
 
 

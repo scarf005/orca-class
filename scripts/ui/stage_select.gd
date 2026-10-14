@@ -10,10 +10,10 @@ const HEADING_POSITION := Vector2(218, 48)
 const CARD_SIZE := Vector2(256, 256)
 const CARD_TOP := 82.0
 const CARD_GAP := 24.0
-const CARD_LEFT := 218.0
-const STAGE_NAMES := [&"STAGE_1_NAME", &"STAGE_2_NAME"]
+const CARD_LEFT := 72.0
+const STAGE_NAMES := [&"STAGE_1_NAME", &"STAGE_2_NAME", &"STAGE_3_NAME"]
 const DIFFICULTY_NAMES := {Game.Difficulty.EASY: &"DIFFICULTY_EASY", Game.Difficulty.NORMAL: &"DIFFICULTY_NORMAL", Game.Difficulty.HARD: &"DIFFICULTY_HARD"}
-const MAPS := [preload("res://assets/ui/stage1.png"), preload("res://assets/ui/stage2.png")]
+const MAPS := [preload("res://assets/ui/stage1.png"), preload("res://assets/ui/stage2.png"), preload("res://assets/ui/stage3.png")]
 
 enum Focus { CARD, CHECKPOINT, BACK }
 
@@ -216,7 +216,7 @@ func _draw() -> void:
 		draw_rect(rect, Color(Palette.INK, 0.5), false, 1.0)
 		var label := "%d  %s" % [i + 1, tr(STAGE_NAMES[i])]
 		draw_string(font, rect.position + Vector2(10, 25), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Palette.CREAM)
-		if i == 1:
+		if i >= 1:
 			var band := Rect2(rect.position + Vector2(0, 202), Vector2(rect.size.x, 32))
 			draw_rect(band, Color.BLACK)
 			for x in range(0, int(band.size.x), 16):
@@ -236,16 +236,16 @@ func _draw() -> void:
 	var checkpoints := _checkpoints()
 	var prompt_y := 372.0
 	var focus_name := "%d  %s" % [selected_stage, tr(STAGE_NAMES[selected_stage - 1])]
-	draw_string(font, Vector2(218, prompt_y), tr("STAGE_CHECKPOINTS") % focus_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Palette.MIST)
+	draw_string(font, Vector2(CARD_LEFT, prompt_y), tr("STAGE_CHECKPOINTS") % focus_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Palette.MIST)
 	_checkpoint_rows.clear()
 	for i in checkpoints.size():
-		var row := Rect2(218 + i * 260, prompt_y + 16, 240, 28)
+		var row := Rect2(CARD_LEFT + i * 260, prompt_y + 16, 240, 28)
 		_checkpoint_rows.append(row)
 		draw_rect(row, Palette.FUNGUS if focus == Focus.CHECKPOINT and selected_checkpoint == i else Palette.DUSK)
 		draw_rect(row, Palette.CYAN if focus == Focus.CHECKPOINT and selected_checkpoint == i else Palette.FUNGUS, false, 1.0)
 		draw_string(font, row.position + Vector2(10, 19), tr(Game.string_key("MENU_FROM_" + checkpoints[i].to_upper(), selected_stage)), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Palette.CREAM)
 	var hint := tr("STAGE_SELECT_HINT")
-	draw_string(font, Vector2(218, 500), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Palette.STONE)
+	draw_string(font, Vector2(CARD_LEFT, 500), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Palette.STONE)
 	var back_color := Palette.CYAN if focus == Focus.BACK else Palette.MIST
 	draw_rect(_back_rect, Color(Palette.CYAN, 0.18) if focus == Focus.BACK else Color.TRANSPARENT)
 	draw_string(font, Vector2(850, 500), tr("MENU_BACK"), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, back_color)

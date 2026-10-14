@@ -28,6 +28,7 @@ var speed := CRUISE
 var meter := 1.0
 var throttle := 0 ## -1 brake, 0 cruise, 1 overdrive; what the rail is actually doing.
 var hold_at := INF ## In HOLD mode the rail eases to a stop here.
+var sprint := 0.0 ## When above zero the RAIL runs at this speed (m/s), whatever the throttle says.
 var arena_d := INF: ## In ARENA mode the tank drives freely inside this circle: centre distance along the road (the stage's arena unless set)...
 	get: return Course.stage.arena_center_d if arena_d == INF else arena_d
 var arena_radius := INF: ## ...and radius.
@@ -42,6 +43,8 @@ var _since_jolt := INF ## Seconds since the tank hit a hard building.
 
 ## `command` is the player's wish: -1 brake, 0 cruise, 1 overdrive.
 func advance(delta: float, command: int, refill := 1.0) -> void:
+	if sprint > 0.0:
+		command = 0
 	if meter <= 0.0:
 		_meter_locked = true
 	elif meter > 0.35:
@@ -56,6 +59,8 @@ func advance(delta: float, command: int, refill := 1.0) -> void:
 	match throttle:
 		1: target = OVERDRIVE
 		-1: target = BRAKE
+	if sprint > 0.0:
+		target = sprint
 	target = minf(target, speed_cap())
 	if _stop_timer > 0.0:
 		_stop_timer -= delta
@@ -64,7 +69,7 @@ func advance(delta: float, command: int, refill := 1.0) -> void:
 		target = clampf((hold_at - d) * 0.8, 0.0, CRUISE)
 	elif mode == Mode.ARENA:
 		target = 0.0
-	var rate := 40.0 if target < speed else 14.0
+	var rate := 40.0 if target < speed else (9.0 if sprint > 0.0 else 14.0)
 	speed = move_toward(speed, target, rate * delta)
 	d += speed * delta
 

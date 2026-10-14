@@ -141,8 +141,10 @@ func build() -> void:
 		_wires()
 		_spires()
 		_boom()
-	else:
+	elif Course.stage.number == 2:
 		_city()
+	else:
+		_buried_city()
 	process_priority = 90 # Resolve solid scenery after driving, before the chase camera.
 	for i in specs.size():
 		specs[i].seq = i
@@ -214,7 +216,8 @@ func add_decor(mesh: Mesh, d: float, u: float, yaw := 0.0, y := INF) -> Spec:
 	return spec
 
 
-func _city() -> void:
+## The towers and the skyline behind them: what every city stage stands on.
+func _city_shell() -> StageDef:
 	var container_groups := {}
 	for structure in Course.stage.structures:
 		var spec := add(structure.kind, structure.d, structure.u, structure.yaw, structure.variant)
@@ -231,8 +234,12 @@ func _city() -> void:
 				spec.group = _groups.size()
 				container_groups[key] = spec.group
 				_groups.append({})
-	var stage := Course.stage as Stage2
-	_backdrop_chunks(stage)
+	_backdrop_chunks(Course.stage)
+	return Course.stage
+
+
+func _city() -> void:
+	var stage := _city_shell() as Stage2
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20261004
 	for d in range(100, int(Stage2.LENGTH) - 300, 36):
@@ -333,8 +340,52 @@ func _city() -> void:
 		add("truck", float(d), 8.0, 0.0, 1)
 
 
+## Sand-buried downtown: the street furniture is sunk into the dunes and the cars lie half under them.
+func _buried_city() -> void:
+	var stage := _city_shell()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20261017
+	var last := int(Stage3.LENGTH) - 300
+	for d in range(100, last, 40):
+		if stage.in_arena(float(d), 40.0):
+			continue
+		var side := -1.0 if (d / 40) % 2 == 0 else 1.0
+		var u := side * (stage.lateral_limit(float(d)) - 3.0)
+		var lamp := add("streetlamp", float(d), u, 0.0 if side < 0.0 else PI, 0)
+		lamp.set_meta("y", stage.height(float(d), u) - rng.randf_range(2.0, 5.0))
+		lamp.tilt = Vector3(0.0, 0.0, rng.randf_range(-0.25, 0.25))
+	for d in range(180, last, 140):
+		if stage.in_arena(float(d), 60.0):
+			continue
+		var u := stage.lateral_limit(float(d)) - 4.0
+		add("traffic_light", float(d), u, PI, 0).set_meta("y", stage.height(float(d), u) - 2.5)
+		add("road_sign", float(d) + 55.0, -u, 0.0, d % 4).set_meta("y", stage.height(float(d) + 55.0, -u) - 1.8)
+	# Cars drowned in sand to the windows, thicker in the quiet opening.
+	for d in range(100, last, 55):
+		if stage.in_arena(float(d), 30.0) or rng.randf() < (0.25 if d > 700 else 0.1):
+			continue
+		var lane := rng.randf_range(-9.0, 9.0)
+		var car := add("car", float(d), lane, rng.randf_range(-0.3, 0.3) + (PI if lane > 0.0 else 0.0), rng.randi_range(0, 11))
+		car.set_meta("y", stage.height(float(d), lane) - 0.6)
+		car.tilt = Vector3(rng.randf_range(-0.1, 0.1), 0.0, rng.randf_range(-0.12, 0.12))
+	for d in range(220, last, 210):
+		if stage.in_arena(float(d), 50.0):
+			continue
+		var lane := rng.randf_range(-7.0, 7.0)
+		add("bus_wreck", float(d), lane, rng.randf_range(-0.4, 0.4), rng.randi_range(0, 5)).set_meta("y", stage.height(float(d), lane) - 0.8)
+	for d in range(330, last, 260):
+		if stage.in_arena(float(d), 50.0):
+			continue
+		var u := 11.0 if d % 2 == 0 else -11.0
+		add("barricade", float(d), rng.randf_range(-6.0, 6.0), rng.randf_range(-0.3, 0.3), rng.randi_range(0, 3))
+		add("city_rubble", float(d) + 20.0, u, rng.randf() * TAU, d % 4).set_meta("y", stage.height(float(d) + 20.0, u))
+	for arena: Dictionary in stage.arenas:
+		var ring := add_decor(CityKit.decor("arena_ring", 2), float(arena.d), 0.0, 0.0, 0.0)
+		ring.set_meta("range", float(arena.radius) + 260.0)
+
+
 ## The skyline behind the front towers, merged into one mesh per BACKDROP_CHUNK of street to keep the live count low.
-func _backdrop_chunks(stage: Stage2) -> void:
+func _backdrop_chunks(stage: StageDef) -> void:
 	var chunks := {}
 	for block in stage.backdrop:
 		var chunk := int(block.d / BACKDROP_CHUNK)
@@ -342,7 +393,7 @@ func _backdrop_chunks(stage: Stage2) -> void:
 		var blocks: Array = chunks.get_or_add(chunk, [])
 		blocks.append({"x": block.u, "z": centre - block.d, "size": block.size, "variant": block.variant})
 	for chunk: int in chunks:
-		var spec := add_decor(CityKit.backdrop(chunks[chunk]), (float(chunk) + 0.5) * BACKDROP_CHUNK, 0.0, 0.0, Stage2.WATER_LEVEL - 4.5)
+		var spec := add_decor(CityKit.backdrop(chunks[chunk]), (float(chunk) + 0.5) * BACKDROP_CHUNK, 0.0, 0.0, stage.street_level - 4.5)
 		spec.set_meta("range", BACKDROP_RANGE)
 
 
@@ -417,7 +468,7 @@ func drive_position(from: Vector3, to: Vector3, radius: float) -> Vector3:
 
 ## Pull the eye toward the hull before it enters a deck underside or a facade.
 func camera_position(target: Vector3, eye: Vector3) -> Vector3:
-	if Course.stage is Stage2:
+	if Course.stage.city:
 		var camera_course := Course.to_course(eye)
 		if not Course.stage.in_arena(camera_course.x):
 			var eye_clear := true

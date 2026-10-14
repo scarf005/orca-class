@@ -38,7 +38,7 @@ func _init() -> void:
 ## band, round shoulders, a visor head under a light bar, the LOSAT pod on its right forearm and a gatling on its left.
 func build() -> void:
 	super()
-	if Course.stage is Stage2:
+	if Course.stage.city:
 		_attack_timer = 0.1
 	build_legs(2.15, "knee", Palette.WHITE, Palette.INK, 0.5)
 	var b := LowPoly.new()
@@ -132,7 +132,7 @@ func behave(delta: float) -> void:
 	if toppled or is_staggered():
 		_cancel()
 		return
-	var dart_aim := tank.hit_center() + tank.velocity * (0.45 if Course.stage is Stage2 else 0.0)
+	var dart_aim := tank.hit_center() + tank.velocity * (0.45 if Course.stage.city else 0.0)
 	aim_barrel(_launcher, dart_aim, 3.0, delta)
 	aim_barrel(_gun, _aim if _burst > 0 else Gunnery.sensor_lead(tank, _muzzle.global_position, MG_SPEED), 3.0, delta)
 	if _wind <= 0.0 and _burst == 0 and not disarmed:
@@ -143,7 +143,7 @@ func behave(delta: float) -> void:
 			_losat = false
 		elif not _losat and not gun_clear and launcher_clear and global_position.distance_to(tank.global_position) >= LOSAT_MIN_FIRE:
 			_losat = true
-	if (Course.stage is Stage2 and not clear_firing_spot(tank)) or line_blocked(_muzzle.global_position if _burst > 0 or not _losat else _launch_muzzle.global_position, tank.hit_center()):
+	if (Course.stage.city and not clear_firing_spot(tank)) or line_blocked(_muzzle.global_position if _burst > 0 or not _losat else _launch_muzzle.global_position, tank.hit_center()):
 		_cancel()
 		return
 	if _burst > 0:
@@ -189,7 +189,7 @@ func behave(delta: float) -> void:
 func _fire_losat(tank: Tank) -> void:
 	var missile := LosatMissile.new()
 	missile.position = _launch_muzzle.global_position
-	missile.velocity = bore_direction(_launch_muzzle, tank.hit_center() + tank.velocity * (0.45 if Course.stage is Stage2 else 0.0) - missile.position) * LosatMissile.LAUNCH_SPEED
+	missile.velocity = bore_direction(_launch_muzzle, tank.hit_center() + tank.velocity * (0.45 if Course.stage.city else 0.0) - missile.position) * LosatMissile.LAUNCH_SPEED
 	missile.hit.source = self
 	World.current.add_child(missile)
 	muzzle_blast(missile.position, missile.velocity.normalized(), Muzzle.HEAVY, "rocket")

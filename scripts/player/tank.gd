@@ -770,7 +770,7 @@ func _ram_enemies(delta: float) -> void:
 	if _ground_speed() < CRUSH_SPEED:
 		return
 	for entity: Entity in world.enemies.duplicate():
-		if entity.flying or not entity is Enemy or entity is Colossus or (entity as Enemy).hidden or _ram_cooldowns.has(entity.get_instance_id()):
+		if entity.flying or not entity is Enemy or entity is Colossus or entity is Borer or (entity as Enemy).hidden or _ram_cooldowns.has(entity.get_instance_id()):
 			continue
 		var offset := entity.global_position - global_position
 		offset.y = 0.0

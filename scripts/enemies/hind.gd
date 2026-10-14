@@ -129,7 +129,7 @@ func behave(delta: float) -> void:
 	var tank := player()
 	if tank == null or tank.dead:
 		return
-	if Course.stage is Stage2:
+	if Course.stage.city:
 		_height = 5.0
 		var t := Course.to_course(tank.global_position)
 		var c := Course.to_course(global_position)
@@ -140,7 +140,7 @@ func behave(delta: float) -> void:
 			if off_band: # Cover only pauses a warning while it sidesteps; leaving the band drops it.
 				_telegraph = 0.0
 				_burst = 0
-			var altitude := maxf(tank.global_position.y, Stage2.WATER_LEVEL) + 5.0
+			var altitude := maxf(tank.global_position.y, Course.stage.street_level) + 5.0
 			_lane = _open_lane(tank, t.x + station, altitude, c.y)
 			var goal := Course.to_world(t.x + station, _lane, altitude)
 			global_position = global_position.move_toward(goal, delta * (World.current.rail.speed + 24.0))
@@ -151,7 +151,7 @@ func behave(delta: float) -> void:
 			held.x = move_toward(held.x, t.x + station, (World.current.rail.speed + 24.0) * delta)
 			global_position = Course.to_world(held.x, held.y, global_position.y)
 			super(delta)
-		global_position.y = minf(global_position.y, maxf(tank.global_position.y, Stage2.WATER_LEVEL) + 6.0)
+		global_position.y = minf(global_position.y, maxf(tank.global_position.y, Course.stage.street_level) + 6.0)
 		for lid in _lids:
 			lid.rotation.x = lerpf(lid.rotation.x, -1.7 if attack == Attack.ROCKETS and (_telegraph > 0.0 or _burst > 0) else 0.0, minf(delta * 12.0, 1.0))
 		for rail in _rails:
@@ -200,11 +200,11 @@ func _shot_blocked(from: Vector3, tank: Tank) -> bool:
 
 
 func _rest() -> float:
-	return super() * 0.6 if Course.stage is Stage2 else super()
+	return super() * 0.6 if Course.stage.city else super()
 
 
 func _paces() -> bool:
-	return not Course.stage is Stage2
+	return not Course.stage.city
 
 
 func _next_attack() -> void:

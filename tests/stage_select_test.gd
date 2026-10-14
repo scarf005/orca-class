@@ -167,7 +167,7 @@ func test_mouse_cards_and_checkpoints_follow_the_focused_stage() -> void:
 	check_eq(select.selected_stage, 1, "d-pad left focuses stage one")
 	await frames(2)
 	check_eq(select._checkpoint_rows.size(), 1, "only the unlocked checkpoint is drawn")
-	select._gui_input(_click(Vector2(230, 400)))
+	select._gui_input(_click(Vector2(StageSelect.CARD_LEFT + 12.0, 400)))
 	check_eq(started.back(), ["boss", 1, Game.Difficulty.NORMAL], "mouse checkpoint click starts the focused stage's checkpoint")
 	select._unhandled_input(_pad(JOY_BUTTON_DPAD_RIGHT))
 	check_eq(select.selected_stage, 2, "d-pad right focuses stage two")

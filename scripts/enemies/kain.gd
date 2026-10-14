@@ -32,7 +32,7 @@ func _init() -> void:
 ## with brown blotches so it never reads as the player's grey-green hull.
 func build() -> void:
 	super()
-	if Course.stage is Stage2:
+	if Course.stage.city:
 		_attack_timer = 0.1
 	build_legs(2.35, "bird", Palette.STRAW, Palette.DUSK, 0.95)
 	var b := LowPoly.new()
@@ -109,7 +109,7 @@ func behave(delta: float) -> void:
 		slew_barrel(_gun, _lob(), 3.0, delta)
 	else:
 		aim_barrel(_gun, Gunnery.sensor_lead(tank, _coax.global_position, MG_SPEED), 3.0, delta)
-	if (Course.stage is Stage2 and not clear_firing_spot(tank)) or line_blocked(hit_center(), tank.hit_center()):
+	if (Course.stage.city and not clear_firing_spot(tank)) or line_blocked(hit_center(), tank.hit_center()):
 		_cancel()
 		return
 	if _burst > 0:
@@ -138,12 +138,12 @@ func behave(delta: float) -> void:
 		return
 	_attack_timer -= delta
 	if _attack_timer <= 0.0 and in_reach(tank, 140.0):
-		_wind = (0.65 if Course.stage is Stage2 else 1.0) * Game.telegraph_scale()
+		_wind = (0.65 if Course.stage.city else 1.0) * Game.telegraph_scale()
 		_attack_timer = 2.2 if _hard else 3.0
 		_flight = clampf(global_position.distance_to(tank.global_position) / 45.0, 1.2, 2.4)
-		_aim = tank.global_position + tank.velocity * (_wind + _flight if Course.stage is Stage2 else 0.8)
+		_aim = tank.global_position + tank.velocity * (_wind + _flight if Course.stage.city else 0.8)
 		_aim.y = Course.height_at(_aim)
-		if not Course.stage is Stage2:
+		if not Course.stage.city:
 			_flight = clampf(global_position.distance_to(_aim) / 45.0, 1.2, 2.4)
 		if _shell:
 			World.current.fx.marker(_aim, BLAST, _wind + _flight, Palette.HOT)
@@ -158,14 +158,14 @@ func _fire_shell() -> void:
 	muzzle_blast(_muzzle.global_position, velocity_out.normalized(), Muzzle.HEAVY, "mortar")
 	var shell := World.current.spawn_projectile(Team.ENEMY, _muzzle.global_position, velocity_out, "mortar", Palette.HOT)
 	shell.gravity = GRAVITY
-	var damage := (130.0 if _hard else 110.0) if Course.stage is Stage2 else (32.0 if _hard else 26.0)
+	var damage := (130.0 if _hard else 110.0) if Course.stage.city else (32.0 if _hard else 26.0)
 	shell.hit = Hit.make(Hit.Kind.SHELL, damage, _muzzle.global_position)
 	shell.hit.source = self
 	shell.hit.caliber = 100
 	shell.blast_radius = BLAST
 	shell.blast_damage = damage
 	shell.interceptable = true
-	shell.intercept_hp = 3.0 if Course.stage is Stage2 else 1.0
+	shell.intercept_hp = 3.0 if Course.stage.city else 1.0
 	shell.life = _flight + 1.0
 	shell.trail = Palette.DUSK
 	Sfx.play("launch", _muzzle.global_position, 2.0, 0.6)

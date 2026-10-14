@@ -130,7 +130,7 @@ static func line_blocked(a: Vector3, b: Vector3, pad := 0.0) -> bool:
 
 ## A firing edge must stay on the street ahead, or on the expressway's inner parapet, below the roof line.
 func firing_spot_valid(at: Vector3, tank: Tank) -> bool:
-	if not Course.stage is Stage2:
+	if not Course.stage.city:
 		return true
 	var c := Course.to_course(at)
 	var t := Course.to_course(tank.global_position)
@@ -144,7 +144,7 @@ func firing_spot_valid(at: Vector3, tank: Tank) -> bool:
 ## Within `reach` metres of the tank, or anywhere in the city firing band: a hunter parked at the band's far edge
 ## must still open fire.
 func in_reach(tank: Tank, reach: float) -> bool:
-	return global_position.distance_to(tank.global_position) < (maxf(reach, 140.0 * Course.stage.standoff) if Course.stage is Stage2 else reach)
+	return global_position.distance_to(tank.global_position) < (maxf(reach, 140.0 * Course.stage.standoff) if Course.stage.city else reach)
 
 
 func clear_firing_spot(tank: Tank) -> bool:
@@ -202,7 +202,7 @@ func walk_city_firing(goal: Vector3, speed: float, delta: float) -> void:
 
 
 func seek_cover(tank: Tank) -> bool:
-	if Course.stage is Stage2 and (_volleys > 0 or legs_hp < 30.0 or tank.charge_lock == self or tank.charge_candidate == self):
+	if Course.stage.city and (_volleys > 0 or legs_hp < 30.0 or tank.charge_lock == self or tank.charge_candidate == self):
 		return false
 	var best := INF
 	_cover = null
@@ -216,11 +216,11 @@ func seek_cover(tank: Tank) -> bool:
 		var distance := global_position.distance_to(goal)
 		if goal.distance_to(tank.global_position) < min_range:
 			continue
-		if Course.stage is Stage2 and distance > 10.0:
+		if Course.stage.city and distance > 10.0:
 			continue
 		if not firing_spot_valid(goal, tank):
 			continue
-		if Course.stage is Stage2 and absf(Course.to_course(prop.global_position).y) > Course.stage.lateral_limit(Course.to_course(prop.global_position).x):
+		if Course.stage.city and absf(Course.to_course(prop.global_position).y) > Course.stage.lateral_limit(Course.to_course(prop.global_position).x):
 			continue
 		if distance < best and line_blocked(tank.hit_center(), goal + Vector3.UP * center_height):
 			best = distance
@@ -249,7 +249,7 @@ func peek_spot(tank: Tank) -> Vector3:
 		candidate.y = CityCover.surface_at(candidate, global_position.y + 1.0)
 		if not firing_spot_valid(candidate, tank):
 			continue
-		if Course.stage is Stage2 and line_blocked(World.current.camera.global_position, candidate + Vector3.UP * center_height):
+		if Course.stage.city and line_blocked(World.current.camera.global_position, candidate + Vector3.UP * center_height):
 			continue
 		if hard_blocker(candidate + Vector3.UP * (radius + 0.1), candidate + Vector3.UP * (radius + 0.2), radius) != null:
 			continue
@@ -362,18 +362,18 @@ func move_hunter(tank: Tank, delta: float, planted: bool, keep := 52.0) -> void:
 		return
 	for i in _legs.size():
 		_legs[i].rotation.x = sin(_walk * 1.4 + i * PI) * 0.18
-	if Course.stage is Stage2 and (not firing_spot_valid(global_position, tank) or (_stance == Stance.ADVANCE and not clear_firing_spot(tank))) and not is_staggered():
+	if Course.stage.city and (not firing_spot_valid(global_position, tank) or (_stance == Stance.ADVANCE and not clear_firing_spot(tank))) and not is_staggered():
 		relocate()
 		var goal := city_firing_spot(tank)
 		if goal != Vector3.INF:
 			walk_city_firing(goal, World.current.rail.speed + 18.0, delta)
 		return
 	var slot := get_meta("slot", Vector3.ZERO) as Vector3
-	if Course.stage is Stage2 and slot.y <= 0.0 and not is_staggered():
+	if Course.stage.city and slot.y <= 0.0 and not is_staggered():
 		keep_pace(advance, delta)
 	if planted or is_staggered():
 		return
-	if Course.stage is Stage2 and slot.y > 0.0:
+	if Course.stage.city and slot.y > 0.0:
 		var goal := city_firing_spot(tank)
 		if goal != Vector3.INF:
 			walk_city_firing(goal, World.current.rail.speed + 9.0, delta)
@@ -393,7 +393,7 @@ func move_hunter(tank: Tank, delta: float, planted: bool, keep := 52.0) -> void:
 					return
 				_avoid = null
 		Stance.COVER:
-			walk_to(_cover_goal, World.current.rail.speed + 18.0 if Course.stage is Stage2 else 8.0, delta)
+			walk_to(_cover_goal, World.current.rail.speed + 18.0 if Course.stage.city else 8.0, delta)
 			var left := global_position.distance_to(_cover_goal)
 			if left < 1.0 or _stance_time > 12.0:
 				_stance = Stance.HIDE
@@ -407,7 +407,7 @@ func move_hunter(tank: Tank, delta: float, planted: bool, keep := 52.0) -> void:
 					relocate() # Boxed in on the way: pick another building.
 			return
 		Stance.HIDE:
-			if _stance_time >= (0.45 if Course.stage is Stage2 else HIDE_TIME):
+			if _stance_time >= (0.45 if Course.stage.city else HIDE_TIME):
 				var spot := peek_spot(tank)
 				if spot == Vector3.INF:
 					relocate()
@@ -418,7 +418,7 @@ func move_hunter(tank: Tank, delta: float, planted: bool, keep := 52.0) -> void:
 					_stance_time = 0.0
 			return
 		Stance.PEEK:
-			walk_to(_cover_goal, World.current.rail.speed + 20.0 if Course.stage is Stage2 else 8.5, delta)
+			walk_to(_cover_goal, World.current.rail.speed + 20.0 if Course.stage.city else 8.5, delta)
 			if clear_firing_spot(tank):
 				_stance = Stance.EXPOSED
 				_stance_time = 0.0
@@ -431,13 +431,13 @@ func move_hunter(tank: Tank, delta: float, planted: bool, keep := 52.0) -> void:
 			if _stance_time > EXPOSE_TIME or line_blocked(hit_center(), tank.hit_center()):
 				relocate()
 			return
-	if Course.stage is Stage2:
+	if Course.stage.city:
 		return # keep_pace holds the band; walking up to `keep` would drive it out of its own firing range.
 	var here := Course.to_course(global_position)
 	var target_d := World.current.rail.d + tank.course_offset + keep
 	if World.current.rail.mode == Rail.Mode.ARENA:
 		target_d = Course.to_course(tank.global_position).x + keep
-	var u := clampf(here.y + _side * 6.0, -12.0, 12.0) if Course.stage is Stage2 else here.y + _side * 6.0
+	var u := clampf(here.y + _side * 6.0, -12.0, 12.0) if Course.stage.city else here.y + _side * 6.0
 	walk_to(Course.ground_at(target_d, u), 9.0, delta)
 
 

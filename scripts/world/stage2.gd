@@ -47,12 +47,12 @@ const RELIEF: Array[Dictionary] = [
 const BACKDROP_ROWS := [45.0, 95.0] ## Setback of each backdrop row from the wall line, beyond the front tower row.
 
 var frontage_gaps: Array[Dictionary] = []
-## Non-colliding skyline blocks behind the front towers: {"d", "u", "size", "variant"}; size.y includes the sunken base.
-var backdrop: Array[Dictionary] = []
 
 
 func _init() -> void:
 	number = 2
+	city = true
+	street_level = WATER_LEVEL
 	standoff = 1.0
 	wade_scale = 0.8
 	plan = PLAN
@@ -153,31 +153,6 @@ func _generate_backdrop() -> void:
 		_backdrop(PLAZA_D + cos(angle) * ring, sin(angle) * ring, Vector3(30.0, float(rng.randi_range(11, 22)) * 2.0 + 4.5, 30.0), rng.randi_range(0, 7))
 
 
-## Adds a backdrop block unless it would touch the street, an arena's rim, a front structure or an earlier block.
-func _backdrop(d: float, u: float, size: Vector3, variant: int) -> void:
-	var rect := Rect2(d - size.z * 0.5, u - size.x * 0.5, size.z, size.x)
-	for arena in arenas:
-		var near := Vector2(clampf(arena.d, rect.position.x, rect.end.x), clampf(0.0, rect.position.y, rect.end.y))
-		if near.distance_to(Vector2(arena.d, 0.0)) < arena.radius + 20.0:
-			return
-	if _backdrop_clear(rect):
-		backdrop.append({"d": d, "u": u, "size": size, "variant": variant})
-
-
-## Whether a (d, u) footprint overlaps neither the street, a front structure, nor another backdrop block.
-func _backdrop_clear(rect: Rect2) -> bool:
-	if absf(rect.get_center().y) - rect.size.y * 0.5 < lateral_limit(rect.get_center().x) + 30.0:
-		return false
-	for structure in structures:
-		var other := Rect2(structure.d - structure.size.z * 0.5, structure.u - structure.size.x * 0.5, structure.size.z, structure.size.x)
-		if rect.grow(4.0).intersects(other):
-			return false
-	for block in backdrop:
-		if rect.intersects(Rect2(block.d - block.size.z * 0.5, block.u - block.size.x * 0.5, block.size.z, block.size.x)):
-			return false
-	return true
-
-
 ## Each part of town has its own mix of tower kinds (see CityKit.tower): shop signs on the boulevard, apartment
 ## blocks behind the expressway, glass towers in the canyon.
 func _tower_kind(d: float, rng: RandomNumberGenerator) -> int:
@@ -234,17 +209,6 @@ func _to_horizon(event: Dictionary, d: float) -> void:
 		event.ahead += shift
 	for member: Dictionary in event.get("squad", []):
 		_to_horizon(member, d)
-
-
-func in_arena(d: float, margin := 0.0) -> bool:
-	for arena in arenas:
-		if absf(d - arena.d) < arena.radius + margin:
-			return true
-	return false
-
-
-func _structure(kind: String, d: float, u: float, size: Vector3, y: float, variant := 0, yaw := 0.0, tilt := Vector3.ZERO) -> void:
-	structures.append({"kind": kind, "d": d, "u": u, "size": size, "y": y, "yaw": yaw, "tilt": tilt, "variant": variant})
 
 
 func lateral_limit(d: float) -> float:

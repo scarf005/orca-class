@@ -29,6 +29,8 @@ const ENEMY_SCRIPTS := {
 	"tiltrotor": "res://scripts/enemies/tiltrotor.gd",
 	"gunship": "res://scripts/enemies/gunship.gd",
 	"hi_mo": "res://scripts/enemies/hi_mo.gd",
+	"borer": "res://scripts/enemies/borer.gd",
+	"wing": "res://scripts/enemies/wing.gd",
 }
 
 const MIDBOSS_RESUME := 0.6 ## Seconds after the mid-boss dies before the rail runs again.
@@ -257,6 +259,8 @@ func _fire(event: Dictionary) -> void:
 			_start_midboss(event)
 		"storm":
 			storm.emit(event.duration)
+		"sprint":
+			world.rail.sprint = float(event.kmh) / 3.6
 		"music":
 			Sfx.play_music(event.path)
 
@@ -311,7 +315,7 @@ func spawn_wave(event: Dictionary) -> Array[Enemy]:
 		if slot.z < 0.0:
 			enemy.despawn_behind = maxf(enemy.despawn_behind, -slot.z + 60.0)
 		world.add_enemy(enemy)
-		if Course.stage is Stage2 and slot.z > 0.0 and (enemy is Hind or (enemy is BipedMech and not enemy is Adam)):
+		if Course.stage.city and slot.z > 0.0 and (enemy is Hind or (enemy is BipedMech and not enemy is Adam)):
 			enemy.walk_in()
 		if enemy is BipedMech or enemy is Hind:
 			var toward := world.player.hit_center() - enemy.hit_center()
@@ -398,7 +402,8 @@ func _start_boss(event: Dictionary) -> void:
 	var arena := Course.stage.arena_at(world.rail.d)
 	Course.stage.arena_center_d = arena.d
 	Course.stage.arena_radius = arena.radius
-	world.rail.mode = Rail.Mode.ARENA
+	var on_rail: bool = event.get("rail", false) # The boss fight runs along the road instead of in an arena.
+	world.rail.mode = Rail.Mode.RAIL if on_rail else Rail.Mode.ARENA
 	var boss: Enemy = load(ENEMY_SCRIPTS[event.kind]).new()
 	boss.position = Course.ground_at(Course.stage.arena_center_d + event.get("ahead", 70.0), event.get("u", 0.0)) + Vector3.UP * float(event.height) if event.has("height") else Course.stage.boss_position()
 	world.add_enemy(boss)
@@ -406,5 +411,6 @@ func _start_boss(event: Dictionary) -> void:
 	world.boss_changed.emit(boss)
 	boss.died.connect(func(_e: Entity) -> void:
 		world.boss_changed.emit(null)
+		world.rail.sprint = 0.0
 		get_tree().create_timer(BOSS_CLEAR_DELAY).timeout.connect(world.stage_cleared.emit))
 	Sfx.play_music(event.get("music", Course.stage.boss_music()))

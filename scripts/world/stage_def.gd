@@ -10,6 +10,8 @@ var section_starts: Array[float] = []
 var checkpoints := {"": 0.0} ## Name -> rail distance to start from.
 var coax_tiers := {} ## Checkpoint name -> the coax tier a run starts with there.
 var start_rws := false ## Whether the tank starts with the RWS fitted.
+var city := false ## A street fight: hunters take cover, hold firing spots and walk in from the haze.
+var street_level := 0.0 ## Height of the street (or flood) low-flying aircraft keep above.
 var standoff := 1.0 ## How far ahead of the tank hunters hold, relative to stage 1.
 var wade_scale := 0.0 ## Share of cruise the rail may run at in water; 0 uses the tuned `Rail.WADE_SPEED`.
 var water_slows := false ## Whether wading changes how the tank drives.
@@ -18,6 +20,8 @@ var arena_center_d := 0.0
 var arena_radius := 0.0
 var arenas: Array[Dictionary] = [] ## Bounded all-range spaces: {d, radius}.
 var structures: Array[Dictionary] = [] ## Solid boxes in the road frame: {kind, d, u, size, y, yaw, variant}.
+## Non-colliding skyline blocks behind the front towers: {"d", "u", "size", "variant"}; size.y includes the sunken base.
+var backdrop: Array[Dictionary] = []
 
 ## The sky, fog and sun.
 var sky_top := Color.WHITE
@@ -26,6 +30,8 @@ var sky_ground := Color.WHITE
 var ambient := Color.WHITE
 var ambient_energy := 0.5
 var fog_color := Color.WHITE
+var storm_color := Palette.BLUSH ## Fog the storm event thickens the haze to.
+var storm_motes: Array[Color] = [Palette.FUNGUS, Palette.BLUSH, Palette.LILAC] ## What drifts across the view in the storm.
 var fog_begin := 90.0
 var fog_end := 420.0
 var sun_rotation := Vector3(-32.0, 125.0, 0.0)
@@ -35,7 +41,7 @@ var sun_energy := 1.0
 
 ## The definition of stage `number` (1-based).
 static func of(number: int) -> StageDef:
-	return Stage1.new() if number == 1 else Stage2.new()
+	return [Stage1, Stage2, Stage3][number - 1].new()
 
 
 func section_at(d: float) -> int:
@@ -128,6 +134,42 @@ func fog_distance(_d: float) -> float:
 ## Where the boss appears: above the far side of the arena.
 func boss_position() -> Vector3:
 	return Course.to_world(arena_center_d + 70.0, 0.0, 45.0)
+
+
+func in_arena(d: float, margin := 0.0) -> bool:
+	for arena in arenas:
+		if absf(d - arena.d) < arena.radius + margin:
+			return true
+	return false
+
+
+func _structure(kind: String, d: float, u: float, size: Vector3, y: float, variant := 0, yaw := 0.0, tilt := Vector3.ZERO) -> void:
+	structures.append({"kind": kind, "d": d, "u": u, "size": size, "y": y, "yaw": yaw, "tilt": tilt, "variant": variant})
+
+
+## Adds a backdrop block unless it would touch the street, an arena's rim, a front structure or an earlier block.
+func _backdrop(d: float, u: float, size: Vector3, variant: int) -> void:
+	var rect := Rect2(d - size.z * 0.5, u - size.x * 0.5, size.z, size.x)
+	for arena in arenas:
+		var near := Vector2(clampf(arena.d, rect.position.x, rect.end.x), clampf(0.0, rect.position.y, rect.end.y))
+		if near.distance_to(Vector2(arena.d, 0.0)) < arena.radius + 20.0:
+			return
+	if _backdrop_clear(rect):
+		backdrop.append({"d": d, "u": u, "size": size, "variant": variant})
+
+
+## Whether a (d, u) footprint overlaps neither the street, a front structure, nor another backdrop block.
+func _backdrop_clear(rect: Rect2) -> bool:
+	if absf(rect.get_center().y) - rect.size.y * 0.5 < lateral_limit(rect.get_center().x) + 30.0:
+		return false
+	for structure in structures:
+		var other := Rect2(structure.d - structure.size.z * 0.5, structure.u - structure.size.x * 0.5, structure.size.z, structure.size.x)
+		if rect.grow(4.0).intersects(other):
+			return false
+	for block in backdrop:
+		if rect.intersects(Rect2(block.d - block.size.z * 0.5, block.u - block.size.x * 0.5, block.size.z, block.size.x)):
+			return false
+	return true
 
 
 ## 0 before a, ramps to 1 over [a, b], holds, then ramps back to 0 over [c, e].

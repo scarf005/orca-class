@@ -233,10 +233,11 @@ func test_city_clear_screen_retries_the_same_stage_or_returns_to_title() -> void
 	check(await wait_until(func() -> bool: return _screen._results != null, 180), "clear signal reaches the results screen")
 	if _screen._results == null:
 		return
-	check(not _screen._results.has_next_stage, "city clear cannot start unsupported stage three")
+	check(_screen._results.has_next_stage, "city clear offers the desert stage")
 	_screen._results._process(4.0)
-	for item: Menu.Item in _screen._results._menu.items:
-		item.action.call()
+	var items := _screen._results._menu.items
+	items[1].action.call()
+	items[2].action.call()
 	check_eq(actions, [["retry", "", 2], ["title"]], "clear retry starts the whole city; title uses the title flow")
 
 
@@ -304,7 +305,7 @@ func test_city_checkpoint_clear_retries_the_selected_checkpoint() -> void:
 		check(await wait_until(func() -> bool: return _screen._results != null, 180), "checkpoint clear reaches results")
 		if _screen._results != null:
 			_screen._results._process(4.0)
-			_screen._results._menu.items[0].action.call()
+			_screen._results._menu.items[1].action.call()
 			check_eq(retries, [checkpoint], "results retry preserves the checkpoint sortie")
 		remove_child(_screen)
 		_screen.queue_free()

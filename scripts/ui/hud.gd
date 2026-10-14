@@ -857,9 +857,9 @@ func _draw_popups() -> void:
 
 
 func _draw_storm() -> void:
-	# Drifting spore motes over the view while a spore storm lasts.
+	# Drifting motes (spores, sand) over the view while a storm lasts.
 	for i in int(80 * _storm):
 		var seed_value := float(i) * 12.9898
 		var x := fposmod(sin(seed_value) * 43758.5 + _time * (40.0 + fposmod(seed_value, 30.0)), size.x)
 		var y := fposmod(cos(seed_value) * 24634.6 + _time * 16.0, size.y)
-		draw_rect(Rect2(x, y, 2, 2), [Palette.FUNGUS, Palette.BLUSH, Palette.LILAC][i % 3])
+		draw_rect(Rect2(x, y, 2, 2), Course.stage.storm_motes[i % Course.stage.storm_motes.size()])
