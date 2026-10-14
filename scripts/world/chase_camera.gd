@@ -102,10 +102,22 @@ func follow(delta: float) -> void:
 
 
 var _faded: Array[Prop] = []
+var _faded_enemies: Array[Enemy] = []
 
 
-## Props between the camera and the tank turn see-through (the dither pass renders it as a screen door).
+## Props and enemies between the camera and the tank turn see-through (the dither pass renders it as a screen door).
 func _fade_occluders(target: Vector3) -> void:
+	var blocking: Array[Enemy] = []
+	for node in World.current.enemies:
+		var enemy := node as Enemy
+		if enemy != null and not enemy.dead and enemy.hit_test(global_position, target) >= 0.0:
+			blocking.append(enemy)
+	for enemy in _faded_enemies:
+		if is_instance_valid(enemy) and enemy not in blocking:
+			enemy.set_see_through(false)
+	for enemy in blocking:
+		enemy.set_see_through(true)
+	_faded_enemies = blocking
 	var still: Array[Prop] = []
 	for prop: Prop in World.current.props.near(global_position, target, 8.0):
 		if prop.dead:

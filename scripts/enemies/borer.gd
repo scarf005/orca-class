@@ -160,6 +160,8 @@ func _add_mesh(parent: Node3D, mesh: Mesh) -> void:
 
 func _ready() -> void:
 	super()
+	for seg in _segments:
+		track_meshes(seg) # Top-level, so outside the model: hit flashes and camera fades reach the whole body.
 	_trail.clear()
 	for i in SEGMENTS * 8:
 		_trail.append(global_position + Vector3.BACK * i * SPACING / 8.0)

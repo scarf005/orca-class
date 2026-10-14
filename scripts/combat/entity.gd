@@ -188,6 +188,13 @@ func wade(delta: float, moving: Vector3, size: float) -> void:
 	World.current.fx.wake(global_position, moving, size, surface)
 
 
+## Drawn as a screen door while it stands between the chase camera and the tank.
+func set_see_through(enabled: bool) -> void:
+	for mesh in _meshes:
+		if is_instance_valid(mesh):
+			mesh.material_override = Prop.see_through if enabled else null
+
+
 ## Collects mesh instances so hit flashes can overlay them.
 func track_meshes(root: Node) -> void:
 	for child in root.get_children():

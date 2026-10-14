@@ -246,7 +246,7 @@ func take_hit(hit: Hit) -> void:
 	super.take_hit(hit)
 
 
-static var _see_through := _make_see_through()
+static var see_through := _make_see_through() ## Shared by every faded prop and enemy.
 static var _stain_material := _make_stain()
 
 
@@ -314,7 +314,7 @@ func tick(delta: float) -> void:
 func set_see_through(enabled: bool) -> void:
 	for mesh in _meshes:
 		if is_instance_valid(mesh):
-			mesh.material_override = _see_through if enabled else null
+			mesh.material_override = see_through if enabled else null
 
 
 func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
