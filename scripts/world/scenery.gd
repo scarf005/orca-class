@@ -305,7 +305,11 @@ func _city() -> void:
 			# Sample candidates even when a fork removes them, so exclusions do not reshuffle the frontage.
 			var has_shop := rng.randf() < 0.65
 			var variant := rng.randi_range(0, 11)
-			if has_shop and not stage.in_arena(shop_d, 35.0) and not _near_split(shop_d, 26.0):
+			# Under the expressway the kerb stays open, or the shops would hide the street from the hunters on the deck.
+			var under_deck := false
+			for ahead in [0.0, 50.0, 100.0]: # Deck hunters hold about 100 m ahead, so the gap leads each change of side.
+				under_deck = under_deck or (stage.section_at(shop_d + ahead) == Stage2.Section.VIADUCT and side == stage.expressway_side(shop_d + ahead))
+			if has_shop and not under_deck and not stage.in_arena(shop_d, 35.0) and not _near_split(shop_d, 26.0):
 				add("city_shop", shop_d, side * kerb, -side * PI * 0.5, variant)
 			shop_d += rng.randf_range(15.0, 24.0)
 	for d in range(180, 3150, 150):

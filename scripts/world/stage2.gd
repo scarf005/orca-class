@@ -185,12 +185,12 @@ func _tower_kind(d: float, rng: RandomNumberGenerator) -> int:
 	return mix[rng.randi() % mix.size()]
 
 
-func _expressway_side(d: float) -> float:
+func expressway_side(d: float) -> float:
 	return -1.0 if d < 1120.0 or d >= 1480.0 else 1.0
 
 
 func _expressway_occupies(d: float, along: float, side: float) -> bool:
-	if section_at(d) != Section.VIADUCT or side != _expressway_side(d):
+	if section_at(d) != Section.VIADUCT or side != expressway_side(d):
 		return false
 	for span_d in range(760, 1640, 90):
 		var span := 72.0 + float(int(span_d / 90.0) % 3) * 10.0
@@ -280,7 +280,7 @@ func height(d: float, u: float) -> float:
 			return -0.15
 	# Under the expressway the drowned road runs on to the piers, so its hunters can come down to the street.
 	# The floor runs 3 m past the hull's limit, fore and aft, so the track samples at the kerb never hang over the drop.
-	var reach := maxf(lateral_limit(d - HULL_MARGIN), lateral_limit(d + HULL_MARGIN)) + HULL_MARGIN + (14.0 if section_at(d) == Section.VIADUCT and signf(u) == _expressway_side(d) else 0.0)
+	var reach := maxf(lateral_limit(d - HULL_MARGIN), lateral_limit(d + HULL_MARGIN)) + HULL_MARGIN + (14.0 if section_at(d) == Section.VIADUCT and signf(u) == expressway_side(d) else 0.0)
 	if absf(u) > reach:
 		return WATER_LEVEL - 4.5
 	return 0.05 + _kerb(d, absf(u)) + _relief(d, u)

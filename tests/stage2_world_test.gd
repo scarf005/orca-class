@@ -419,7 +419,7 @@ func test_the_shop_row_never_cuts_a_deck_hunters_firing_line_to_the_street() -> 
 	var blocked := []
 	for d in range(800, 1560, 40):
 		scenery.stream(float(d), 100000)
-		var side := stage2._expressway_side(float(d) + 100.0)
+		var side := stage2.expressway_side(float(d) + 100.0)
 		var deck := Course.to_world(float(d) + 100.0, side * 38.5, Stage2.DECK_TOP + 2.9)
 		for u in [-20.0, 0.0, 20.0]:
 			var tank := Course.to_world(float(d), u, 2.0)
