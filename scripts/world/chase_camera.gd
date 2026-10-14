@@ -8,6 +8,10 @@ const RAIL_HEIGHT := 12.5
 const RAIL_LOOK_AHEAD := 30.0
 const ARENA_BACK := 22.0
 const ARENA_HEIGHT := 16.0
+const FOV := 70.0
+const MAX_FOV := 90.0 ## Widest the view opens to keep a framed boss and the tank both in sight.
+const FRAME_TOP_MARGIN := 10.0 ## Degrees a framed boss keeps below the top edge.
+const FRAME_BOTTOM_MARGIN := 15.0 ## Degrees the tank keeps above the bottom edge when the view tilts up for one.
 
 var trauma := 0.0
 var _kick := 0.0
@@ -20,7 +24,7 @@ var _watch_point := Vector3.INF
 
 
 func _ready() -> void:
-	fov = 70.0
+	fov = FOV
 	near = 0.3
 	far = 900.0
 	# Follow after the tank has moved this frame.
@@ -57,6 +61,7 @@ func follow(delta: float) -> void:
 	var eye: Vector3
 	var look: Vector3
 	var roll := 0.0
+	var view_fov := FOV
 	if world.rail.mode == Rail.Mode.ARENA:
 		var focus := player.global_position
 		if is_instance_valid(_watch):
@@ -86,12 +91,24 @@ func follow(delta: float) -> void:
 			var flat := Vector2(look.x - eye.x, look.z - eye.z)
 			var turned := flat.rotated(flat.angle_to(Vector2(boss.x - eye.x, boss.z - eye.z)) * float(world.boss.get_meta("frame")))
 			look = Vector3(eye.x + turned.x, look.y, eye.z + turned.y)
+			# High on a glide it would leave the top edge: widen the view and tilt up until its hull clears it, never
+			# pushing the tank down behind the bottom panels.
+			var level := turned.length()
+			var pitch := atan2(look.y - eye.y, level)
+			var tank := player.hit_center()
+			var above := atan2(boss.y - eye.y, Vector2(boss.x - eye.x, boss.z - eye.z).length()) + deg_to_rad(FRAME_TOP_MARGIN)
+			var below := atan2(tank.y - eye.y, Vector2(tank.x - eye.x, tank.z - eye.z).length()) - deg_to_rad(FRAME_BOTTOM_MARGIN)
+			view_fov = clampf(rad_to_deg(above - below), FOV, MAX_FOV)
+			var half := deg_to_rad(view_fov * 0.5)
+			look.y = eye.y + tan(clampf(above - half, pitch, maxf(pitch, below + half))) * level
 		roll = clampf(-player.lateral_velocity * 0.006, -0.1, 0.1) # A 74 m/s dash would otherwise bank the view 25 degrees.
 	var k := 1.0 - exp(-9.0 * delta)
 	if not _initialized:
+		fov = view_fov
 		_eye = eye
 		_look = look
 		_initialized = true
+	fov = lerpf(fov, view_fov, k)
 	_eye = _eye.lerp(eye, k)
 	_look = _look.lerp(look, k)
 	global_position = world.director.scenery.camera_position(player.hit_center(), _eye) if world.director else _eye
