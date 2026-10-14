@@ -141,6 +141,12 @@ func firing_spot_valid(at: Vector3, tank: Tank) -> bool:
 	return supported and c.x - t.x >= 65.0 * Course.stage.standoff and c.x - t.x <= 125.0 * Course.stage.standoff and absf(c.y) <= limit and at.y <= surface + 6.01
 
 
+## Within `reach` metres of the tank, or anywhere in the city firing band: a hunter parked at the band's far edge
+## must still open fire.
+func in_reach(tank: Tank, reach: float) -> bool:
+	return global_position.distance_to(tank.global_position) < (maxf(reach, 140.0 * Course.stage.standoff) if Course.stage is Stage2 else reach)
+
+
 func clear_firing_spot(tank: Tank) -> bool:
 	return firing_spot_valid(global_position, tank) and not line_blocked(hit_center(), tank.hit_center()) and not World.current.director.scenery.line_blocked(World.current.camera.global_position, hit_center())
 

@@ -177,7 +177,7 @@ func behave(delta: float) -> void:
 			_losat = not _losat and not disarmed
 		return
 	_attack_timer -= delta
-	if _attack_timer <= 0.0 and global_position.distance_to(tank.global_position) < 150.0:
+	if _attack_timer <= 0.0 and in_reach(tank, 150.0):
 		_losat = _losat and not disarmed and global_position.distance_to(tank.global_position) >= LOSAT_MIN_FIRE
 		_wind = (1.0 if _losat else 0.65) * Game.telegraph_scale()
 		_wind_total = _wind

@@ -137,7 +137,7 @@ func behave(delta: float) -> void:
 			_shell = not _shell
 		return
 	_attack_timer -= delta
-	if _attack_timer <= 0.0 and global_position.distance_to(tank.global_position) < 140.0:
+	if _attack_timer <= 0.0 and in_reach(tank, 140.0):
 		_wind = (0.65 if Course.stage is Stage2 else 1.0) * Game.telegraph_scale()
 		_attack_timer = 2.2 if _hard else 3.0
 		_flight = clampf(global_position.distance_to(tank.global_position) / 45.0, 1.2, 2.4)
