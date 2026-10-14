@@ -189,7 +189,7 @@ func ground_color(d: float, u: float, h: float, slope: float) -> Color:
 	# side falls into ochre shade, so even low drivable swells read as dunes.
 	var ridge := 1.0 - absf(_crest.get_noise_2d(d, u))
 	var rise := height(d + 1.5, u) - height(d - 1.5, u)
-	var sand := Palette.PEACH.lerp(Palette.BUTTER, smoothstep(0.82, 0.98, ridge) * 0.85 + smoothstep(2.0, 8.0, h) * 0.2)
+	var sand := Palette.PEACH.lerp(Palette.BUTTER, smoothstep(0.6, 1.0, ridge) * 0.6 + smoothstep(2.0, 8.0, h) * 0.2)
 	sand = sand.lerp(Palette.STRAW, clampf(-grain, 0.0, 1.0) * 0.35)
 	sand = sand.lerp(Palette.CREAM, smoothstep(0.2, 0.8, rise) * 0.3).lerp(Palette.OCHRE, smoothstep(-0.2, -0.8, rise) * 0.3)
 	sand = sand.lerp(Palette.OCHRE, smoothstep(0.25, 0.8, slope) * 0.6)
