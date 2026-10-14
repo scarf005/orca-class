@@ -186,3 +186,21 @@ func test_burrow_erupts_under_a_marker_and_hurts_a_tank_standing_there() -> void
 	check_eq(borer._attack, Borer.Attack.ERUPT, "it comes back up")
 	check(not borer._burrowed and borer._exposed > 0.0, "the head is out and exposed afterwards")
 	check(tank.hp < before, "a tank left on the marker is hit by the eruption")
+
+
+func test_rail_camera_leans_toward_the_wing_on_its_ramp() -> void:
+	var wing := _wing()
+	var world := World.current
+	world.rail.d = (Course.stage as Stage3).hill_d(0) - 60.0
+	world.player.global_position = Course.ground_at(world.rail.d, 0.0)
+	var toward := func() -> float:
+		world.camera.snap()
+		world.camera.follow(STEP)
+		var to_wing := (wing.global_position - world.camera.global_position).normalized()
+		return rad_to_deg((-world.camera.global_basis.z).angle_to(to_wing))
+	world.boss = wing
+	var framed: float = toward.call()
+	wing.remove_meta("frame")
+	var plain: float = toward.call()
+	check(framed < plain - 5.0, "the view turns toward the wing (%.0f vs %.0f degrees off)" % [framed, plain])
+	check(framed < 45.0, "the wing sits inside the frame (%.0f degrees off centre)" % framed)
