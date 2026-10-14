@@ -279,6 +279,13 @@ func _city() -> void:
 	for i in 14:
 		var angle := TAU * i / 14.0 + 0.2
 		add("raft", Stage2.BAY_D + sin(angle) * 70.0, cos(angle) * 70.0, angle, i % 6).set_meta("y", Stage2.WATER_LEVEL + 0.02)
+	# Traffic stranded on the plaza gives the hovercraft fight something to read distance against and to smash.
+	var plaza := RandomNumberGenerator.new()
+	plaza.seed = 20261014
+	for i in 10:
+		var angle := TAU * i / 10.0 + plaza.randf_range(-0.2, 0.2)
+		var radius := plaza.randf_range(20.0, Stage2.PLAZA_RADIUS - 14.0)
+		add("bus_wreck" if i % 4 == 0 else "car", Stage2.PLAZA_D + sin(angle) * radius, cos(angle) * radius, plaza.randf() * TAU, plaza.randi_range(0, 11 if i % 4 else 5))
 	# Drowned rooftops dress the bay arena so the boss fight has landmarks to read distances against; they are decor only.
 	var bay := RandomNumberGenerator.new()
 	bay.seed = 20261009
