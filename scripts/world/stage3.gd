@@ -47,7 +47,7 @@ func _init() -> void:
 	sky_top = Palette.PEACH.lerp(Palette.CORAL, 0.55)
 	sky_horizon = Palette.BUTTER
 	sky_ground = Palette.PEACH
-	# Hard desert light: a low sun rakes the dunes and the shade falls cool lilac, so facets keep their value range.
+	# Hard desert light: a high afternoon sun rakes the dunes and the shade falls cool lilac, so facets keep their value range.
 	ambient = Palette.LILAC.lerp(Palette.PEACH, 0.6)
 	ambient_energy = 0.62
 	fog_color = Palette.PEACH.lerp(Palette.BUTTER, 0.5)
@@ -56,7 +56,7 @@ func _init() -> void:
 	fog_begin = 70.0
 	fog_end = 360.0
 	sun_color = Palette.BUTTER.lerp(Palette.CREAM, 0.5)
-	sun_rotation = Vector3(-17.0, 120.0, 0.0)
+	sun_rotation = Vector3(-32.0, 120.0, 0.0)
 	sun_energy = 1.15
 	_generate_walls()
 	_generate_backdrop()
