@@ -536,21 +536,23 @@ func test_a_hunter_whose_first_wind_up_is_cancelled_stays_out_of_reach_until_it_
 	check(hunter.hit_test(world.player.hit_center(), hunter.hit_center()) >= 0.0, "and is hittable after")
 
 
-func test_walking_in_city_mechs_hold_well_inside_their_firing_band() -> void:
-	for kind in ["abel", "kain"]:
-		var world := await _setup(3)
-		var hunter := world.director.spawn_wave({"kind": kind, "u": 18.0, "ahead": 85.0 + Stage3.HORIZON_SHIFT})[0]
-		var d := Course.to_course(world.player.global_position).x
-		var ahead := INF
-		for i in 900:
-			d += Rail.CRUISE * STEP # The tank drives on at cruise, as it does when a squad walks in.
-			world.rail.d += Rail.CRUISE * STEP
-			world.player.global_position = Course.ground_at(d, 0.0)
-			hunter.tick(STEP)
-			if hunter.telegraphing():
-				ahead = Course.to_course(hunter.global_position).x - Course.to_course(world.player.global_position).x
-				break
-		check(ahead <= (125.0 - BipedMech.HOLD_MARGIN) * Course.stage.standoff, "%s winds up %.1f m ahead, not at the band's 125 m edge where a little drift drops the warning" % [kind, ahead])
+func test_a_hunter_pacing_the_tank_off_the_centreline_keeps_its_place_in_the_band() -> void:
+	for number in [2, 3]:
+		var world := await _setup(number)
+		world.rail.d = 450.0 # Where stage 3's first kain walks in.
+		world.player.global_position = Course.ground_at(450.0 + world.player.course_offset, 0.0)
+		var hunter := Kain.new()
+		_spawn(world, hunter, 110.0)
+		hunter.position = Course.to_world(Course.to_course(hunter.position).x, 18.0, hunter.position.y)
+		var tank_d := Course.to_course(world.player.global_position).x
+		var start := Course.to_course(hunter.global_position)
+		var worst := 0.0
+		for i in 600: # 10 s at cruise: about 290 m of road, bends included.
+			tank_d += Rail.CRUISE * STEP
+			hunter.keep_pace(Rail.CRUISE * STEP, STEP)
+			var now := Course.to_course(hunter.global_position)
+			worst = maxf(worst, absf((now.x - tank_d) - (start.x - (tank_d - Rail.CRUISE * STEP * (i + 1)))))
+		check(worst < 0.5, "stage %d: 18 m off the centreline it stays level with the tank to %.2f m (worst %.2f m)" % [number, 0.5, worst])
 		hunter.despawn()
 
 func test_city_mechs_open_fire_from_the_far_edge_of_their_firing_band() -> void:

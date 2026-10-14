@@ -7,7 +7,6 @@ enum Stance { ADVANCE, COVER, HIDE, PEEK, EXPOSED }
 const HIDE_TIME := 1.1 ## Seconds behind cover before it peeks.
 const EXPOSE_TIME := 8.0 ## Seconds in the open before it ducks away again.
 const VOLLEYS_PER_PEEK := 2 ## Attacks it makes from one firing position before it moves.
-const HOLD_MARGIN := 6.0 ## Metres inside the firing band a walking-in hunter goes before it holds: pacing the tank drifts it.
 const WADE_LIMIT := 2.5 ## Deepest water it strides through: a sinkhole across the street, never a drowned lot.
 const STRIDE := 0.42 ## Radians a leg swings either side of upright while it walks.
 const BOOST_SPEED := 12.0 ## Metres per second past which it stops stepping and skates.
