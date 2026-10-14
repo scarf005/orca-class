@@ -76,7 +76,7 @@ func test_stage_cards_use_native_map_size_and_nearest_filtering() -> void:
 	check_eq(select._cards, before, "changing focus never resizes the map rectangles")
 
 func test_stage_maps_preserve_the_dither_palette_at_native_size() -> void:
-	for number in [1, 2]:
+	for number in [1, 2, 3]:
 		var image := Image.new()
 		check_eq(image.load_png_from_buffer(FileAccess.get_file_as_bytes("res://assets/ui/stage%d.png" % number)), OK, "stage map PNG loads")
 		check_eq(image.get_size(), Vector2i(256, 256), "stage map has its final native size")
@@ -95,9 +95,9 @@ func test_stage_maps_preserve_the_dither_palette_at_native_size() -> void:
 			if not matched:
 				break
 
-func test_fresh_save_starts_both_stages_in_every_difficulty() -> void:
+func test_fresh_save_starts_every_stage_in_every_difficulty() -> void:
 	for difficulty in [Game.Difficulty.EASY, Game.Difficulty.NORMAL, Game.Difficulty.HARD]:
-		for number in [1, 2]:
+		for number in [1, 2, 3]:
 			_title = load("res://scripts/ui/title.gd").new()
 			add_child(_title)
 			await frames(2)
@@ -109,7 +109,9 @@ func test_fresh_save_starts_both_stages_in_every_difficulty() -> void:
 			menu._unhandled_input(_key(KEY_ENTER))
 			var select := _title._menu as StageSelect
 			check(select != null, "sortie opens the stage cards")
-			select._unhandled_input(_key(KEY_D if number == 2 else KEY_A))
+			select._unhandled_input(_key(KEY_A))
+			for _step in number - 1:
+				select._unhandled_input(_key(KEY_D))
 			select._unhandled_input(_key(KEY_SPACE))
 			check_eq(started, [["", number, difficulty]], "fresh-save stage %d starts with difficulty %d" % [number, difficulty])
 			remove_child(_title)

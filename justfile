@@ -110,6 +110,7 @@ stage-thumbnails: import
     mkdir -p assets/ui
     xvfb-run -a {{ quote(godot) }} --path . -- --run=res://tools/capture_course.gd --stage=1 --d=700 --u=8 --h=5 --props --square --size=256 --out=assets/ui/stage1.png
     xvfb-run -a {{ quote(godot) }} --path . -- --run=res://tools/capture_course.gd --stage=2 --d=700 --u=0 --h=5 --props --square --size=256 --out=assets/ui/stage2.png
+    xvfb-run -a {{ quote(godot) }} --path . -- --run=res://tools/capture_course.gd --stage=3 --d=1000 --u=0 --h=12 --props --square --size=256 --out=assets/ui/stage3.png
 
 # Measure terrain streaming CPU timings.
 benchmark: import
