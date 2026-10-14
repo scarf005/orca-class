@@ -349,6 +349,11 @@ func walk_to(goal: Vector3, speed: float, delta: float) -> void:
 	global_position.y = floor
 
 
+func stride(_delta: float) -> void:
+	for i in _legs.size():
+		_legs[i].rotation.x = sin(_walk * 1.4 + i * PI) * 0.18
+
+
 func move_hunter(tank: Tank, delta: float, planted: bool, keep := 52.0) -> void:
 	_firing_search = maxf(0.0, _firing_search - delta)
 	var tank_d := Course.to_course(tank.global_position).x
@@ -360,8 +365,7 @@ func move_hunter(tank: Tank, delta: float, planted: bool, keep := 52.0) -> void:
 		_body.position.y = lerpf(_body.position.y, 1.0, minf(delta * 4.0, 1.0))
 		model.rotation.z = lerpf(model.rotation.z, 0.9, minf(delta * 4.0, 1.0))
 		return
-	for i in _legs.size():
-		_legs[i].rotation.x = sin(_walk * 1.4 + i * PI) * 0.18
+	stride(delta)
 	if Course.stage.city and (not firing_spot_valid(global_position, tank) or (_stance == Stance.ADVANCE and not clear_firing_spot(tank))) and not is_staggered():
 		relocate()
 		var goal := city_firing_spot(tank)
