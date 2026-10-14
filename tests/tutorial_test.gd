@@ -77,9 +77,9 @@ func test_maze_is_a_compact_three_by_three_box_on_the_start_road() -> void:
 	for spec in course.maze.specs:
 		low = low.min(Vector2(spec.u, spec.d))
 		high = high.max(Vector2(spec.u, spec.d))
-		check(spec.d > Course.PLAN_START and spec.d < 0.0, "wall d=%.0f lies on the pre-start road, where no stage content lives" % spec.d)
+		check(spec.d > Course.stage.plan_start and spec.d < 0.0, "wall d=%.0f lies on the pre-start road, where no stage content lives" % spec.d)
 		check_near(Course.yaw_at(spec.d), 0.0, 0.0001, "the road is straight under the maze")
-		check(absf(spec.u) + (spec.node as Prop).footprint <= Course.valley_half_width(spec.d) - Tank.EDGE_MARGIN, "wall u=%.1f stands on the valley floor" % spec.u)
+		check(absf(spec.u) + (spec.node as Prop).footprint <= Tank.lateral_limit(spec.d), "wall u=%.1f stands on the valley floor" % spec.u)
 	check(high.x - low.x <= 37.0 and high.x - low.x >= 31.0, "about 36 m across (%.1f)" % (high.x - low.x))
 	check(high.y - low.y <= 37.0 and high.y - low.y >= 31.0, "about 36 m along the road (%.1f)" % (high.y - low.y))
 	var reach := Tank.HULL_RADIUS + (course.maze.specs[0].node as Prop).footprint

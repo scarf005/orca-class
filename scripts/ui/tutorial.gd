@@ -865,8 +865,9 @@ func _input(event: InputEvent) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("restart") and not get_tree().paused:
+		var viewport := get_viewport() # The swap that restart triggers takes this node out of the tree.
 		_restart()
-		get_viewport().set_input_as_handled()
+		viewport.set_input_as_handled()
 	elif event.is_action_pressed("pause"):
 		if _overlay:
 			_close_pause()

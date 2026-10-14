@@ -104,7 +104,7 @@ func test_fresh_save_starts_both_stages_in_every_difficulty() -> void:
 			var started := []
 			_title.start.connect(func(checkpoint: String) -> void: started.append([checkpoint, Game.stage, Game.difficulty]))
 			var menu := _title._menu as Menu
-			for _i in [Game.Difficulty.EASY, Game.Difficulty.NORMAL, Game.Difficulty.HARD].find(difficulty):
+			for _i in [Game.Difficulty.EASY, Game.Difficulty.NORMAL, Game.Difficulty.HARD].find(difficulty) + 1: # The tutorial leads the menu.
 				menu._unhandled_input(_key(KEY_DOWN))
 			menu._unhandled_input(_key(KEY_ENTER))
 			var select := _title._menu as StageSelect
@@ -129,11 +129,13 @@ func test_mouse_and_gamepad_back_return_to_the_main_menu() -> void:
 	_title = load("res://scripts/ui/title.gd").new()
 	add_child(_title)
 	await frames(2)
+	(_title._menu as Menu)._unhandled_input(_key(KEY_DOWN)) # Past the tutorial.
 	(_title._menu as Menu)._unhandled_input(_key(KEY_ENTER))
 	await frames(2)
 	var select := _title._menu as StageSelect
 	select._gui_input(_click(select._back_rect.get_center()))
 	check(_title._menu is Menu, "clicking Back restores the main menu")
+	(_title._menu as Menu)._unhandled_input(_key(KEY_DOWN))
 	(_title._menu as Menu)._unhandled_input(_key(KEY_ENTER))
 	(_title._menu as StageSelect)._unhandled_input(_pad(JOY_BUTTON_B))
 	check(_title._menu is Menu, "gamepad B restores the main menu")
@@ -142,7 +144,8 @@ func test_mouse_cards_and_checkpoints_follow_the_focused_stage() -> void:
 	_title = load("res://scripts/ui/title.gd").new()
 	add_child(_title)
 	await frames(2)
-	(_title._menu as Menu)._unhandled_input(_key(KEY_DOWN)) # Past the easy sortie to the normal one.
+	for _i in 2:
+		(_title._menu as Menu)._unhandled_input(_key(KEY_DOWN)) # Past the tutorial and the easy sortie to the normal one.
 	(_title._menu as Menu)._unhandled_input(_key(KEY_ENTER))
 	var select := _title._menu as StageSelect
 	await frames(2)
