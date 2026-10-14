@@ -427,3 +427,19 @@ func test_the_shop_row_never_cuts_a_deck_hunters_firing_line_to_the_street() -> 
 				if prop.kind == "city_shop" and not prop.dead and prop.hit_test(deck, tank) >= 0.0:
 					blocked.append("d=%d u=%.0f shop@%.0f" % [d, u, Course.to_course(prop.global_position).x])
 	check(blocked.is_empty(), "shops cut %d deck firing lines: %s" % [blocked.size(), blocked.slice(0, 5)])
+
+
+func test_a_tree_crown_between_the_chase_camera_and_the_tank_turns_see_through() -> void:
+	var world := stage("", false, 2)
+	await frames(2)
+	var camera := world.camera
+	var target := world.player.hit_center()
+	var at := camera.global_position.lerp(target, 0.5)
+	var across := (target - camera.global_position).cross(Vector3.UP).normalized()
+	var tree := Prop.new()
+	tree.setup("plane_tree", PropKit.mesh("plane_tree", 0), 0.9, 9.0, 22.5)
+	tree.position = Vector3(at.x, Course.height_at(at), at.z) + across * 3.0 # Trunk clear of the sight line, crown over it.
+	world.props.add_child(tree)
+	camera._fade_occluders(target)
+	var mesh := tree.get_node("Mesh") as MeshInstance3D
+	check(mesh.material_override != null, "the crown that overhangs the line to the tank is faded")
