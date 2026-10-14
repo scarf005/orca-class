@@ -142,8 +142,7 @@ func behave(delta: float) -> void:
 		var goal := guard_spot(tank)
 		var far := Course.stage.city and global_position.distance_to(goal) > 20.0
 		walk_to(goal, World.current.rail.speed + 18.0 if far else (5.0 if _hard else 3.5), delta)
-	for i in _legs.size():
-		_legs[i].rotation.x = sin(_walk + i * PI) * 0.15
+	stride(delta)
 	_arm.rotation.x = lerpf(_arm.rotation.x, -1.6 if _wind > 0.0 and _breaker else (0.5 if _follow > 0.0 and _breaker else 0.0), minf(delta * 8.0, 1.0))
 	_beam.rotation.y = lerpf(_beam.rotation.y, -1.1 if _wind > 0.0 and not _breaker else (1.2 if _follow > 0.0 and not _breaker else 0.0), minf(delta * 8.0, 1.0))
 	if _wind > 0.0:

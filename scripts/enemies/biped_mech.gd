@@ -8,6 +8,9 @@ const HIDE_TIME := 1.1 ## Seconds behind cover before it peeks.
 const EXPOSE_TIME := 8.0 ## Seconds in the open before it ducks away again.
 const VOLLEYS_PER_PEEK := 2 ## Attacks it makes from one firing position before it moves.
 const WADE_LIMIT := 2.5 ## Deepest water it strides through: a sinkhole across the street, never a drowned lot.
+const STRIDE := 0.42 ## Radians a leg swings either side of upright while it walks.
+const BOOST_SPEED := 12.0 ## Metres per second past which it stops stepping and skates.
+const BRACE: Array[float] = [0.3, -0.25] ## Skating stance: one leg reached ahead, the other pushed back.
 
 var min_range := 0.0 ## Nearest it will stand to the tank when picking cover.
 var legs_hp := 30.0
@@ -27,7 +30,10 @@ var _progress := INF ## Nearest it has got to its cover goal, and for how long i
 var _progress_time := 0.0
 var _side := 1.0
 var _search := 0.0
-var _walk := 0.0
+var _walk := 0.0 ## Gait cycles stepped so far.
+var _moved := Vector3.ZERO ## Ground covered since the last stride.
+var _boost := 0.0 ## 0 stepping, 1 braced and skating.
+var _thrust := 0.0
 var _hip := 3.0
 var _firing_goal := Vector3.INF
 var _firing_search := 0.0
@@ -344,14 +350,44 @@ func walk_to(goal: Vector3, speed: float, delta: float) -> void:
 	if past_kerb or (Water.surface_at(next) - floor > WADE_LIMIT and Water.surface_at(global_position) - here <= WADE_LIMIT):
 		next = global_position # Off the avenue (the shelf past the kerb, deep water): the hunter stops at its edge.
 		floor = here
-	_walk += global_position.distance_to(next)
+	_moved += Vector3(next.x - global_position.x, 0.0, next.z - global_position.z)
 	global_position = next
 	global_position.y = floor
 
 
-func stride(_delta: float) -> void:
+## Steps with the walk since the last call. The standing foot sweeps back exactly as far as the body moves
+## (forward or backing off), so it stays planted while the other swings through lifted; faster than a stride
+## can carry it, the mech braces one leg ahead of the other and skates on its heel thrusters.
+func stride(delta: float) -> void:
+	var facing := -model.global_basis.z
+	var along := _moved.length() * signf(_moved.dot(facing) + 0.0001)
+	_boost = move_toward(_boost, 1.0 if _moved.length() > BOOST_SPEED * delta else 0.0, delta * 5.0)
+	var heading := _moved
+	_moved = Vector3.ZERO
+	var reach := sin(STRIDE)
+	_walk += along / (4.0 * _hip * reach) # One cycle: each foot stands for half of it, sweeping 2 * hip * reach.
+	var stance_angle := 0.0
 	for i in _legs.size():
-		_legs[i].rotation.x = sin(_walk * 1.4 + i * PI) * 0.18
+		var s := fposmod(_walk + i * 0.5, 1.0) * 2.0
+		var standing := s < 1.0
+		var swing := smoothstep(1.0, 2.0, s)
+		var angle := asin(reach * (1.0 - 2.0 * s)) if standing else asin(reach * (2.0 * swing - 1.0))
+		if standing:
+			stance_angle = angle
+		_legs[i].rotation.x = lerpf(angle, BRACE[i], _boost)
+		_legs[i].position.y = 0.0 if standing else sin(PI * swing) * _hip * 0.15 * (1.0 - _boost)
+	_body.position.y = lerpf(_hip * cos(stance_angle), _hip * 0.92, _boost)
+	if _boost < 0.5 or _wet or heading == Vector3.ZERO:
+		return
+	_thrust -= delta
+	if _thrust > 0.0:
+		return
+	_thrust = 0.05
+	var back := -heading.normalized()
+	for leg in _legs:
+		var heel := leg.to_global(Vector3(0, -_hip + 0.3, 0.5))
+		World.current.fx.spawn(Fx.Kind.FLAME, heel, back * 6.0 + Vector3.UP * 1.5, 0.16, 0.35, [Palette.BUTTER, Palette.AMBER][randi() % 2], {"drag": 2.0})
+		World.current.fx.dust(heel - Vector3.UP * 0.3, 1, 0.6)
 
 
 func move_hunter(tank: Tank, delta: float, planted: bool, keep := 52.0) -> void:
