@@ -207,7 +207,8 @@ func run() -> int:
 				boss_phase = phase
 				print("BOSS kind=%s phase=%d t=%.2f d=%.0f hp=%.0f music=%s" % [world.boss.get_script().resource_path.get_file().get_basename(), phase, world.stats.time, world.rail.d, world.boss.hp, Sfx._music_path])
 				_capture("%s-phase-%d" % [world.boss.get_script().resource_path.get_file().get_basename(), phase])
-			if _milestones and world.boss is Enemy and (world.boss as Enemy).telegraphing() and float(world.boss.get("_attack_time")) > 0.3:
+			var attack_time: Variant = world.boss.get("_attack_time") # Bosses that fire by turret (the wing) have none.
+			if _milestones and attack_time != null and world.boss is Enemy and (world.boss as Enemy).telegraphing() and float(attack_time) > 0.3:
 				var kind := int(world.boss.get("_attack"))
 				var attack: String = HiMo.Attack.keys()[kind] if world.boss is HiMo else Hovercraft.Attack.keys()[kind] if world.boss is Hovercraft else str(kind)
 				var key := "%s-phase-%d-%s" % [boss_kind, phase, attack.to_lower()]
