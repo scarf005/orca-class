@@ -499,3 +499,15 @@ func test_city_hunters_walk_in_out_of_reach_until_their_first_attack_is_released
 		hunter.take_hit(Hit.make(Hit.Kind.SHELL, 10.0, hunter.hit_center()))
 		check(hunter.hp < hp, "%s then takes damage" % kind)
 		hunter.despawn()
+
+
+func test_city_mechs_open_fire_from_the_far_edge_of_their_firing_band() -> void:
+	var world := await _setup(2)
+	for hunter: BipedMech in [Abel.new(), Kain.new()]:
+		_spawn(world, hunter, 125.0 * Course.stage.standoff - 1.0)
+		var warned := false
+		for i in 180:
+			hunter.behave(STEP)
+			warned = warned or hunter.telegraphing()
+		check(warned, "%s %.0f m ahead of a halted tank winds up within 3 s" % [hunter.get_script().resource_path.get_file(), 125.0 * Course.stage.standoff - 1.0])
+		hunter.despawn()
