@@ -495,6 +495,11 @@ func test_city_hunters_walk_in_out_of_reach_until_their_first_attack_is_released
 				break
 		check(released, "%s winds up and releases its first attack" % kind)
 		check(not reachable_while_warning, "%s cannot be shot out of its first wind-up" % kind)
+		for i in 60: # A burst's first round leaves a few frames after the warning.
+			if hunter._has_fired():
+				break
+			hunter.tick(STEP)
+		hunter.tick(STEP)
 		check(hunter.hit_test(world.player.hit_center(), hunter.hit_center()) >= 0.0, "%s is hittable once that attack is out" % kind)
 		hunter.take_hit(Hit.make(Hit.Kind.SHELL, 10.0, hunter.hit_center()))
 		check(hunter.hp < hp, "%s then takes damage" % kind)

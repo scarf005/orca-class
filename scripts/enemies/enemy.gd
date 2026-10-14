@@ -112,11 +112,12 @@ func tick(delta: float) -> void:
 	model.position = model.position.lerp(Vector3.ZERO, 1.0 - exp(-22.0 * delta)) + jitter
 	behave(delta)
 	if arriving:
+		# Only a warning that ended in a shot counts: a wind-up dropped when its firing spot slips keeps it out of reach.
 		var warning := telegraphing()
-		if (_warned and not warning) or age > ARRIVE_LIMIT:
+		if (_warned and not warning and _has_fired()) or age > ARRIVE_LIMIT:
 			arriving = false
 			invulnerable = false
-		_warned = warning
+		_warned = _warned or warning
 	show_damage(delta, death_radius)
 	var moved := global_position - _last_position
 	velocity = moved / maxf(delta, 0.0001)
@@ -188,6 +189,10 @@ func _update_ambush(delta: float) -> void:
 
 func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 	return -1.0 if hidden or arriving else super.hit_test(from, to, extra_radius)
+
+
+func _has_fired() -> bool:
+	return World.current.projectiles.any(func(projectile: Projectile) -> bool: return projectile.hit != null and projectile.hit.source == self)
 
 
 ## A hunter that spawns in the haze walks in untouchable and stays so through its first warning, so it always gets
