@@ -9,6 +9,7 @@ extends Node
 ##        [--trace-ranges] # every 6 frames: each live enemy's distance ahead of the tank and lateral offset
 ##        [--trace-fire] # one line per enemy projectile with the shooter's kind, to see who actually attacks and how often
 ##        [--storm=30] # start the stage's storm right away for that many seconds, to judge its look
+##        [--trace-damage] # one line per hit on the tank: where, by what, and the hull left after it
 
 var screen: GameScreen
 var bot := "hold"
@@ -74,6 +75,8 @@ func run() -> int:
 			_peaks[Course.section_at(event.d)] = float(event.d)
 	world.killed.connect(_killed)
 	world.player.life_lost.connect(func() -> void: deaths += 1)
+	if args.has("trace-damage"):
+		world.player.damaged.connect(func(_tank: Entity, hit: Hit) -> void: print("DAMAGE t=%.2f d=%.0f source=%s kind=%s hp=%.1f" % [world.stats.time, world.rail.d, hit.source.get_script().resource_path.get_file().get_basename() if is_instance_valid(hit.source) else "none", Hit.Kind.keys()[hit.kind], world.player.hp]))
 	world.stage_cleared.connect(func() -> void:
 		cleared = true
 		_section_end(world))
