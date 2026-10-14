@@ -117,6 +117,8 @@ static func _fade_material(glow: bool) -> ShaderMaterial:
 	var material := ShaderMaterial.new()
 	material.shader = preload("res://shaders/dither_fade.gdshader")
 	material.set_shader_parameter("unshaded", glow)
+	if glow:
+		material.set_shader_parameter("near_fade", Vector2(6.0, 14.0)) # The chase camera sits about 21 m from the hull.
 	return material
 
 
@@ -508,8 +510,9 @@ func afterimage(meshes: Array, color: Color, life := 0.45) -> void:
 func splash(position: Vector3, size: float, surface := Stage1.WATER_LEVEL, rings := true) -> void:
 	var at := Vector3(position.x, surface + 0.05, position.z)
 	var spread := minf(size, 2.5) # Big wrecks throw more water up, not a wider white sheet.
+	var reach := minf(spread, 1.2) # Rings wider than about 8 m wall off the tank and the enemies around it.
 	for ring in [[2.5, 0.8], [4.5, 1.3], [7.0, 1.9]] if rings else []:
-		_transient(_cached("wake_ring", Palette.CREAM, _thin_ring_builder), Transform3D(Basis(), at), ring[1] * (0.6 + spread * 0.4), true, Vector2(spread * 0.5, spread * ring[0]), 0.2, false)
+		_transient(_cached("wake_ring", Palette.CREAM, _thin_ring_builder), Transform3D(Basis(), at), ring[1] * (0.6 + reach * 0.4), true, Vector2(reach * 0.5, reach * ring[0]), 0.2, false)
 	for i in int(4 + size * 6):
 		var dir := Vector3(randf_range(-0.4, 0.4), 1.0, randf_range(-0.4, 0.4)).normalized()
 		spawn(Kind.GLOW, at, dir * randf_range(3.0, 7.0) * (0.6 + size * 0.5), randf_range(0.4, 0.8), randf_range(0.15, 0.3) * (1.0 + size), [Palette.WHITE, Palette.SKY, Palette.CREAM][i % 3], {"gravity": 18.0, "end_size": 0.05, "fade": 0.6})
@@ -522,7 +525,7 @@ func wake(position: Vector3, velocity: Vector3, size: float, surface := Stage1.W
 	var flat := Vector3(velocity.x, 0.0, velocity.z)
 	var pace := clampf(flat.length() / 20.0, 0.0, 1.0)
 	# Moving, rings are laid close together: small and brief, so they read as a trail, not a sheet.
-	_transient(_cached("wake_ring", Palette.CREAM, _thin_ring_builder), Transform3D(Basis(), at), lerpf(1.4, 0.5, pace), true, Vector2(size * 0.3, size * lerpf(2.0, 0.9, pace)), 0.2, false)
+	_transient(_cached("wake_ring", Palette.SKY, _thin_ring_builder), Transform3D(Basis(), at), lerpf(0.9, 0.4, pace), true, Vector2(size * 0.3, size * lerpf(1.3, 0.8, pace)), 0.2, false)
 	if pace < 0.1:
 		return
 	var ahead := flat.normalized()

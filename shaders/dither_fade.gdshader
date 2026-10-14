@@ -9,6 +9,7 @@ uniform bool particles = false; // MultiMesh size and Euler rotation; ordinary e
 uniform float alpha_scale = 1.0;
 uniform float instance_alpha = 1.0;
 uniform vec4 instance_tint = vec4(0.0); // rgb replaces the vertex color by its alpha (afterimages).
+uniform vec2 near_fade = vec2(0.0); // Metres from the camera: gone at x, whole at y, so smoke never walls off the view.
 
 const float BAYER[16] = float[16](0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0, 3.0, 11.0, 1.0, 9.0, 15.0, 7.0, 13.0, 5.0);
 
@@ -29,7 +30,8 @@ void vertex() {
 void fragment() {
 	ivec2 px = ivec2(FRAGCOORD.xy);
 	float threshold = (BAYER[(px.x & 3) + (px.y & 3) * 4] + 0.5) / 16.0;
-	if (COLOR.a * alpha_scale * instance_alpha < (hard_cut ? 0.5 : threshold)) {
+	float near = near_fade.y > 0.0 ? smoothstep(near_fade.x, near_fade.y, length(VERTEX)) : 1.0;
+	if (COLOR.a * alpha_scale * instance_alpha * near < (hard_cut ? 0.5 : threshold)) {
 		discard;
 	}
 	vec3 color = mix(COLOR.rgb, instance_tint.rgb, instance_tint.a);
