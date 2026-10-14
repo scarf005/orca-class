@@ -197,6 +197,24 @@ func test_toppled_pole_pieces_tumble_without_fire_or_smoke() -> void:
 			piece._process(1.0 / 60.0)
 	check_eq(world.fx._pools[Fx.Kind.GLOW].size() + world.fx._pools[Fx.Kind.FLAME].size(), puffs, "a snapped pole flies clean: no fire or smoke trails behind its pieces")
 
+
+func test_a_rammed_barricade_burns_only_its_biggest_piece_in_flight() -> void:
+	var world := stage()
+	var barricade := _prop(world, "barricade", world.player.global_position + Vector3(0, 0, -40.0), 25.0)
+	var ram := Hit.make(Hit.Kind.RAM, 99999.0, barricade.global_position, Vector3.FORWARD)
+	ram.source = world.player
+	ram.speed = 39.0
+	var before := Wreck._live.size()
+	barricade.take_hit(ram)
+	var pieces := Wreck._live.slice(before)
+	check(pieces.size() > 3, "the barricade bursts into pieces (%d)" % pieces.size())
+	var puffs: int = world.fx._pools[Fx.Kind.GLOW].size() + world.fx._pools[Fx.Kind.FLAME].size()
+	for _i in 12:
+		for piece: Wreck in pieces:
+			piece._process(1.0 / 60.0)
+	var trailed: int = world.fx._pools[Fx.Kind.GLOW].size() + world.fx._pools[Fx.Kind.FLAME].size() - puffs
+	check(trailed > 0 and trailed <= 12, "one burning piece's fire and smoke, not a column per piece (%d puffs)" % trailed)
+
 func test_overkill_hurls_wrecks_and_shatters_the_rest() -> void:
 	var world := stage()
 	var shot_dir := Course.right(world.rail.d + 60.0)
