@@ -14,7 +14,7 @@ func _rig() -> World:
 func _flyer(world: World, kind: String) -> Enemy:
 	seed(700)
 	if kind == "gunship":
-		world.rail.d = Course.ARENA_CENTER_D - 60.0
+		world.rail.d = Stage1.ARENA_CENTER_D - 60.0
 		world.player.global_position = Course.to_world(world.rail.d, 0.0)
 	var flyer: Enemy = load(Director.ENEMY_SCRIPTS[kind]).new()
 	world.add_enemy(flyer)
@@ -29,7 +29,7 @@ func _flyer(world: World, kind: String) -> Enemy:
 		flyer._height = 20.0
 	elif flyer is Gunship:
 		flyer._next_attack = 100.0
-		var center := Course.to_world(Course.ARENA_CENTER_D, 0.0)
+		var center := Course.to_world(Stage1.ARENA_CENTER_D, 0.0)
 		flyer.global_position = world.player.global_position.lerp(center, 0.5) + Vector3(90, 42, 0)
 	elif flyer is Uav:
 		# Keep the tank ahead throughout the 8 s sample: a normal pass-end U-turn must not

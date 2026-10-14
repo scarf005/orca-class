@@ -767,7 +767,6 @@ func _ground_speed() -> float:
 ## Ramming ground enemies: crawlers pop, UGVs and spitters take a crushing hit.
 func _ram_enemies(delta: float) -> void:
 	var world := World.current
-	_ram_clock += delta
 	if _ground_speed() < CRUSH_SPEED:
 		return
 	for entity: Entity in world.enemies.duplicate():

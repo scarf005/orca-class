@@ -166,12 +166,12 @@ func test_prediction_ignores_future_controls_and_respects_arena_and_corridor_edg
 	check(absf(course.y) <= Tank.lateral_limit(course.x) + 0.01, "predicted hull stays inside the permitted corridor")
 	world.rail.mode = Rail.Mode.ARENA
 	world.rail.speed = 0.0
-	var center := Course.to_world(Course.ARENA_CENTER_D, 0.0)
+	var center := Course.to_world(Stage1.ARENA_CENTER_D, 0.0)
 	tank._drift = 0.0
 	tank.global_position = center
 	tank.velocity = Vector3(32.0, 50.0, 0.0)
 	predicted = Gunnery.ground_position(tank, 10.0)
-	check(Vector2(predicted.x - center.x, predicted.z - center.z).length() <= Course.ARENA_RADIUS - 6.0 + 0.01, "prediction obeys the arena boundary instead of extrapolating flight")
+	check(Vector2(predicted.x - center.x, predicted.z - center.z).length() <= Stage1.ARENA_RADIUS - 6.0 + 0.01, "prediction obeys the arena boundary instead of extrapolating flight")
 	check(Gunnery.ground_position(tank, 0.0).is_equal_approx(tank.global_position), "zero-horizon prediction preserves the current pose")
 
 

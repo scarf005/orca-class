@@ -28,8 +28,10 @@ var speed := CRUISE
 var meter := 1.0
 var throttle := 0 ## -1 brake, 0 cruise, 1 overdrive; what the rail is actually doing.
 var hold_at := INF ## In HOLD mode the rail eases to a stop here.
-var arena_d := Course.ARENA_CENTER_D ## In ARENA mode the tank drives freely inside this circle: centre distance along the road...
-var arena_radius := Course.ARENA_RADIUS ## ...and radius.
+var arena_d := INF: ## In ARENA mode the tank drives freely inside this circle: centre distance along the road (the stage's arena unless set)...
+	get: return Course.stage.arena_center_d if arena_d == INF else arena_d
+var arena_radius := INF: ## ...and radius.
+	get: return Course.stage.arena_radius if arena_radius == INF else arena_radius
 var arena_u := INF ## ARENA mode also keeps the tank this near the road's centreline.
 var arena_land: Array[Rect2] = [] ## When set, ARENA mode keeps the hull on these (u, d) rectangles; only a dash carries it over a gap.
 var wading := false ## The tank is in water or mud: the speed is capped.

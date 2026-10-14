@@ -80,8 +80,8 @@ static func _planar_position(tank: Tank, time: float, observation: Dictionary) -
 	var sideways_dash := tank.is_dashing() and tank._drift_dir != 0.0
 	if rail.mode == Rail.Mode.ARENA:
 		p += motion.normalized() * _dash_travel(motion.length(), time) if sideways_dash else motion * time
-		var center := Course.to_world(Course.ARENA_CENTER_D, 0.0)
-		var radial := Vector3(p.x - center.x, 0.0, p.z - center.z).limit_length(Course.ARENA_RADIUS - 6.0)
+		var center := Course.to_world(Course.stage.arena_center_d, 0.0)
+		var radial := Vector3(p.x - center.x, 0.0, p.z - center.z).limit_length(Course.stage.arena_radius - 6.0)
 		p = center + radial
 	else:
 		var course: Vector2 = observation.course

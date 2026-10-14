@@ -174,8 +174,8 @@ func test_driving_off_an_island_stops_at_its_edge() -> void:
 	check(d < maze.position.y + Tank.HULL_RADIUS + 0.6, "and drives to its edge (d=%.2f)" % d)
 	check(not course.world.terrain.visible, "with no valley under the islands")
 	var boss := Rail.new()
-	check_eq(boss.arena_d, Course.ARENA_CENTER_D, "the boss arena keeps its centre by default")
-	check_eq(boss.arena_radius, Course.ARENA_RADIUS, "the boss arena keeps its radius by default")
+	check_eq(boss.arena_d, Stage1.ARENA_CENTER_D, "the boss arena keeps its centre by default")
+	check_eq(boss.arena_radius, Stage1.ARENA_RADIUS, "the boss arena keeps its radius by default")
 	check_eq(boss.arena_u, INF, "and puts no strip limit on the tank")
 	check(boss.arena_land.is_empty(), "and puts no land limit on it")
 
