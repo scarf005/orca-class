@@ -235,6 +235,22 @@ func test_rail_camera_leans_toward_the_wing_on_its_ramp() -> void:
 	check_near(tank.y, unframed.y, 0.03, "leaning toward the wing keeps the tank's height on screen")
 
 
+
+func test_rail_camera_tilts_up_to_keep_a_gliding_wing_in_frame() -> void:
+	var wing := _wing()
+	var world := World.current
+	world.rail.d = (Course.stage as Stage3).hill_d(0) - 60.0
+	world.player.global_position = Course.ground_at(world.rail.d, 0.0)
+	world.boss = wing
+	wing.global_position = Course.ground_at(world.rail.d + 90.0, 30.0) + Vector3.UP * (Wing.LOFT + 34.0) # Topping a glide between two ramp lips.
+	world.camera.snap()
+	world.camera.follow(STEP)
+	var size := world.camera.get_viewport().get_visible_rect().size
+	var seen := world.camera.unproject_position(wing.global_position) / size
+	var tank := world.camera.unproject_position(world.player.hit_center()) / size
+	check(seen.y > 0.12, "the wing's hull clears the top edge (y %.2f)" % seen.y)
+	check(tank.y < 0.85, "the tank stays above the bottom panels (y %.2f)" % tank.y)
+
 func test_a_player_shell_aimed_at_the_open_turret_breaks_it_not_the_hull() -> void:
 	var wing := _wing()
 	var world := World.current
