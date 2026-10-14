@@ -180,6 +180,23 @@ func test_shot_pole_still_topples() -> void:
 	check(not pieces.is_empty() and pieces.all(func(w: Wreck) -> bool: return w.velocity.x > 0.0 and not w.explodes), "pole pieces topple along the blow without exploding")
 
 
+
+func test_toppled_pole_pieces_tumble_without_fire_or_smoke() -> void:
+	var world := stage()
+	var pole := _prop(world, "pole", world.player.global_position + Vector3(0, 0, -40.0), 25.0)
+	pole.falls = true
+	var ram := Hit.make(Hit.Kind.RAM, 99999.0, pole.global_position, Vector3.RIGHT)
+	ram.source = world.player
+	var before := Wreck._live.size()
+	pole.take_hit(ram)
+	var pieces := Wreck._live.slice(before)
+	check(not pieces.is_empty(), "the pole breaks into flying pieces")
+	var puffs: int = world.fx._pools[Fx.Kind.GLOW].size() + world.fx._pools[Fx.Kind.FLAME].size()
+	for _i in 12:
+		for piece: Wreck in pieces:
+			piece._process(1.0 / 60.0)
+	check_eq(world.fx._pools[Fx.Kind.GLOW].size() + world.fx._pools[Fx.Kind.FLAME].size(), puffs, "a snapped pole flies clean: no fire or smoke trails behind its pieces")
+
 func test_overkill_hurls_wrecks_and_shatters_the_rest() -> void:
 	var world := stage()
 	var shot_dir := Course.right(world.rail.d + 60.0)
