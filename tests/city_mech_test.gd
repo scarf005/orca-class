@@ -535,6 +535,24 @@ func test_a_hunter_whose_first_wind_up_is_cancelled_stays_out_of_reach_until_it_
 	hunter.tick(STEP)
 	check(hunter.hit_test(world.player.hit_center(), hunter.hit_center()) >= 0.0, "and is hittable after")
 
+
+func test_walking_in_city_mechs_hold_well_inside_their_firing_band() -> void:
+	for kind in ["abel", "kain"]:
+		var world := await _setup(3)
+		var hunter := world.director.spawn_wave({"kind": kind, "u": 18.0, "ahead": 85.0 + Stage3.HORIZON_SHIFT})[0]
+		var d := Course.to_course(world.player.global_position).x
+		var ahead := INF
+		for i in 900:
+			d += Rail.CRUISE * STEP # The tank drives on at cruise, as it does when a squad walks in.
+			world.rail.d += Rail.CRUISE * STEP
+			world.player.global_position = Course.ground_at(d, 0.0)
+			hunter.tick(STEP)
+			if hunter.telegraphing():
+				ahead = Course.to_course(hunter.global_position).x - Course.to_course(world.player.global_position).x
+				break
+		check(ahead <= (125.0 - BipedMech.HOLD_MARGIN) * Course.stage.standoff, "%s winds up %.1f m ahead, not at the band's 125 m edge where a little drift drops the warning" % [kind, ahead])
+		hunter.despawn()
+
 func test_city_mechs_open_fire_from_the_far_edge_of_their_firing_band() -> void:
 	var world := await _setup(2)
 	for hunter: BipedMech in [Abel.new(), Kain.new()]:
