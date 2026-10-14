@@ -311,12 +311,6 @@ func tick(delta: float) -> void:
 		take_hit(crash)
 
 
-func set_see_through(enabled: bool) -> void:
-	for mesh in _meshes:
-		if is_instance_valid(mesh):
-			mesh.material_override = see_through if enabled else null
-
-
 func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 	if box_size != Vector3.ZERO:
 		return box_hit(global_transform, box_size, from, to, extra_radius)

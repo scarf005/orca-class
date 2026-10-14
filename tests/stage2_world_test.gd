@@ -443,3 +443,16 @@ func test_a_tree_crown_between_the_chase_camera_and_the_tank_turns_see_through()
 	camera._fade_occluders(target)
 	var mesh := tree.get_node("Mesh") as MeshInstance3D
 	check(mesh.material_override != null, "the crown that overhangs the line to the tank is faded")
+
+
+func test_an_enemy_that_stops_blocking_the_camera_gets_its_own_materials_back() -> void:
+	var world := stage("", false, 2)
+	var drone := FpvDrone.new()
+	drone.position = Course.ground_at(world.rail.d + 60.0, 0.0) + Vector3.UP * 8.0
+	world.add_enemy(drone)
+	var light := drone._light.material_override
+	check(light != null, "the drone's light has its own material")
+	drone.set_see_through(true)
+	check(drone._light.material_override == Prop.see_through, "faded while it blocks the view")
+	drone.set_see_through(false)
+	check(drone._light.material_override == light, "its light material returns")

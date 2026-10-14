@@ -188,11 +188,15 @@ func wade(delta: float, moving: Vector3, size: float) -> void:
 	World.current.fx.wake(global_position, moving, size, surface)
 
 
-## Drawn as a screen door while it stands between the chase camera and the tank.
+## Drawn as a screen door while it stands between the chase camera and the tank; a mesh's own override (a drone's
+## light) comes back afterwards.
 func set_see_through(enabled: bool) -> void:
 	for mesh in _meshes:
-		if is_instance_valid(mesh):
-			mesh.material_override = Prop.see_through if enabled else null
+		if not is_instance_valid(mesh) or (mesh.material_override == Prop.see_through) == enabled:
+			continue
+		if enabled:
+			mesh.set_meta(&"own_override", mesh.material_override)
+		mesh.material_override = Prop.see_through if enabled else mesh.get_meta(&"own_override", null)
 
 
 ## Collects mesh instances so hit flashes can overlay them.
