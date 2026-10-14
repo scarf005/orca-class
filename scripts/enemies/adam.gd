@@ -110,7 +110,11 @@ func guard_spot(tank: Tank) -> Vector3:
 			ally = enemy
 			best = distance
 	var spot := tank.global_position + (global_position - tank.global_position).normalized() * 9.0
-	if ally != null:
+	if Course.stage is Stage2:
+		# On the flooded avenue the allies hold 80 m out: it bars the tank's own lane a stride ahead instead.
+		var t := Course.to_course(tank.global_position)
+		spot = Course.to_world(t.x + 12.0, t.y)
+	elif ally != null:
 		spot = ally.global_position + (tank.global_position - ally.global_position).normalized() * (ally.radius + radius + 3.0)
 	spot.y = Course.height_at(spot)
 	return spot
@@ -128,10 +132,16 @@ func behave(delta: float) -> void:
 	if is_staggered():
 		_cancel()
 		return
+	var tank_d := Course.to_course(tank.global_position).x
+	if Course.stage is Stage2 and is_finite(_tank_d):
+		keep_pace(tank_d - _tank_d, delta) # The tank wades several times faster than it walks: it marches with it.
+	_tank_d = tank_d
 	if _wind <= 0.0 and _follow <= 0.0:
 		var toward := tank.global_position - global_position
 		model.rotation.y = lerp_angle(model.rotation.y, atan2(-toward.x, -toward.z), minf(delta * 2.0, 1.0))
-		walk_to(guard_spot(tank), 5.0 if _hard else 3.5, delta)
+		var goal := guard_spot(tank)
+		var far := Course.stage is Stage2 and global_position.distance_to(goal) > 20.0
+		walk_to(goal, World.current.rail.speed + 18.0 if far else (5.0 if _hard else 3.5), delta)
 	for i in _legs.size():
 		_legs[i].rotation.x = sin(_walk + i * PI) * 0.15
 	_arm.rotation.x = lerpf(_arm.rotation.x, -1.6 if _wind > 0.0 and _breaker else (0.5 if _follow > 0.0 and _breaker else 0.0), minf(delta * 8.0, 1.0))
