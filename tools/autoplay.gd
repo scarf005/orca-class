@@ -8,6 +8,7 @@ extends Node
 ##        [--lane=-1|1] # hold the tank against the left or right kerb
 ##        [--trace-ranges] # every 6 frames: each live enemy's distance ahead of the tank and lateral offset
 ##        [--trace-fire] # one line per enemy projectile with the shooter's kind, to see who actually attacks and how often
+##        [--storm=30] # start the stage's storm right away for that many seconds, to judge its look
 
 var screen: GameScreen
 var bot := "hold"
@@ -85,6 +86,8 @@ func run() -> int:
 		print("CHECKPOINT name=%s t=%.2f d=%.0f" % [checkpoint, world.stats.time, world.rail.d]))
 	if args.has("god"):
 		world.player.invulnerable = true
+	if args.has("storm"):
+		world.director.storm.emit(float(args.storm))
 	var elapsed := 0.0
 	var frames := 0
 	var slow_frames := 0
