@@ -472,3 +472,30 @@ func test_city_mechs_stride_through_a_sinkhole_across_the_street() -> void:
 		lowest = minf(lowest, abel.hit_center().y - Water.surface_at(abel.hit_center()))
 	check(Course.to_course(abel.global_position).x > 650.0, "the hunter crosses the d=620 sinkhole: reached d %.1f" % Course.to_course(abel.global_position).x)
 	check(lowest > 0.0, "its body stays above the water on the way (%.2f m)" % lowest)
+
+
+func test_city_hunters_walk_in_out_of_reach_until_their_first_attack_is_released() -> void:
+	var world := await _setup(2)
+	for kind in ["abel", "kain", "hind"]:
+		var hunter := world.director.spawn_wave({"kind": kind, "u": 0.0, "ahead": 200.0, "height": 5.0 if kind == "hind" else 0.0})[0]
+		var hp := hunter.hp
+		hunter.take_hit(Hit.make(Hit.Kind.SHELL, 500.0, hunter.hit_center()))
+		check_eq(hunter.hp, hp, "%s at 200 m, still walking in from the haze, takes no damage" % kind)
+		check(hunter.hit_test(world.player.hit_center(), hunter.hit_center()) < 0.0, "%s at 200 m lets shells pass" % kind)
+		var warned := false
+		var reachable_while_warning := false
+		var released := false
+		for i in 900:
+			hunter.tick(STEP)
+			if hunter.telegraphing():
+				warned = true
+				reachable_while_warning = reachable_while_warning or hunter.hit_test(world.player.hit_center(), hunter.hit_center()) >= 0.0
+			elif warned:
+				released = true
+				break
+		check(released, "%s winds up and releases its first attack" % kind)
+		check(not reachable_while_warning, "%s cannot be shot out of its first wind-up" % kind)
+		check(hunter.hit_test(world.player.hit_center(), hunter.hit_center()) >= 0.0, "%s is hittable once that attack is out" % kind)
+		hunter.take_hit(Hit.make(Hit.Kind.SHELL, 10.0, hunter.hit_center()))
+		check(hunter.hp < hp, "%s then takes damage" % kind)
+		hunter.despawn()
