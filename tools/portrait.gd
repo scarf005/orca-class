@@ -1,5 +1,5 @@
 extends Node
-## Parks one enemy on stage 2's street and shoots it from several angles.
+## Parks one enemy on a stage street (stage 2 unless --stage) and shoots it from several angles.
 ## Usage: xvfb-run -a godot --path . --resolution 960x540 -- --run=res://tools/portrait.gd \
 ##        --kind=abel[,kain] [--dist=14] [--h=4] [--out=builds/portrait] [--d=300] [--beside] # --beside parks it next to the tank for scale
 
@@ -8,7 +8,7 @@ func run() -> int:
 	var out: String = args.get("out", "builds/portrait")
 	DirAccess.make_dir_recursive_absolute(out)
 	var screen := GameScreen.new()
-	screen.stage = 2
+	screen.stage = int(args.get("stage", "2"))
 	add_child(screen)
 	var world := screen.world
 	screen.hud.visible = false
