@@ -50,10 +50,31 @@ func test_closed_wing_turrets_cannot_be_shot() -> void:
 	check(wing.aim_parts().is_empty(), "no turret is a lock target while every hatch is shut")
 
 
+func test_an_opened_turret_cannot_be_shot_before_its_first_volley() -> void:
+	var wing := _wing()
+	wing.player().global_position = wing.global_position + Vector3(0, -12, 60)
+	wing._s = Stage3.HILL_LENGTH
+	wing.behave(STEP)
+	var name: String = Wing.TURRETS[wing._active]
+	var hittable_before_fire := false
+	for _i in ceili(Wing.FLIGHT_TIME / STEP):
+		wing.behave(STEP)
+		if wing._open[name] >= 0.5 and wing._shots == 0 and not wing._armed.has(name):
+			wing.take_hit(_shell(wing.player(), wing._turret_world(name), 10.0))
+			hittable_before_fire = hittable_before_fire or wing.parts[name] < Wing.TURRET_HP
+		if wing._armed.has(name):
+			break
+	check(not hittable_before_fire, "the open turret shrugs off shells until it has fired")
+	check(wing._armed.has(name), "it fires during the flight")
+	wing.take_hit(_shell(wing.player(), wing._turret_world(name), 10.0))
+	check(wing.parts[name] < Wing.TURRET_HP, "once it has fired it can be shot")
+
+
 func test_open_turret_takes_round_damage_and_small_arms_glance() -> void:
 	var wing := _wing()
 	wing._active = 0
 	wing._open.flak = 1.0
+	wing._armed.flak = true
 	var bullet := Hit.make(Hit.Kind.BULLET, 30.0, wing._turret_world("flak"), Vector3.FORWARD)
 	bullet.caliber = 12
 	bullet.source = wing.player()
@@ -70,6 +91,7 @@ func test_losing_every_turret_brings_the_wing_down() -> void:
 	for name: String in Wing.TURRETS:
 		wing._active = Wing.TURRETS.find(name)
 		wing._open[name] = 1.0
+		wing._armed[name] = true
 		wing.take_hit(_shell(wing.player(), wing._turret_world(name), Wing.TURRET_HP + 1.0))
 	check(wing.hp <= 0.0, "all five turrets gone empties the hull")
 	_run(wing, 6.0)

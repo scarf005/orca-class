@@ -44,6 +44,7 @@ var _forward := Vector3.FORWARD
 var _active := -1 ## Index of the open turret.
 var _next := 0
 var _open: Dictionary[String, float] = {}
+var _armed: Dictionary[String, bool] = {} ## Turrets that have fired their first volley.
 var _pods: Dictionary[String, Node3D] = {}
 var _hatches: Dictionary[String, Array] = {}
 var _muzzles: Dictionary[String, Node3D] = {}
@@ -188,11 +189,12 @@ func _turret_world(name: String) -> Vector3:
 	return _pods[name].global_position
 
 
-## Turrets whose hatches stand open enough to be hit.
+## Turrets whose hatches stand open enough to be hit. Like a hunter walking in, a turret cannot be hit before
+## its first volley, so every turret gets to shoot back at least once.
 func _exposed() -> Array[String]:
 	var result: Array[String] = []
 	for name: String in TURRETS:
-		if parts[name] > 0.0 and _open[name] >= 0.5:
+		if parts[name] > 0.0 and _open[name] >= 0.5 and _armed.has(name):
 			result.append(name)
 	return result
 
@@ -461,6 +463,7 @@ func _update_turrets(delta: float, tank: Tank) -> void:
 		return
 	_shot_timer -= delta
 	if _shot_timer <= 0.0:
+		_armed[name] = true
 		_fire(name, tank)
 
 
