@@ -164,6 +164,7 @@ func _collapse(world: World, hit: Hit, style: CollapseStyle) -> void:
 		for piece in pieces:
 			var at := piece.global_transform * piece.mesh.get_aabb().get_center()
 			var wreck := Wreck.launch(piece, at, 1.0, hit != null and hit.by_player(), Vector3.ZERO, false)
+			wreck.smokes = false
 			var spread := Vector3(randf_range(-2.0, 2.0), randf_range(0.0, 2.0), randf_range(-2.0, 2.0))
 			wreck.velocity = direction * speed * randf_range(0.8, 1.2) + Vector3.UP * (3.0 + speed * 0.2) + spread
 			wreck.spin = Vector3.UP.cross(direction) * (5.0 + speed * 0.2) + Vector3(randf_range(-3, 3), randf_range(-3, 3), randf_range(-3, 3))

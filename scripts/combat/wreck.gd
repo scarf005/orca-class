@@ -8,6 +8,7 @@ var spin := Vector3.ZERO
 var blast_radius := 4.0
 var by_player := false
 var explodes := true ## Pieces (a blown-off turret) just crash and burn.
+var smokes := true ## Trails fire and black smoke in flight; a snapped pole or tree only tumbles.
 var _smoke := 0.0
 var _age := 0.0
 var _travelled := 0.0
@@ -72,7 +73,7 @@ func _process(delta: float) -> void:
 	global_position += motion
 	rotation += spin * delta
 	_smoke -= delta
-	if _smoke <= 0.0:
+	if smokes and _smoke <= 0.0:
 		_smoke = 0.04
 		world.fx.spawn(Fx.Kind.FLAME, global_position, Vector3.UP, 0.25, 0.9, [Palette.AMBER, Palette.HOT, Palette.BUTTER][randi() % 3], {"drag": 2.0})
 		world.fx.spawn(Fx.Kind.GLOW, global_position, Vector3.UP * 1.5, Fx.PARTICLE_LIFE, 0.9, [Palette.DUSK, Palette.INK, Palette.SLATE][randi() % 3], {"end_size": 2.4, "drag": 1.2, "fade": 0.2})
