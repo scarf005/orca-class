@@ -47,16 +47,17 @@ func _init() -> void:
 	sky_top = Palette.PEACH.lerp(Palette.CORAL, 0.55)
 	sky_horizon = Palette.BUTTER
 	sky_ground = Palette.PEACH
-	ambient = Palette.PEACH.lerp(Palette.CREAM, 0.3)
-	ambient_energy = 0.75
+	# Hard desert light: a low sun rakes the dunes and the shade falls cool lilac, so facets keep their value range.
+	ambient = Palette.LILAC.lerp(Palette.PEACH, 0.6)
+	ambient_energy = 0.62
 	fog_color = Palette.PEACH.lerp(Palette.BUTTER, 0.5)
 	storm_color = Palette.OCHRE.lerp(Palette.PEACH, 0.35)
 	storm_motes = [Palette.STRAW, Palette.OCHRE, Palette.BUTTER]
 	fog_begin = 70.0
 	fog_end = 360.0
 	sun_color = Palette.BUTTER.lerp(Palette.CREAM, 0.5)
-	sun_rotation = Vector3(-26.0, 140.0, 0.0)
-	sun_energy = 1.2
+	sun_rotation = Vector3(-17.0, 120.0, 0.0)
+	sun_energy = 1.15
 	_generate_walls()
 	_generate_backdrop()
 
@@ -178,18 +179,25 @@ func ground_color(d: float, u: float, h: float, slope: float) -> Color:
 		var s := d - hill_d(index)
 		if s >= 0.0 and s <= HILL_LENGTH + 6.0 and absf(u - hill_side(index) * HILL_U) < HILL_HALF:
 			return Palette.CREAM if int(s / 10.0) % 2 == 0 else Palette.STONE
+	# Colours blend continuously with height, slope and grain so the facets shade softly instead of breaking into
+	# hard-edged blotches at thresholds.
+	# Crests catch the light, troughs settle into peach, and a face climbing toward the camera glows while the lee
+	# side falls into ochre shade, so even low drivable swells read as dunes.
+	var ridge := 1.0 - absf(_crest.get_noise_2d(d, u))
+	var rise := height(d + 1.5, u) - height(d - 1.5, u)
+	var sand := Palette.PEACH.lerp(Palette.BUTTER, smoothstep(0.82, 0.98, ridge) * 0.85 + smoothstep(2.0, 8.0, h) * 0.2)
+	sand = sand.lerp(Palette.STRAW, clampf(-grain, 0.0, 1.0) * 0.35)
+	sand = sand.lerp(Palette.CREAM, smoothstep(0.2, 0.8, rise) * 0.3).lerp(Palette.OCHRE, smoothstep(-0.2, -0.8, rise) * 0.3)
+	sand = sand.lerp(Palette.OCHRE, smoothstep(0.25, 0.8, slope) * 0.6)
 	for arena in arenas:
-		if Vector2(d - arena.d, u).length() < arena.radius + 6.0:
-			return Palette.CONCRETE if int(Vector2(d - arena.d, u).length() / 9.0) % 2 else Palette.STONE
-	if slope > 0.5:
-		return Palette.OCHRE
-	if au < lateral_limit(d) - 2.0 and h < 0.3:
-		return Palette.ASH
-	if slope > 0.2:
-		return Palette.OCHRE if grain > -0.2 else Palette.PEACH.darkened(0.12)
-	if h > 4.6:
-		return Palette.BUTTER
-	return Palette.PEACH if grain > -0.3 else Palette.STRAW
+		var r := Vector2(d - arena.d, u).length()
+		if r < arena.radius + 6.0:
+			# The pit floor: swept concrete under a skin of sand, with the drill's scoured ring at the rim.
+			var floor_color := Palette.CONCRETE.lerp(Palette.STRAW, 0.35 + grain * 0.3)
+			return floor_color.lerp(Palette.STONE, smoothstep(arena.radius - 8.0, arena.radius, r) * 0.6)
+	if au < lateral_limit(d) - 2.0:
+		return sand.lerp(Palette.ASH, smoothstep(0.3, -0.6, h) * 0.5)
+	return sand
 
 
 func camera_u(d: float, u: float) -> float:
