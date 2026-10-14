@@ -410,3 +410,20 @@ func test_the_flooded_city_lets_the_rail_run_faster_than_the_default_water_cap()
 	check_near(rail.speed_cap(), Rail.CRUISE * 0.8, 0.01, "the city caps wading at 80% of cruise")
 	Course.use(1)
 	check_near(rail.speed_cap(), Rail.CRUISE * Rail.WADE_SPEED, 0.01, "stage 1 keeps the tuned water cap")
+
+
+func test_the_shop_row_never_cuts_a_deck_hunters_firing_line_to_the_street() -> void:
+	var world := stage("", false, 2)
+	var scenery := world.director.scenery
+	var stage2 := Course.stage as Stage2
+	var blocked := []
+	for d in range(800, 1560, 40):
+		scenery.stream(float(d), 100000)
+		var side := stage2._expressway_side(float(d) + 100.0)
+		var deck := Course.to_world(float(d) + 100.0, side * 38.5, Stage2.DECK_TOP + 2.9)
+		for u in [-20.0, 0.0, 20.0]:
+			var tank := Course.to_world(float(d), u, 2.0)
+			for prop: Prop in world.props.near(deck, tank, 40.0):
+				if prop.kind == "city_shop" and not prop.dead and prop.hit_test(deck, tank) >= 0.0:
+					blocked.append("d=%d u=%.0f shop@%.0f" % [d, u, Course.to_course(prop.global_position).x])
+	check(blocked.is_empty(), "shops cut %d deck firing lines: %s" % [blocked.size(), blocked.slice(0, 5)])
