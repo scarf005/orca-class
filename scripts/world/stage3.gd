@@ -24,6 +24,10 @@ const HILL_HEIGHT := 24.0
 const HILL_U := 92.0 ## Lateral offset of a ramp's track.
 const HILL_HALF := 12.0 ## Half width of its track.
 const STORM_D := 2100.0
+const FALLEN_D := 2700.0 ## The fallen tower that arches over the canyon.
+const FALLEN_U := -70.0 ## Its base, behind the left front towers.
+const FALLEN_SIZE := Vector3(14.0, 110.0, 18.0)
+const FALLEN_TILT := -PI / 3.0 ## Leaning 60 degrees from upright, across the street.
 
 var _swell := make_noise(61, 0.008)
 var _crest := make_noise(67, 0.013)

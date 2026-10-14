@@ -379,6 +379,11 @@ func _buried_city() -> void:
 		var u := 11.0 if d % 2 == 0 else -11.0
 		add("barricade", float(d), rng.randf_range(-6.0, 6.0), rng.randf_range(-0.3, 0.3), rng.randi_range(0, 3))
 		add("city_rubble", float(d) + 20.0, u, rng.randf() * TAU, d % 4).set_meta("y", stage.height(float(d) + 20.0, u))
+	# The canyon's landmark: a glass tower that fell across the street and came to rest on the far roofs. The tank
+	# runs under it; its underside stays high over the whole drivable width.
+	var fallen := add_decor(CityKit.tower(Stage3.FALLEN_SIZE, 3), Stage3.FALLEN_D, Stage3.FALLEN_U, 0.0, -6.0)
+	fallen.tilt = Vector3(0.0, 0.0, Stage3.FALLEN_TILT)
+	fallen.set_meta("range", 900.0)
 	for arena: Dictionary in stage.arenas:
 		var ring := add_decor(CityKit.decor("arena_ring", 2), float(arena.d), 0.0, 0.0, 0.0)
 		ring.set_meta("range", float(arena.radius) + 260.0)
@@ -864,7 +869,7 @@ func _instantiate(spec: Spec) -> void:
 		decor.visibility_range_end = spec.get_meta("range", 260.0)
 		add_child(decor)
 		decor.global_position = position
-		decor.rotation.y = yaw
+		decor.rotation = Vector3(spec.tilt.x, yaw, spec.tilt.z)
 		spec.node = decor
 	else:
 		var cfg: Array = PROPS[spec.kind]

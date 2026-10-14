@@ -113,3 +113,28 @@ func test_the_sprint_event_sets_the_rail_speed() -> void:
 	world.director._fire({"d": 0.0, "type": "sprint", "kmh": 140.0})
 	check_near(world.rail.sprint, 140.0 / 3.6, 0.001, "the director floors the rail")
 	check_eq(Course.stage.number, 3, "this is stage 3")
+
+
+func test_the_fallen_tower_clears_the_drivable_street() -> void:
+	var world := stage("", false, 3)
+	world.director.scenery.stream(Stage3.FALLEN_D, 100000)
+	var fallen: MeshInstance3D = null
+	for child in world.director.scenery.get_children():
+		if child is MeshInstance3D and is_equal_approx(child.rotation.z, Stage3.FALLEN_TILT):
+			fallen = child
+	check(fallen != null, "the fallen tower is placed")
+	if fallen == null:
+		return
+	var half := Stage3.FALLEN_SIZE * 0.5
+	var lowest := INF
+	var limit := Course.stage.lateral_limit(Stage3.FALLEN_D) + Stage3.HULL_MARGIN
+	for along in range(-12, 13, 3):
+		for u in range(-int(limit), int(limit) + 1):
+			var ground := Course.ground_at(Stage3.FALLEN_D + along, u)
+			for lift in range(0, 40):
+				var local := fallen.global_transform.affine_inverse() * (ground + Vector3.UP * lift)
+				if absf(local.x) <= half.x and absf(local.z) <= half.z and local.y >= 0.0 and local.y <= Stage3.FALLEN_SIZE.y:
+					lowest = minf(lowest, lift)
+					break
+	check(lowest < INF, "the tower spans the street")
+	check(lowest >= 12.0, "its underside stays at least 12 m over every drivable spot (lowest %.0f m)" % lowest)
