@@ -236,14 +236,14 @@ func music(section: int) -> String:
 		Section.RUN:
 			return ""
 		Section.PIT:
-			return "res://assets/music/stage2_hovercraft.ogg"
+			return "res://assets/music/stage3_borer.ogg"
 		Section.CANYON:
-			return "res://assets/music/stage2_canyon.ogg"
-	return "res://assets/music/stage2_boulevard.ogg"
+			return "res://assets/music/stage3_storm.ogg"
+	return "res://assets/music/stage3_road.ogg"
 
 
 func boss_music(_phase := 0) -> String:
-	return "res://assets/music/stage2_boss.ogg"
+	return "res://assets/music/stage3_boss.ogg"
 
 
 ## Pushes a wave and its squad out to the haze.
