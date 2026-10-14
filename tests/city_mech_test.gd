@@ -567,6 +567,25 @@ func test_city_mechs_open_fire_from_the_far_edge_of_their_firing_band() -> void:
 		hunter.despawn()
 
 
+func test_city_mechs_pacing_a_driving_tank_at_the_far_edge_of_their_firing_band_open_fire() -> void:
+	for number in [2, 3]:
+		var world := await _setup(number)
+		# A walk-in stops pacing as soon as it is inside the far edge, anywhere within one step of it.
+		for spawn_ahead in [130.0, 131.0, 132.0, 133.0, 134.0, 135.0]:
+			for hunter: BipedMech in [Abel.new(), Kain.new()]:
+				_spawn(world, hunter, spawn_ahead * Course.stage.standoff)
+				var d := Course.to_course(world.player.global_position).x
+				var warned := false
+				for i in 180:
+					hunter.behave(STEP)
+					d += Rail.CRUISE * STEP
+					world.player.global_position = Course.ground_at(d, 0.0)
+					warned = warned or hunter.telegraphing()
+				check(warned, "stage %d: %s walking in from %.0f m to a tank at cruise winds up within 3 s (it ended %.2f m ahead)" % [number, hunter.get_script().resource_path.get_file(), spawn_ahead, Course.to_course(hunter.global_position).x - d])
+				hunter.despawn()
+				world.player.global_position = Course.ground_at(world.rail.d + world.player.course_offset, 0.0)
+
+
 func test_a_city_adam_strides_into_a_driving_tanks_lane_and_swings() -> void:
 	var world := await _setup(2)
 	var adam := Adam.new()
