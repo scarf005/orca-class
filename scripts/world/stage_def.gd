@@ -32,6 +32,7 @@ var ambient_energy := 0.5
 var fog_color := Color.WHITE
 var storm_color := Palette.BLUSH ## Fog the storm event thickens the haze to.
 var storm_motes: Array[Color] = [Palette.FUNGUS, Palette.BLUSH, Palette.LILAC] ## What drifts across the view in the storm.
+var storm_wind := 0.0 ## 0 lets storm motes drift; 1 drives them as fast streaks under a veil (a sand storm).
 var fog_begin := 90.0
 var fog_end := 420.0
 var sun_rotation := Vector3(-32.0, 125.0, 0.0)

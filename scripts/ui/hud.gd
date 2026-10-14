@@ -857,9 +857,19 @@ func _draw_popups() -> void:
 
 
 func _draw_storm() -> void:
-	# Drifting motes (spores, sand) over the view while a storm lasts.
-	for i in int(80 * _storm):
+	# Drifting motes (spores, sand) over the view while a storm lasts; a sand storm drives them as wind streaks
+	# under a thin veil of its colour.
+	var stage := Course.stage
+	var wind := stage.storm_wind
+	if wind > 0.0:
+		draw_rect(Rect2(Vector2.ZERO, size), Color(stage.storm_color, 0.22 * _storm))
+	for i in int((80 + 140 * wind) * _storm):
 		var seed_value := float(i) * 12.9898
-		var x := fposmod(sin(seed_value) * 43758.5 + _time * (40.0 + fposmod(seed_value, 30.0)), size.x)
-		var y := fposmod(cos(seed_value) * 24634.6 + _time * 16.0, size.y)
-		draw_rect(Rect2(x, y, 2, 2), Course.stage.storm_motes[i % Course.stage.storm_motes.size()])
+		var speed := 40.0 + fposmod(seed_value, 30.0) + wind * (260.0 + fposmod(seed_value * 3.1, 220.0))
+		var x := fposmod(sin(seed_value) * 43758.5 + _time * speed, size.x)
+		var y := fposmod(cos(seed_value) * 24634.6 + _time * (16.0 + wind * speed * 0.18), size.y)
+		var color: Color = stage.storm_motes[i % stage.storm_motes.size()]
+		if wind > 0.0:
+			draw_line(Vector2(x, y), Vector2(x, y) - Vector2(1.0, 0.18) * (8.0 + fposmod(seed_value, 22.0)) * wind, color, 2.0)
+		else:
+			draw_rect(Rect2(x, y, 2, 2), color)

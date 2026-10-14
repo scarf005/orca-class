@@ -57,6 +57,7 @@ func _init() -> void:
 	fog_color = Palette.PEACH.lerp(Palette.BUTTER, 0.5)
 	storm_color = Palette.OCHRE.lerp(Palette.PEACH, 0.35)
 	storm_motes = [Palette.STRAW, Palette.OCHRE, Palette.BUTTER]
+	storm_wind = 1.0
 	fog_begin = 70.0
 	fog_end = 360.0
 	sun_color = Palette.BUTTER.lerp(Palette.CREAM, 0.5)
