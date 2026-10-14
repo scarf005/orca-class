@@ -233,3 +233,19 @@ func test_rail_camera_leans_toward_the_wing_on_its_ramp() -> void:
 	var tank := world.camera.unproject_position(world.player.hit_center()) / size
 	check(tank.x > 0.25 and tank.x < 0.75, "the tank stays between the bottom-corner panels (x %.2f)" % tank.x)
 	check_near(tank.y, unframed.y, 0.03, "leaning toward the wing keeps the tank's height on screen")
+
+
+func test_a_player_shell_aimed_at_the_open_turret_breaks_it_not_the_hull() -> void:
+	var wing := _wing()
+	var world := World.current
+	wing._active = 0
+	wing._open.flak = 1.0
+	wing._armed.flak = true
+	var turret := wing._turret_world("flak")
+	# From behind and below, the way the chasing tank sees it: the line crosses the hull outline first.
+	var from := turret + Vector3(0, -14, 40)
+	var to := turret + (turret - from).normalized() * 6.0
+	var shot := world.spawn_projectile(Entity.Team.PLAYER, from, (to - from).normalized() * 600.0, "shell", Palette.BUTTER)
+	shot.hit = _shell(world.player, from, 60.0)
+	shot._sweep(from, to)
+	check_near(wing.parts.flak, Wing.TURRET_HP - 60.0, 1.0, "the shell reaches the turret")
