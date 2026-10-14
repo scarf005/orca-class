@@ -58,7 +58,7 @@ func test_heading_clears_the_actual_fps_rect_in_both_locales() -> void:
 	for locale in ["ko", "en"]:
 		TranslationServer.set_locale(locale)
 		var heading_size := select.font.get_string_size(tr("STAGE_SELECT"), HORIZONTAL_ALIGNMENT_LEFT, -1, 26)
-		var heading_rect := Rect2(StageSelect.HEADING_POSITION - Vector2(0, select.font.get_ascent(26)), heading_size)
+		var heading_rect := Rect2(select.heading_position(tr("STAGE_SELECT")) - Vector2(0, select.font.get_ascent(26)), heading_size)
 		check(not heading_rect.intersects(fps_rect), "%s stage title clears the FPS counter and its outline" % locale)
 	TranslationServer.set_locale(saved_locale)
 

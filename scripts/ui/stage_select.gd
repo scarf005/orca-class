@@ -1,12 +1,11 @@
 class_name StageSelect
 extends Control
-## Two square stage cards with checkpoint choices below the focused stage.
+## Square stage cards with checkpoint choices below the focused stage.
 
 signal selected(difficulty: Game.Difficulty, checkpoint: String, stage: int)
 signal back
 
-# The persistent FPS label occupies (16, 44)-(112, 60), plus its 2px outline.
-const HEADING_POSITION := Vector2(218, 48)
+const HEADING_BASELINE := 48.0
 const CARD_SIZE := Vector2(256, 256)
 const CARD_TOP := 82.0
 const CARD_GAP := 24.0
@@ -195,10 +194,15 @@ func _checkpoints() -> Array[String]:
 	return result
 
 
+## Centred over the row of cards, clear of the persistent FPS counter at the top left.
+func heading_position(heading: String) -> Vector2:
+	var row := Game.STAGE_COUNT * CARD_SIZE.x + (Game.STAGE_COUNT - 1) * CARD_GAP
+	return Vector2(CARD_LEFT + (row - font.get_string_size(heading, HORIZONTAL_ALIGNMENT_LEFT, -1, 26).x) * 0.5, HEADING_BASELINE)
+
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color(Palette.INK, 0.82))
 	var heading := tr("STAGE_SELECT")
-	draw_string(font, HEADING_POSITION, heading, HORIZONTAL_ALIGNMENT_LEFT, -1, 26, Palette.FUNGUS)
+	draw_string(font, heading_position(heading), heading, HORIZONTAL_ALIGNMENT_LEFT, -1, 26, Palette.FUNGUS)
 	var mode := tr(DIFFICULTY_NAMES[difficulty])
 	draw_string(font, Vector2(912 - font.get_string_size(mode, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x, 40), mode, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.BUTTER)
 	_cards.clear()
