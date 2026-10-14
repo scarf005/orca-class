@@ -191,8 +191,9 @@ func run() -> int:
 				world.fx.particle_count(), world.enemies.size(),
 				world.props.get_child_count()])
 		if not shots.is_empty() and elapsed >= shots[0]:
-			shots.pop_front()
-			get_viewport().get_texture().get_image().save_png("%s/t%03d.png" % [out, int(elapsed)])
+			var at: float = shots.pop_front()
+			var stamp := "%03d" % int(at) if at == floorf(at) else "%06.2f" % at # Bursts of fractional shots keep their own files.
+			get_viewport().get_texture().get_image().save_png("%s/t%s.png" % [out, stamp])
 		if world.rail.mode != mode:
 			mode = world.rail.mode
 			print("MODE mode=%s t=%.2f d=%.0f" % [Rail.Mode.keys()[mode], world.stats.time, world.rail.d])
