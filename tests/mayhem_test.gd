@@ -62,7 +62,7 @@ func test_ramming_a_big_enemy_hits_it_once_per_shove_not_every_frame() -> void:
 		await frames(1)
 		held += tank.get_process_delta_time()
 	var hits := roundi((ugv.max_hp - ugv.hp) / Tank.RAM_DAMAGE)
-	check(hits >= 1 and hits <= 3, "a second pinned against the hull deals %d ram hits, at most one per half second" % hits)
+	check(hits >= 1 and hits <= 3, "a second pinned against the hull deals %d ram hits, at most one per 0.6 s" % hits)
 
 
 func test_collateral_chain_kill_scores_style() -> void:

@@ -337,7 +337,7 @@ func _update_movement(delta: float) -> void:
 	course_offset = clampf(course_offset, FORWARD_LIMIT.x, FORWARD_LIMIT.y)
 	lateral_velocity = local_velocity.x
 	_collide_props()
-	_ram_enemies()
+	_ram_enemies(delta)
 	_place(rail.d)
 	model.animate_tracks(delta, rail.speed + local_velocity.y, rail.speed + local_velocity.y)
 
@@ -480,7 +480,7 @@ func _move_arena(delta: float, input: Vector2) -> void:
 		hull_yaw = rotate_toward(hull_yaw, target_yaw + _drift_yaw, (3.2 + absf(_drift_yaw) * 12.0) * delta)
 	_set_pose(Course.ground_at(c.x, c.y), hull_yaw)
 	_collide_props()
-	_ram_enemies()
+	_ram_enemies(delta)
 	model.animate_tracks(delta, current.length(), current.length())
 
 
@@ -765,8 +765,9 @@ func _ground_speed() -> float:
 
 
 ## Ramming ground enemies: crawlers pop, UGVs and spitters take a crushing hit.
-func _ram_enemies() -> void:
+func _ram_enemies(delta: float) -> void:
 	var world := World.current
+	_ram_clock += delta
 	if _ground_speed() < CRUSH_SPEED:
 		return
 	for entity: Entity in world.enemies.duplicate():
