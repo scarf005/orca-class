@@ -299,10 +299,13 @@ func on_exposed() -> void:
 
 
 ## Walks on with the tank, even while winding up, so the street ahead it stands on does not slide out of its firing band.
+## It steps the tank's advance along the road at its own lateral offset: a straight step of the same length would
+## drift it along the road on bends.
 func keep_pace(advance: float, delta: float) -> void:
 	if advance > 0.0 and delta > 0.0:
 		var c := Course.to_course(global_position)
-		walk_to(Course.to_world(c.x + 10.0, c.y, global_position.y), advance / delta, delta)
+		var goal := Course.to_world(c.x + advance, c.y, global_position.y)
+		walk_to(goal, global_position.distance_to(goal) / delta, delta)
 
 
 ## Walk around a footprint, keeping the current deck without climbing overhead roofs.
