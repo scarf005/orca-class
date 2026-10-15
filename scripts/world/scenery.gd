@@ -642,10 +642,10 @@ func _jungle() -> void:
 		add("barricade", float(d), rng.randf_range(-6.0, 6.0), rng.randf_range(-0.3, 0.3), rng.randi_range(0, 3))
 		add("city_rubble", float(d) + 20.0, 11.0 if d % 2 == 0 else -11.0, rng.randf() * TAU, d % 4)
 	# Ferns and palms through the cracks, thickening as the canopy closes; figs line the kerbs and crowd the verge.
-	for d in range(60, last, 9):
+	for d in range(60, last, 6):
 		if stage.in_arena(float(d), 6.0):
 			continue
-		var density := 0.25 + 0.2 * float(stage.section_at(float(d)))
+		var density := 0.45 + 0.12 * float(stage.section_at(float(d)))
 		for side in [-1.0, 1.0]:
 			if rng.randf() < density:
 				add("jungle_tree", float(d) + rng.randf_range(-4.0, 4.0), side * (stage.lateral_limit(float(d)) + rng.randf_range(-2.0, 10.0)), rng.randf() * TAU, rng.randi_range(0, 5))
@@ -655,20 +655,20 @@ func _jungle() -> void:
 	for arena: Dictionary in stage.arenas:
 		var ring := add_decor(CityKit.decor("arena_ring", 3), float(arena.d), 0.0, 0.0, 0.0)
 		ring.set_meta("range", float(arena.radius) + 260.0)
-		for i in 190:
-			var toward := absf(wrapf(TAU * i / 190.0 - Stage4.ENTRY_ANGLE, -PI, PI))
-			if toward > 1.0 and i % 3 != 0:
+		for i in 420:
+			var toward := absf(wrapf(TAU * i / 420.0 - Stage4.ENTRY_ANGLE, -PI, PI))
+			if toward > 1.0 and i % 2 != 0:
 				continue
-			var angle := TAU * i / 190.0 + rng.randf_range(-0.02, 0.02)
-			var radius := float(arena.radius) + rng.randf_range(3.0, 22.0 if toward > 1.0 else 70.0)
+			var angle := TAU * i / 420.0 + rng.randf_range(-0.01, 0.01)
+			var radius := float(arena.radius) + rng.randf_range(3.0, 40.0 if toward > 1.0 else 130.0)
 			add("jungle_tree" if i % 4 else "palm", float(arena.d) + cos(angle) * radius, sin(angle) * radius, rng.randf() * TAU, rng.randi_range(0, 5))
-		for i in 60:
+		for i in 120:
 			var angle := Stage4.ENTRY_ANGLE + rng.randf_range(-0.7, 0.7)
-			var radius := float(arena.radius) + rng.randf_range(2.0, 60.0)
+			var radius := float(arena.radius) + rng.randf_range(2.0, 100.0)
 			add("fern", float(arena.d) + cos(angle) * radius, sin(angle) * radius, rng.randf() * TAU, rng.randi_range(0, 5))
 		# Wrecks stranded on the plaza give the fight something to read distance against and to smash.
-		for i in 8:
-			var angle := TAU * i / 8.0 + rng.randf_range(-0.2, 0.2)
+		for i in 14:
+			var angle := TAU * i / 14.0 + rng.randf_range(-0.2, 0.2)
 			var radius := rng.randf_range(20.0, float(arena.radius) - 18.0)
 			add("bus_wreck" if i % 4 == 0 else "car", float(arena.d) + cos(angle) * radius, sin(angle) * radius, rng.randf() * TAU, rng.randi_range(0, 5))
 

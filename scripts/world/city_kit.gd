@@ -359,7 +359,14 @@ static func overgrown(size: Vector3, variant: int) -> Mesh:
 	var greens: Array[Color] = [Palette.MOSS, Palette.PINE, Palette.LEAF, Palette.SAGE]
 	for face: Vector3 in [Vector3(size.x * 0.5, 0, 0), Vector3(-size.x * 0.5, 0, 0), Vector3(0, 0, size.z * 0.5), Vector3(0, 0, -size.z * 0.5)]:
 		var wide: bool = face.x == 0.0
-		for strand in 2 + int(size.x * size.z / 300.0):
+		for _curtain in 3 + int(size.y / 14.0): # Sheets of creeper that swallow whole bays of the facade.
+			var reach := rng.randf_range(0.4, 1.0) * size.y
+			var offset := rng.randf_range(-0.4, 0.4) * (size.x if wide else size.z)
+			var sheet := rng.randf_range(2.5, 6.0)
+			var centre: Vector3 = face + (Vector3(offset, 0, 0) if wide else Vector3(0, 0, offset)) + Vector3(0, size.y - reach * 0.5, 0)
+			var thickness := Vector3(sheet if wide else 0.5, reach, 0.5 if wide else sheet)
+			b.box(_xf(centre), thickness + face.abs().normalized() * 0.2, greens[rng.randi() % 2])
+		for strand in 4 + int(size.x * size.z / 150.0):
 			var length := rng.randf_range(0.35, 0.95) * size.y
 			var offset := rng.randf_range(-0.45, 0.45) * (size.x if wide else size.z)
 			var at: Vector3 = face + (Vector3(offset, 0, 0) if wide else Vector3(0, 0, offset))
@@ -367,6 +374,9 @@ static func overgrown(size: Vector3, variant: int) -> Mesh:
 			b.blob(_xf(at + Vector3(0, size.y - length, 0)), rng.randf_range(0.7, 1.4), greens[rng.randi() % 4], 0, 0.3, rng.randi())
 	for corner in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
 		b.blob(_xf(Vector3(corner.x * size.x * 0.5, 1.5, corner.y * size.z * 0.5)), rng.randf_range(2.0, 3.0), Palette.WOOD.lerp(Palette.MOSS, 0.4), 0, 0.35, rng.randi())
+	for i in 10 + int((size.x + size.z) * 0.5): # A thicket around the foot that climbs the ground floor.
+		var angle := TAU * i / float(10 + int((size.x + size.z) * 0.5)) + rng.randf_range(-0.2, 0.2)
+		b.blob(_xf(Vector3(cos(angle) * size.x * 0.58, rng.randf_range(0.5, 3.5), sin(angle) * size.z * 0.58)), rng.randf_range(1.8, 3.4), greens[rng.randi() % 2], 0, 0.35, rng.randi())
 	for i in 4 + int(size.x * size.z / 200.0):
 		b.blob(_xf(Vector3(rng.randf_range(-0.45, 0.45) * size.x, size.y + rng.randf_range(0.2, 1.4), rng.randf_range(-0.45, 0.45) * size.z)), rng.randf_range(1.5, 3.0), greens[rng.randi() % 4], 0, 0.3, rng.randi())
 	var merged := ArrayMesh.new()
@@ -598,8 +608,17 @@ static func backdrop(blocks: Array, green := false) -> Mesh:
 		var rng := RandomNumberGenerator.new()
 		rng.seed = hash([block.x, block.z, size, variant])
 		var wall: Color = FACADES[variant % FACADES.size()]
+		if green: # Overgrown skyline: the facades sit in deep green and creeper hangs off every storey.
+			wall = wall.lerp(Palette.MOSS, 0.6)
 		var at := Vector3(block.x, 0.0, block.z)
 		b.box(_xf(at + Vector3(0, size.y * 0.5, 0)), size, wall)
+		if green:
+			for i in 3 + int(size.y / 14.0):
+				var sheet := rng.randf_range(3.0, 7.0)
+				var reach := rng.randf_range(0.4, 0.95) * size.y
+				b.box(_xf(at + Vector3(-signf(block.x) * (size.x * 0.5 + 0.2), size.y - reach * 0.5, rng.randf_range(-0.4, 0.4) * size.z)), Vector3(0.6, reach, sheet), [Palette.MOSS, Palette.PINE, Palette.MOSS, Palette.LEAF][i % 4])
+			for i in 6:
+				b.blob(_xf(at + Vector3(rng.randf_range(-0.5, 0.5) * size.x, size.y + rng.randf_range(0.0, 1.5), rng.randf_range(-0.5, 0.5) * size.z)), rng.randf_range(2.0, 4.0), [Palette.PINE, Palette.MOSS][i % 2], 0, 0.3, rng.randi())
 		for band in 2 + variant % 2:
 			b.box(_xf(at + Vector3(0, size.y * (0.4 + 0.22 * band), 0)), Vector3(size.x + 0.5, 0.6, size.z + 0.5), wall.lightened(0.3))
 		b.box(_xf(at + Vector3(-size.x * 0.1, size.y + 1.25, 0)), Vector3(size.x * 0.45, 2.5, size.z * 0.4), Palette.SLATE)
