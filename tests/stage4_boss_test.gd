@@ -6,7 +6,7 @@ const STEP := 1.0 / 60.0
 
 
 ## A fortress in the clearing, already fighting, facing along its own heading with the tank `ahead` metres in front.
-func _fight(ahead := 70.0) -> Fortress:
+func _fight(ahead := Fortress.HULL_FRONT + 50.0) -> Fortress:
 	var world := stage("boss", false, 4)
 	world.director._next_event = world.director.events.size()
 	world.rail.mode = Rail.Mode.HOLD
@@ -48,6 +48,11 @@ func _shell(at: Vector3, rounds := 1.0) -> Hit:
 	hit.caliber = 120
 	hit.source = World.current.player
 	return hit
+
+
+## A volley that finishes module `name` whatever its health.
+func _kill(at: Vector3, name: String) -> Hit:
+	return _shell(at, 2.0 * Fortress.MODULE_HP[name] / Fortress.ROUND_DAMAGE)
 
 
 func _hostile_zones() -> Array:
@@ -98,7 +103,7 @@ func test_ruins_and_trees_stand_in_the_fortresss_path() -> void:
 
 func test_the_hull_only_sparks_and_a_module_takes_main_gun_rounds_at_forty_each() -> void:
 	var fortress := _fight()
-	var hull := fortress.model.to_global(Vector3(0.0, 12.0, 10.0))
+	var hull := fortress.model.to_global(Vector3(0.0, 12.0, 10.0) * Fortress.SCALE)
 	for name: String in Fortress.MODULES:
 		check(hull.distance_to(fortress.module_at(name)) - Fortress.MODULE_RADIUS[name] > 1.5, "the probe point is clear of %s" % name)
 	var hp := fortress.hp
@@ -116,7 +121,7 @@ func test_the_hull_only_sparks_and_a_module_takes_main_gun_rounds_at_forty_each(
 func test_a_shot_out_track_tears_off_and_slows_and_two_leave_it_stranded() -> void:
 	var fortress := _fight(400.0)
 	var node := fortress._nodes.track_l
-	fortress.take_hit(_shell(fortress.module_at("track_l"), 20.0))
+	fortress.take_hit(_kill(fortress.module_at("track_l"), "track_l"))
 	check_eq(fortress.parts.track_l, 0.0, "the left track is gone")
 	check(node.get_parent() != fortress.model and node.get_parent() is Wreck, "it leaves the hull as a tumbling wreck")
 	check(not fortress.aim_parts().has("track_l"), "and is no longer a target")
@@ -124,7 +129,7 @@ func test_a_shot_out_track_tears_off_and_slows_and_two_leave_it_stranded() -> vo
 	var limp := fortress._speed
 	check_near(limp, Fortress.DRIVE_SPEED * 0.55, 0.3, "one track left drives it at about half speed")
 	check(fortress._sag.track_l > 0.99, "that side slumps")
-	fortress.take_hit(_shell(fortress.module_at("track_r"), 20.0))
+	fortress.take_hit(_kill(fortress.module_at("track_r"), "track_r"))
 	_step(fortress, 6.0)
 	check_near(fortress._speed, 0.0, 0.01, "with both gone it sits where it is")
 	var parked := fortress.global_position
@@ -133,17 +138,17 @@ func test_a_shot_out_track_tears_off_and_slows_and_two_leave_it_stranded() -> vo
 
 
 func test_a_flame_gun_destroyed_cannot_burn_and_the_other_still_does() -> void:
-	var fortress := _fight(30.0)
+	var fortress := _fight(Fortress.HULL_FRONT + 25.0)
 	fortress._attack = Fortress.Attack.FLAME
 	fortress._attack_time = Fortress.WIND
-	fortress.take_hit(_shell(fortress.module_at("flame_l"), 20.0))
+	fortress.take_hit(_kill(fortress.module_at("flame_l"), "flame_l"))
 	check(fortress._jets.is_empty() and _flame_jets().is_empty(), "no jet is lit for a gun that was shot off")
 	check_eq(fortress._flames_alive(), ["flame_r"] as Array[String], "one gun is left")
 	fortress._attack = Fortress.Attack.FLAME
 	fortress._attack_time = Fortress.WIND
 	_step(fortress, 0.1)
 	check_eq(_flame_jets().size(), 1, "the surviving gun burns alone")
-	fortress.take_hit(_shell(fortress.module_at("flame_r"), 20.0))
+	fortress.take_hit(_kill(fortress.module_at("flame_r"), "flame_r"))
 	_step(fortress, 0.1)
 	for _i in 4:
 		fortress._attack = Fortress.Attack.NONE
@@ -153,7 +158,7 @@ func test_a_flame_gun_destroyed_cannot_burn_and_the_other_still_does() -> void:
 
 
 func test_the_flame_is_announced_before_it_burns_and_then_burns_the_tank() -> void:
-	var fortress := _fight(30.0)
+	var fortress := _fight(Fortress.HULL_FRONT + 25.0)
 	fortress._pattern = 1 # SALVO, then FLAME.
 	fortress._next_attack = 0.0
 	var burned := -1.0
@@ -174,7 +179,7 @@ func test_the_flame_is_announced_before_it_burns_and_then_burns_the_tank() -> vo
 
 
 func test_the_salvo_marks_every_shell_and_the_shells_can_be_shot_down() -> void:
-	var fortress := _fight(60.0)
+	var fortress := _fight(Fortress.HULL_FRONT + 50.0)
 	fortress._attack = Fortress.Attack.SALVO
 	fortress._attack_time = 0.0
 	_step(fortress, Fortress.WIND * 0.9)
@@ -190,14 +195,14 @@ func test_the_salvo_marks_every_shell_and_the_shells_can_be_shot_down() -> void:
 
 
 func test_the_charge_waits_for_its_lane_markers_then_floors_it() -> void:
-	var fortress := _fight(100.0)
+	var fortress := _fight(Fortress.HULL_FRONT + 100.0)
 	fortress._attack = Fortress.Attack.CRUSH
 	fortress._attack_time = 0.0
 	_step(fortress, Fortress.WIND * 0.9)
 	check_near(fortress._speed, 0.0, 0.01, "it stands still while the lane is marked")
 	_step(fortress, 1.6)
 	check(fortress._speed > 10.0, "then it charges (%.1f m/s)" % fortress._speed)
-	fortress.take_hit(_shell(fortress.module_at("track_l"), 20.0))
+	fortress.take_hit(_kill(fortress.module_at("track_l"), "track_l"))
 	fortress._end_attack()
 	fortress._begin_attack(world_tank())
 	check(fortress._attack != Fortress.Attack.CRUSH, "with a track gone it cannot charge")
@@ -206,18 +211,18 @@ func test_the_charge_waits_for_its_lane_markers_then_floors_it() -> void:
 func test_a_burst_fuel_tank_rains_burning_ground_around_it() -> void:
 	var fortress := _fight()
 	var zones := _hostile_zones().size()
-	fortress.take_hit(_shell(fortress.module_at("fuel_l"), 10.0))
+	fortress.take_hit(_kill(fortress.module_at("fuel_l"), "fuel_l"))
 	check_eq(fortress.parts.fuel_l, 0.0, "the tank is gone")
 	check(_hostile_zones().size() > zones, "it leaves fire on the ground")
 
 
 func test_the_flame_gun_aims_on_its_own_pivot_apart_from_its_mount_and_the_turret() -> void:
-	var fortress := _fight(50.0)
+	var fortress := _fight(Fortress.HULL_FRONT + 40.0)
 	var gun: Node3D = fortress._guns.flame_r
 	var base := gun.get_parent() as Node3D
 	var base_basis := base.basis
 	var turret_yaw := fortress._turret.rotation.y
-	_place_tank(fortress, 30.0, 25.0)
+	_place_tank(fortress, Fortress.HULL_FRONT + 25.0, -40.0)
 	for _i in 60:
 		fortress.aim_barrel(gun, world_tank().hit_center(), 3.0, STEP)
 	check(absf(gun.rotation.y) > 0.3, "the gun swings toward a tank off to the side (%.2f rad)" % gun.rotation.y)
@@ -226,17 +231,17 @@ func test_the_flame_gun_aims_on_its_own_pivot_apart_from_its_mount_and_the_turre
 	check(absf(fortress._barrel.rotation.y) < 0.01, "nor the barrel")
 
 
-func test_the_hull_is_solid_and_throws_a_tank_off_it_for_thirty_damage() -> void:
+func test_the_hull_is_solid_and_throws_a_tank_off_it_for_a_hull_hit() -> void:
 	var fortress := _fight()
 	var tank := world_tank()
-	_place_tank(fortress, -5.0, 6.0) # Inside the hull's footprint.
+	_place_tank(fortress, -5.0, 10.0) # Inside the hull's footprint.
 	var hp := tank.hp
 	fortress._collide(tank, STEP)
 	var local := Basis(Vector3.UP, fortress._yaw).inverse() * (tank.global_position - fortress.global_position)
 	check(absf(local.x) >= Fortress.HULL_HALF + tank.radius - 0.01, "the tank is pushed out through the nearest flank (%.1f)" % local.x)
 	check(tank.hp < hp, "and loses armor (%.0f)" % (hp - tank.hp))
 	var again := tank.hp
-	_place_tank(fortress, -5.0, 6.0)
+	_place_tank(fortress, -5.0, 10.0)
 	fortress._collide(tank, STEP)
 	check_eq(tank.hp, again, "the next shove inside a second costs nothing more")
 
@@ -244,7 +249,7 @@ func test_the_hull_is_solid_and_throws_a_tank_off_it_for_thirty_damage() -> void
 func test_the_fortress_goes_down_with_its_last_module_after_a_burning_death_throe() -> void:
 	var fortress := _fight(150.0)
 	for name: String in Fortress.MODULES:
-		fortress.take_hit(_shell(fortress.module_at(name), 30.0))
+		fortress.take_hit(_kill(fortress.module_at(name), name))
 	check_eq(fortress.hp, 0.0, "every module is gone")
 	check_eq(fortress._state, Fortress.State.DYING, "it starts dying")
 	check(not fortress.dead, "but it does not vanish at once")
@@ -257,7 +262,7 @@ func test_a_hull_shove_is_not_read_as_driving_speed() -> void:
 	var tank := world_tank()
 	World.current.rail.mode = Rail.Mode.ARENA
 	tank.tick(STEP)
-	_place_tank(fortress, -5.0, 6.0)
+	_place_tank(fortress, -5.0, 10.0)
 	fortress._collide(tank, STEP)
 	var thrown := tank.global_position.distance_to(fortress.global_position)
 	check(thrown > Fortress.HULL_HALF, "the shove moved the tank clear of the hull (%.1f m)" % thrown)

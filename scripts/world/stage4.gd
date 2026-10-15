@@ -11,7 +11,8 @@ const LENGTH := 4900.0
 const HORIZON_SHIFT := 120.0 ## Squads spawn this much farther out, in the haze, and walk in.
 const HULL_MARGIN := 3.0 ## The floor extends this far past the hull limit so the track samples at the edge never hang.
 const CLEARING_D := 4500.0
-const CLEARING_RADIUS := 110.0
+const CLEARING_RADIUS := 160.0
+const ENTRY_OUT := 130.0 ## How far outside the rim the fortress starts.
 const ENTRY_ANGLE := deg_to_rad(-50.0) ## Where the fortress breaks out of the jungle, seen from the clearing's centre: ahead and to the left.
 const STORM_D := 1750.0
 const PLAN := [[1000.0, 0.0], [400.0, 25.0], [500.0, -25.0], [400.0, 0.0], [600.0, -35.0], [500.0, 35.0], [400.0, 0.0], [500.0, 30.0], [500.0, -30.0], [700.0, 0.0]]
@@ -36,11 +37,11 @@ func _init() -> void:
 	arenas = [{"d": CLEARING_D, "radius": CLEARING_RADIUS}]
 	sky_top = Palette.SKY.lerp(Palette.TEAL, 0.5)
 	sky_horizon = Palette.MINT.lerp(Palette.BUTTER, 0.35)
-	sky_ground = Palette.SAGE
+	sky_ground = Palette.PINE
 	# Green light through leaves: the shade falls cool teal, the clearing's sun warm.
-	ambient = Palette.TEAL.lerp(Palette.MINT, 0.5)
+	ambient = Palette.TEAL.lerp(Palette.PINE, 0.35)
 	ambient_energy = 0.7
-	fog_color = Palette.MINT.lerp(Palette.SAGE, 0.5)
+	fog_color = Palette.TEAL.lerp(Palette.PINE, 0.45)
 	storm_color = Palette.TEAL.lerp(Palette.PINE, 0.4)
 	storm_motes = [Palette.LEAF, Palette.SAGE, Palette.MINT]
 	fog_begin = 60.0
@@ -54,7 +55,7 @@ func _init() -> void:
 
 
 func boss_position() -> Vector3:
-	var at := entry_point(95.0)
+	var at := entry_point(ENTRY_OUT)
 	return Course.ground_at(at.x, at.y)
 
 
@@ -112,8 +113,8 @@ func _generate_entry() -> void:
 	var across := Vector2.from_angle(ENTRY_ANGLE + PI * 0.5)
 	for step in 3:
 		for lane: float in [-1.0, 1.0]:
-			var at := entry_point(30.0 + 38.0 * step) + across * lane * (12.0 + 4.0 * step)
-			_structure("jungle_building", at.x, at.y, Vector3(18.0, 22.0 + 8.0 * step, 20.0), -6.0, step * 2 + int(lane > 0.0))
+			var at := entry_point(40.0 + 55.0 * step) + across * lane * (20.0 + 6.0 * step)
+			_structure("jungle_building", at.x, at.y, Vector3(26.0, 26.0 + 8.0 * step, 28.0), -6.0, step * 2 + int(lane > 0.0))
 
 
 ## Two rows of lower overgrown blocks behind the front towers so the street never ends in a void.
@@ -156,17 +157,17 @@ func ground_color(d: float, u: float, h: float, slope: float) -> Color:
 	var patch := _patch.get_noise_2d(d, u)
 	var growth := smoothstep(-0.3, 0.6, patch)
 	var floor_color := Palette.PINE.lerp(Palette.MOSS, clampf(slope * 2.0 + smoothstep(0.0, 4.0, h) * 0.3, 0.0, 1.0) * 0.6)
-	floor_color = floor_color.lerp(Palette.SAGE, growth * 0.45).lerp(Palette.LEAF, smoothstep(0.55, 0.9, patch) * 0.35)
+	floor_color = floor_color.lerp(Palette.SAGE, growth * 0.2).lerp(Palette.LEAF, smoothstep(0.55, 0.9, patch) * 0.2)
 	for arena in arenas:
 		var r := Vector2(d - arena.d, u).length()
 		if r < arena.radius + 6.0:
 			# The clearing: a cracked concrete plaza under a skin of moss, torn up where the fortress will drive.
-			var plaza := Palette.CONCRETE.lerp(Palette.STONE, 0.3 + patch * 0.3).lerp(Palette.SAGE, growth * 0.4)
+			var plaza := Palette.CONCRETE.lerp(Palette.STONE, 0.3 + patch * 0.3).lerp(floor_color, 0.5 + growth * 0.4)
 			return plaza.lerp(floor_color, smoothstep(arena.radius - 10.0, arena.radius + 2.0, r))
 	if au < lateral_limit(d) - 2.0:
 		# The avenue: cracked asphalt with moss and ferns where the roots have lifted it.
 		var tarmac := Palette.STONE.lerp(Palette.ASH, 0.4 + patch * 0.3)
-		return tarmac.lerp(floor_color, clampf(growth * 0.8 + smoothstep(6.0, lateral_limit(d), au) * 0.5, 0.0, 1.0))
+		return tarmac.lerp(floor_color, clampf(0.35 + growth * 0.8 + smoothstep(6.0, lateral_limit(d), au) * 0.5, 0.0, 1.0))
 	return floor_color
 
 
@@ -177,7 +178,7 @@ func camera_u(d: float, u: float) -> float:
 
 ## Haze that gets greener and thicker as the canopy closes, and opens up on the clearing.
 func fog_tint(d: float) -> Color:
-	return _section_blend([fog_color, fog_color.lerp(Palette.TEAL, 0.25), fog_color.lerp(Palette.PINE, 0.35), fog_color.lerp(Palette.TEAL, 0.3), fog_color.lerp(Palette.BUTTER, 0.25)], d)
+	return _section_blend([fog_color, fog_color.lerp(Palette.PINE, 0.2), fog_color.lerp(Palette.MOSS, 0.4), fog_color.lerp(Palette.PINE, 0.3), fog_color.lerp(Palette.BUTTER, 0.12)], d)
 
 
 func fog_distance(d: float) -> float:

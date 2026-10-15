@@ -76,7 +76,8 @@ func follow(delta: float) -> void:
 		if away.length() < 1.0:
 			away = player.global_basis.z
 		away = away.normalized()
-		eye = player.global_position + away * ARENA_BACK + Vector3.UP * ARENA_HEIGHT
+		var zoom := float(world.boss.get_meta("zoom", 1.0)) if is_instance_valid(world.boss) else 1.0 # A giant boss asks the camera to back off.
+		eye = player.global_position + away * ARENA_BACK * zoom + Vector3.UP * ARENA_HEIGHT * zoom
 		look = player.global_position.lerp(focus, 1.0 if _watch_point != Vector3.INF else 0.3) + Vector3.UP * 1.0
 	else:
 		var d := world.rail.d

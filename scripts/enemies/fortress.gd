@@ -12,37 +12,37 @@ enum Attack { NONE, FLAME, SALVO, CRUSH }
 
 const MODULES := ["track_l", "track_r", "flame_l", "flame_r", "turret", "fuel_l", "fuel_r"]
 const LABELS := {"track_l": "FORTRESS_TRACK_L", "track_r": "FORTRESS_TRACK_R", "flame_l": "FORTRESS_FLAME_L", "flame_r": "FORTRESS_FLAME_R", "turret": "FORTRESS_TURRET", "fuel_l": "FORTRESS_FUEL_L", "fuel_r": "FORTRESS_FUEL_R"}
-const MODULE_HP := {"track_l": 300.0, "track_r": 300.0, "flame_l": 210.0, "flame_r": 210.0, "turret": 360.0, "fuel_l": 150.0, "fuel_r": 150.0}
-const MODULE_RADIUS := {"track_l": 10.0, "track_r": 10.0, "flame_l": 4.5, "flame_r": 4.5, "turret": 8.0, "fuel_l": 4.5, "fuel_r": 4.5}
+const MODULE_HP := {"track_l": 3200.0, "track_r": 3200.0, "flame_l": 2200.0, "flame_r": 2200.0, "turret": 3900.0, "fuel_l": 1600.0, "fuel_r": 1600.0}
+const MODULE_RADIUS := {"track_l": 24.0, "track_r": 24.0, "flame_l": 8.5, "flame_r": 8.5, "turret": 14.0, "fuel_l": 8.5, "fuel_r": 8.5}
 const ROUND_DAMAGE := 40.0 ## Like the other bosses, main-gun damage counts in rounds.
-const HULL_BOX := AABB(Vector3(-19.5, 0.0, -33.0), Vector3(39.0, 26.0, 64.5)) ## The slab and casemate in model space.
-const TRACK_AT := 15.0 ## Lateral offset of each track's middle.
-const TURRET_AT := Vector3(0.0, 23.5, -9.0)
-const BARREL_AT := Vector3(0.0, 3.2, -7.0) ## On the turret ring.
-const MUZZLE_AT := Vector3(0.0, 0.0, -18.6)
-const FLAME_AT := Vector3(16.0, 16.5, -21.0) ## The hull-fixed sponson, mirrored for the left; the gun pivots 2.8 m above it.
-const GUN_MUZZLE := Vector3(0.0, 0.0, -9.2)
-const FUEL_AT := Vector3(7.5, 19.5, 21.0)
-const WHEEL_Z := [-19.0, -13.6, -8.2, -2.8, 2.6, 8.0, 13.4, 18.8]
-const WHEEL_RADIUS := 2.2
-const ENTER_SPEED := 14.0
-const DRIVE_SPEED := 10.0
+const SCALE := 1.75 ## The model is built this much bigger than its 64 m design sheet; the measures below are the sheet's times this.
+const HULL_BOX := AABB(Vector3(-19.5, 0.0, -33.0) * SCALE, Vector3(39.0, 32.0, 64.5) * SCALE) ## The slab and decks in model space.
+const TRACK_AT := 15.0 * SCALE ## Lateral offset of each track's middle.
+const TURRET_AT := Vector3(0.0, 23.5, -9.0) * SCALE
+const BARREL_AT := Vector3(0.0, 3.2, -7.0) * SCALE ## On the turret ring.
+const MUZZLE_AT := Vector3(0.0, 0.0, -18.6) * SCALE
+const FLAME_AT := Vector3(16.0, 16.5, -21.0) * SCALE ## The hull-fixed sponson, mirrored for the left; the gun pivots 2.8 m above it.
+const GUN_MUZZLE := Vector3(0.0, 0.0, -9.2) * SCALE
+const FUEL_AT := Vector3(7.5, 19.5, 21.0) * SCALE
+const WHEEL_Z := [-33.25, -23.8, -14.35, -4.9, 4.55, 14.0, 23.45, 32.9] ## Eight road wheels in two bogies per side.
+const WHEEL_RADIUS := 2.2 * SCALE
+const ENTER_SPEED := 18.0
+const DRIVE_SPEED := 12.0
 const CHARGE_SPEED := 26.0
 const TURN := 0.22 ## Radians per second the hull swings onto the tank.
 const LIMP_TURN := 0.18 ## Radians per second it veers toward a shot-out track.
-const FLAME_REACH := 48.0
+const FLAME_REACH := 80.0
 const FLAME_ARC := deg_to_rad(100.0) ## How far either side of the bow a flame gun can swing.
 const SHELL_FLIGHT := 1.6
 const WIND := 1.2
 const CRUSH_TIME := 2.4
-const CRUSH_LANE := 64.0 ## Length of the marked lane.
-const HULL_FRONT := 33.0
-const HULL_REAR := 31.5
-const HULL_HALF := 19.5
-const HULL_DAMAGE := 30.0
+const HULL_FRONT := 33.0 * SCALE
+const HULL_REAR := 31.5 * SCALE
+const HULL_HALF := 19.5 * SCALE
+const HULL_DAMAGE := 20.0
 const HULL_SHOVE := 14.0 ## Metres per second the hull throws the tank off its flank at.
 const CRUSH_KINDS: Array[String] = ["jungle_tree", "palm", "fern", "jungle_building", "car", "bus_wreck", "barricade", "city_rubble", "streetlamp", "traffic_light", "road_sign", "truck"]
-const CRUSH_REACH := 17.0
+const CRUSH_REACH := 30.0
 const SALVO_SHELLS := [4, 5, 6]
 const WINDOW := [2.6, 2.0, 1.5] ## Seconds between attacks by phase.
 
@@ -84,14 +84,15 @@ func _init() -> void:
 		parts[name] = MODULE_HP[name]
 	max_hp = MODULE_HP.values().reduce(func(a: float, b: float) -> float: return a + b)
 	hp = max_hp
-	radius = 30.0
-	center_height = 10.0
+	radius = 60.0
+	center_height = 18.0
 	score = 30000
 	despawn_behind = 0.0
 	invulnerable = true # It is out of reach until it has crashed in.
 	set_meta("title", "BOSS_FORTRESS")
 	set_meta("phase_marks", [0.66, 0.33])
 	set_meta("frame", 0.3)
+	set_meta("zoom", 2.2) # The arena camera backs off this many times to keep the whole hull in view.
 
 
 func _ready() -> void:
@@ -116,7 +117,7 @@ func build() -> void:
 		_wheels["track" + tag] = []
 		for z: float in WHEEL_Z:
 			var wheel := Node3D.new()
-			wheel.position = Vector3(side * 19.3, 3.6, z)
+			wheel.position = Vector3(side * 19.3, 3.6, 0.0) * SCALE + Vector3(0.0, 0.0, z)
 			track.add_child(wheel)
 			_add_mesh(wheel, "wheel")
 			_wheels["track" + tag].append(wheel)
@@ -125,7 +126,7 @@ func build() -> void:
 		model.add_child(base)
 		_add_mesh(base, "flame_base")
 		var gun := Node3D.new()
-		gun.position = Vector3(0.0, 2.8, 0.0)
+		gun.position = Vector3(0.0, 2.8, 0.0) * SCALE
 		base.add_child(gun)
 		_add_mesh(gun, "flame_gun")
 		var muzzle := Node3D.new()
@@ -160,9 +161,9 @@ func _add_mesh(parent: Node3D, part: String) -> void:
 func module_at(name: String) -> Vector3:
 	match name:
 		"track_l", "track_r":
-			return model.to_global(Vector3(TRACK_AT * (-1.0 if name == "track_l" else 1.0), 5.5, 0.0))
+			return model.to_global(Vector3(TRACK_AT * (-1.0 if name == "track_l" else 1.0), 5.5 * SCALE, 0.0))
 		"turret":
-			return _turret.global_position + model.global_basis.y * 3.0
+			return _turret.global_position + model.global_basis.y * 3.0 * SCALE
 	return _nodes[name].global_position
 
 
@@ -249,7 +250,7 @@ func _break(name: String, direction: Vector3) -> void:
 		FireZone.ignite(ground, "fuel", true)
 		FireZone.ignite(ground + model.global_basis.z * 6.0, "fuel", true)
 		world.fx.burn(at, 8.0, 3.0)
-	Wreck.launch(node, node.global_position, 9.0 if name.begins_with("track") else 3.0, true, direction * 6.0 + Vector3.UP * 4.0, name != "turret" and not name.begins_with("track"))
+	Wreck.launch(node, node.global_position, 14.0 if name.begins_with("track") else 6.0, true, direction * 6.0 + Vector3.UP * 4.0, name != "turret" and not name.begins_with("track"))
 	if name == "flame_l" or name == "flame_r":
 		_end_attack() # A jet that lost its gun goes out.
 
@@ -296,7 +297,7 @@ func behave(delta: float) -> void:
 ## Drives in from the jungle along the line to the clearing's centre, untouchable until it has crashed through.
 func _enter(delta: float) -> void:
 	_drive(ENTER_SPEED, delta)
-	if _rim_gap() > 30.0:
+	if _rim_gap() > 62.0:
 		_state = State.FIGHT
 		invulnerable = false
 		World.current.shake(0.6, global_position)
@@ -314,7 +315,7 @@ func _fight(delta: float, tank: Tank) -> void:
 	var factor := 0.0 if _tracks() == 0 else (1.0 if _tracks() == 2 else 0.55)
 	var center := Course.to_world(Stage4.CLEARING_D, 0.0)
 	var goal := tank.global_position - global_position
-	if _rim_gap() < 35.0 and (global_position - center).dot(Vector3(-sin(_yaw), 0.0, -cos(_yaw))) > 0.0:
+	if _rim_gap() < 70.0 and (global_position - center).dot(Vector3(-sin(_yaw), 0.0, -cos(_yaw))) > 0.0:
 		goal = center - global_position # Swings back from the rim.
 	var turn := TURN * (1.0 + 0.4 * phase) * factor
 	if _attack == Attack.CRUSH and _attack_time >= WIND * Game.telegraph_scale():
@@ -350,14 +351,14 @@ func _aim_turret(delta: float, tank: Tank) -> void:
 func _pose(delta: float) -> void:
 	var forward := Vector3(-sin(_yaw), 0.0, -cos(_yaw))
 	var right := forward.cross(Vector3.UP)
-	var front := Course.height_at(global_position + forward * 26.0)
-	var back := Course.height_at(global_position - forward * 26.0)
-	var left := Course.height_at(global_position - right * 16.0)
-	var right_h := Course.height_at(global_position + right * 16.0)
+	var front := Course.height_at(global_position + forward * 26.0 * SCALE)
+	var back := Course.height_at(global_position - forward * 26.0 * SCALE)
+	var left := Course.height_at(global_position - right * 16.0 * SCALE)
+	var right_h := Course.height_at(global_position + right * 16.0 * SCALE)
 	for side: String in _sag:
 		_sag[side] = move_toward(_sag[side], 0.0 if parts[side] > 0.0 else 1.0, delta)
-	var roll: float = atan2(right_h - left, 32.0) + (_sag.track_l - _sag.track_r) * 0.07
-	var target := Basis.from_euler(Vector3(atan2(front - back, 52.0), _yaw, -roll), EULER_ORDER_YXZ)
+	var roll: float = atan2(right_h - left, 32.0 * SCALE) + (_sag.track_l - _sag.track_r) * 0.07
+	var target := Basis.from_euler(Vector3(atan2(front - back, 52.0 * SCALE), _yaw, -roll), EULER_ORDER_YXZ)
 	global_position.y = (front + back + left + right_h) * 0.25
 	model.global_basis = model.global_basis.orthonormalized().slerp(target, minf(delta * 6.0, 1.0)) if delta < 0.5 else target
 
@@ -377,10 +378,10 @@ func _exhaust(delta: float) -> void:
 	_smoke = 0.25
 	var fx := World.current.fx
 	for side in [-1.0, 1.0]:
-		fx.smoke_puff(model.to_global(Vector3(side * 12.5, 21.0, 8.0)), 3.0)
+		fx.smoke_puff(model.to_global(Vector3(side * 12.5, 21.0, 8.0) * SCALE), 5.0)
 	if _speed > 3.0:
 		for side in [-1.0, 1.0]:
-			fx.dust(model.to_global(Vector3(side * TRACK_AT, 1.0, 30.0)), 3, 6.0, Palette.STRAW)
+			fx.dust(model.to_global(Vector3(side * TRACK_AT, 1.0, 30.0 * SCALE)), 3, 9.0, Palette.STRAW)
 
 
 ## The hull is solid: a tank on it is thrown off the nearest flank and hurt.
@@ -452,7 +453,7 @@ func _update_attack(delta: float, tank: Tank) -> void:
 		Attack.SALVO:
 			_update_salvo(delta, tank, wind)
 		Attack.CRUSH:
-			if _attack_time >= wind + CRUSH_TIME or _rim_gap() < 15.0:
+			if _attack_time >= wind + CRUSH_TIME or _rim_gap() < 30.0:
 				_end_attack()
 
 
@@ -474,7 +475,7 @@ func _begin_attack(tank: Tank) -> void:
 			Attack.CRUSH:
 				_lane = Vector3(-sin(_yaw), 0.0, -cos(_yaw))
 				for step in 6:
-					world.fx.marker(global_position + _lane * (HULL_FRONT + 6.0 + step * 11.0), HULL_HALF * 0.7, wind, Palette.RED)
+					world.fx.marker(global_position + _lane * (HULL_FRONT + 12.0 + step * 20.0), HULL_HALF * 0.6, wind, Palette.RED)
 				Sfx.play("roar", global_position, 4.0, 0.6)
 			Attack.SALVO:
 				world.fx.beam(_muzzle.global_position, tank.hit_center(), Palette.HOT, 0.2, wind)
@@ -490,13 +491,13 @@ func _update_flame(delta: float, tank: Tank, wind: float) -> void:
 	for name in _flames_alive():
 		var gun := _guns[name]
 		if _in_arc(name, tank):
-			aim_barrel(gun, tank.hit_center(), 0.4 if burning else 1.0, delta)
+			aim_barrel(gun, tank.hit_center(), 0.3 if burning else 1.0, delta)
 		if not burning and randf() < delta * 8.0:
-			world.fx.marker(_muzzles[name].global_position - _muzzles[name].global_basis.z * FLAME_REACH, 6.0, 0.15, Palette.AMBER)
+			world.fx.marker(_muzzles[name].global_position - _muzzles[name].global_basis.z * FLAME_REACH, 10.0, 0.15, Palette.AMBER)
 			world.fx.tongue(_muzzles[name].global_position, 1.5, 0.8)
 	if burning and _jets.is_empty():
 		for name in _flames_alive():
-			_jets.append(FlameJet.start(self, _muzzles[name], 2.6 + 0.4 * phase, FLAME_REACH, 2.2))
+			_jets.append(FlameJet.start(self, _muzzles[name], 2.6 + 0.4 * phase, FLAME_REACH, 3.0))
 	if burning and _jets.all(func(jet: FlameJet) -> bool: return not is_instance_valid(jet)):
 		_end_attack()
 
@@ -511,7 +512,7 @@ func _update_salvo(delta: float, tank: Tank, wind: float) -> void:
 	var count: int = SALVO_SHELLS[phase]
 	var forward := tank.predicted(SHELL_FLIGHT) - global_position
 	var across := Vector3(forward.z, 0.0, -forward.x).normalized()
-	var target := tank.predicted(SHELL_FLIGHT) + across * (_shots - (count - 1) * 0.5) * 7.0
+	var target := tank.predicted(SHELL_FLIGHT) + across * (_shots - (count - 1) * 0.5) * 12.0
 	target.y = Course.height_at(target)
 	var from := _muzzle.global_position
 	var velocity := (target - from) / SHELL_FLIGHT + Vector3.UP * 0.5 * 20.0 * SHELL_FLIGHT
@@ -544,23 +545,23 @@ func _die(delta: float) -> void:
 	_speed = move_toward(_speed, 0.0, 6.0 * delta)
 	global_position += Vector3(-sin(_yaw), 0.0, -cos(_yaw)) * _speed * delta
 	if randf() < delta * 7.0:
-		world.fx.explosion(model.to_global(Vector3(randf_range(-15, 15), randf_range(12, 26), randf_range(-28, 28))), 4.0)
+		world.fx.explosion(model.to_global(Vector3(randf_range(-15, 15), randf_range(12, 32), randf_range(-28, 28)) * SCALE), 7.0)
 		world.shake(0.4, global_position)
-	world.fx.smoke_puff(model.to_global(Vector3(randf_range(-15, 15), 24.0, randf_range(-25, 25))), 4.0)
+	world.fx.smoke_puff(model.to_global(Vector3(randf_range(-15, 15), 30.0, randf_range(-25, 25)) * SCALE), 4.0)
 	if _dying <= 0.0:
 		die(killing_hit)
 
 
 func on_death(_hit: Hit) -> void:
 	var world := World.current
-	var at := model.to_global(Vector3(0.0, 14.0, 0.0))
-	world.fx.explosion(at, 22.0)
-	world.fx.shockwave(at, 90.0, Palette.BUTTER)
+	var at := model.to_global(Vector3(0.0, 14.0, 0.0) * SCALE)
+	world.fx.explosion(at, 38.0)
+	world.fx.shockwave(at, 150.0, Palette.BUTTER)
 	world.fx.debris(at, 50, debris, 30.0, 1.0)
 	world.fx.smoke_column(at, 20.0)
 	world.award(score, at, true)
 	world.style_event("GIANT", 300.0)
 	world.shake(0.9, at)
 	for kind in ["coax", "repair", "era"]:
-		world.spawn_pickup(kind, global_position + Vector3(randf_range(-30, 30), 1, randf_range(-30, 30)))
+		world.spawn_pickup(kind, global_position + Vector3(randf_range(-50, 50), 1, randf_range(-50, 50)))
 	Sfx.play("blast", at, 4.0)

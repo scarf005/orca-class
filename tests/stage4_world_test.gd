@@ -57,7 +57,7 @@ func test_the_fortress_enters_from_the_jungle_ahead_left_outside_the_rim() -> vo
 	check_near(entry.distance_to(Vector2(Stage4.CLEARING_D, 0.0)), Stage4.CLEARING_RADIUS, 0.01, "the entry lies on the rim")
 	check(entry.x > Stage4.CLEARING_D and entry.y < 0.0, "ahead of the clearing's centre and on the left")
 	var boss_at := Course.to_course(stage.boss_position())
-	check_near(boss_at.distance_to(Vector2(Stage4.CLEARING_D, 0.0)), Stage4.CLEARING_RADIUS + 95.0, 0.5, "the boss starts 95 m outside the rim")
+	check_near(boss_at.distance_to(Vector2(Stage4.CLEARING_D, 0.0)), Stage4.CLEARING_RADIUS + Stage4.ENTRY_OUT, 0.5, "the boss starts %.0f m outside the rim" % Stage4.ENTRY_OUT)
 
 
 func test_events_are_ordered_and_every_kind_exists() -> void:
