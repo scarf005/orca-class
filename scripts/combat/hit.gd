@@ -18,6 +18,9 @@ var incendiary := false
 var stagger := 0.0 ## Seconds of stagger inflicted on enemies that can be staggered.
 var warhead := false ## Shaped charge (FPV, ATGM): stopped by ERA, lethal where there is none.
 var power := 0.0 ## Main-gun charge (0..1) the round was fired with.
+var heat := 0.0 ## Heat the tank takes from this hit, even when armor turns it; flame and beam hits default to their damage.
+
+const HEAT_PER_DAMAGE := 0.01
 
 
 static func make(kind_value: Kind, damage_value: float, position_value: Vector3, direction_value := Vector3.FORWARD) -> Hit:
@@ -26,6 +29,8 @@ static func make(kind_value: Kind, damage_value: float, position_value: Vector3,
 	hit.damage = damage_value
 	hit.position = position_value
 	hit.direction = direction_value
+	if kind_value in [Kind.FIRE, Kind.LASER]:
+		hit.heat = damage_value * HEAT_PER_DAMAGE
 	return hit
 
 
@@ -57,4 +62,5 @@ func copy() -> Hit:
 	hit.stagger = stagger
 	hit.warhead = warhead
 	hit.power = power
+	hit.heat = heat
 	return hit

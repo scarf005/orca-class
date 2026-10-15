@@ -75,13 +75,12 @@ func test_a_wrecked_engine_cools_slowly_but_still_recovers() -> void:
 	check(frames_needed < 2000, "venting still ends with a wrecked engine (%d frames)" % frames_needed)
 
 
-func test_fire_and_laser_hits_add_heat_in_proportion_to_the_damage_taken() -> void:
+func test_fire_and_laser_hits_add_heat_in_proportion_to_their_damage() -> void:
 	var tank := stage().player
 	var hp := tank.hp
 	_burn(tank, Hit.Kind.FIRE, 20.0)
-	var taken := hp - tank.hp
-	check(taken > 0.0, "the flame still hurts")
-	check_near(tank.heat, taken * Tank.HEAT_PER_DAMAGE, 0.0001, "heat follows the armor damage")
+	check(hp - tank.hp > 0.0, "the flame still hurts")
+	check_near(tank.heat, 20.0 * Hit.HEAT_PER_DAMAGE, 0.0001, "heat follows the hit's damage")
 	var before := tank.heat
 	_burn(tank, Hit.Kind.SHELL, 20.0)
 	check_eq(tank.heat, before, "a shell of the same damage adds none")
@@ -89,12 +88,56 @@ func test_fire_and_laser_hits_add_heat_in_proportion_to_the_damage_taken() -> vo
 
 func test_beam_hits_can_push_the_tank_into_overload() -> void:
 	var tank := stage().player
-	tank.invulnerable = false
+	tank.hp = 1000.0
 	for _i in 4:
 		_burn(tank, Hit.Kind.LASER, 40.0)
-		if tank.dead:
-			break
 	check(tank.overheated, "enough beam damage vents the tank")
+
+
+func _sweep_round(world: World, tank: Tank) -> Projectile:
+	var rotor := Tiltrotor.new()
+	rotor.position = Course.ground_at(world.rail.d + 40.0, 16.0) + Vector3.UP * 10.0
+	world.add_enemy(rotor)
+	rotor._fire(tank.hit_center())
+	return world.projectiles.back()
+
+
+func test_a_tiltrotor_sweep_round_heats_the_hull_though_armor_turns_it() -> void:
+	var world := stage()
+	var tank := world.player
+	var hp := tank.hp
+	var round := _sweep_round(world, tank)
+	check(Tank.is_small_arms(round.hit), "the 20 mm round glances")
+	round._apply(tank, tank.hit_center())
+	check_eq(tank.hp, hp, "no armor damage")
+	check_near(tank.heat, Tiltrotor.BEAM_HEAT, 0.0001, "yet it adds the sweep's heat")
+	check(Tiltrotor.BEAM_HEAT * 7.0 > 0.35 and Tiltrotor.BEAM_HEAT * 7.0 < 0.5, "seven rounds on the hull are a large share of the gauge")
+
+
+func test_a_tiltrotor_sweep_round_adds_no_heat_during_a_dash() -> void:
+	var world := stage()
+	var tank := world.player
+	var round := _sweep_round(world, tank)
+	tank.invuln = 0.3
+	round._apply(tank, tank.hit_center())
+	check_eq(tank.heat, 0.0, "a dodged beam adds no heat")
+
+
+func test_an_abel_laser_designation_fills_half_the_gauge_and_two_drifts_more_overload() -> void:
+	var world := stage()
+	var tank := world.player
+	var abel := Abel.new()
+	abel.position = Course.ground_at(world.rail.d + 60.0, 0.0)
+	world.add_enemy(abel)
+	abel._wind_total = 1.0
+	for _i in 60:
+		abel._designate(tank, 1.0 / 60.0)
+	check_near(tank.heat, Abel.LASER_HEAT, 0.001, "one full designation adds the tuned heat")
+	check(not tank.overheated, "one alone does not overload")
+	for _i in 2:
+		tank.anchor_cooldown = 0.0
+		tank.dash(Vector2.RIGHT)
+	check(tank.overheated, "one designation plus two drifts do")
 
 
 func test_a_dashing_tank_takes_no_heat_from_a_flame() -> void:

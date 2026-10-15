@@ -23,6 +23,7 @@ const LEAVE_AT := 8.4 ## Hover seconds before it tilts forward and goes.
 const GUN_SLEW := 4.0
 const GUN_SPREAD := 0.012
 const NACELLE_X := 5.9
+const BEAM_HEAT := 0.06 ## Heat each sweep round that lands gives the tank: the beam crosses the hull for about seven rounds.
 const NACELLE_HP := 60.0
 
 var squad := ""
@@ -306,6 +307,7 @@ func _fire(point: Vector3) -> void:
 	var spot := point + Vector3(randf_range(-0.4, 0.4), 0.0, randf_range(-0.4, 0.4))
 	var shot := fire_along("orb", _muzzle, MG_SPEED, 4.0, Palette.HOT, spot - _muzzle.global_position, 4.0, GUN_SPREAD, Muzzle.AUTO)
 	shot.hit.caliber = 20
+	shot.hit.heat = BEAM_HEAT
 	Sfx.play("enemy_gun", _muzzle.global_position, -3.0, 0.9)
 
 
