@@ -2,6 +2,20 @@
   "revision": "c451f98",
   "seed": 12345,
   "assets": {
+    "burrower": {
+      "body": {
+        "triangles": 1020,
+        "sha256": "40365857e44ef862f01037ccc920ac230abd511214b6ac0b791ddbe9dc8f7319"
+      },
+      "jaw_left": {
+        "triangles": 84,
+        "sha256": "c76ad6dfd509501802b2c964706cb9be59dcf06e2a57fd68905f8867b70285ca"
+      },
+      "jaw_right": {
+        "triangles": 84,
+        "sha256": "4d37faf7653d74c7da434a55bd7154321702d8a34a65f4fc2ed817d333f602ee"
+      }
+    },
     "colossus": {
       "body": {
         "triangles": 740,
@@ -130,6 +144,16 @@
         "sha256": "3617627422bb1e8f0c097fa95ac09329520c8f973d8c248a001b1311805f5f5a"
       }
     },
+    "glinter": {
+      "base": {
+        "triangles": 176,
+        "sha256": "e0a390a031bf73285036fa4d1a05462b90c1b6216a40e988e82954a4bba5f0e5"
+      },
+      "dish": {
+        "triangles": 388,
+        "sha256": "5b2345b3e7f122c87c1c944caa293fb10788f22f71b5a9216d2c45cb17b60bd3"
+      }
+    },
     "gunship": {
       "bay": {
         "triangles": 84,
@@ -232,6 +256,24 @@
         "sha256": "c9ce534ea6fa7ba734b1252775f1bad295ab5e556e3a18439f2b9f148f58ea1c"
       }
     },
+    "mortar": {
+      "base_barge": {
+        "triangles": 736,
+        "sha256": "d98ac6a98edc4c9efe513b0917a20d3ccbb96b7432c4d519ef6ae6ca0d1c2e48"
+      },
+      "base_dune": {
+        "triangles": 768,
+        "sha256": "4f6bebbd73a3571bda410d22ea235f99c10e1f605be644bbb72cc4e8d39867fe"
+      },
+      "bulb": {
+        "triangles": 72,
+        "sha256": "218df02c4f772b50beb5d55c86b39c1999f0bb5d0c6299ea3a413bc8a7080285"
+      },
+      "tube": {
+        "triangles": 288,
+        "sha256": "93f4bd191081176208d11e34cfabc519cdf966341eb67c0ac51cc74297387f80"
+      }
+    },
     "quad_mech": {
       "body": {
         "triangles": 96,
@@ -268,6 +310,12 @@
       "wheel": {
         "triangles": 32,
         "sha256": "25f6265ecc7e5627cebee4a7ce49ec47e297460d68f289e8e93379cd5892d4e5"
+      }
+    },
+    "skimmer": {
+      "body": {
+        "triangles": 720,
+        "sha256": "cddc86b3fcb7cb61426f2c0a0322f6646f708d99ca6f69cb70ed2708ba5c7244"
       }
     },
     "spitter": {

@@ -35,21 +35,14 @@ func _init() -> void:
 
 func build() -> void:
 	global_position.y = Course.height_at(global_position)
-	var b := LowPoly.new()
-	b.prism(Transform3D(), 1.5, 0.6, 6, Palette.STONE, 0.9)
-	b.prism(Transform3D(Basis(), Vector3(0, 0.6, 0)), 0.35, 3.0, 6, Palette.SLATE, 0.3)
 	var base := MeshInstance3D.new()
-	base.mesh = b.mesh()
+	base.mesh = ActorMeshes.mesh("glinter", "base")
 	model.add_child(base)
 	_dish.position = Vector3(0, 3.8, 0)
 	model.add_child(_dish)
-	var mirror := LowPoly.new()
-	mirror.frustum(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0, 0, 0.4)), Vector2(0.5, 0.5), Vector2(2.6, 2.6), 0.9, Palette.SLATE, Palette.WHITE)
-	mirror.glow = true
-	mirror.blob(Transform3D(Basis(), Vector3(0, 0, -0.9)), 0.3, Palette.HOT)
-	var mesh := MeshInstance3D.new()
-	mesh.mesh = mirror.mesh()
-	_dish.add_child(mesh)
+	var mirror := MeshInstance3D.new()
+	mirror.mesh = ActorMeshes.mesh("glinter", "dish")
+	_dish.add_child(mirror)
 
 
 func telegraphing() -> bool:

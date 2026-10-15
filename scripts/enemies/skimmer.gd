@@ -24,14 +24,6 @@ func _init() -> void:
 
 
 func build() -> void:
-	var b := LowPoly.new()
-	b.frustum(Transform3D(), Vector2(1.6, 4.4), Vector2(1.0, 3.4), 0.7, Palette.SLATE, Palette.CORAL)
-	b.blob(Transform3D(Basis().scaled(Vector3(1.0, 0.7, 1.4)), Vector3(0, 0.85, 0.2)), 0.55, Palette.SKY)
-	for side in [-1.0, 1.0]:
-		b.box(Transform3D(Basis(Vector3.FORWARD, side * 0.25), Vector3(side * 1.2, 0.2, 0.6)), Vector3(0.9, 0.12, 2.6), Palette.DUSK)
-	b.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0, 0.35, -2.1)), 0.35, 1.6, 5, Palette.CREAM, 0.02)
-	b.glow = true
-	b.box(Transform3D(Basis(), Vector3(0, 0.35, 2.25)), Vector3(0.9, 0.25, 0.15), Palette.AMBER)
 	var body := MeshInstance3D.new()
-	body.mesh = b.mesh()
+	body.mesh = ActorMeshes.mesh("skimmer", "body")
 	model.add_child(body)

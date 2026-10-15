@@ -7,7 +7,7 @@ const VARIANTS := {
 	"walker": ["gun", "missile"], "quad_mech": ["flak", "mortar"],
 	"fpv_drone": [""], "uav": ["bomb", "strafe"], "helicopter": [""],
 	"tiltrotor": ["", "drones", "crawlers"], "colossus": [""], "gunship": [""], "flare": [""], "wing": [""],
-	"husk": [""], "sporefly": [""], "torpedo_boat": [""],
+	"husk": [""], "sporefly": [""], "torpedo_boat": [""], "mortar": ["", "naval"], "glinter": [""], "burrower": [""], "skimmer": [""],
 }
 
 
@@ -19,6 +19,8 @@ static func create(actor: String, variant: String) -> Entity:
 		entity.set("attack", variant)
 	elif actor == "tiltrotor":
 		entity.set("squad", variant)
+	elif actor == "mortar":
+		entity.set("naval", variant == "naval")
 	return entity
 
 
@@ -44,9 +46,12 @@ static func names(actor: String, variant: String) -> Array:
 		"gunship":
 			return ["body", "mast", "blades", "disc", "mast", "blades", "disc", "chin_mount", "chin", "panel_left", "panel_right", "nose", "pod", "gatling_ball", "gatling_mount", "gatling_barrels", "pod", "gatling_ball", "gatling_mount", "gatling_barrels", "nose_gun", "bay", "random_fungus_0", "random_fungus_1", "random_fungus_2", "random_fungus_3", "random_fungus_4", "random_fungus_5"]
 		"flare": return ["body"]
-		"husk": return ["body"]
+		"husk", "skimmer": return ["body"]
 		"sporefly": return ["body", "wing", "wing", "wing", "wing", "light"]
 		"torpedo_boat": return ["hull", "lamp"]
+		"mortar": return ["base_barge" if variant == "naval" else "base_dune", "tube", "bulb"]
+		"glinter": return ["base", "dish"]
+		"burrower": return ["body", "jaw_left", "jaw_right"]
 		"wing":
 			var result := ["hull"]
 			for name: String in Wing.TURRETS:

@@ -33,23 +33,14 @@ func _init() -> void:
 
 
 func build() -> void:
-	var b := LowPoly.new()
-	b.prism(Transform3D(), 3.2, 0.6, 9, Palette.PEACH, 1.8, Palette.OCHRE)
-	b.blob(Transform3D(Basis().scaled(Vector3(1.0, 1.3, 1.1)), Vector3(0, 1.4, 0.3)), 1.5, Palette.ASH, 1, 0.1, 4)
-	b.blob(Transform3D(Basis(), Vector3(0, 2.4, -0.6)), 0.9, Palette.STONE, 0, 0.1, 9)
-	b.glow = true
-	for side in [-1.0, 1.0]:
-		b.box(Transform3D(Basis(), Vector3(side * 0.45, 2.6, -1.4)), Vector3(0.22, 0.16, 0.1), Palette.HOT)
 	var body := MeshInstance3D.new()
-	body.mesh = b.mesh()
+	body.mesh = ActorMeshes.mesh("burrower", "body")
 	model.add_child(body)
 	for side in [-1.0, 1.0]:
 		var jaw := Node3D.new()
-		jaw.position = Vector3(side * 0.8, 2.2, -1.2)
-		var jaw_mesh := LowPoly.new()
-		jaw_mesh.prism(Transform3D(Basis(Vector3.FORWARD, -side * 0.6), Vector3.ZERO), 0.25, 1.9, 5, Palette.CREAM, 0.02)
+		jaw.position = Vector3(side * 1.0, 3.0, -1.35)
 		var mesh := MeshInstance3D.new()
-		mesh.mesh = jaw_mesh.mesh()
+		mesh.mesh = ActorMeshes.mesh("burrower", "jaw_left" if side < 0.0 else "jaw_right")
 		jaw.add_child(mesh)
 		model.add_child(jaw)
 		_jaws.append(jaw)
@@ -97,7 +88,7 @@ func behave(delta: float) -> void:
 		State.EXPOSED:
 			model.rotation.y = lerp_angle(model.rotation.y, atan2(-toward.x, -toward.z), 4.0 * delta)
 			for i in _jaws.size():
-				_jaws[i].rotation.z = (-1.0 if i == 0 else 1.0) * (0.15 + 0.25 * sin(age * 9.0))
+				_jaws[i].rotation.y = (1.0 if i == 0 else -1.0) * (0.15 + 0.25 * sin(age * 9.0))
 			if _state_time >= EXPOSED_TIME:
 				World.current.fx.dust(global_position, 16, 4.0, Palette.STRAW)
 				_bury()

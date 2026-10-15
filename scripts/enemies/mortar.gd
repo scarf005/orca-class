@@ -25,32 +25,16 @@ func build() -> void:
 	_hard = Game.difficulty == Game.Difficulty.HARD
 	var surface := Water.surface_at(global_position)
 	global_position.y = surface if surface > -INF else Course.height_at(global_position)
-	var b := LowPoly.new()
-	if naval:
-		b.frustum(Transform3D(Basis(), Vector3(0, -0.4, 0)), Vector2(3.4, 6.6), Vector2(3.0, 6.0), 1.2, Palette.SLATE, Palette.DUSK)
-		b.box(Transform3D(Basis(), Vector3(0, 1.4, 2.0)), Vector3(1.6, 1.0, 1.4), Palette.CONCRETE)
-		for i in 3:
-			b.prism(Transform3D(Basis(), Vector3((i - 1) * 0.9, 0.8, 1.2)), 0.38, 0.9, 6, Palette.OCHRE, 0.34, Palette.RED)
-	else:
-		b.prism(Transform3D(), 1.9, 0.8, 8, Palette.STRAW, 1.6, Palette.OCHRE)
-		for side in [-1.0, 1.0]:
-			b.box(Transform3D(Basis(), Vector3(side * 1.1, 1.1, 0.7)), Vector3(0.4, 0.8, 0.4), Palette.MOSS)
-			b.blob(Transform3D(Basis(), Vector3(side * 1.1, 1.7, 0.7)), 0.25, Palette.PEACH)
 	var base_mesh := MeshInstance3D.new()
-	base_mesh.mesh = b.mesh()
+	base_mesh.mesh = ActorMeshes.mesh("mortar", "base_barge" if naval else "base_dune")
 	model.add_child(base_mesh)
 	model.add_child(_stalk)
 	_stalk.position = Vector3(0, 0.9, 0)
-	var tube := LowPoly.new()
-	tube.prism(Transform3D(Basis(Vector3.RIGHT, -0.45), Vector3.ZERO), 0.3, 2.2, 6, Palette.SLATE, 0.22)
 	var tube_mesh := MeshInstance3D.new()
-	tube_mesh.mesh = tube.mesh()
+	tube_mesh.mesh = ActorMeshes.mesh("mortar", "tube")
 	_stalk.add_child(tube_mesh)
-	var bulb := LowPoly.new()
-	bulb.glow = true
-	bulb.blob(Transform3D(), 0.3, Palette.AMBER)
 	_sac = MeshInstance3D.new()
-	_sac.mesh = bulb.mesh()
+	_sac.mesh = ActorMeshes.mesh("mortar", "bulb")
 	_sac.position = Vector3(0, 2.0, -0.95)
 	_stalk.add_child(_sac)
 
