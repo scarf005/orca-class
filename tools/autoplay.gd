@@ -341,7 +341,9 @@ func _drive(world: World, t: float) -> void:
 		if distance < best and not world.camera.is_position_behind(enemy.hit_center()):
 			best = distance
 			target = enemy
-	if target:
+	if target is Wing and not (target as Wing).aim_parts().is_empty():
+		tank.aim_screen = world.camera.unproject_position((target as Wing).aim_parts().values()[0][0])
+	elif target:
 		tank.aim_screen = world.camera.unproject_position(target.hit_center())
 	else:
 		tank.aim_screen = Vector2(DitherView.RESOLUTION) * Vector2(0.5, 0.4)
@@ -368,6 +370,8 @@ func _drive(world: World, t: float) -> void:
 		Input.action_release("fire")
 	else:
 		Input.action_press("fire")
+	if _ride_ramp(world):
+		return
 	# Hold measures sustained fire without dodging; other bots retain the evasive probe.
 	if bot == "hold":
 		Input.action_release("move_left")
@@ -385,6 +389,25 @@ func _drive(world: World, t: float) -> void:
 		Input.action_release("move_right")
 	if bot not in ["idle", "hold"]:
 		_dodge(world)
+
+
+## Lines up on a launch ramp a little ahead and drifts across its track all the way up. Returns whether it is on one.
+func _ride_ramp(world: World) -> bool:
+	var tank := world.player
+	var d := world.rail.d + tank.course_offset
+	for ahead in range(0, 300, 5):
+		for side: float in [-1.0, 1.0]:
+			var u := side * Stage3.HILL_U
+			if Course.stage.ramp_at(d + ahead, u) < 0.0:
+				continue
+			Input.action_release("move_left")
+			Input.action_release("move_right")
+			if Course.stage.ramp_at(d, tank.course_u) < 0.0:
+				Input.action_press("move_right" if u > tank.course_u else "move_left")
+			elif tank.anchor_cooldown <= 0.0:
+				tank.dash(Vector2(-signf(tank.course_u - u) if absf(tank.course_u - u) > 1.0 else 1.0, 0))
+			return true
+	return false
 
 
 ## Dashes toward open space when a hostile shot is within 12 m and closing; the dash's own cooldown
