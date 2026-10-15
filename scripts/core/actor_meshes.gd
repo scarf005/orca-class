@@ -2,7 +2,7 @@ class_name ActorMeshes
 extends RefCounted
 ## Immutable, shared parts from Blender exports. Gameplay owns the node hierarchy and pivots.
 
-const ACTORS := ["tank", "crawler", "spitter", "ugv", "walker", "quad_mech", "fpv_drone", "uav", "helicopter", "tiltrotor", "colossus", "gunship", "flare"]
+const ACTORS := ["tank", "crawler", "spitter", "ugv", "walker", "quad_mech", "fpv_drone", "uav", "helicopter", "tiltrotor", "colossus", "gunship", "flare", "wing"]
 static var _parts := {}
 
 

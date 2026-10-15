@@ -467,6 +467,44 @@
         "triangles": 64,
         "sha256": "8ba998242eb1b602457224bfa02e5e5ffb8dd411381ab50199b782dfe594ec15"
       }
+    },
+    "wing": {
+      "beam": {
+        "triangles": 158,
+        "sha256": "6570a89358d78f3d0469f6b11aeb6932708613cc9e6f044a8ff9fa37fabfa780"
+      },
+      "bomb": {
+        "triangles": 96,
+        "sha256": "30162aef1b7f8572c2c563b6c54cc4cdf899ca7a8a5ff97fbb2035921dbe949c"
+      },
+      "engine": {
+        "triangles": 36,
+        "sha256": "27862657681390965e8df49e8127f37301381a93306f416865913b86ce8b315b"
+      },
+      "flak": {
+        "triangles": 142,
+        "sha256": "75eefcd27f641fbd5cd3164cfbe1a991933c79b26b7a83ddc4aaee49f7060e68"
+      },
+      "hangar": {
+        "triangles": 90,
+        "sha256": "a46c42ecec931480d34bead0562d4c176fb7d2e18ffcbe25c7ce6c8120fd6e08"
+      },
+      "hatch": {
+        "triangles": 12,
+        "sha256": "36947513683c9374ae526c678b2f2e8e9a3f04b0efdc3680eccdf565cfb057a2"
+      },
+      "hull": {
+        "triangles": 1714,
+        "sha256": "eeff112399a4624da35d6654a07911145e36ba8d3bf4986fdd6aad5706f707b9"
+      },
+      "rocket": {
+        "triangles": 266,
+        "sha256": "fb5110e69a4a088f1b3e0ce728662343145f9d4866e74b02ec00a0b81f9da4a0"
+      },
+      "spine": {
+        "triangles": 156,
+        "sha256": "247280129396e6c8e4b7c7fe45d21c35bc3f4e9e64b51c2b4acfb010b426aa06"
+      }
     }
   },
   "samples": {
