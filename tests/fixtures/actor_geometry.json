@@ -590,72 +590,72 @@
     },
     "burner": {
       "arm": {
-        "triangles": 316,
-        "sha256": "d6a1eadbd2e9cf5913942f254e6df55e27d76c261acd0f70e118e92469076d63"
+        "sha256": "e97a1a3134edc9971a7a55de6bd97d73b2e52dcc370c8a783290c025d92e0cd5",
+        "triangles": 316.0
       },
       "canister": {
-        "triangles": 140,
-        "sha256": "94aebce128295488d2d20fdccb7b49b4b444cd6676e6bbff7bada42b5ead1faf"
+        "sha256": "f273532bacdae6523ea85a0a40ff314808024177162d5931e8bb8f69c61802b5",
+        "triangles": 140.0
       },
       "tank": {
-        "triangles": 380,
-        "sha256": "fdb1c60ddcc0bcd7bf4fa7eb0e8c979833f1623a234b3da67996d67900d48c9e"
+        "sha256": "093a842a24064a527b93992634ca0df84ad5e3c200010f7675624519a48130d9",
+        "triangles": 380.0
       }
     },
     "crocodile": {
       "hull": {
-        "triangles": 1056,
-        "sha256": "a216348a57202419bcda62887c1241f1d4dee76a2d4ca4ec1fdf1a4bba1cec6e"
+        "sha256": "35f8d763a6ac3a28c0dd66546e37be7c6f646e7276c31a61338bb7dc5b6f5f3f",
+        "triangles": 1056.0
       },
       "nozzle": {
-        "triangles": 20,
-        "sha256": "cb0f5c8a8d24d45e59251078a81969e2821323d9884c347082666885fb35054b"
+        "sha256": "a7744a9f7eee6e7e9ebfa84c609bed34c5ee115aa0a391a9b2555de3e0707787",
+        "triangles": 20.0
       },
       "trailer": {
-        "triangles": 532,
-        "sha256": "e33a96f589abf845e8949f3bd077f1270f44c45f0be1a5535c7c93356372764d"
+        "sha256": "b4700266a83714ede82fe487ac52f625c43adeb3dfc0f31cce501b5e758c9a61",
+        "triangles": 532.0
       },
       "turret": {
-        "triangles": 144,
-        "sha256": "c3bd988c0268ec899ca284cd8b594022050333ff03e0bcc0c545eec364be1912"
+        "sha256": "f89cf41bc41caf19168632ee3ceb3e46b9d1bc1a7da27124320daeae5a5e8023",
+        "triangles": 144.0
       }
     },
     "fortress": {
       "barrel": {
-        "triangles": 412,
-        "sha256": "7d04ddad9a0f0d4c1c364dfcfeb31a7b58b2f9e7ed297fc679bb71384813a548"
+        "sha256": "3a5f86e2f0eae236961a5ed2df65d4eb4fb1896bae152ac99508822315fc33a8",
+        "triangles": 612.0
       },
       "flame_base": {
-        "triangles": 152,
-        "sha256": "d7b8792063ba0023418e71937f5a046a9f2af69eeecec72d49d9fbc793fedcee"
+        "sha256": "a8441b9f6dbeed69f312b5c20995045283451f57e844ce4daed1d44176e66205",
+        "triangles": 152.0
       },
       "flame_gun": {
-        "triangles": 340,
-        "sha256": "3a8be2d8218524c9cf573343b6ec07b9d4575f5bbb77ec310e47eb60c2f94079"
+        "sha256": "0b699591db33457803328d042d49913f75a205b0af4573e6f0f699d7cb7ed53b",
+        "triangles": 532.0
       },
       "fuel": {
-        "triangles": 620,
-        "sha256": "d5cf4b52b8771b6abf56c95383d11abdb264399311c8c6715a87b1e19c9bab82"
+        "sha256": "dc4dde36de99a445f56794c63b4e0a0a646167f0c9f625385fe0a02ab2d19f21",
+        "triangles": 676.0
       },
       "hull": {
-        "triangles": 2320,
-        "sha256": "4ebafb0619282714d0e4b28397a341d816a4586fe4f16d33a538541576422c1f"
+        "sha256": "97933b08bd17e694c162242aca7e488eb1d7cb755a93d5eff8551c196bf9d205",
+        "triangles": 4012.0
       },
       "track_l": {
-        "triangles": 1056,
-        "sha256": "71c8dd52cfb827209333eddae4ae1f052cdfc26126853ae585537c6ef40b3ec6"
+        "sha256": "ec98e545770bcd94ac13bad24738efa34400271d2c04910d08f6a34ca1eec8b3",
+        "triangles": 1284.0
       },
       "track_r": {
-        "triangles": 1056,
-        "sha256": "11d880a187a9c4e10d84d0ce9dbb750b5f381d357174595493fb2ea564e5e315"
+        "sha256": "20dcafdd6740076fad831f26278fe659d20697b280de4605425d8777fcb6b972",
+        "triangles": 1284.0
       },
       "turret": {
-        "triangles": 244,
-        "sha256": "c517192bd77ea2e42552939a3df07eb3072e7936e90f9c765acd1b3895e9abbc"
+        "sha256": "a6a28e9d96395a73a5db93abd709e15638610f007fb1796917b0fe6b3c62fe9e",
+        "triangles": 412.0
       },
       "wheel": {
-        "triangles": 152,
-        "sha256": "e303de3cfb4ec2d9ec646e9383892d5e15793e5bf1c272f4124764a96534ad00"
+        "sha256": "2f34c5ffe8f7cc3f7da6b68dab242b8e3d657d5132bc80d093a6e623f091f426",
+        "triangles": 152.0
       }
     }
   },
