@@ -589,34 +589,36 @@ static func backdrop(blocks: Array) -> Mesh:
 	return b.mesh()
 
 
-## One bay of a subway tunnel's roof: a sand-skinned slab over a tiled soffit with a rib at each end and two rows of
-## lamps. `size` is the exact collision box, its base at the soffit.
+## One bay of a subway tunnel's roof: a sand-skinned slab over a slate soffit with a dark rib at each end and two rows of
+## lamps every 10 m (the floor's pools of light lie under them). `size` is the exact collision box, its base at the soffit.
 static func tunnel_roof(size: Vector3, _variant: int) -> Mesh:
 	var b := LowPoly.new()
-	b.box(_xf(Vector3(0, size.y * 0.5, 0)), size, Palette.DUSK, Palette.PEACH)
+	b.box(_xf(Vector3(0, size.y * 0.5, 0)), size, Palette.SLATE, Palette.PEACH)
 	for z in [-size.z * 0.5 + 0.5, size.z * 0.5 - 0.5]:
-		b.box(_xf(Vector3(0, -0.45, z)), Vector3(size.x, 0.9, 1.0), Palette.STONE)
+		b.box(_xf(Vector3(0, -0.45, z)), Vector3(size.x, 0.9, 1.0), Palette.DUSK)
+	b.glow = true
 	for x in [-size.x * 0.22, size.x * 0.22]:
-		b.glow = true
-		b.box(_xf(Vector3(x, -0.12, 0)), Vector3(0.7, 0.16, 6.0), Palette.CREAM)
-		b.glow = false
+		for z in [-10.0, 0.0, 10.0]:
+			b.box(_xf(Vector3(x, -0.12, z)), Vector3(1.1, 0.2, 3.2), Palette.CREAM)
+	b.glow = false
 	return b.mesh()
 
 
-## One bay of a tunnel wall: glazed tiles up to a red line stripe, plaster above, grout lines and a lamp. Variant 0 is the
-## wall on the right of the road (its inside faces -X), 1 the left.
+## One bay of a tunnel wall: light glazed tiles with grout lines up to a teal line stripe, plaster above and a lamp.
+## Variant 0 is the wall on the right of the road (its inside faces -X), 1 the left.
 static func tunnel_wall(size: Vector3, variant: int) -> Mesh:
 	var b := LowPoly.new()
 	var inside := -1.0 if variant == 0 else 1.0
 	var face := inside * (size.x * 0.5 + 0.03)
 	b.box(_xf(Vector3(0, size.y * 0.5, 0)), size, Palette.STONE)
-	b.box(_xf(Vector3(face, 1.7, 0)), Vector3(0.1, 3.4, size.z), Palette.TEAL.lightened(0.15))
-	b.box(_xf(Vector3(face, 3.6, 0)), Vector3(0.12, 0.45, size.z), Palette.RED)
-	b.box(_xf(Vector3(face, 6.8, 0)), Vector3(0.1, 6.0, size.z), Palette.MIST)
+	b.box(_xf(Vector3(face, 1.7, 0)), Vector3(0.1, 3.4, size.z), Palette.MIST)
+	b.box(_xf(Vector3(face, 3.7, 0)), Vector3(0.12, 0.7, size.z), Palette.TEAL)
+	b.box(_xf(Vector3(face, 6.8, 0)), Vector3(0.1, 5.4, size.z), Palette.MIST)
 	for z in range(-int(size.z * 0.5) + 3, int(size.z * 0.5), 3):
-		b.box(_xf(Vector3(face + inside * 0.03, size.y * 0.5, float(z))), Vector3(0.06, size.y - 1.0, 0.08), Palette.SLATE)
+		b.box(_xf(Vector3(face + inside * 0.03, size.y * 0.5, float(z))), Vector3(0.06, size.y - 1.0, 0.08), Palette.ASH)
 	b.glow = true
-	b.box(_xf(Vector3(face + inside * 0.1, 8.4, 0)), Vector3(0.2, 0.5, 2.4), Palette.AMBER)
+	for z in [-10.0, 0.0, 10.0]:
+		b.box(_xf(Vector3(face + inside * 0.1, 8.4, z)), Vector3(0.2, 0.5, 1.6), Palette.AMBER)
 	return b.mesh()
 
 
