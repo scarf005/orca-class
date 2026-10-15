@@ -607,50 +607,58 @@ func _quicksand(stage: Stage3) -> void:
 		var swirl := add_decor(b.mesh(), sink.x, sink.y, 0.0, 0.0)
 		swirl.set_meta("range", 450.0)
 		_swirling.append(swirl)
-## The jungle-swallowed downtown: the street furniture is tangled in vines, ferns grow through the cracked asphalt and
-## strangler figs stand along the kerbs, thick enough around the clearing that the fortress has to fell its way in.
+
+
+## The jungle-swallowed valley. Each stretch grows its own cover: figs crowd the switchbacks, brush fuels the meadow,
+## reeds fringe the ford, the avenue keeps its tangled street furniture, and the clearing is ringed so thickly that the
+## fortress has to fell its way in.
 func _jungle() -> void:
 	var stage := _city_shell() as Stage4
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20261022
 	var last := int(Stage4.LENGTH) - 100
-	for d in range(100, last, 40):
-		if stage.in_arena(float(d), 40.0):
-			continue
+	var avenue_from := int(Stage4.SECTION_STARTS[Stage4.Section.AVENUE])
+	var avenue_to := int(Stage4.SECTION_STARTS[Stage4.Section.CLEARING])
+	for d in range(avenue_from + 20, avenue_to, 40):
 		var side := -1.0 if (d / 40) % 2 == 0 else 1.0
-		var u := side * (stage.lateral_limit(float(d)) - 3.0)
-		var lamp := add("streetlamp", float(d), u, 0.0 if side < 0.0 else PI, 0)
+		var lamp := add("streetlamp", float(d), side * (stage.lateral_limit(float(d)) - 3.0), 0.0 if side < 0.0 else PI, 0)
 		lamp.tilt = Vector3(0.0, 0.0, rng.randf_range(-0.3, 0.3))
-	for d in range(180, last, 140):
-		if stage.in_arena(float(d), 60.0):
-			continue
+	for d in range(avenue_from + 40, avenue_to, 140):
 		var u := stage.lateral_limit(float(d)) - 4.0
 		add("traffic_light", float(d), u, PI, 0)
 		add("road_sign", float(d) + 55.0, -u, 0.0, d % 4)
 	for d in range(100, last, 55):
-		if stage.in_arena(float(d), 30.0) or rng.randf() < 0.25:
+		var keep := 0.75 if d >= avenue_from else 0.3
+		if stage.in_arena(float(d), 30.0) or rng.randf() > keep or absf(d - Stage4.FORD_D) < Stage4.FORD_HALF + Stage4.BANK or absf(d - Stage4.GORGE_LIP) < 90.0:
 			continue
 		var lane := rng.randf_range(-9.0, 9.0)
 		var car := add("car", float(d), lane, rng.randf_range(-0.3, 0.3) + (PI if lane > 0.0 else 0.0), rng.randi_range(0, 11))
 		car.tilt = Vector3(rng.randf_range(-0.08, 0.08), 0.0, rng.randf_range(-0.1, 0.1))
 	for d in range(220, last, 210):
-		if not stage.in_arena(float(d), 50.0):
+		if not stage.in_arena(float(d), 50.0) and stage.section_at(float(d)) != Stage4.Section.FORD and stage.section_at(float(d)) != Stage4.Section.GORGE:
 			add("bus_wreck", float(d), rng.randf_range(-7.0, 7.0), rng.randf_range(-0.4, 0.4), rng.randi_range(0, 5))
-	for d in range(330, last, 260):
-		if stage.in_arena(float(d), 50.0):
-			continue
+	for d in range(avenue_from + 30, avenue_to, 120):
 		add("barricade", float(d), rng.randf_range(-6.0, 6.0), rng.randf_range(-0.3, 0.3), rng.randi_range(0, 3))
 		add("city_rubble", float(d) + 20.0, 11.0 if d % 2 == 0 else -11.0, rng.randf() * TAU, d % 4)
-	# Ferns and palms through the cracks, thickening as the canopy closes; figs line the kerbs and crowd the verge.
+	# Figs line the kerbs and the brush crowds the verge, densest in the switchbacks and the reeds. The meadow's brush
+	# also spills across the lanes: it is the dry fuel the flame crews set alight.
+	var tree_density := [0.9, 0.3, 0.55, 0.5, 0.4, 0.5]
+	var brush_density := [0.5, 1.1, 1.3, 0.6, 0.5, 0.5]
 	for d in range(60, last, 6):
 		if stage.in_arena(float(d), 6.0):
 			continue
-		var density := 0.45 + 0.12 * float(stage.section_at(float(d)))
+		var section := stage.section_at(float(d))
+		var limit := stage.lateral_limit(float(d))
+		var wet := stage.ford_weight(float(d)) > 0.0
 		for side in [-1.0, 1.0]:
-			if rng.randf() < density:
-				add("jungle_tree", float(d) + rng.randf_range(-4.0, 4.0), side * (stage.lateral_limit(float(d)) + rng.randf_range(-2.0, 10.0)), rng.randf() * TAU, rng.randi_range(0, 5))
-		if rng.randf() < density:
-			add("fern" if rng.randf() < 0.7 else "palm", float(d), rng.randf_range(-1.0, 1.0) * stage.lateral_limit(float(d)), rng.randf() * TAU, rng.randi_range(0, 5))
+			if rng.randf() < tree_density[section] and not wet:
+				add("jungle_tree", float(d) + rng.randf_range(-4.0, 4.0), side * (limit + rng.randf_range(-2.0, 10.0)), rng.randf() * TAU, rng.randi_range(0, 5))
+		for i in int(brush_density[section] * 2.0):
+			if rng.randf() < minf(brush_density[section], 0.9):
+				var reach := limit * (1.0 if section == Stage4.Section.STUMPS else 0.6) + (6.0 if section == Stage4.Section.STUMPS else 2.0)
+				add("fern" if rng.randf() < 0.7 else "palm", float(d) + rng.randf_range(-3.0, 3.0), rng.randf_range(-1.0, 1.0) * reach, rng.randf() * TAU, rng.randi_range(0, 5))
+	_fallen_logs(stage)
+	_bridge(stage)
 	# The clearing is ringed with jungle: figs stand shoulder to shoulder past the rim, densest where the fortress comes in.
 	for arena: Dictionary in stage.arenas:
 		var ring := add_decor(CityKit.decor("arena_ring", 3), float(arena.d), 0.0, 0.0, 0.0)
@@ -671,6 +679,36 @@ func _jungle() -> void:
 			var angle := TAU * i / 14.0 + rng.randf_range(-0.2, 0.2)
 			var radius := rng.randf_range(20.0, float(arena.radius) - 18.0)
 			add("bus_wreck" if i % 4 == 0 else "car", float(arena.d) + cos(angle) * radius, sin(angle) * radius, rng.randf() * TAU, rng.randi_range(0, 5))
+
+
+## A strangler fig lies across the road at each hump: a drift up the roots hops it.
+func _fallen_logs(stage: Stage4) -> void:
+	var b := LowPoly.new()
+	b.box(Transform3D(Basis(), Vector3(0.0, 0.6, 0.0)), Vector3(Stage4.LOG_HALF * 2.0 + 4.0, 1.2, 1.4), Palette.WOOD, Palette.MOSS)
+	b.box(Transform3D(Basis(), Vector3(2.0, 1.4, 0.0)), Vector3(1.0, 0.8, 2.0), Palette.LEAF)
+	var mesh := b.mesh()
+	for log: Array in Stage4.LOGS:
+		var d := float(log[0]) + Stage4.LOG_LENGTH + 1.2
+		add_decor(mesh, d, float(log[1]), 0.0, stage.height(d, float(log[1])) - 0.1).set_meta("range", 500.0)
+
+
+## The broken bridge: guide rails along the ramp to the lip, and the blinking IN sign hung over its foot.
+func _bridge(stage: Stage4) -> void:
+	var d := Stage4.GORGE_LIP - Stage4.RAMP_LENGTH
+	var u := Stage4.RAMP_U
+	var origin := Course.to_world(d, u, 0.0)
+	var yaw := Course.yaw_at(d)
+	var b := LowPoly.new()
+	for s in range(0, int(Stage4.RAMP_LENGTH) + 1, 5):
+		for side: float in [-1.0, 1.0]:
+			var at := Course.ground_at(d + s, u + side * (Stage4.RAMP_HALF + 0.4)) - origin
+			b.box(Transform3D(Basis(), at.rotated(Vector3.UP, -yaw) + Vector3.UP * 0.6), Vector3(0.3, 1.2, 0.3), Palette.ASH, Palette.STONE)
+	var posts := b.mesh()
+	add_decor(posts, d, u, 0.0, 0.0).set_meta("range", 700.0)
+	var sign_d := d - 24.0
+	var sign := add_decor(_in_sign_mesh(sign_d), sign_d, u, 0.0, stage.height(sign_d, u) + 12.0)
+	sign.set_meta("range", 700.0)
+	_blinking.append(sign)
 
 
 ## The skyline behind the front towers, merged into one mesh per BACKDROP_CHUNK of street to keep the live count low.

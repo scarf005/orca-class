@@ -1,12 +1,13 @@
 class_name Stage4
 extends StageDef
-## A downtown the jungle has swallowed: vines and strangler figs hold the towers up, roots buckle the avenue and a
-## green canopy closes over the road. Flame crews work the ruins; the last stretch opens on a clearing where the
-## tracked fortress comes through the trees.
+## A river valley the jungle has swallowed. The road winds through tight switchbacks under the canopy, crosses a
+## meadow of overgrown ruin stumps where fire runs through the brush, wades a river ford, leaps a broken bridge over
+## a gorge, climbs the one tower-walled avenue and opens on the clearing where the tracked fortress comes through
+## the trees.
 
-enum Section { VERGE, RUINS, CANOPY, HOLLOW, CLEARING }
+enum Section { VERGE, STUMPS, FORD, GORGE, AVENUE, CLEARING }
 
-const SECTION_STARTS := [0.0, 700.0, 1700.0, 2900.0, 4100.0]
+const SECTION_STARTS := [0.0, 1100.0, 1900.0, 2500.0, 3300.0, 4100.0]
 const LENGTH := 4900.0
 const HORIZON_SHIFT := 120.0 ## Squads spawn this much farther out, in the haze, and walk in.
 const HULL_MARGIN := 3.0 ## The floor extends this far past the hull limit so the track samples at the edge never hang.
@@ -15,7 +16,30 @@ const CLEARING_RADIUS := 160.0
 const ENTRY_OUT := 130.0 ## How far outside the rim the fortress starts.
 const ENTRY_ANGLE := deg_to_rad(-50.0) ## Where the fortress breaks out of the jungle, seen from the clearing's centre: ahead and to the left.
 const STORM_D := 1750.0
-const PLAN := [[1000.0, 0.0], [400.0, 25.0], [500.0, -25.0], [400.0, 0.0], [600.0, -35.0], [500.0, 35.0], [400.0, 0.0], [500.0, 30.0], [500.0, -30.0], [700.0, 0.0]]
+## Switchbacks, a meadow, a straight ford, the bend into the gorge, the avenue and the long straight to the clearing.
+const PLAN := [[500.0, 0.0], [260.0, 0.0], [150.0, 80.0], [80.0, 0.0], [150.0, -85.0], [80.0, 0.0], [150.0, 75.0], [60.0, 0.0], [150.0, -70.0],
+	[300.0, 0.0], [250.0, 20.0], [250.0, -20.0], [600.0, 0.0], [200.0, -60.0], [500.0, 0.0], [200.0, 60.0], [1700.0, 0.0]]
+
+const FORD_D := 2200.0
+const FORD_HALF := 70.0 ## Half the length of the ford's level bed; banks slope away over BANK on each side.
+const BANK := 40.0
+const FORD_DEPTH := 1.05
+const FORD_WATER := -0.35 ## Over the bed that leaves 0.7 m of water: wading, not swimming.
+const GORGE_LIP := 2960.0 ## Where the broken bridge's deck ends in a cliff, on the left lane.
+const GORGE_FAR := 2980.0 ## The far end of the bowl; its floor climbs out over GORGE_EXIT.
+const GORGE_EXIT := 64.0
+const GORGE_DESCENT := 72.0 ## The right lane's long ramp down into the riverbed.
+const GORGE_DEPTH := 9.0
+const GORGE_WATER := -8.3
+const RAMP_LENGTH := 40.0 ## The bridge ramp up to the lip: a drift on it builds the speed to clear the bowl.
+const RAMP_RISE := 8.0
+const RAMP_U := -9.0
+const RAMP_HALF := 5.0
+## Fallen strangler figs across the road: [d, u]. Each is a low ramp a drift can hop.
+const LOGS := [[210.0, 0.0], [820.0, 4.0], [1320.0, -6.0], [1560.0, 7.0], [1790.0, -4.0]]
+const LOG_LENGTH := 12.0
+const LOG_RISE := 1.5
+const LOG_HALF := 5.0
 
 var _swell := make_noise(81, 0.008)
 var _roots := make_noise(83, 0.03)
@@ -27,6 +51,7 @@ var _far := make_noise(101, 0.006)
 func _init() -> void:
 	number = 4
 	city = true
+	water_slows = true
 	standoff = 0.6
 	plan = PLAN
 	section_starts.assign(SECTION_STARTS)
@@ -50,6 +75,7 @@ func _init() -> void:
 	sun_rotation = Vector3(-38.0, 130.0, 0.0)
 	sun_energy = 1.0
 	_generate_walls()
+	_generate_stumps()
 	_generate_entry()
 	_generate_backdrop()
 
@@ -65,10 +91,11 @@ func entry_point(out: float) -> Vector2:
 
 
 func _street_half(d: float) -> float:
-	var half := 26.0
-	half = lerpf(half, 20.0, band(d, 650.0, 750.0, 1650.0, 1750.0))
-	half = lerpf(half, 24.0, band(d, 1700.0, 1800.0, 2850.0, 2950.0))
-	half = lerpf(half, 22.0, band(d, 2900.0, 3000.0, 4050.0, 4150.0))
+	var half := 17.0
+	half = lerpf(half, 26.0, band(d, 1050.0, 1150.0, 1850.0, 1950.0))
+	half = lerpf(half, 30.0, band(d, 1850.0, 1950.0, 2450.0, 2550.0))
+	half = lerpf(half, 20.0, band(d, 2450.0, 2550.0, 3250.0, 3350.0))
+	half = lerpf(half, 22.0, band(d, 3250.0, 3350.0, 4050.0, 4150.0))
 	return half
 
 
@@ -83,29 +110,43 @@ func valley_half_width(d: float) -> float:
 	return lateral_limit(d) + 16.0
 
 
+## Overgrown towers wall the avenue, the stage's one corridor.
 func _generate_walls() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20261020
-	var ranges := [[0.0, 700.0], [700.0, 1700.0], [1700.0, 2900.0], [2900.0, 4100.0]]
-	var tall := [[8.0, 18.0], [20.0, 42.0], [10.0, 26.0], [22.0, 46.0]]
-	for index in ranges.size():
-		var section_range: Array = ranges[index]
-		for side: float in [-1.0, 1.0]:
-			var d: float = float(section_range[0]) + rng.randf_range(0.0, 10.0)
-			var along: float = rng.randf_range(16.0, 34.0)
-			while d < section_range[1]:
-				var across: float = rng.randf_range(18.0, 30.0)
-				var visible: float = rng.randf_range(tall[index][0], tall[index][1])
-				var setback: float = lateral_limit(d) + HULL_MARGIN + 6.0 + rng.randf_range(0.0, 8.0)
-				var next_along: float = rng.randf_range(16.0, 34.0)
-				# The jungle has taken some lots whole: an empty plot is a thicket the tank can see across.
-				var gap: float = rng.randf_range(0.0, 30.0 if rng.randf() < 0.3 else 12.0)
-				var next_d := d + (along + next_along) * 0.5 + gap
-				var inside := d - along * 0.5 >= float(section_range[0]) and d + along * 0.5 <= float(section_range[1])
-				if inside and not in_arena(d, 10.0 + along * 0.5):
-					_structure("jungle_building", d, side * (setback + across * 0.5), Vector3(across, visible + 6.0, along), -6.0, rng.randi_range(0, 15))
-				d = next_d
-				along = next_along
+	var first := SECTION_STARTS[Section.AVENUE]
+	var last := SECTION_STARTS[Section.CLEARING]
+	for side: float in [-1.0, 1.0]:
+		var d: float = first + rng.randf_range(0.0, 10.0)
+		var along: float = rng.randf_range(16.0, 34.0)
+		while d < last:
+			var across: float = rng.randf_range(18.0, 30.0)
+			var visible: float = rng.randf_range(22.0, 46.0)
+			var setback: float = lateral_limit(d) + HULL_MARGIN + 6.0 + rng.randf_range(0.0, 8.0)
+			var next_along: float = rng.randf_range(16.0, 34.0)
+			var gap: float = rng.randf_range(0.0, 30.0 if rng.randf() < 0.3 else 12.0)
+			var next_d := d + (along + next_along) * 0.5 + gap
+			if d - along * 0.5 >= first and d + along * 0.5 <= last:
+				_structure("jungle_building", d, side * (setback + across * 0.5), Vector3(across, visible + 6.0, along), -6.0, rng.randi_range(0, 15))
+			d = next_d
+			along = next_along
+
+
+## Everywhere else the ruins are broken stumps of buildings, scattered about the valley instead of lining the road.
+func _generate_stumps() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20261023
+	var d := 120.0
+	while d < SECTION_STARTS[Section.AVENUE]:
+		var meadow := section_at(d) == Section.STUMPS
+		d += rng.randf_range(28.0, 60.0) if meadow else rng.randf_range(90.0, 170.0)
+		if in_arena(d, 40.0) or absf(d - FORD_D) < FORD_HALF + BANK + 20.0 or absf(d - (GORGE_LIP + GORGE_FAR) * 0.5) < 120.0:
+			continue
+		var side := -1.0 if rng.randf() < 0.5 else 1.0
+		var reach := lateral_limit(d) + HULL_MARGIN + rng.randf_range(2.0 if meadow else 8.0, 40.0)
+		var across := rng.randf_range(10.0, 18.0)
+		var along := rng.randf_range(10.0, 18.0)
+		_structure("jungle_building", d, side * (reach + across * 0.5), Vector3(across, rng.randf_range(5.0, 12.0) + 6.0, along), -6.0, rng.randi_range(0, 15), rng.randf() * 0.8 - 0.4)
 
 
 ## Overgrown ruins standing in the fortress's way through the trees: it drives through them on its way in.
@@ -117,7 +158,7 @@ func _generate_entry() -> void:
 			_structure("jungle_building", at.x, at.y, Vector3(26.0, 26.0 + 8.0 * step, 28.0), -6.0, step * 2 + int(lane > 0.0))
 
 
-## Two rows of lower overgrown blocks behind the front towers so the street never ends in a void.
+## Two rows of lower overgrown blocks behind the avenue's front towers; elsewhere only a few stumps stand far back.
 func _generate_backdrop() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20261021
@@ -129,8 +170,45 @@ func _generate_backdrop() -> void:
 				var across := float(rng.randi_range(0, 2)) * 6.0 + 24.0
 				var inner := lateral_limit(d) + 36.0 + 45.0 * row + rng.randf_range(0.0, 6.0)
 				var roof := float(rng.randi_range(8, 18) if row == 0 else rng.randi_range(14, 30)) * 2.0
-				_backdrop(d, side * (inner + across * 0.5), Vector3(across, roof + 4.5, along), rng.randi_range(0, 7))
+				var town := section_at(d) == Section.AVENUE or rng.randf() < 0.12
+				if town:
+					_backdrop(d, side * (inner + across * 0.5), Vector3(across, roof + 4.5, along), rng.randi_range(0, 7))
 				d += along + rng.randf_range(0.0, 10.0)
+
+
+## The ford: how far the riverbed lowers the road at `d` (0 off the ford, FORD_DEPTH on its level bed).
+func ford_weight(d: float) -> float:
+	return band(d, FORD_D - FORD_HALF - BANK, FORD_D - FORD_HALF, FORD_D + FORD_HALF, FORD_D + FORD_HALF + BANK)
+
+
+## The gorge: how far below the road the floor lies at (d, u). The left lane ends in a cliff at the bridge's lip, the
+## right lane slopes down a long ramp into the riverbed, and both climb out together on the far side.
+func gorge_depth(d: float, u: float) -> float:
+	var out := smoothstep(GORGE_FAR, GORGE_FAR + GORGE_EXIT, d)
+	var left := smoothstep(GORGE_LIP + 1.0, GORGE_LIP + 3.5, d) - out
+	var right := smoothstep(GORGE_LIP - GORGE_DESCENT, GORGE_LIP - 4.0, d) - out
+	return GORGE_DEPTH * lerpf(left, right, smoothstep(-1.0, 7.0, u))
+
+
+## The bridge ramp's height at (d, u): a straight climb to the lip.
+func bridge_ramp(d: float, u: float) -> float:
+	var s := d - (GORGE_LIP - RAMP_LENGTH)
+	if s < 0.0 or s > RAMP_LENGTH + 1.0:
+		return 0.0
+	var across := 1.0 - smoothstep(RAMP_HALF, RAMP_HALF + 3.0, absf(u - RAMP_U))
+	return RAMP_RISE * smoothstep(0.0, 6.0, s) * clampf(s / RAMP_LENGTH, 0.0, 1.0) * across
+
+
+## A fallen fig's hump at (d, u): a short climb to the trunk, then a drop.
+func log_hump(d: float, u: float) -> float:
+	var result := 0.0
+	for log: Array in LOGS:
+		var s: float = d - float(log[0])
+		if s < -2.0 or s > LOG_LENGTH + 3.0:
+			continue
+		var across := 1.0 - smoothstep(LOG_HALF, LOG_HALF + 3.0, absf(u - float(log[1])))
+		result = maxf(result, LOG_RISE * clampf(s / LOG_LENGTH, 0.0, 1.0) * (1.0 - smoothstep(LOG_LENGTH, LOG_LENGTH + 3.0, s)) * across)
+	return result
 
 
 func height(d: float, u: float) -> float:
@@ -146,10 +224,57 @@ func height(d: float, u: float) -> float:
 	var ridged := 1.0 - absf(_roots.get_noise_2d(d, u))
 	# Root-heaved ground: long gentle swells with tangled ridges, low enough to drive over.
 	var h := _swell.get_noise_2d(d, u) * 1.2 + ridged * ridged * 0.5 + _ripple.get_noise_2d(d, u) * 0.1
-	# The ground rises into the forest floor behind the towers and rolls away into hills.
+	# The ground rises into the forest floor beside the road and rolls away into hills.
 	h += smoothstep(limit + HULL_MARGIN, limit + 25.0, au) * 3.0
 	h += smoothstep(limit + 25.0, limit + 120.0, au) * (6.0 + 16.0 * (_far.get_noise_2d(d, u) * 0.5 + 0.5))
+	# The ford's bed is level and the river runs across the whole valley floor.
+	var bed := ford_weight(d) * (1.0 - smoothstep(limit + 10.0, limit + 70.0, au))
+	h = lerpf(h, -FORD_DEPTH + _ripple.get_noise_2d(d, u) * 0.06, bed)
+	var gorge := gorge_depth(d, u) * (1.0 - smoothstep(limit + 4.0, limit + 40.0, au))
+	h = lerpf(h, floor_h, minf(gorge * 0.12, 1.0)) - gorge + bridge_ramp(d, u) + log_hump(d, u)
 	return lerpf(floor_h, h, smoothstep(0.0, 24.0, outside)) if outside < INF else h
+
+
+func ramp_at(d: float, u: float) -> float:
+	var s := d - (GORGE_LIP - RAMP_LENGTH)
+	if s >= 0.0 and s <= RAMP_LENGTH and absf(u - RAMP_U) < RAMP_HALF:
+		return s / RAMP_LENGTH
+	for log: Array in LOGS:
+		var along: float = d - float(log[0])
+		if along >= 0.0 and along <= LOG_LENGTH and absf(u - float(log[1])) < LOG_HALF:
+			return along / LOG_LENGTH
+	return -1.0
+
+
+## Rail distance beyond which the stage holds no more water or leaps.
+func water_surface(c: Vector2) -> float:
+	var level := -INF
+	if absf(c.x - FORD_D) < FORD_HALF + BANK:
+		level = FORD_WATER
+	elif c.x > GORGE_LIP - GORGE_DESCENT and c.x < GORGE_FAR + GORGE_EXIT:
+		level = GORGE_WATER
+	return level if level > -INF and height(c.x, c.y) < level else -INF
+
+
+func water_mesh() -> ArrayMesh:
+	var b := LowPoly.new()
+	for span: Array in [[FORD_D - FORD_HALF - BANK, FORD_D + FORD_HALF + BANK, FORD_WATER], [GORGE_LIP - GORGE_DESCENT, GORGE_FAR + GORGE_EXIT, GORGE_WATER]]:
+		var d: float = span[0]
+		while d < span[1]:
+			for u in range(-90, 90, 6):
+				var corners := [height(d, u), height(d + 6.0, u), height(d + 6.0, u + 6.0), height(d, u + 6.0), height(d + 3.0, u + 3.0)]
+				if corners.min() >= span[2]:
+					continue
+				var level: float = span[2]
+				var a := Course.to_world(d, float(u), level)
+				var c := Course.to_world(d + 6.0, float(u), level)
+				var e := Course.to_world(d + 6.0, u + 6.0, level)
+				var f := Course.to_world(d, u + 6.0, level)
+				var tint := Palette.TEAL.lerp(Palette.PINE, 0.3 + 0.4 * clampf((level - float(corners[4])) * 0.5, 0.0, 1.0))
+				b.tri(a, c, e, Color(tint, 0.85), Vector3.UP)
+				b.tri(a, e, f, Color(tint, 0.85), Vector3.UP)
+			d += 6.0
+	return b.mesh()
 
 
 func ground_color(d: float, u: float, h: float, slope: float) -> Color:
@@ -164,8 +289,15 @@ func ground_color(d: float, u: float, h: float, slope: float) -> Color:
 			# The clearing: a cracked concrete plaza under a skin of moss, torn up where the fortress will drive.
 			var plaza := Palette.CONCRETE.lerp(Palette.STONE, 0.3 + patch * 0.3).lerp(floor_color, 0.5 + growth * 0.4)
 			return plaza.lerp(floor_color, smoothstep(arena.radius - 10.0, arena.radius + 2.0, r))
+	var ramp := ramp_at(d, u)
+	if ramp >= 0.0 and h > 0.4:
+		return Palette.CREAM if int(ramp * 4.0 * (RAMP_LENGTH if d > GORGE_LIP - RAMP_LENGTH - 1.0 else LOG_LENGTH) / 4.0) % 2 == 0 else Palette.STONE
+	if h < FORD_WATER and absf(d - FORD_D) < FORD_HALF + BANK + 10.0:
+		return Palette.OCHRE.lerp(Palette.WOOD, 0.45)
+	if gorge_depth(d, u) > 0.5:
+		return Palette.STONE.lerp(Palette.SLATE, clampf(gorge_depth(d, u) / GORGE_DEPTH, 0.0, 1.0) * 0.6).lerp(Palette.MOSS, growth * 0.25)
 	if au < lateral_limit(d) - 2.0:
-		# The avenue: cracked asphalt with moss and ferns where the roots have lifted it.
+		# The road: cracked asphalt with moss and ferns where the roots have lifted it.
 		var tarmac := Palette.STONE.lerp(Palette.ASH, 0.4 + patch * 0.3)
 		return tarmac.lerp(floor_color, clampf(0.35 + growth * 0.8 + smoothstep(6.0, lateral_limit(d), au) * 0.5, 0.0, 1.0))
 	return floor_color
@@ -176,21 +308,24 @@ func camera_u(d: float, u: float) -> float:
 	return clampf(u * 0.75, -reach, reach)
 
 
-## Haze that gets greener and thicker as the canopy closes, and opens up on the clearing.
+## Each stretch has its own haze: green dusk in the valley, hot haze over the meadow, river mist at the ford, gorge
+## shadow, the avenue's cool shade and the clearing's open light.
 func fog_tint(d: float) -> Color:
-	return _section_blend([fog_color, fog_color.lerp(Palette.PINE, 0.2), fog_color.lerp(Palette.MOSS, 0.4), fog_color.lerp(Palette.PINE, 0.3), fog_color.lerp(Palette.BUTTER, 0.12)], d)
+	return _section_blend([fog_color, fog_color.lerp(Palette.BUTTER, 0.12), fog_color.lerp(Palette.MINT, 0.3), fog_color.lerp(Palette.INK, 0.15), fog_color.lerp(Palette.MOSS, 0.35), fog_color.lerp(Palette.BUTTER, 0.12)], d)
 
 
 func fog_distance(d: float) -> float:
 	match section_at(d):
 		Section.VERGE:
-			return 380.0
-		Section.RUINS:
-			return 320.0
-		Section.CANOPY:
-			return 250.0
-		Section.HOLLOW:
 			return 300.0
+		Section.STUMPS:
+			return 420.0
+		Section.FORD:
+			return 360.0
+		Section.GORGE:
+			return 330.0
+		Section.AVENUE:
+			return 260.0
 		Section.CLEARING:
 			return 420.0
 	return fog_end
@@ -205,7 +340,7 @@ func music(section: int) -> String:
 	match section:
 		Section.CLEARING:
 			return ""
-		Section.CANOPY, Section.HOLLOW:
+		Section.GORGE, Section.AVENUE:
 			return "res://assets/music/stage2_canyon.ogg"
 	return "res://assets/music/stage2_boulevard.ogg"
 
@@ -218,7 +353,7 @@ func boss_music(_phase := 0) -> String:
 func _to_horizon(event: Dictionary) -> void:
 	if event.kind == "fpv" and not event.has("ahead"):
 		event.ahead = 90.0 # The director's default slot, which would pop the drone up mid-street.
-	if event.has("ahead"):
+	if event.has("ahead") and not event.get("close", false):
 		event.ahead += HORIZON_SHIFT
 	for member: Dictionary in event.get("squad", []):
 		_to_horizon(member)
@@ -239,7 +374,7 @@ func events(hard: bool) -> Array[Dictionary]:
 		{"kind": "fpv", "height": 5.0, "props": napalm}]})
 	e.append({"d": 640.0, "type": "pickup", "id": "atgm"})
 
-	# The ruins crowd the street: flame crews working in pairs under the towers.
+	# The meadow: flame crews work in pairs between the stumps and the brush they light carries the fire along the road.
 	wave.call(760.0, "crocodile", {"u": 10.0, "ahead": 80.0, "squad": [
 		{"kind": "ugv", "u": -8.0, "ahead": 75.0, "props": {"weapon": "atgm"}}]})
 	wave.call(980.0, "burner", {"u": -12.0, "ahead": 70.0, "peak": true, "drop": "micro", "squad": [
@@ -251,25 +386,28 @@ func events(hard: bool) -> Array[Dictionary]:
 		{"kind": "crocodile", "u": -12.0, "ahead": 95.0}]})
 	e.append({"d": 1620.0, "type": "pickup", "id": "repair", "u": 4.0})
 
-	# Under the canopy a monsoon thickens the haze and the fire has nowhere to go but the road.
+	# A monsoon thickens the haze over the meadow's end and the ford.
 	e.append({"d": STORM_D, "type": "storm", "duration": 35.0})
 	wave.call(1830.0, "crocodile", {"u": -12.0, "ahead": 85.0, "squad": [
 		{"kind": "crocodile", "u": 12.0, "ahead": 100.0}]})
 	wave.call(2060.0, "burner", {"u": 12.0, "ahead": 70.0, "peak": true, "squad": [
 		{"kind": "fpv", "count": 2, "height": 5.0, "props": napalm}]})
-	wave.call(2290.0, "crocodile", {"u": 0.0, "ahead": 85.0, "squad": [
+	# The ford: a crocodile waits in the reeds and breaks cover at close range.
+	wave.call(2130.0, "crocodile", {"u": 14.0, "ahead": 42.0, "close": true, "squad": [
+		{"kind": "crocodile", "u": -14.0, "ahead": 60.0, "close": true}]})
+	wave.call(2340.0, "crocodile", {"u": 0.0, "ahead": 85.0, "squad": [
 		{"kind": "burner", "u": -10.0, "ahead": 95.0}]})
 	e.append({"d": 2450.0, "type": "pickup", "id": "era", "u": -4.0})
-	wave.call(2560.0, "burner", {"u": -10.0, "ahead": 70.0, "squad": [
+	wave.call(2600.0, "burner", {"u": -10.0, "ahead": 70.0, "squad": [
 		{"kind": "burner", "u": 10.0, "ahead": 85.0},
 		{"kind": "ugv", "u": 0.0, "ahead": 100.0, "props": {"weapon": "atgm"}}]})
 	e.append({"d": 2780.0, "type": "hold", "at": 2795.0, "timeout": 25.0, "reward": "repair"})
 
-	# The hollow: collapsed overpasses, the densest fire of the stage.
-	wave.call(2960.0, "crocodile", {"u": 10.0, "ahead": 85.0, "peak": true, "squad": [
+	# The gorge is left alone to be crossed; the avenue after it holds the densest fire of the stage.
+	wave.call(3110.0, "crocodile", {"u": 10.0, "ahead": 85.0, "peak": true, "squad": [
 		{"kind": "burner", "u": -12.0, "ahead": 95.0},
 		{"kind": "fpv", "count": 2, "height": 5.0, "props": napalm}]})
-	wave.call(3220.0, "burner", {"u": 0.0, "ahead": 70.0, "squad": [
+	wave.call(3250.0, "burner", {"u": 0.0, "ahead": 70.0, "squad": [
 		{"kind": "crocodile", "u": -12.0, "ahead": 100.0},
 		{"kind": "crocodile", "u": 12.0, "ahead": 115.0}]})
 	e.append({"d": 3400.0, "type": "pickup", "id": "atgm", "u": 4.0})

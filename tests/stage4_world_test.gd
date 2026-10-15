@@ -4,15 +4,29 @@ extends TestCase
 const MAX_SLOPE := 0.32
 
 
+## Whether `d` lies on the bridge ramp and its cliff or on a fallen fig's roots, which climb and drop steeply by design.
+func _by_a_feature(d: float) -> bool:
+	if d > Stage4.GORGE_LIP - Stage4.RAMP_LENGTH - 2.0 and d < Stage4.GORGE_LIP + 6.0:
+		return true
+	return Stage4.LOGS.any(func(log: Array) -> bool: return d > log[0] - 3.0 and d < log[0] + Stage4.LOG_LENGTH + 5.0)
+
+
+## The wall between the bridge lane and the trench, which drops away as the trench deepens.
+func _on_the_divider(d: float, u: float) -> bool:
+	return d > Stage4.GORGE_LIP - Stage4.GORGE_DESCENT and d < Stage4.GORGE_LIP + 6.0 and u > -2.0 and u < 8.0
+
+
 func test_driveable_jungle_floor_gradient_stays_tank_safe() -> void:
 	Course.use(4)
 	var stage := Course.stage as Stage4
 	var worst := 0.0
 	var at := Vector2.ZERO
 	for d in range(0, int(Stage4.LENGTH)):
+		if _by_a_feature(d):
+			continue
 		for u in range(-50, 51, 2):
 			var limit := minf(stage.lateral_limit(d), stage.lateral_limit(d + 1.0)) - 1.0
-			if absf(u) > limit:
+			if absf(u) > limit or _on_the_divider(d, u):
 				continue
 			var here := stage.height(d, u)
 			var slope := Vector2(stage.height(d + 1.0, u) - here, stage.height(d, u + 1.0) - here).length()
@@ -29,7 +43,7 @@ func test_the_floor_is_there_wherever_the_hull_can_reach() -> void:
 		var reach := stage.lateral_limit(d) + Stage4.HULL_MARGIN
 		for u in [-reach, -reach * 0.5, 0.0, reach * 0.5, reach]:
 			var h := stage.height(d, u)
-			check(h > -1.5 and h < 10.0, "the floor at d=%d u=%.0f is a driveable height (%.2f)" % [d, u, h])
+			check(h > -10.0 and h < 10.0, "the floor at d=%d u=%.0f is a driveable height (%.2f)" % [d, u, h])
 
 
 func test_the_clearing_is_level_so_the_fortress_fights_on_flat_ground() -> void:
