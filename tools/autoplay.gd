@@ -346,8 +346,8 @@ func _drive(world: World, t: float) -> void:
 		if distance < best and not world.camera.is_position_behind(enemy.hit_center()):
 			best = distance
 			target = enemy
-	if target is Wing and not (target as Wing).aim_parts().is_empty():
-		tank.aim_screen = world.camera.unproject_position((target as Wing).aim_parts().values()[0][0])
+	if target != null and target.has_method("aim_parts") and not target.aim_parts().is_empty():
+		tank.aim_screen = world.camera.unproject_position(target.aim_parts().values()[0][0]) # Bosses with modules: the first one in sight.
 	elif target:
 		tank.aim_screen = world.camera.unproject_position(target.hit_center())
 	else:

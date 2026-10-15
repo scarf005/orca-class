@@ -52,6 +52,10 @@ const PROPS := {
 	"overpass_pier": [1.6, 15.0, 200.0, false, false, 300, false, false],
 	"overpass_deck": [11.0, 2.6, 150.0, false, false, 200, false, false],
 	"city_building": [15.0, 36.0, 200.0, false, false, 0, false, false],
+	"jungle_building": [15.0, 36.0, 200.0, false, false, 0, false, false],
+	"jungle_tree": [1.4, 13.0, 90.0, false, true, 40, false, false],
+	"palm": [0.7, 8.0, 25.0, true, true, 15, false, false],
+	"fern": [1.3, 1.2, 4.0, true, true, 5, false, false],
 	"city_shop": [4.5, 7.5, 100.0, true, false, 70, false, true],
 	"city_terminal": [14.0, 12.0, 180.0, false, false, 0, false, false],
 	"city_department": [13.0, 28.0, 200.0, false, false, 0, false, false],
@@ -89,10 +93,10 @@ const OVERPASS_DECK_Y := 7.9
 const VEHICLES := ["car", "truck", "infested_car", "cultivator"]
 
 ## Tall thin props that snap and fall over rather than vanish.
-const FALLING := ["pole", "plane_tree", "persimmon", "cordyceps", "streetlamp", "traffic_light", "road_sign"]
+const FALLING := ["pole", "plane_tree", "persimmon", "cordyceps", "jungle_tree", "palm", "streetlamp", "traffic_light", "road_sign"]
 
 ## Solid buildings and structures: the tank breaks them but is slowed hard (Rail.jolt).
-const HARD := ["house", "infested_house", "hall", "church_nave", "church_tower", "church_spire", "school_wing", "school_center", "gas_station", "overpass_pier", "overpass_deck", "gate", "rock", "fungal_spire", "zelkova_trunk", "city_building", "city_ruin", "city_shop", "city_terminal", "city_department", "city_clock", "city_leaning", "city_toppled", "city_pier", "city_deck", "city_sag_span", "container", "ship", "tunnel_roof", "tunnel_wall"]
+const HARD := ["house", "infested_house", "hall", "church_nave", "church_tower", "church_spire", "school_wing", "school_center", "gas_station", "overpass_pier", "overpass_deck", "gate", "rock", "fungal_spire", "zelkova_trunk", "city_building", "city_ruin", "city_shop", "city_terminal", "city_department", "city_clock", "city_leaning", "city_toppled", "city_pier", "city_deck", "city_sag_span", "container", "ship", "tunnel_roof", "tunnel_wall", "jungle_building"]
 
 ## Plain props that spawn overgrown more often the deeper the stage goes.
 const INFESTED := {"house": "infested_house", "car": "infested_car"}
@@ -148,6 +152,8 @@ func build() -> void:
 		_boom()
 	elif Course.stage.number == 2:
 		_city()
+	elif Course.stage.number == 4:
+		_jungle()
 	else:
 		_buried_city()
 	process_priority = 90 # Resolve solid scenery after driving, before the chase camera.
@@ -601,6 +607,70 @@ func _quicksand(stage: Stage3) -> void:
 		var swirl := add_decor(b.mesh(), sink.x, sink.y, 0.0, 0.0)
 		swirl.set_meta("range", 450.0)
 		_swirling.append(swirl)
+## The jungle-swallowed downtown: the street furniture is tangled in vines, ferns grow through the cracked asphalt and
+## strangler figs stand along the kerbs, thick enough around the clearing that the fortress has to fell its way in.
+func _jungle() -> void:
+	var stage := _city_shell() as Stage4
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20261022
+	var last := int(Stage4.LENGTH) - 100
+	for d in range(100, last, 40):
+		if stage.in_arena(float(d), 40.0):
+			continue
+		var side := -1.0 if (d / 40) % 2 == 0 else 1.0
+		var u := side * (stage.lateral_limit(float(d)) - 3.0)
+		var lamp := add("streetlamp", float(d), u, 0.0 if side < 0.0 else PI, 0)
+		lamp.tilt = Vector3(0.0, 0.0, rng.randf_range(-0.3, 0.3))
+	for d in range(180, last, 140):
+		if stage.in_arena(float(d), 60.0):
+			continue
+		var u := stage.lateral_limit(float(d)) - 4.0
+		add("traffic_light", float(d), u, PI, 0)
+		add("road_sign", float(d) + 55.0, -u, 0.0, d % 4)
+	for d in range(100, last, 55):
+		if stage.in_arena(float(d), 30.0) or rng.randf() < 0.25:
+			continue
+		var lane := rng.randf_range(-9.0, 9.0)
+		var car := add("car", float(d), lane, rng.randf_range(-0.3, 0.3) + (PI if lane > 0.0 else 0.0), rng.randi_range(0, 11))
+		car.tilt = Vector3(rng.randf_range(-0.08, 0.08), 0.0, rng.randf_range(-0.1, 0.1))
+	for d in range(220, last, 210):
+		if not stage.in_arena(float(d), 50.0):
+			add("bus_wreck", float(d), rng.randf_range(-7.0, 7.0), rng.randf_range(-0.4, 0.4), rng.randi_range(0, 5))
+	for d in range(330, last, 260):
+		if stage.in_arena(float(d), 50.0):
+			continue
+		add("barricade", float(d), rng.randf_range(-6.0, 6.0), rng.randf_range(-0.3, 0.3), rng.randi_range(0, 3))
+		add("city_rubble", float(d) + 20.0, 11.0 if d % 2 == 0 else -11.0, rng.randf() * TAU, d % 4)
+	# Ferns and palms through the cracks, thickening as the canopy closes; figs line the kerbs and crowd the verge.
+	for d in range(60, last, 9):
+		if stage.in_arena(float(d), 6.0):
+			continue
+		var density := 0.25 + 0.2 * float(stage.section_at(float(d)))
+		for side in [-1.0, 1.0]:
+			if rng.randf() < density:
+				add("jungle_tree", float(d) + rng.randf_range(-4.0, 4.0), side * (stage.lateral_limit(float(d)) + rng.randf_range(-2.0, 10.0)), rng.randf() * TAU, rng.randi_range(0, 5))
+		if rng.randf() < density:
+			add("fern" if rng.randf() < 0.7 else "palm", float(d), rng.randf_range(-1.0, 1.0) * stage.lateral_limit(float(d)), rng.randf() * TAU, rng.randi_range(0, 5))
+	# The clearing is ringed with jungle: figs stand shoulder to shoulder past the rim, densest where the fortress comes in.
+	for arena: Dictionary in stage.arenas:
+		var ring := add_decor(CityKit.decor("arena_ring", 3), float(arena.d), 0.0, 0.0, 0.0)
+		ring.set_meta("range", float(arena.radius) + 260.0)
+		for i in 190:
+			var toward := absf(wrapf(TAU * i / 190.0 - Stage4.ENTRY_ANGLE, -PI, PI))
+			if toward > 1.0 and i % 3 != 0:
+				continue
+			var angle := TAU * i / 190.0 + rng.randf_range(-0.02, 0.02)
+			var radius := float(arena.radius) + rng.randf_range(3.0, 22.0 if toward > 1.0 else 70.0)
+			add("jungle_tree" if i % 4 else "palm", float(arena.d) + cos(angle) * radius, sin(angle) * radius, rng.randf() * TAU, rng.randi_range(0, 5))
+		for i in 60:
+			var angle := Stage4.ENTRY_ANGLE + rng.randf_range(-0.7, 0.7)
+			var radius := float(arena.radius) + rng.randf_range(2.0, 60.0)
+			add("fern", float(arena.d) + cos(angle) * radius, sin(angle) * radius, rng.randf() * TAU, rng.randi_range(0, 5))
+		# Wrecks stranded on the plaza give the fight something to read distance against and to smash.
+		for i in 8:
+			var angle := TAU * i / 8.0 + rng.randf_range(-0.2, 0.2)
+			var radius := rng.randf_range(20.0, float(arena.radius) - 18.0)
+			add("bus_wreck" if i % 4 == 0 else "car", float(arena.d) + cos(angle) * radius, sin(angle) * radius, rng.randf() * TAU, rng.randi_range(0, 5))
 
 
 ## The skyline behind the front towers, merged into one mesh per BACKDROP_CHUNK of street to keep the live count low.
@@ -612,7 +682,7 @@ func _backdrop_chunks(stage: StageDef) -> void:
 		var blocks: Array = chunks.get_or_add(chunk, [])
 		blocks.append({"x": block.u, "z": centre - block.d, "size": block.size, "variant": block.variant})
 	for chunk: int in chunks:
-		var spec := add_decor(CityKit.backdrop(chunks[chunk]), (float(chunk) + 0.5) * BACKDROP_CHUNK, 0.0, 0.0, stage.street_level - 4.5)
+		var spec := add_decor(CityKit.backdrop(chunks[chunk], stage.number == 4), (float(chunk) + 0.5) * BACKDROP_CHUNK, 0.0, 0.0, stage.street_level - 4.5)
 		spec.set_meta("range", BACKDROP_RANGE)
 
 
@@ -1242,7 +1312,7 @@ func _link(spec: Spec, prop: Prop) -> void:
 ## What each kind of prop breaks into, as Fx.Debris materials.
 func _debris(kind: String) -> Array:
 	match kind:
-		"house", "hall", "church_nave", "church_tower", "church_spire", "school_wing", "school_center":
+		"jungle_building", "house", "hall", "church_nave", "church_tower", "church_spire", "school_wing", "school_center":
 			return [Fx.Debris.CONCRETE, Fx.Debris.ROOF, Fx.Debris.WOOD, Fx.Debris.GLASS]
 		"infested_house":
 			return [Fx.Debris.CONCRETE, Fx.Debris.ROOF, Fx.Debris.FLESH]
@@ -1276,7 +1346,7 @@ func _debris(kind: String) -> Array:
 			return [Fx.Debris.PAINT, Fx.Debris.METAL, Fx.Debris.FLESH]
 		"mushroom", "spore_tower", "fungal_spire", "flesh_mound", "cordyceps", "egg_sacs", "husk_cow", "veins":
 			return [Fx.Debris.FLESH, Fx.Debris.SPORE]
-		"persimmon", "plane_tree", "zelkova_trunk", "zelkova_canopy":
+		"persimmon", "plane_tree", "zelkova_trunk", "zelkova_canopy", "jungle_tree", "palm", "fern":
 			return [Fx.Debris.WOOD, Fx.Debris.FOLIAGE]
 		"gas_station":
 			return [Fx.Debris.CONCRETE, Fx.Debris.METAL, Fx.Debris.GLASS, Fx.Debris.PAINT]

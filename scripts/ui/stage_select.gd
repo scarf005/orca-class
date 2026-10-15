@@ -10,9 +10,9 @@ const CARD_SIZE := Vector2(256, 256)
 const CARD_TOP := 82.0
 const CARD_GAP := 24.0
 const CARD_LEFT := 72.0
-const STAGE_NAMES := [&"STAGE_1_NAME", &"STAGE_2_NAME", &"STAGE_3_NAME"]
+const STAGE_NAMES := [&"STAGE_1_NAME", &"STAGE_2_NAME", &"STAGE_3_NAME", &"STAGE_4_NAME"]
 const DIFFICULTY_NAMES := {Game.Difficulty.EASY: &"DIFFICULTY_EASY", Game.Difficulty.NORMAL: &"DIFFICULTY_NORMAL", Game.Difficulty.HARD: &"DIFFICULTY_HARD"}
-const MAPS := [preload("res://assets/ui/stage1.png"), preload("res://assets/ui/stage2.png"), preload("res://assets/ui/stage3.png")]
+const MAPS := [preload("res://assets/ui/stage1.png"), preload("res://assets/ui/stage2.png"), preload("res://assets/ui/stage3.png"), preload("res://assets/ui/stage4.png")]
 
 enum Focus { CARD, CHECKPOINT, BACK }
 

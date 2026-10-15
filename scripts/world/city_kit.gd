@@ -157,10 +157,10 @@ static func _roof_island(variant: int, rng: RandomNumberGenerator) -> Mesh:
 
 
 ## The visible edge of an arena: a ring of buoys with a lamp on every fourth, just outside where the hull is held.
-## variant 0 rings the plaza, 1 the bay, 2 the pit.
+## variant 0 rings the plaza, 1 the bay, 2 the pit, 3 the clearing.
 static func _arena_ring(variant: int, _rng: RandomNumberGenerator) -> Mesh:
 	var b := LowPoly.new()
-	var radius: float = [Stage2.PLAZA_RADIUS, Stage2.BAY_RADIUS, Stage3.PIT_RADIUS][variant] - ARENA_RING_INSET
+	var radius: float = [Stage2.PLAZA_RADIUS, Stage2.BAY_RADIUS, Stage3.PIT_RADIUS, Stage4.CLEARING_RADIUS][variant] - ARENA_RING_INSET
 	var count := int(TAU * radius / 5.0)
 	for i in count:
 		var angle := TAU * i / count
@@ -348,6 +348,33 @@ static func tower(size: Vector3, variant: int) -> Mesh:
 	if variant % 4 == 2:
 		_shop_signs(b, size, rng)
 	return b.mesh()
+
+
+## A tower the jungle has taken: vines hang down its faces, strangler roots buttress the corners, and ferns and a
+## crown of foliage grow on the ledges and the roof.
+static func overgrown(size: Vector3, variant: int) -> Mesh:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([size, variant, "overgrown"])
+	var b := LowPoly.new()
+	var greens: Array[Color] = [Palette.MOSS, Palette.PINE, Palette.LEAF, Palette.SAGE]
+	for face: Vector3 in [Vector3(size.x * 0.5, 0, 0), Vector3(-size.x * 0.5, 0, 0), Vector3(0, 0, size.z * 0.5), Vector3(0, 0, -size.z * 0.5)]:
+		var wide: bool = face.x == 0.0
+		for strand in 2 + int(size.x * size.z / 300.0):
+			var length := rng.randf_range(0.35, 0.95) * size.y
+			var offset := rng.randf_range(-0.45, 0.45) * (size.x if wide else size.z)
+			var at: Vector3 = face + (Vector3(offset, 0, 0) if wide else Vector3(0, 0, offset))
+			b.box(_xf(at + Vector3(0, size.y - length * 0.5, 0)), Vector3(0.3, length, 0.3) + face.abs().normalized() * 0.25, greens[rng.randi() % 4])
+			b.blob(_xf(at + Vector3(0, size.y - length, 0)), rng.randf_range(0.7, 1.4), greens[rng.randi() % 4], 0, 0.3, rng.randi())
+	for corner in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+		b.blob(_xf(Vector3(corner.x * size.x * 0.5, 1.5, corner.y * size.z * 0.5)), rng.randf_range(2.0, 3.0), Palette.WOOD.lerp(Palette.MOSS, 0.4), 0, 0.35, rng.randi())
+	for i in 4 + int(size.x * size.z / 200.0):
+		b.blob(_xf(Vector3(rng.randf_range(-0.45, 0.45) * size.x, size.y + rng.randf_range(0.2, 1.4), rng.randf_range(-0.45, 0.45) * size.z)), rng.randf_range(1.5, 3.0), greens[rng.randi() % 4], 0, 0.3, rng.randi())
+	var merged := ArrayMesh.new()
+	for source: Mesh in [tower(size, variant), b.mesh()]:
+		for surface in source.get_surface_count():
+			merged.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, source.surface_get_arrays(surface))
+			merged.surface_set_material(merged.get_surface_count() - 1, source.surface_get_material(surface))
+	return merged
 
 
 ## Floors just above the waterline crowded with Korean shop signs on both long faces, plus a vertical sign
@@ -563,7 +590,7 @@ static func _crane(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
 
 ## Distant skyline for one chunk of street: plain blocks with floor bands, a roof box and a few lit ribbons, no per-window
 ## geometry. Each block is {"x": across, "z": along (local -Z is forward), "size", "variant"}; y = 0 is the block's base.
-static func backdrop(blocks: Array) -> Mesh:
+static func backdrop(blocks: Array, green := false) -> Mesh:
 	var b := LowPoly.new()
 	for block: Dictionary in blocks:
 		var size: Vector3 = block.size

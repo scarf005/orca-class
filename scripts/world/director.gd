@@ -38,6 +38,9 @@ const ENEMY_SCRIPTS := {
 	"hi_mo": "res://scripts/enemies/hi_mo.gd",
 	"borer": "res://scripts/enemies/borer.gd",
 	"wing": "res://scripts/enemies/wing.gd",
+	"crocodile": "res://scripts/enemies/crocodile.gd",
+	"burner": "res://scripts/enemies/burner.gd",
+	"fortress": "res://scripts/enemies/fortress.gd",
 }
 
 const MIDBOSS_RESUME := 0.6 ## Seconds after the mid-boss dies before the rail runs again.

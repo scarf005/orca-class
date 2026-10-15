@@ -6,7 +6,7 @@ const BESTS_PATH := "user://bests.cfg"
 
 enum Difficulty { NORMAL, HARD, EASY }
 
-const STAGE_COUNT := 3
+const STAGE_COUNT := 4
 
 ## Default bindings. Each entry is a list of InputEvents; keyboard/mouse events are rebindable.
 ## The keyboard needs only WASD, Space and the mouse: W/S also boost and brake the rail, Space or the right

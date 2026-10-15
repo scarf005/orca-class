@@ -42,7 +42,7 @@ var sun_energy := 1.0
 
 ## The definition of stage `number` (1-based).
 static func of(number: int) -> StageDef:
-	return [Stage1, Stage2, Stage3][number - 1].new()
+	return [Stage1, Stage2, Stage3, Stage4][number - 1].new()
 
 
 func section_at(d: float) -> int:

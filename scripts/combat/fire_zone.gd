@@ -5,6 +5,7 @@ extends Node3D
 ## that flares up when lit, pulses, cools as the zone ages and dies down before the scorch mark.
 
 const MAX_ZONES := 40
+const HOSTILE_DAMAGE := 6.0 ## Per tick (0.2 s) to a tank standing in a hostile patch.
 const RADIUS := 3.5
 const DAMAGE_PER_SECOND := 20.0
 const LIFE := 6.0
@@ -20,6 +21,7 @@ static var _zones: Array[FireZone] = []
 
 var life := LIFE
 var weapon := "collateral"
+var hostile := false ## Enemy fire: it burns the tank and props, not the enemies.
 var _age := 0.0
 var _tick := 0.0
 var _phase := randf() * TAU
@@ -30,13 +32,14 @@ var _rim := MeshInstance3D.new()
 var _core := MeshInstance3D.new()
 
 
-static func ignite(point: Vector3, cause := "collateral") -> void:
+static func ignite(point: Vector3, cause := "collateral", hostile_fire := false) -> void:
 	for zone in _zones:
-		if is_instance_valid(zone) and zone.global_position.distance_to(point) < RADIUS:
+		if is_instance_valid(zone) and zone.hostile == hostile_fire and zone.global_position.distance_to(point) < RADIUS:
 			zone.life = maxf(zone.life, LIFE)
 			return
 	var zone := FireZone.new()
 	zone.weapon = cause
+	zone.hostile = hostile_fire
 	World.current.add_child(zone)
 	zone.global_position = point
 	_zones.append(zone)
@@ -145,7 +148,12 @@ func _process(delta: float) -> void:
 	if _tick > 0.0:
 		return
 	_tick = 0.2
-	for entity in world.enemies.duplicate():
+	var tank := world.player
+	if hostile and tank != null and not tank.dead and tank.global_position.distance_to(global_position) < RADIUS + tank.radius:
+		var scald := Hit.make(Hit.Kind.FIRE, HOSTILE_DAMAGE, global_position)
+		scald.weapon = weapon
+		tank.take_hit(scald)
+	for entity in [] if hostile else world.enemies.duplicate():
 		if not entity.flying and entity.global_position.distance_to(global_position) < RADIUS + entity.radius:
 			var burn := Hit.make(Hit.Kind.FIRE, DAMAGE_PER_SECOND * 0.2, global_position)
 			burn.incendiary = true

@@ -33,6 +33,7 @@ var _light: MeshInstance3D
 var _rotors: Array[Node3D] = []
 var _buzz: AudioStreamPlayer3D
 var phase := randf() * TAU
+var napalm := false ## Slung with jellied fuel: where it comes down, shot or spent, the ground burns.
 
 
 func _init() -> void:
@@ -53,6 +54,11 @@ func build() -> void:
 	var body := MeshInstance3D.new()
 	body.mesh = ActorMeshes.mesh("fpv_drone", "body")
 	model.add_child(body)
+	if napalm:
+		var canister := MeshInstance3D.new()
+		canister.mesh = ActorMeshes.mesh("burner", "canister")
+		canister.position = Vector3(0, -0.15, 0.1)
+		model.add_child(canister)
 	for i in 4:
 		var angle := PI * 0.25 + i * PI * 0.5
 		var rotor := MeshInstance3D.new()
@@ -267,6 +273,18 @@ func interrupt() -> void:
 
 ## Blows up on contact without scoring a kill for the player.
 func _explode() -> void:
+	_splash()
 	World.current.fx.explosion(global_position, 1.6)
 	Sfx.play("blast_small", global_position)
 	despawn()
+
+
+func on_death(hit: Hit) -> void:
+	super(hit)
+	_splash()
+
+
+## A napalm drone sets the ground under it alight.
+func _splash() -> void:
+	if napalm:
+		FireZone.ignite(Vector3(global_position.x, Course.height_at(global_position), global_position.z), "napalm", true)

@@ -172,7 +172,7 @@ func _build_async(index: int) -> void:
 
 static func _mesh_key(index: int) -> String:
 	var stage := Course.stage
-	var builtin: bool = stage.get_script() in [Stage1, Stage2, Stage3]
+	var builtin: bool = stage.get_script() in [Stage1, Stage2, Stage3, Stage4]
 	var identity: int = stage.get_script().get_instance_id() if builtin else stage.get_instance_id()
 	return str([index, Course.flat, identity, stage.plan, stage.arenas])
 

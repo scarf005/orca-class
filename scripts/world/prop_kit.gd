@@ -75,6 +75,9 @@ static func structure_mesh(kind: String, size: Vector3, variant: int) -> Mesh:
 	var key := "%s:%s:%d" % [kind, size, variant]
 	if _cache.has(key):
 		return _cache[key]
+	if kind == "jungle_building":
+		_cache[key] = CityKit.overgrown(size, variant)
+		return _cache[key]
 	if kind in ["city_building", "city_ruin", "city_leaning", "city_terminal", "city_department", "city_clock", "city_toppled", "city_sag_span", "container", "ship", "tunnel_roof", "tunnel_wall"]:
 		var mesh_kind: String = {
 			"city_building": "tower", "city_ruin": "ruin", "city_leaning": "tower", "city_terminal": "terminal",
@@ -121,6 +124,11 @@ static func _xf(pos: Vector3, yaw := 0.0) -> Transform3D:
 
 static func house(variant: int, rng: RandomNumberGenerator) -> Mesh:
 	return _house(LowPoly.new(), variant, Vector2(rng.randf_range(7.0, 9.0), rng.randf_range(5.0, 6.0))).mesh()
+
+
+## A vine-wrapped tower at a typical size; the stage's ruins are measured and drawn through `structure_mesh`.
+static func jungle_building(variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	return CityKit.overgrown(Vector3(14.0, 36.0, 14.0), variant)
 
 
 static func kiosk(variant: int, _rng: RandomNumberGenerator) -> Mesh:
@@ -617,6 +625,38 @@ static func plane_tree(variant: int, rng: RandomNumberGenerator) -> Mesh:
 	b.prism(Transform3D(), 0.4, 6.0, 6, Palette.MIST, 0.3)
 	for i in 5:
 		b.blob(_xf(Vector3(rng.randf_range(-2, 2), rng.randf_range(6, 9), rng.randf_range(-2, 2))), rng.randf_range(1.8, 2.6), [Palette.BUTTER, Palette.STRAW, Palette.PEACH][(i + variant) % 3], 0, 0.3, i)
+	return b.mesh()
+
+
+## A strangler fig: a buttressed trunk under tiers of dense canopy.
+static func jungle_tree(variant: int, rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.prism(Transform3D(), 1.1, 11.0, 6, Palette.WOOD, 0.5)
+	for i in 4:
+		var angle := TAU * i / 4.0 + rng.randf()
+		b.prism(Transform3D(Basis(Vector3.UP, angle) * Basis(Vector3.FORWARD, 0.5), Vector3(cos(angle), 0.0, sin(angle)) * 0.5), 0.35, 3.5, 4, Palette.WOOD, 0.1)
+	for i in 7:
+		var tier := float(i) / 6.0
+		var angle := rng.randf() * TAU
+		var reach := (1.0 - tier * 0.5) * 3.2
+		b.blob(_xf(Vector3(cos(angle) * reach, 9.0 + tier * 5.0, sin(angle) * reach)), rng.randf_range(2.6, 3.8), [Palette.PINE, Palette.MOSS, Palette.LEAF][(i + variant) % 3], 0, 0.3, i)
+	return b.mesh()
+
+
+static func palm(variant: int, rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	b.prism(Transform3D(), 0.3, 7.0, 5, Palette.WOOD, 0.2)
+	for i in 6:
+		var angle := TAU * i / 6.0 + variant
+		b.prism(Transform3D(Basis(Vector3.UP, -angle) * Basis(Vector3.FORWARD, -1.2), Vector3(0, 7.0, 0)), 0.18, 3.6 + rng.randf(), 4, Palette.LEAF, 0.02)
+	return b.mesh()
+
+
+static func fern(variant: int, rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	for i in 5:
+		var angle := TAU * i / 5.0 + rng.randf()
+		b.prism(Transform3D(Basis(Vector3.UP, -angle) * Basis(Vector3.FORWARD, -0.9), Vector3.ZERO), 0.12, 1.5 + rng.randf() * 0.5, 4, [Palette.LEAF, Palette.MOSS, Palette.SAGE][(i + variant) % 3], 0.02)
 	return b.mesh()
 
 
