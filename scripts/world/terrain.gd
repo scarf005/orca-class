@@ -50,8 +50,8 @@ func _ready() -> void:
 	if mesh:
 		_water = MeshInstance3D.new()
 		_water.mesh = mesh
-		var material := water_material(Course.stage.number == 2)
-		if Course.stage.number == 2:
+		var material := water_material(Course.stage.number in [2, 4])
+		if Course.stage.number in [2, 4]:
 			material.roughness = 0.75
 			material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 			material.metallic_specular = 0.12

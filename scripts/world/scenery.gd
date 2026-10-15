@@ -649,14 +649,18 @@ func _jungle() -> void:
 			continue
 		var section := stage.section_at(float(d))
 		var limit := stage.lateral_limit(float(d))
-		var wet := stage.ford_weight(float(d)) > 0.0
+		var wet := stage.ford_weight(float(d)) > 0.0 or stage.gorge_depth(float(d), 0.0) > 1.0
 		for side in [-1.0, 1.0]:
 			if rng.randf() < tree_density[section] and not wet:
-				add("jungle_tree", float(d) + rng.randf_range(-4.0, 4.0), side * (limit + rng.randf_range(-2.0, 10.0)), rng.randf() * TAU, rng.randi_range(0, 5))
-		for i in int(brush_density[section] * 2.0):
+				add("jungle_tree", float(d) + rng.randf_range(-4.0, 4.0), side * (limit + rng.randf_range(-1.0, 22.0)), rng.randf() * TAU, rng.randi_range(0, 5))
+		for i in 0 if wet else int(brush_density[section] * 2.0):
 			if rng.randf() < minf(brush_density[section], 0.9):
 				var reach := limit * (1.0 if section == Stage4.Section.STUMPS else 0.6) + (6.0 if section == Stage4.Section.STUMPS else 2.0)
 				add("fern" if rng.randf() < 0.7 else "palm", float(d) + rng.randf_range(-3.0, 3.0), rng.randf_range(-1.0, 1.0) * reach, rng.randf() * TAU, rng.randi_range(0, 5))
+	for d0 in range(0, avenue_from, int(JungleWall.CHUNK)):
+		var mesh := JungleWall.chunk(stage, float(d0))
+		if mesh:
+			add_decor(mesh, d0 + JungleWall.CHUNK * 0.5, 0.0, 0.0, 0.0).set_meta("range", 320.0)
 	_fallen_logs(stage)
 	_bridge(stage)
 	# The clearing is ringed with jungle: figs stand shoulder to shoulder past the rim, densest where the fortress comes in.
@@ -674,6 +678,13 @@ func _jungle() -> void:
 			var angle := Stage4.ENTRY_ANGLE + rng.randf_range(-0.7, 0.7)
 			var radius := float(arena.radius) + rng.randf_range(2.0, 100.0)
 			add("fern", float(arena.d) + cos(angle) * radius, sin(angle) * radius, rng.randf() * TAU, rng.randi_range(0, 5))
+		# The fortress's way in lies in ruins: trees already crushed flat along its line, and broken walls and rubble on the plaza.
+		_crushed_swath(float(arena.d), float(arena.radius), rng)
+		for i in 26:
+			var angle := TAU * i / 26.0 + rng.randf_range(-0.1, 0.1)
+			var radius := rng.randf_range(24.0, float(arena.radius) - 14.0)
+			var at := Vector2(cos(angle), sin(angle)) * radius
+			add("city_rubble" if i % 3 else "barricade", float(arena.d) + at.x, at.y, rng.randf() * TAU, rng.randi_range(0, 3))
 		# Wrecks stranded on the plaza give the fight something to read distance against and to smash.
 		for i in 14:
 			var angle := TAU * i / 14.0 + rng.randf_range(-0.2, 0.2)
@@ -692,23 +703,91 @@ func _fallen_logs(stage: Stage4) -> void:
 		add_decor(mesh, d, float(log[1]), 0.0, stage.height(d, float(log[1])) - 0.1).set_meta("range", 500.0)
 
 
-## The broken bridge: guide rails along the ramp to the lip, and the blinking IN sign hung over its foot.
+## The broken bridge: steel truss girders along the ramp to the lip, a snapped deck hanging from it, concrete piers
+## broken off over the river, the far half's deck dangling from the opposite bank, and the blinking IN sign.
 func _bridge(stage: Stage4) -> void:
 	var d := Stage4.GORGE_LIP - Stage4.RAMP_LENGTH
 	var u := Stage4.RAMP_U
 	var origin := Course.to_world(d, u, 0.0)
 	var yaw := Course.yaw_at(d)
+	var at := func(dd: float, uu: float, y: float) -> Vector3: return (Course.to_world(dd, uu, y) - origin).rotated(Vector3.UP, -yaw)
+	var beam := func(b: LowPoly, from: Vector3, to: Vector3, width: float, color: Color) -> void:
+		b.box(Transform3D(Basis.looking_at(to - from, Vector3.UP), (from + to) * 0.5), Vector3(width, width, from.distance_to(to)), color)
+	var steel := Palette.WOOD.lerp(Palette.OCHRE, 0.3)
 	var b := LowPoly.new()
-	for s in range(0, int(Stage4.RAMP_LENGTH) + 1, 5):
+	var rise := 2.6
+	for side: float in [-1.0, 1.0]:
+		var x := u + side * (Stage4.RAMP_HALF + 0.4)
+		var previous := Vector3.INF
+		var previous_foot := Vector3.INF
+		for s in range(0, int(Stage4.RAMP_LENGTH) + 1, 4):
+			var foot: Vector3 = at.call(d + s, x, stage.height(d + s, x))
+			var top := foot + Vector3.UP * rise
+			beam.call(b, foot, top, 0.35, steel)
+			if previous != Vector3.INF:
+				beam.call(b, previous + Vector3.UP * rise, top, 0.3, steel)
+				beam.call(b, previous_foot, top, 0.22, steel)
+			previous = top - Vector3.UP * rise
+			previous_foot = foot
+		# The girders end in a snapped, bent tangle past the lip.
+		var lip: Vector3 = at.call(Stage4.GORGE_LIP, x, Stage4.RAMP_RISE)
+		beam.call(b, lip + Vector3.UP * rise, lip + Vector3(side * 0.6, rise - 1.4, -4.5), 0.3, steel)
+		beam.call(b, lip, lip + Vector3(side * 0.4, -2.5, -3.2), 0.3, steel)
+		b.glow = true
+		b.blob(Transform3D(Basis(), lip + Vector3.UP * (rise + 0.5)), 0.35, Palette.AMBER)
+		b.glow = false
+	# The deck's last slab, snapped and hanging from the lip.
+	var deck: Vector3 = at.call(Stage4.GORGE_LIP + 5.0, u, Stage4.RAMP_RISE - 2.0)
+	b.box(Transform3D(Basis(Vector3.RIGHT, -0.55), deck), Vector3(Stage4.RAMP_HALF * 2.0, 0.7, 11.0), Palette.CONCRETE, Palette.ASH)
+	# Piers standing in the river, broken off at different heights with rebar sticking out.
+	for pier: Array in [[Stage4.GORGE_LIP + 12.0, 4.0], [Stage4.GORGE_LIP + 24.0, 0.0]]:
 		for side: float in [-1.0, 1.0]:
-			var at := Course.ground_at(d + s, u + side * (Stage4.RAMP_HALF + 0.4)) - origin
-			b.box(Transform3D(Basis(), at.rotated(Vector3.UP, -yaw) + Vector3.UP * 0.6), Vector3(0.3, 1.2, 0.3), Palette.ASH, Palette.STONE)
+			var x: float = u + side * 3.8
+			var base: Vector3 = at.call(float(pier[0]), x, Stage4.GORGE_WATER)
+			var top: float = float(pier[1]) - Stage4.GORGE_WATER
+			b.box(Transform3D(Basis(), base + Vector3.UP * top * 0.5), Vector3(2.6, top, 2.6), Palette.CONCRETE.darkened(0.15))
+			b.box(Transform3D(Basis(Vector3.FORWARD, 0.5) * Basis(Vector3.RIGHT, 0.3), base + Vector3.UP * (top + 0.3)), Vector3(2.2, 0.9, 2.2), Palette.CONCRETE)
+			for k in 4:
+				b.prism(Transform3D(Basis(Vector3.RIGHT, (k - 1.5) * 0.25) * Basis(Vector3.FORWARD, (k % 2 - 0.5) * 0.4), base + Vector3(-0.9 + k * 0.6, top, 0.0)), 0.07, 2.2, 3, Palette.ASH, 0.02)
+	# Pylons of the cable-stayed bridge tower over the lip, so the gorge is read from far up the road: stays run back
+	# down to the deck and snapped ones hang beyond.
+	for side: float in [-1.0, 1.0]:
+		var x: float = u + side * (Stage4.RAMP_HALF + 2.6)
+		var foot: Vector3 = at.call(Stage4.GORGE_LIP - 2.0, x, stage.height(Stage4.GORGE_LIP - 2.0, x) - 1.0)
+		b.box(Transform3D(Basis(), foot + Vector3.UP * 12.0), Vector3(2.2, 24.0, 2.2), Palette.CONCRETE)
+		b.box(Transform3D(Basis(), foot + Vector3.UP * 24.5), Vector3(2.6, 1.2, 2.6), Palette.ASH)
+		var top := foot + Vector3.UP * 23.0
+		for k in range(1, 7):
+			beam.call(b, top, at.call(Stage4.GORGE_LIP - 2.0 - 5.0 * k, u + side * (Stage4.RAMP_HALF + 0.3), stage.height(Stage4.GORGE_LIP - 5.0 * k, u)) + Vector3.UP * 0.5, 0.18, Palette.INK)
+		for k in 3:
+			var hang := top + Vector3(-side * 0.3 * k, 0.0, -2.0 - 2.5 * k)
+			beam.call(b, hang, hang + Vector3(-side * 1.2, -7.0 + k * 1.5, -1.5), 0.18, Palette.INK)
+	b.box(Transform3D(Basis(), at.call(Stage4.GORGE_LIP - 2.0, u, stage.height(Stage4.GORGE_LIP - 2.0, u) + 25.0)), Vector3((Stage4.RAMP_HALF + 2.6) * 2.0 + 2.6, 1.1, 1.6), Palette.CONCRETE)
+	# The far half: its deck dangles from the opposite bank into the gorge.
+	var far: Vector3 = at.call(Stage4.GORGE_FAR - 4.0, u, -2.0)
+	b.box(Transform3D(Basis(Vector3.RIGHT, 0.6), far), Vector3(Stage4.RAMP_HALF * 2.0, 0.7, 10.0), Palette.CONCRETE, Palette.ASH)
 	var posts := b.mesh()
 	add_decor(posts, d, u, 0.0, 0.0).set_meta("range", 700.0)
 	var sign_d := d - 24.0
 	var sign := add_decor(_in_sign_mesh(sign_d), sign_d, u, 0.0, stage.height(sign_d, u) + 12.0)
 	sign.set_meta("range", 700.0)
 	_blinking.append(sign)
+
+
+## Felled trunks and flattened crowns lying along the line the fortress drove in on, rim to centre, as one merged mesh.
+func _crushed_swath(centre_d: float, radius: float, rng: RandomNumberGenerator) -> void:
+	var origin := Course.to_world(centre_d, 0.0, 0.0)
+	var yaw := Course.yaw_at(centre_d)
+	var heading := Vector2.from_angle(Stage4.ENTRY_ANGLE)
+	var b := LowPoly.new()
+	for i in 60:
+		var along := rng.randf_range(0.2, 1.45) * radius
+		var at := heading * along + heading.orthogonal() * rng.randf_range(-30.0, 30.0)
+		var p := (Course.to_world(centre_d + at.x, at.y, Course.height(centre_d + at.x, at.y) + 0.5) - origin).rotated(Vector3.UP, -yaw)
+		var fall := Basis(Vector3.UP, -heading.angle() + rng.randf_range(-0.5, 0.5)) * Basis(Vector3.RIGHT, -PI * 0.5)
+		b.prism(Transform3D(fall, p), rng.randf_range(0.5, 1.0), rng.randf_range(9.0, 16.0), 6, Palette.WOOD.darkened(0.3), 0.3)
+		b.blob(Transform3D(Basis().scaled(Vector3(1.4, 0.35, 1.4)), p + fall * Vector3(0.0, 13.0, 0.0)), rng.randf_range(2.5, 4.0), Palette.PINE.lerp(Palette.WOOD, 0.4), 0, 0.3, rng.randi())
+	add_decor(b.mesh(), centre_d, 0.0, 0.0, 0.0).set_meta("range", radius + 300.0)
 
 
 ## The skyline behind the front towers, merged into one mesh per BACKDROP_CHUNK of street to keep the live count low.

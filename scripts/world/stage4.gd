@@ -13,7 +13,7 @@ const HORIZON_SHIFT := 120.0 ## Squads spawn this much farther out, in the haze,
 const HULL_MARGIN := 3.0 ## The floor extends this far past the hull limit so the track samples at the edge never hang.
 const CLEARING_D := 4500.0
 const CLEARING_RADIUS := 160.0
-const ENTRY_OUT := 130.0 ## How far outside the rim the fortress starts.
+const ENTRY_OUT := 80.0 ## How far outside the rim the fortress starts.
 const ENTRY_ANGLE := deg_to_rad(-50.0) ## Where the fortress breaks out of the jungle, seen from the clearing's centre: ahead and to the left.
 const STORM_D := 1750.0
 ## Switchbacks, a meadow, a straight ford, the bend into the gorge, the avenue and the long straight to the clearing.
@@ -21,13 +21,14 @@ const PLAN := [[500.0, 0.0], [260.0, 0.0], [150.0, 80.0], [80.0, 0.0], [150.0, -
 	[300.0, 0.0], [250.0, 20.0], [250.0, -20.0], [600.0, 0.0], [200.0, -60.0], [500.0, 0.0], [200.0, 60.0], [1700.0, 0.0]]
 
 const FORD_D := 2200.0
-const FORD_HALF := 70.0 ## Half the length of the ford's level bed; banks slope away over BANK on each side.
-const BANK := 40.0
+const FORD_HALF := 32.0 ## Half the length of the ford's level bed; banks slope away over BANK on each side.
+const BANK := 26.0
 const FORD_DEPTH := 1.05
 const FORD_WATER := -0.35 ## Over the bed that leaves 0.7 m of water: wading, not swimming.
 const GORGE_LIP := 2960.0 ## Where the broken bridge's deck ends in a cliff, on the left lane.
-const GORGE_FAR := 2980.0 ## The far end of the bowl; its floor climbs out over GORGE_EXIT.
-const GORGE_EXIT := 64.0
+const GORGE_FAR := 2994.0 ## The far end of the bowl; its floor climbs out over GORGE_EXIT.
+const GORGE_EXIT := 64.0 ## The trench lane's long climb out of the riverbed.
+const GORGE_WALL := 16.0 ## The far bank the leap lands on: a steep climb out of the bowl on the bridge side.
 const GORGE_DESCENT := 72.0 ## The right lane's long ramp down into the riverbed.
 const GORGE_DEPTH := 9.0
 const GORGE_WATER := -8.3
@@ -154,7 +155,7 @@ func _generate_entry() -> void:
 	var across := Vector2.from_angle(ENTRY_ANGLE + PI * 0.5)
 	for step in 3:
 		for lane: float in [-1.0, 1.0]:
-			var at := entry_point(40.0 + 55.0 * step) + across * lane * (20.0 + 6.0 * step)
+			var at := entry_point(12.0 + 22.0 * step) + across * lane * (20.0 + 6.0 * step)
 			_structure("jungle_building", at.x, at.y, Vector3(26.0, 26.0 + 8.0 * step, 28.0), -6.0, step * 2 + int(lane > 0.0))
 
 
@@ -184,9 +185,8 @@ func ford_weight(d: float) -> float:
 ## The gorge: how far below the road the floor lies at (d, u). The left lane ends in a cliff at the bridge's lip, the
 ## right lane slopes down a long ramp into the riverbed, and both climb out together on the far side.
 func gorge_depth(d: float, u: float) -> float:
-	var out := smoothstep(GORGE_FAR, GORGE_FAR + GORGE_EXIT, d)
-	var left := smoothstep(GORGE_LIP + 1.0, GORGE_LIP + 3.5, d) - out
-	var right := smoothstep(GORGE_LIP - GORGE_DESCENT, GORGE_LIP - 4.0, d) - out
+	var left := smoothstep(GORGE_LIP + 1.0, GORGE_LIP + 3.5, d) - smoothstep(GORGE_FAR, GORGE_FAR + GORGE_WALL, d)
+	var right := smoothstep(GORGE_LIP - GORGE_DESCENT, GORGE_LIP - 4.0, d) - smoothstep(GORGE_FAR, GORGE_FAR + GORGE_EXIT, d)
 	return GORGE_DEPTH * lerpf(left, right, smoothstep(-1.0, 7.0, u))
 
 
@@ -259,20 +259,26 @@ func water_surface(c: Vector2) -> float:
 func water_mesh() -> ArrayMesh:
 	var b := LowPoly.new()
 	for span: Array in [[FORD_D - FORD_HALF - BANK, FORD_D + FORD_HALF + BANK, FORD_WATER], [GORGE_LIP - GORGE_DESCENT, GORGE_FAR + GORGE_EXIT, GORGE_WATER]]:
+		var level: float = span[2]
 		var d: float = span[0]
 		while d < span[1]:
 			for u in range(-90, 90, 6):
 				var corners := [height(d, u), height(d + 6.0, u), height(d + 6.0, u + 6.0), height(d, u + 6.0), height(d + 3.0, u + 3.0)]
-				if corners.min() >= span[2]:
+				if corners.min() >= level:
 					continue
-				var level: float = span[2]
 				var a := Course.to_world(d, float(u), level)
 				var c := Course.to_world(d + 6.0, float(u), level)
 				var e := Course.to_world(d + 6.0, u + 6.0, level)
 				var f := Course.to_world(d, u + 6.0, level)
-				var tint := Palette.TEAL.lerp(Palette.PINE, 0.3 + 0.4 * clampf((level - float(corners[4])) * 0.5, 0.0, 1.0))
+				var shallow := clampf(1.0 - (level - float(corners[4])) * 1.4, 0.0, 1.0)
+				var tint := Palette.CYAN.lerp(Palette.TEAL, 0.35 + 0.3 * shallow)
 				b.tri(a, c, e, Color(tint, 0.85), Vector3.UP)
 				b.tri(a, e, f, Color(tint, 0.85), Vector3.UP)
+				# Current: pale streaks run with the flow, across the road, thickest over the shallows.
+				var chance := fposmod(sin(d * 12.9898 + u * 78.233) * 43758.5453, 1.0)
+				if chance < 0.18 + 0.2 * shallow:
+					var head := Course.to_world(d + 1.0 + 3.0 * chance, float(u) + 1.0, level + 0.04)
+					b.tri(head, Course.to_world(d + 1.8 + 3.0 * chance, float(u) + 1.0, level + 0.04), Course.to_world(d + 1.4 + 3.0 * chance, float(u) + 4.0 + 8.0 * chance, level + 0.04), Color(Palette.CREAM, 0.7), Vector3.UP)
 			d += 6.0
 	return b.mesh()
 
@@ -281,7 +287,7 @@ func ground_color(d: float, u: float, h: float, slope: float) -> Color:
 	var au := absf(u)
 	var patch := _patch.get_noise_2d(d, u)
 	var growth := smoothstep(-0.3, 0.6, patch)
-	var floor_color := Palette.PINE.lerp(Palette.MOSS, clampf(slope * 2.0 + smoothstep(0.0, 4.0, h) * 0.3, 0.0, 1.0) * 0.6)
+	var floor_color := Palette.PINE.darkened(0.15 * (1.0 - smoothstep(1100.0, 1300.0, d) )).lerp(Palette.MOSS, clampf(slope * 2.0 + smoothstep(0.0, 4.0, h) * 0.3, 0.0, 1.0) * 0.6)
 	floor_color = floor_color.lerp(Palette.SAGE, growth * 0.2).lerp(Palette.LEAF, smoothstep(0.55, 0.9, patch) * 0.2)
 	for arena in arenas:
 		var r := Vector2(d - arena.d, u).length()
@@ -311,13 +317,13 @@ func camera_u(d: float, u: float) -> float:
 ## Each stretch has its own haze: green dusk in the valley, hot haze over the meadow, river mist at the ford, gorge
 ## shadow, the avenue's cool shade and the clearing's open light.
 func fog_tint(d: float) -> Color:
-	return _section_blend([fog_color, fog_color.lerp(Palette.BUTTER, 0.12), fog_color.lerp(Palette.MINT, 0.3), fog_color.lerp(Palette.INK, 0.15), fog_color.lerp(Palette.MOSS, 0.35), fog_color.lerp(Palette.BUTTER, 0.12)], d)
+	return _section_blend([fog_color.lerp(Palette.INK, 0.3), fog_color.lerp(Palette.BUTTER, 0.12), fog_color.lerp(Palette.MINT, 0.3), fog_color.lerp(Palette.INK, 0.15), fog_color.lerp(Palette.MOSS, 0.35), fog_color.lerp(Palette.BUTTER, 0.12)], d)
 
 
 func fog_distance(d: float) -> float:
 	match section_at(d):
 		Section.VERGE:
-			return 300.0
+			return 170.0
 		Section.STUMPS:
 			return 420.0
 		Section.FORD:

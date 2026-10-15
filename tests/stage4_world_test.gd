@@ -6,14 +6,14 @@ const MAX_SLOPE := 0.32
 
 ## Whether `d` lies on the bridge ramp and its cliff or on a fallen fig's roots, which climb and drop steeply by design.
 func _by_a_feature(d: float) -> bool:
-	if d > Stage4.GORGE_LIP - Stage4.RAMP_LENGTH - 2.0 and d < Stage4.GORGE_LIP + 6.0:
+	if d > Stage4.GORGE_LIP - Stage4.RAMP_LENGTH - 2.0 and d < Stage4.GORGE_FAR + Stage4.GORGE_WALL + 2.0:
 		return true
 	return Stage4.LOGS.any(func(log: Array) -> bool: return d > log[0] - 3.0 and d < log[0] + Stage4.LOG_LENGTH + 5.0)
 
 
 ## The wall between the bridge lane and the trench, which drops away as the trench deepens.
 func _on_the_divider(d: float, u: float) -> bool:
-	return d > Stage4.GORGE_LIP - Stage4.GORGE_DESCENT and d < Stage4.GORGE_LIP + 6.0 and u > -2.0 and u < 8.0
+	return d > Stage4.GORGE_LIP - Stage4.GORGE_DESCENT and d < Stage4.GORGE_FAR + Stage4.GORGE_EXIT and u > -2.0 and u < 8.0
 
 
 func test_driveable_jungle_floor_gradient_stays_tank_safe() -> void:
