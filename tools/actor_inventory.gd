@@ -47,7 +47,7 @@ static func names(actor: String, variant: String) -> Array:
 			var result := ["hull"]
 			for name: String in Wing.TURRETS:
 				result.append_array([name, "hatch", "hatch"])
-			return result + ["spine", "engine", "engine"]
+			return result + ["spine", "engine_l", "engine_r"]
 	return []
 
 

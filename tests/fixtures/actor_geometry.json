@@ -477,9 +477,13 @@
         "triangles": 96,
         "sha256": "30162aef1b7f8572c2c563b6c54cc4cdf899ca7a8a5ff97fbb2035921dbe949c"
       },
-      "engine": {
-        "triangles": 36,
-        "sha256": "27862657681390965e8df49e8127f37301381a93306f416865913b86ce8b315b"
+      "engine_l": {
+        "triangles": 380,
+        "sha256": "711507d87fb91d740a86181e84de22ae13d0812da4add39ed9f4c69d0218fd3b"
+      },
+      "engine_r": {
+        "triangles": 380,
+        "sha256": "8b60f9a1baa1b56eb2972330e1bf5402e82922bdedefd2cb75b8e73ea75f17eb"
       },
       "flak": {
         "triangles": 142,
@@ -494,8 +498,8 @@
         "sha256": "36947513683c9374ae526c678b2f2e8e9a3f04b0efdc3680eccdf565cfb057a2"
       },
       "hull": {
-        "triangles": 1714,
-        "sha256": "eeff112399a4624da35d6654a07911145e36ba8d3bf4986fdd6aad5706f707b9"
+        "triangles": 1690,
+        "sha256": "7eb059d3e00e51efac227b662a6239be6070a0e3d00970129c09e4d8328c04a3"
       },
       "rocket": {
         "triangles": 266,

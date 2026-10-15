@@ -133,14 +133,14 @@ func _make_turret(name: String) -> void:
 	_hatches[name] = plates
 
 
-## The dorsal launch cells and the two buried engines: fixed on the back, no hatches.
+## The dorsal launch cells and the two engine nacelles flaming out over the trailing edge: fixed on the back, no hatches.
 func _make_upper(name: String) -> void:
 	var pod := Node3D.new()
 	pod.position = UPPER_AT[name]
 	pod.scale = Vector3.ONE * TURRET_SCALE / MODEL_SCALE
 	model.add_child(pod)
 	_pods[name] = pod
-	_add_mesh(pod, ActorMeshes.mesh("wing", "spine" if name == "spine" else "engine"))
+	_add_mesh(pod, ActorMeshes.mesh("wing", name))
 	if name == "spine":
 		var muzzle := Node3D.new()
 		muzzle.position = Vector3(0, 0.8, 0)
