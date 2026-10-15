@@ -7,19 +7,19 @@ extends StageDef
 enum Section { OUTSKIRTS, AVENUE, PIT, CANYON, RUN }
 
 const SECTION_STARTS := [0.0, 650.0, 1550.0, 2000.0, 3300.0]
-const LENGTH := 6000.0
+const LENGTH := 7900.0
 const HORIZON_SHIFT := 120.0 ## Squads spawn this much farther out, in the haze, and walk in.
 const DRIFT := 9.0 ## How high the sand banks against the towers.
 const HULL_MARGIN := 3.0 ## The floor extends this far past the hull limit so the track samples at the edge never hang.
 const PIT_D := 1800.0
 const PIT_RADIUS := 80.0
 const SPRINT_KMH := 140.0
-const PLAN := [[1100.0, 0.0], [500.0, 30.0], [500.0, -30.0], [500.0, 0.0], [600.0, -40.0], [600.0, 40.0], [2500.0, 0.0], [700.0, 0.0]]
+const PLAN := [[1100.0, 0.0], [500.0, 30.0], [500.0, -30.0], [500.0, 0.0], [600.0, -40.0], [600.0, 40.0], [2500.0, 0.0], [2600.0, 0.0]]
 ## Sand ramps along the run, inside the tank's reach and alternating sides: drifting up one builds speed, and the
 ## faster the tank leaves its lip the higher it flies.
 const HILL_FIRST := 3560.0
 const HILL_SPACING := 400.0 ## Room for the longest leap off one ramp to land short of the next.
-const HILL_COUNT := 5
+const HILL_COUNT := 10 ## Five belly turrets, three structures on the back, and a couple to spare.
 const HILL_LENGTH := 120.0
 const HILL_HEIGHT := 12.0
 const HILL_U := 22.0 ## Lateral offset of a ramp's track.

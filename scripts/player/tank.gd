@@ -147,6 +147,7 @@ var _fall_axis := Vector3.RIGHT ## The hull tips about this, toward where it was
 var airborne := false ## Flying off a ramp's lip: the rail carries it on while it rises and falls.
 var _air_y := 0.0
 var _air_vy := 0.0
+var ramp_lift := 1.0 ## How hard a ramp's lip throws the hull up; the stage 3 boss's bare belly raises it.
 var _ramp := -1.0 ## How far up a ramp's track the hull was last frame (see StageDef.ramp_at).
 var _ramp_slope := 0.0 ## The track's gradient under the hull last frame.
 var _stage_rung := 0 ## The last lock box whose note has rung.
@@ -369,7 +370,7 @@ func _leap(delta: float, d: float) -> void:
 	if ramp < 0.0 and _ramp > 0.9 and _ramp_slope > 0.0:
 		airborne = true
 		_air_y = global_position.y
-		_air_vy = _ramp_slope * (World.current.rail.speed + local_velocity.y)
+		_air_vy = _ramp_slope * (World.current.rail.speed + local_velocity.y) * ramp_lift
 		World.current.fx.dust(global_position, 12, 3.0, Palette.STRAW)
 		Sfx.play("skid", global_position, 0.0, 0.7)
 	_ramp = ramp

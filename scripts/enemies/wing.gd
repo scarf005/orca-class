@@ -4,8 +4,10 @@ extends Enemy
 ## Its five belly turrets open one at a time and fire down at the tank, each until it is shot out. Skirts under
 ## the belly hide them from any shot climbing steeper than SKIRT_ANGLE, so the ground cannot reach them: the tank
 ## drifts up a ramp to build speed and leaps off its lip high enough to snipe the open turret, with time slowed
-## while it has the shot. The hull itself only sparks; the turrets are the boss's health. Past the last ramp it
-## comes down low enough to be shot from the road, and when the last turret goes it falls out of the sky.
+## while it has the shot. Once the belly is bare the ramps throw the tank higher, over the wing, and the structures on
+## its back come into play: a dorsal missile rack and the two engines. The hull itself only sparks; the turrets and
+## those structures are the boss's health. Past the last ramp it comes down low enough to be shot from the road,
+## rearing nose-high to show its back to the road once the belly is bare, and when the last part goes it falls out of the sky.
 
 enum State { CRUISE, DYING }
 
@@ -17,7 +19,9 @@ const TURRET_AT := {
 	"bomb": Vector3(0.0, -1.0, -2.6),
 	"hangar": Vector3(12.0, -0.4, 3.6),
 }
-const LABELS := {"flak": "WING_FLAK", "rocket": "WING_ROCKET", "beam": "WING_BEAM", "bomb": "WING_BOMB", "hangar": "WING_HANGAR"}
+const UPPER := ["spine", "engine_l", "engine_r"] ## On its back: only a tank above the wing sees them.
+const UPPER_AT := {"spine": Vector3(0.0, 1.9, 0.6), "engine_l": Vector3(-3.2, 1.9, 2.4), "engine_r": Vector3(3.2, 1.9, 2.4)}
+const LABELS := {"flak": "WING_FLAK", "rocket": "WING_ROCKET", "beam": "WING_BEAM", "bomb": "WING_BOMB", "hangar": "WING_HANGAR", "spine": "WING_SPINE", "engine_l": "WING_ENGINE_L", "engine_r": "WING_ENGINE_R"}
 const TURRET_HP := 160.0
 const ROUND_DAMAGE := 40.0 ## Like the other bosses, main-gun damage counts in rounds.
 const TURRET_RADIUS := 3.2
@@ -26,17 +30,20 @@ const HULL_SPHERES: Array[Vector3] = [Vector3(0, 0, 6.0), Vector3(-11, 2, 5.0), 
 const OPEN_RATE := 2.2
 const WIND := 0.9
 const STATION := 130.0 ## Metres ahead of the rail the wing keeps.
+const BARE_STATION := 80.0 ## Closer once the belly is bare, so a leap tops out over its back.
 const WEAVE := 20.0 ## Metres it sways across the road.
 const ALTITUDE := 46.0 ## Over the road along the ramps: out of the ground's sight, inside a drifted leap's.
 const LOW_ALTITUDE := 14.0 ## Past the last ramp: low enough for the road to reach.
 const SKIRT_ANGLE := deg_to_rad(10.0) ## Steepest climb a shot can take into the belly's turret bays.
 const SLOW := 0.4 ## Time scale while the tank has a turret in sight in the air.
-const FLIGHT := {"rocket": 1.4, "bomb": 1.8} ## Seconds the ground-attack rounds fall; held while a leap would outlast them.
+const REAR := 0.6 ## Radians it pitches nose-up past the last ramp once its belly is bare.
+const BARE_LIFT := 1.5 ## How much harder the ramps throw the tank up once the belly is bare.
+const FLIGHT := {"rocket": 1.4, "bomb": 1.8, "spine": 1.4} ## Seconds the ground-attack rounds fall; held while a leap would outlast them.
 
 var parts: Dictionary = {}
 var _state := State.CRUISE
 var _forward := Vector3.FORWARD
-var _active := -1 ## Index of the open turret.
+var _active := "" ## The open belly turret, or the spine once the belly is bare.
 var _next := 0
 var _open: Dictionary[String, float] = {}
 var _armed: Dictionary[String, bool] = {} ## Turrets that have fired their first volley.
@@ -60,17 +67,17 @@ func _init() -> void:
 	flying = true
 	trails = true
 	armor = 30.0
-	for name: String in TURRETS:
+	for name: String in TURRETS + UPPER:
 		parts[name] = TURRET_HP
 		_open[name] = 0.0
-	max_hp = TURRET_HP * TURRETS.size()
+	max_hp = TURRET_HP * parts.size()
 	hp = max_hp
 	radius = HULL_RADIUS
 	center_height = 0.0
 	score = 25000
 	despawn_behind = 0.0
 	set_meta("title", "BOSS_WING")
-	set_meta("phase_marks", [0.8, 0.6, 0.4, 0.2])
+	set_meta("phase_marks", range(parts.size() - 1, 0, -1).map(func(i: int) -> float: return float(i) / parts.size()))
 	set_meta("frame", 0.22) # The rail camera leans this far toward it.
 
 
@@ -110,14 +117,14 @@ func build() -> void:
 		b.glow = true
 		b.box(Transform3D(Basis(), Vector3(side * 4.2, 0.0, 6.0)), Vector3(2.4, 0.18, 0.2), Palette.AMBER)
 		b.glow = false
-		b.box(Transform3D(Basis(), Vector3(side * 3.2, 1.2, 2.4)), Vector3(2.4, 1.0, 3.2), Palette.INK)
-		b.box(Transform3D(Basis(Vector3.BACK, side * 0.1), Vector3(side * 3.2, 1.75, 2.0)), Vector3(2.0, 0.12, 3.6), Palette.SLATE)
 		b.box(Transform3D(Basis(), Vector3(side * 4.0, -1.7, 0.4)), Vector3(0.5, 0.35, 10.0), Palette.STONE)
 		for z in [-3.0, 3.6]:
 			b.box(Transform3D(Basis(), Vector3(side * 4.0, -1.1, z)), Vector3(0.3, 1.2, 0.3), Palette.DUSK)
 	_add_mesh(model, b.mesh())
 	for name: String in TURRETS:
 		_make_turret(name)
+	for name: String in UPPER:
+		_make_upper(name)
 
 
 func _add_mesh(parent: Node3D, mesh: Mesh) -> void:
@@ -178,26 +185,65 @@ func _make_turret(name: String) -> void:
 	_hatches[name] = plates
 
 
+## The dorsal missile rack and the engine intakes: fixed on the back, no hatches.
+func _make_upper(name: String) -> void:
+	var pod := Node3D.new()
+	pod.position = UPPER_AT[name]
+	model.add_child(pod)
+	_pods[name] = pod
+	var g := LowPoly.new()
+	if name == "spine":
+		g.box(Transform3D(Basis(), Vector3(0, -0.2, 0)), Vector3(2.6, 0.8, 3.4), Palette.HULL_LIGHT)
+		g.glow = true
+		for x in [-0.7, 0.0, 0.7]:
+			for z in [-0.8, 0.6]:
+				g.tube(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(x, 0.25, z)), 0.22, 0.12, 6, Palette.AMBER)
+		var muzzle := Node3D.new()
+		muzzle.position = Vector3(0, 0.6, 0)
+		pod.add_child(muzzle)
+		_muzzles[name] = muzzle
+	else:
+		var side := signf(UPPER_AT[name].x)
+		g.box(Transform3D(Basis(), Vector3(0, -0.7, 0)), Vector3(2.4, 1.0, 3.2), Palette.INK)
+		g.box(Transform3D(Basis(Vector3.BACK, side * 0.1), Vector3(0, -0.15, -0.4)), Vector3(2.0, 0.12, 3.6), Palette.SLATE)
+		g.glow = true
+		g.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0, -0.7, -1.62)), 0.7, 0.05, 10, Palette.CYAN)
+		g.box(Transform3D(Basis(), Vector3(0, -0.7, 1.62)), Vector3(1.8, 0.5, 0.05), Palette.AMBER)
+	_add_mesh(pod, g.mesh())
+
+
 func _turret_world(name: String) -> Vector3:
 	return _pods[name].global_position
 
 
-## Turrets whose hatches stand open enough to be hit and that the tank can see past the skirts. Like a hunter
-## walking in, a turret cannot be hit before its first volley, so every turret gets to shoot back at least once.
+## Turrets whose hatches stand open enough to be hit and that the tank can see past the skirts, and once the belly
+## is bare the structures on the back the tank sees from above. Like a hunter walking in, a turret cannot be hit
+## before its first volley, so every turret gets to shoot back at least once.
 func _exposed() -> Array[String]:
 	var result: Array[String] = []
 	for name: String in TURRETS:
 		if parts[name] > 0.0 and _open[name] >= 0.5 and _armed.has(name) and in_sight(name):
 			result.append(name)
+	for name: String in UPPER:
+		if parts[name] > 0.0 and bare() and in_sight(name):
+			result.append(name)
 	return result
 
 
-## Whether the tank's gun sees turret `name` past the belly skirts: it climbs no steeper than SKIRT_ANGLE to it.
+## Whether every belly turret is shot out.
+func bare() -> bool:
+	return TURRETS.all(func(name: String) -> bool: return parts[name] <= 0.0)
+
+
+## Whether the tank's gun sees part `name`: a belly turret past the skirts, climbing no steeper than SKIRT_ANGLE to
+## it; a part on the back from at least SKIRT_ANGLE above the wing's upper surface.
 func in_sight(name: String) -> bool:
 	var tank := player()
 	if tank == null:
 		return false
 	var to := _turret_world(name) - tank.hit_center()
+	if name in UPPER:
+		return -to.normalized().dot(model.global_basis.y) >= sin(SKIRT_ANGLE)
 	return atan2(to.y, Vector2(to.x, to.z).length()) <= SKIRT_ANGLE
 
 
@@ -211,7 +257,7 @@ func aim_parts() -> Dictionary:
 
 
 func module_states() -> Array:
-	return TURRETS.map(func(name: String) -> Array: return [tr(LABELS[name]), maxf(parts[name], 0.0) / TURRET_HP])
+	return (TURRETS + UPPER).map(func(name: String) -> Array: return [tr(LABELS[name]), maxf(parts[name], 0.0) / TURRET_HP])
 
 
 ## An open turret hangs below the belly, so a round that reaches it is the turret's even where it also
@@ -261,7 +307,7 @@ func take_hit(hit: Hit) -> void:
 
 func _sum() -> void:
 	hp = 0.0
-	for name: String in TURRETS:
+	for name: String in parts:
 		hp += parts[name]
 
 
@@ -272,8 +318,8 @@ func _break_turret(name: String, direction: Vector3) -> void:
 	Sfx.play("blast", pod.global_position)
 	Wreck.launch(pod, pod.global_position, 2.0, true, direction * 8.0 + Vector3.DOWN * 4.0)
 	_open[name] = 0.0
-	if _active >= 0 and TURRETS[_active] == name:
-		_active = -1
+	if _active == name:
+		_active = ""
 		_end_volley(2.0)
 	world.award(800, pod.global_position, false)
 	if hp <= 0.0:
@@ -291,12 +337,16 @@ func telegraphing() -> bool:
 ## Where it keeps station: ahead of the rail, swaying across the road, high over the ramps and low past them.
 func _station(weave_time: float) -> Vector3:
 	var rail := World.current.rail
-	var d := rail.d + STATION
+	var d := rail.d + (BARE_STATION if bare() else STATION)
 	var u := sin(weave_time * 0.5) * WEAVE
-	var low := Course.stage is Stage3 and rail.d > (Course.stage as Stage3).ramps_end()
 	var p := Course.to_world(d, u)
-	p.y = Course.height(d, u) + (LOW_ALTITUDE if low else ALTITUDE) + sin(weave_time * 1.1) * 2.0
+	p.y = Course.height(d, u) + (LOW_ALTITUDE if _low() else ALTITUDE) + sin(weave_time * 1.1) * 2.0
 	return p
+
+
+## Past the last ramp: down where the road reaches it.
+func _low() -> bool:
+	return Course.stage is Stage3 and World.current.rail.d > (Course.stage as Stage3).ramps_end()
 
 
 func behave(delta: float) -> void:
@@ -308,33 +358,41 @@ func behave(delta: float) -> void:
 		return
 	if tank == null:
 		return
+	tank.ramp_lift = BARE_LIFT if bare() else 1.0
 	var before := global_position
 	global_position = global_position.lerp(_station(age), 1.0 - exp(-2.5 * delta))
 	var moved := global_position - before
 	if moved.length() > 0.001:
 		_forward = _forward.lerp(moved.normalized(), minf(delta * 10.0, 1.0)).normalized()
 	_pose(delta)
-	if _active < 0:
+	if _active.is_empty():
 		_open_next()
 	_update_turrets(delta, tank)
 	world.slow = SLOW if tank.airborne and not _exposed().is_empty() else 1.0
 
 
-## Banks into its sway.
+## Banks into its sway; down low with a bare belly it rears nose-high, its back to the chasing tank.
 func _pose(delta: float) -> void:
+	var ahead := _forward
 	var up := Vector3.UP.rotated(_forward, -cos(age * 0.5) * 0.3)
-	model.global_basis = model.global_basis.orthonormalized().slerp(Basis.looking_at(_forward, up), minf(delta * 8.0, 1.0)) if delta > 0.0 else model.global_basis
+	if bare() and _low():
+		var right := _forward.cross(Vector3.UP).normalized()
+		ahead = _forward.rotated(right, REAR)
+		up = Vector3.UP.rotated(right, REAR)
+	model.global_basis = model.global_basis.orthonormalized().slerp(Basis.looking_at(ahead, up), minf(delta * 8.0, 1.0)) if delta > 0.0 else model.global_basis
 
 
 func _open_next() -> void:
 	for i in TURRETS.size():
 		var index := (_next + i) % TURRETS.size()
 		if parts[TURRETS[index]] > 0.0:
-			_active = index
+			_active = TURRETS[index]
 			_next = index + 1
-			_cool = 0.4
 			_end_volley(0.8)
 			return
+	if parts.spine > 0.0:
+		_active = "spine"
+		_end_volley(0.8)
 
 
 func _end_volley(pause: float) -> void:
@@ -346,7 +404,7 @@ func _end_volley(pause: float) -> void:
 
 func _update_turrets(delta: float, tank: Tank) -> void:
 	for name: String in TURRETS:
-		var want := 1.0 if _active >= 0 and TURRETS[_active] == name and parts[name] > 0.0 else 0.0
+		var want := 1.0 if _active == name and parts[name] > 0.0 else 0.0
 		_open[name] = move_toward(_open[name], want, OPEN_RATE * delta)
 		if parts[name] <= 0.0:
 			continue
@@ -356,9 +414,9 @@ func _update_turrets(delta: float, tank: Tank) -> void:
 		_pods[name].position.y = -1.2 * _open[name]
 		if want == 0.0 and _open[name] < 0.5:
 			_pods[name].basis = Basis.looking_at(Vector3(0, 0, 1))
-	if _active < 0 or _open[TURRETS[_active]] < 0.9:
+	if _active.is_empty() or (_active in TURRETS and _open[_active] < 0.9):
 		return
-	var name: String = TURRETS[_active]
+	var name := _active
 	aim_barrel(_pods[name], _aim_point(name, tank), 4.0, delta)
 	if _cool > 0.0:
 		_cool -= delta
@@ -394,7 +452,7 @@ func _begin_volley(name: String, tank: Tank) -> void:
 			var end := _through(muzzle, _aim)
 			world.fx.beam(muzzle, end, Palette.HOT, 0.14, _wind)
 			world.fx.marker(end, 4.0, _wind, Palette.RED)
-		"rocket", "bomb":
+		"rocket", "bomb", "spine":
 			world.fx.beam(muzzle, _aim, Palette.HOT, 0.1, _wind)
 		_:
 			world.fx.beam(muzzle, tank.hit_center(), Palette.HOT, 0.1, _wind)
@@ -413,7 +471,7 @@ func _fire(name: String, tank: Tank) -> void:
 			_shot_timer = 0.07
 			if _shots >= 14:
 				_end_volley(1.6)
-		"rocket":
+		"rocket", "spine":
 			# Each rocket falls where the tank will be when it arrives, held while the tank is in the air until it
 			# would come down on the landing, the salvo spread across the lane it was in when the volley was called,
 			# narrow enough that one drift out of the lane at the first marker clears it.
@@ -510,6 +568,8 @@ func _die_in_the_air(delta: float) -> void:
 func on_death(_hit: Hit) -> void:
 	var world := World.current
 	world.slow = 1.0
+	if player() != null:
+		player().ramp_lift = 1.0
 	world.fx.explosion(global_position, 12.0)
 	world.fx.shockwave(global_position, 40.0, Palette.BUTTER)
 	world.fx.debris(global_position, 40, debris, 20.0, 0.8)
