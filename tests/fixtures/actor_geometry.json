@@ -226,6 +226,12 @@
         "sha256": "29c8e3194010e122fd361fbc2e2a5cb4efe384d38ff0b95c4a63761b0f6e65ab"
       }
     },
+    "husk": {
+      "body": {
+        "triangles": 1024,
+        "sha256": "c9ce534ea6fa7ba734b1252775f1bad295ab5e556e3a18439f2b9f148f58ea1c"
+      }
+    },
     "quad_mech": {
       "body": {
         "triangles": 96,
@@ -276,6 +282,20 @@
       "stalk": {
         "triangles": 24,
         "sha256": "8c02a0e0795a5ec0bdeba2ee7f74940e4f44794e99ff8f5b7deca63373a0740a"
+      }
+    },
+    "sporefly": {
+      "body": {
+        "triangles": 460,
+        "sha256": "08bcb6b182136552a1c11709feef829c10ac46bbf6875e68a8cf00a98c3f1ec2"
+      },
+      "light": {
+        "triangles": 64,
+        "sha256": "6d3f8ccd231b85b616c1e3c73bc1b3950e9bd866fb328c832709e5bd61433671"
+      },
+      "wing": {
+        "triangles": 20,
+        "sha256": "3ff68396061e54b5b99c9cec869fac49dcb08c44eb9ba8643053b385b9b3022f"
       }
     },
     "tank": {

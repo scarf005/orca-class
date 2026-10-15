@@ -53,6 +53,8 @@ from Godot's importer and release builds. Commit both the edited `.blend` and it
 | gunship | Body, masts/blades/discs, gatling balls/mounts/barrels, chin mount and canisters, flank/nose armor, racks, cannon, bay, three fungus templates; all phases |
 | flare | Decoy body: an enemy-team Entity that intercepts shells, not just a particle |
 | wing | Stage 3 boss airframe, five belly turrets sharing one hatch, dorsal launch cells, left/right engines |
+| husk | Stage 1 rhinoceros/Hercules beetle: shell, horns, legs |
+| sporefly | Stage 1 botfly with a puffball abdomen: body, spun wing, eyes |
 
 Only Crawler bodies and Gunship fungus need per-spawn mesh deformation. `ActorDeform`
 uses the authored unit surfaces and the original random displacement, radii and
@@ -63,6 +65,7 @@ Particle debris, smoke, trails, projectiles, pickups and scenery are outside thi
 migration; their lifecycle limits are unchanged.
 
 `tests/fixtures/actor_geometry.json` records oriented-triangle fingerprints from
-production builders at `c451f98`, including seeded random bodies. Update the relevant
-fingerprint only after reviewing an intentional art change; do not refresh it to
-hide an export regression. `tools/actor_inventory.gd` enumerates runtime variants.
+production builders at `c451f98`, including seeded random bodies. Actors authored directly
+in Blender (husk onward) have no code baseline, so their entries record the reviewed exports.
+Update the relevant fingerprint only after reviewing an intentional art change; do not
+refresh it to hide an export regression. `tools/actor_inventory.gd` enumerates runtime variants.

@@ -14,28 +14,19 @@ func _init() -> void:
 
 
 func build() -> void:
-	var b := LowPoly.new()
-	b.blob(Transform3D(Basis().scaled(Vector3(0.8, 0.7, 1.1)), Vector3.ZERO), 0.6, Palette.MAUVE, 0, 0.12, 7)
-	b.blob(Transform3D(Basis(), Vector3(0, 0.15, 0.55)), 0.35, Palette.LILAC, 0, 0.2, 2)
 	var body := MeshInstance3D.new()
-	body.mesh = b.mesh()
+	body.mesh = ActorMeshes.mesh("sporefly", "body")
 	model.add_child(body)
-	var wing := LowPoly.new()
-	wing.box(Transform3D(), Vector3(0.9, 0.03, 0.28), Palette.MIST)
-	for i in 4:
-		var angle := PI * 0.25 + i * PI * 0.5
+	for slot: Vector2 in [Vector2(0.69, -0.375), Vector2(-0.69, -0.375), Vector2(0.63, 0.31), Vector2(-0.63, 0.31)]:
 		var rotor := MeshInstance3D.new()
-		rotor.mesh = wing.mesh()
-		rotor.position = Vector3(cos(angle), 0.2, sin(angle)) * 0.5
+		rotor.mesh = ActorMeshes.mesh("sporefly", "wing")
+		rotor.position = Vector3(slot.x, 0.375, slot.y)
 		rotor.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		model.add_child(rotor)
 		_rotors.append(rotor)
-	var pod := LowPoly.new()
-	pod.glow = true
-	pod.blob(Transform3D(), 0.22, Palette.FUNGUS)
 	_light = MeshInstance3D.new()
-	_light.mesh = pod.mesh()
-	_light.position = Vector3(0, 0, -0.65)
+	_light.mesh = ActorMeshes.mesh("sporefly", "light")
+	_light.position = Vector3(0, 0.0625, -0.9)
 	var material := StandardMaterial3D.new()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.albedo_color = Palette.FUNGUS
