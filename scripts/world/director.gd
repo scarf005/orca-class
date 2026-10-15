@@ -10,6 +10,8 @@ signal incoming(from: Vector3) ## A wave is arriving from outside the view; the 
 
 const ENEMY_SCRIPTS := {
 	"fpv": "res://scripts/enemies/fpv_drone.gd",
+	"sporefly": "res://scripts/enemies/sporefly.gd",
+	"husk": "res://scripts/enemies/husk.gd",
 	"ugv": "res://scripts/enemies/ugv.gd",
 	"uav": "res://scripts/enemies/uav.gd",
 	"crawler": "res://scripts/enemies/crawler.gd",
@@ -204,7 +206,7 @@ func send_pursuers(count: int, pattern: FpvDrone.Pattern) -> Array[Enemy]:
 		return sent
 	var center := Vector3.ZERO
 	for i in count:
-		var drone := FpvDrone.new()
+		var drone := Sporefly.new()
 		drone.state = FpvDrone.State.PURSUE
 		drone.pattern = pattern
 		drone.side = -1.0 if i % 2 == 0 else 1.0

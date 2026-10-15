@@ -147,7 +147,7 @@ func test_stage_events_are_ordered_and_reach_the_boss() -> void:
 		if e.type == "wave":
 			kinds[e.kind] = true
 			check(Director.ENEMY_SCRIPTS.has(e.kind), "wave kind %s has a script" % e.kind)
-	for kind in ["fpv", "ugv", "uav", "crawler", "spitter", "walker", "quad"]:
+	for kind in ["sporefly", "husk", "crawler", "spitter"]:
 		check(kinds.has(kind), "stage uses %s" % kind)
 	var mid := events.find_custom(func(e: Dictionary) -> bool: return e.type == "midboss")
 	var boss := events.find_custom(func(e: Dictionary) -> bool: return e.type == "boss")

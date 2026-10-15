@@ -484,6 +484,20 @@ func on_death(hit: Hit) -> void:
 		world.spawn_pickup(drop, center + Vector3.UP * 0.5)
 
 
+## A soft body bursts into a spore puff and chunks instead of a fireball, and scores.
+func soft_death(hit: Hit) -> void:
+	var world := World.current
+	world.fx.spores(hit_center(), 10, 1.0)
+	world.fx.shatter(visual_bounds(), debris, Enemy.kill_push(hit))
+	world.award(score, hit_center(), true)
+	world.kill_style(hit, self)
+	Sfx.play("squelch", hit_center(), 0.0, 1.1)
+	if hit and hit.kind == Hit.Kind.FIRE:
+		world.fx.spawn(Fx.Kind.FLAME, hit_center(), Vector3.UP * 3.0, 0.5, 1.2, Palette.PEACH)
+	if not drop.is_empty():
+		world.spawn_pickup(drop, hit_center() + Vector3.UP)
+
+
 static var DISMEMBER_SPEED := 16.0 ## Outward speed (m/s) a shell kill tears the pieces apart at (tuned live in the duel mode).
 static var DISMEMBER_FOCUS := 1.0 ## How much a harder shot narrows the burst toward its own flight (0: always a full burst).
 

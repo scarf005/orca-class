@@ -7,9 +7,7 @@ func test_stage_attacks_from_behind_and_the_flanks() -> void:
 	var behind := events.filter(func(e: Dictionary) -> bool: return e.type == "wave" and (e.get("formation", "") == "behind" or e.get("props", {}).get("from_behind", false)))
 	var flank := events.filter(func(e: Dictionary) -> bool: return e.type == "wave" and e.get("formation", "") == "flank")
 	check(behind.size() >= 6, "at least six scripted waves come from behind (got %d); rear drones are the dynamic pursuit now" % behind.size())
-	check(not behind.any(func(e: Dictionary) -> bool: return e.kind == "fpv"), "rear FPV drones are not scripted: the pursuit sends them")
-	check(behind.any(func(e: Dictionary) -> bool: return e.kind in ["ugv", "walker"]), "ground vehicles run the tank down from behind")
-	check(behind.any(func(e: Dictionary) -> bool: return e.kind == "uav"), "UAVs make passes from behind")
+	check(behind.any(func(e: Dictionary) -> bool: return e.kind == "sporefly"), "sporeflies come from behind")
 	check(flank.size() >= 2, "some waves come in from the valley sides")
 
 
@@ -72,15 +70,13 @@ func test_full_screen_scales_without_whole_number_letterboxing() -> void:
 	check(ProjectSettings.get_setting("display/window/stretch/scale_mode") == "fractional", "the canvas scales to fill the screen")
 
 
-func test_air_hunters_and_gunship_boss_on_both_difficulties() -> void:
+func test_lobbers_and_gunship_boss_on_both_difficulties() -> void:
 	for hard in [false, true]:
 		var events := Stage1.new().events(hard)
-		var waves := events.filter(func(e: Dictionary) -> bool: return e.type == "wave" and e.kind in ["helicopter", "tiltrotor"])
-		var tiltrotors := events.filter(func(e: Dictionary) -> bool: return e.type == "wave" and e.kind == "tiltrotor")
+		var lobbers := events.filter(func(e: Dictionary) -> bool: return e.type == "wave" and e.kind == "spitter" and e.get("hard_scale", 1.4) == 1.0)
 		for section in [Stage1.Section.VILLAGE, Stage1.Section.RESERVOIR, Stage1.Section.OVERPASS]:
-			check(waves.any(func(e: Dictionary) -> bool: return Course.section_at(e.d) == section), "helicopters or tiltrotors patrol section %d" % section)
-			check_eq(tiltrotors.filter(func(e: Dictionary) -> bool: return Course.section_at(e.d) == section).size(), 1, "one tiltrotor in section %d" % section)
-		check(tiltrotors.all(func(e: Dictionary) -> bool: return _size(e, hard) == 1), "a tiltrotor wave is never scaled up")
+			check_eq(lobbers.filter(func(e: Dictionary) -> bool: return Course.section_at(e.d) == section).size(), 1, "one unscaled spitter lobs from the bank in section %d" % section)
+		check(lobbers.all(func(e: Dictionary) -> bool: return _size(e, hard) == 1), "a bank spitter wave is never scaled up")
 		var bosses := events.filter(func(e: Dictionary) -> bool: return e.type == "boss")
 		check_eq(bosses.size(), 1, "stage has one final boss")
 		check_eq(bosses[0].kind, "gunship", "stage ends with the new gunship")
@@ -147,7 +143,6 @@ func test_helicopter_telegraphs_bursts_and_cleans_up() -> void:
 
 const BUDGETS := {Stage1.Section.FARM: 10, Stage1.Section.VILLAGE: 20, Stage1.Section.RESERVOIR: 22, Stage1.Section.OVERPASS: 20}
 const PEAKS := {Stage1.Section.VILLAGE: Vector2(1085.0, 1195.0), Stage1.Section.RESERVOIR: Vector2(2185.0, 2370.0), Stage1.Section.OVERPASS: Vector2(3065.0, 3235.0)}
-const GROUND := ["ugv", "walker", "spitter", "crawler", "quad"]
 
 
 func _waves(hard: bool) -> Array[Dictionary]:
@@ -236,27 +231,27 @@ func test_every_section_has_a_release() -> void:
 			gaps.append(marks[i + 1] - marks[i])
 		check(gaps.max() >= 120.0, "section %d has a 120 m stretch without a spawn (longest %.0f)" % [section, gaps.max()])
 	var reservoir := _section_waves(waves, Stage1.Section.RESERVOIR)
-	check(reservoir.filter(func(w: Dictionary) -> bool: return w.d > 2440.0).size() == 1, "the reservoir release holds only the supply UGV")
+	check(reservoir.filter(func(w: Dictionary) -> bool: return w.d > 2440.0).size() == 1, "the reservoir release holds only the husk carrying the repair")
 	var overpass := _section_waves(waves, Stage1.Section.OVERPASS)
 	check(overpass.all(func(w: Dictionary) -> bool: return w.d <= 3260.0), "the overpass releases from d 3260 to the boss")
 
 
-func test_reservoir_is_mostly_air() -> void:
+func test_reservoir_is_mostly_sporeflies() -> void:
 	var waves := _section_waves(_waves(false), Stage1.Section.RESERVOIR)
-	var ground := _total(waves.filter(func(w: Dictionary) -> bool: return w.kind in GROUND), false)
-	var share := float(ground) / _total(waves, false)
-	check(share <= 0.3, "ground units are %.0f%% of the reservoir" % (share * 100.0))
+	var swarm := _total(waves.filter(func(w: Dictionary) -> bool: return w.kind == "sporefly"), false)
+	var share := float(swarm) / _total(waves, false)
+	check(share >= 0.6, "sporeflies are %.0f%% of the reservoir" % (share * 100.0))
 
 
-func test_first_uav_pass_and_the_quad_duel_stand_alone() -> void:
+func test_first_lone_sporefly_and_the_husk_duel_stand_alone() -> void:
 	var waves := _waves(false)
-	var uav := waves.filter(func(w: Dictionary) -> bool: return w.kind == "uav")[0] as Dictionary
-	var quad := waves.filter(func(w: Dictionary) -> bool: return w.kind == "quad" and Course.section_at(w.d) == Stage1.Section.VILLAGE)[0] as Dictionary
+	var lone := waves.filter(func(w: Dictionary) -> bool: return w.kind == "sporefly" and Course.section_at(w.d) == Stage1.Section.VILLAGE and w.d > 700.0)[0] as Dictionary
+	var duel := waves.filter(func(w: Dictionary) -> bool: return w.kind == "husk" and w.d > 1200.0 and Course.section_at(w.d) == Stage1.Section.VILLAGE)[0] as Dictionary
 	for other in waves:
-		if other != uav:
-			check(absf(other.d - uav.d) >= 60.0, "nothing spawns within 60 m of the first UAV pass (%s at %d)" % [other.kind, other.d])
-		if other != quad:
-			check(absf(other.d - quad.d) >= 100.0, "nothing spawns within 100 m of the quad duel (%s at %d)" % [other.kind, other.d])
+		if other != lone:
+			check(absf(other.d - lone.d) >= 60.0, "nothing spawns within 60 m of the lone sporefly (%s at %d)" % [other.kind, other.d])
+		if other != duel:
+			check(absf(other.d - duel.d) >= 100.0, "nothing spawns within 100 m of the husk duel (%s at %d)" % [other.kind, other.d])
 
 
 func test_telegraphed_blasts_hit_hard_enough_to_matter() -> void:

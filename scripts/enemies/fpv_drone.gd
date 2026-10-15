@@ -122,11 +122,7 @@ func behave(delta: float) -> void:
 			global_position.y = maxf(global_position.y, Course.height_at(global_position) + 0.5) # Skims the ground, never crashes into it.
 			model.look_at(global_position + _dive_dir, Vector3.UP if absf(_dive_dir.y) < 0.95 else Vector3.BACK)
 			if tank.hit_center().distance_to(global_position) < tank.radius + 0.8 and not tank.dead:
-				var boom := Hit.make(Hit.Kind.BLAST, 14.0, global_position, _dive_dir)
-				boom.source = self
-				boom.warhead = true
-				tank.take_hit(boom)
-				_explode()
+				_strike(tank)
 			elif _state_time > DIVE_TIME:
 				despawn() # Outrun or dodged: it gives up quietly, no blast.
 		State.PURSUE:
@@ -189,14 +185,28 @@ func _start_dive(tank: Tank) -> void:
 	(_light.material_override as StandardMaterial3D).albedo_color = Palette.RED
 	_light.visible = true
 	if Game.difficulty == Game.Difficulty.HARD and state == State.TELEGRAPH:
-		var rocket := fire_at("rocket", hit_center(), tank.hit_center() + tank.velocity * 0.4, 32.0, 0.0)
-		rocket.hit.kind = Hit.Kind.SHELL
-		rocket.blast_radius = 2.0
-		rocket.blast_damage = 8.0
-		rocket.interceptable = true
-		rocket.trail = Projectile.ROCKET_SMOKE
+		_hard_shot(tank)
 	_dive_dir = (intercept(global_position, tank.hit_center(), tank.velocity, DIVE_SPEED) - global_position).normalized()
 	_set_state(State.DIVE)
+
+
+## Hard: a shot leaves as the dive starts.
+func _hard_shot(tank: Tank) -> void:
+	var rocket := fire_at("rocket", hit_center(), tank.hit_center() + tank.velocity * 0.4, 32.0, 0.0)
+	rocket.hit.kind = Hit.Kind.SHELL
+	rocket.blast_radius = 2.0
+	rocket.blast_damage = 8.0
+	rocket.interceptable = true
+	rocket.trail = Projectile.ROCKET_SMOKE
+
+
+## The dive reaches the hull.
+func _strike(tank: Tank) -> void:
+	var boom := Hit.make(Hit.Kind.BLAST, 14.0, global_position, _dive_dir)
+	boom.source = self
+	boom.warhead = true
+	tank.take_hit(boom)
+	_explode()
 
 
 func _tumble(delta: float) -> void:
