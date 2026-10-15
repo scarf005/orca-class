@@ -22,22 +22,27 @@ const TURRET_AT := {
 const UPPER := ["spine", "engine_l", "engine_r"] ## On its back: only a tank above the wing sees them.
 const UPPER_AT := {"spine": Vector3(0.0, 1.9, 0.6), "engine_l": Vector3(-3.2, 1.9, 2.4), "engine_r": Vector3(3.2, 1.9, 2.4)}
 const LABELS := {"flak": "WING_FLAK", "rocket": "WING_ROCKET", "beam": "WING_BEAM", "bomb": "WING_BOMB", "hangar": "WING_HANGAR", "spine": "WING_SPINE", "engine_l": "WING_ENGINE_L", "engine_r": "WING_ENGINE_R"}
+const MODEL_SCALE := 8.0 ## The airframe is drawn this much bigger than its model-space layout: a carrier's span.
+const TURRET_SCALE := 3.0 ## The turrets and back structures are drawn this much bigger than their own layout.
 const TURRET_HP := 160.0
 const ROUND_DAMAGE := 40.0 ## Like the other bosses, main-gun damage counts in rounds.
-const TURRET_RADIUS := 3.2
-const HULL_RADIUS := 13.0
-const HULL_SPHERES: Array[Vector3] = [Vector3(0, 0, 6.0), Vector3(-11, 2, 5.0), Vector3(11, 2, 5.0)] ## (x, z, radius) in the model.
+const TURRET_RADIUS := 6.0
+const HULL_RADIUS := 40.0
+const HULL_BOX := AABB(Vector3(-18.0, -1.0, -9.0), Vector3(36.0, 2.0, 16.5)) ## The flat airframe in model space, its mean thickness.
+const DROP := 3.0 ## How far an open turret lowers out of its bay, in its own layout: clear below the hull.
 const OPEN_RATE := 2.2
 const WIND := 0.9
-const STATION := 130.0 ## Metres ahead of the rail the wing keeps.
-const BARE_STATION := 80.0 ## Closer once the belly is bare, so a leap tops out over its back.
+const STATION := 150.0 ## Metres ahead of the rail the wing's centre keeps.
+const BARE_STATION := 120.0 ## Closer once the belly is bare, so a leap tops out over its back.
 const WEAVE := 20.0 ## Metres it sways across the road.
-const ALTITUDE := 46.0 ## Over the road along the ramps: out of the ground's sight, inside a drifted leap's.
-const LOW_ALTITUDE := 14.0 ## Past the last ramp: low enough for the road to reach.
+const ALTITUDE := 58.0 ## Over the road along the ramps: out of the ground's sight, inside a drifted leap's.
+const BARE_ALTITUDE := 46.0 ## Lower once the belly is bare, its wingtips still clear of the buried towers.
+const LOW_ALTITUDE := 24.0 ## Past the last ramp: low enough for the road to reach.
+const LOW_BARE_ALTITUDE := 36.0 ## High enough for its tail to clear the sand while it rears.
 const SKIRT_ANGLE := deg_to_rad(10.0) ## Steepest climb a shot can take into the belly's turret bays.
 const SLOW := 0.4 ## Time scale while the tank has a turret in sight in the air.
-const REAR := 0.6 ## Radians it pitches nose-up past the last ramp once its belly is bare.
-const BARE_LIFT := 1.5 ## How much harder the ramps throw the tank up once the belly is bare.
+const REAR := 0.55 ## Radians it pitches nose-up past the last ramp once its belly is bare.
+const BARE_LIFT := 1.7 ## How much harder the ramps throw the tank up once the belly is bare.
 const FLIGHT := {"rocket": 1.4, "bomb": 1.8, "spine": 1.4} ## Seconds the ground-attack rounds fall; held while a leap would outlast them.
 
 var parts: Dictionary = {}
@@ -121,6 +126,7 @@ func build() -> void:
 		for z in [-3.0, 3.6]:
 			b.box(Transform3D(Basis(), Vector3(side * 4.0, -1.1, z)), Vector3(0.3, 1.2, 0.3), Palette.DUSK)
 	_add_mesh(model, b.mesh())
+	model.scale = Vector3.ONE * MODEL_SCALE
 	for name: String in TURRETS:
 		_make_turret(name)
 	for name: String in UPPER:
@@ -136,6 +142,7 @@ func _add_mesh(parent: Node3D, mesh: Mesh) -> void:
 func _make_turret(name: String) -> void:
 	var root := Node3D.new()
 	root.position = TURRET_AT[name]
+	root.scale = Vector3.ONE * TURRET_SCALE / MODEL_SCALE
 	model.add_child(root)
 	var pod := Node3D.new()
 	root.add_child(pod)
@@ -189,6 +196,7 @@ func _make_turret(name: String) -> void:
 func _make_upper(name: String) -> void:
 	var pod := Node3D.new()
 	pod.position = UPPER_AT[name]
+	pod.scale = Vector3.ONE * TURRET_SCALE / MODEL_SCALE
 	model.add_child(pod)
 	_pods[name] = pod
 	var g := LowPoly.new()
@@ -243,7 +251,7 @@ func in_sight(name: String) -> bool:
 		return false
 	var to := _turret_world(name) - tank.hit_center()
 	if name in UPPER:
-		return -to.normalized().dot(model.global_basis.y) >= sin(SKIRT_ANGLE)
+		return -to.normalized().dot(model.global_basis.y.normalized()) >= sin(SKIRT_ANGLE)
 	return atan2(to.y, Vector2(to.x, to.z).length()) <= SKIRT_ANGLE
 
 
@@ -261,7 +269,7 @@ func module_states() -> Array:
 
 
 ## An open turret hangs below the belly, so a round that reaches it is the turret's even where it also
-## crosses the hull's outline; otherwise the flat hull is three spheres across the span (body and both wings).
+## crosses the hull's outline; otherwise the hull is a flat box around the planform.
 func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 	if _state == State.DYING:
 		return -1.0
@@ -272,10 +280,13 @@ func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 			best = distance
 	if best >= 0.0:
 		return best
-	for spot in HULL_SPHERES:
-		var distance := Entity.segment_sphere(from, to, model.global_transform * Vector3(spot.x, 0.0, spot.y), spot.z + extra_radius)
-		if distance >= 0.0 and (best < 0.0 or distance < best):
-			best = distance
+	var to_model := model.global_transform.affine_inverse()
+	var hull := HULL_BOX.grow(extra_radius / MODEL_SCALE)
+	var entry: Variant = hull.intersects_segment(to_model * from, to_model * to)
+	if hull.has_point(to_model * from):
+		best = 0.0
+	elif entry != null:
+		best = from.distance_to(model.global_transform * (entry as Vector3))
 	return best
 
 
@@ -314,7 +325,7 @@ func _sum() -> void:
 func _break_turret(name: String, direction: Vector3) -> void:
 	var world := World.current
 	var pod := _pods[name]
-	world.fx.explosion(pod.global_position, 3.0)
+	world.fx.explosion(pod.global_position, 3.0 * TURRET_SCALE)
 	Sfx.play("blast", pod.global_position)
 	Wreck.launch(pod, pod.global_position, 2.0, true, direction * 8.0 + Vector3.DOWN * 4.0)
 	_open[name] = 0.0
@@ -337,10 +348,11 @@ func telegraphing() -> bool:
 ## Where it keeps station: ahead of the rail, swaying across the road, high over the ramps and low past them.
 func _station(weave_time: float) -> Vector3:
 	var rail := World.current.rail
-	var d := rail.d + (BARE_STATION if bare() else STATION)
+	var d := rail.d + (BARE_STATION if bare() and not _low() else STATION)
 	var u := sin(weave_time * 0.5) * WEAVE
 	var p := Course.to_world(d, u)
-	p.y = Course.height(d, u) + (LOW_ALTITUDE if _low() else ALTITUDE) + sin(weave_time * 1.1) * 2.0
+	var altitude: float = [[ALTITUDE, BARE_ALTITUDE], [LOW_ALTITUDE, LOW_BARE_ALTITUDE]][int(_low())][int(bare())]
+	p.y = Course.height(d, u) + altitude + sin(weave_time * 1.1) * 2.0
 	return p
 
 
@@ -379,7 +391,8 @@ func _pose(delta: float) -> void:
 		var right := _forward.cross(Vector3.UP).normalized()
 		ahead = _forward.rotated(right, REAR)
 		up = Vector3.UP.rotated(right, REAR)
-	model.global_basis = model.global_basis.orthonormalized().slerp(Basis.looking_at(ahead, up), minf(delta * 8.0, 1.0)) if delta > 0.0 else model.global_basis
+	if delta > 0.0:
+		model.global_basis = model.global_basis.orthonormalized().slerp(Basis.looking_at(ahead, up), minf(delta * 8.0, 1.0)).scaled(Vector3.ONE * MODEL_SCALE)
 
 
 func _open_next() -> void:
@@ -411,7 +424,7 @@ func _update_turrets(delta: float, tank: Tank) -> void:
 		var plates: Array = _hatches[name]
 		plates[0].position.x = -0.9 - 1.1 * _open[name]
 		plates[1].position.x = 0.9 + 1.1 * _open[name]
-		_pods[name].position.y = -1.2 * _open[name]
+		_pods[name].position.y = -DROP * _open[name]
 		if want == 0.0 and _open[name] < 0.5:
 			_pods[name].basis = Basis.looking_at(Vector3(0, 0, 1))
 	if _active.is_empty() or (_active in TURRETS and _open[_active] < 0.9):
@@ -559,8 +572,8 @@ func _die_in_the_air(delta: float) -> void:
 	_flames -= delta
 	if _flames <= 0.0:
 		_flames = 0.12
-		world.fx.explosion(global_position + Vector3(randf_range(-8, 8), 0.0, randf_range(-6, 6)), 2.0)
-	world.fx.smoke(global_position, 2, 4.0)
+		world.fx.explosion(model.global_transform * Vector3(randf_range(-16, 16), 0.0, randf_range(-6, 6)), 2.0 * TURRET_SCALE)
+	world.fx.smoke(global_position, 2, 4.0 * TURRET_SCALE)
 	if _dying <= 0.0 or global_position.y <= ground + 1.0:
 		die(killing_hit)
 
@@ -570,10 +583,10 @@ func on_death(_hit: Hit) -> void:
 	world.slow = 1.0
 	if player() != null:
 		player().ramp_lift = 1.0
-	world.fx.explosion(global_position, 12.0)
-	world.fx.shockwave(global_position, 40.0, Palette.BUTTER)
-	world.fx.debris(global_position, 40, debris, 20.0, 0.8)
-	world.fx.dust(global_position, 30, 12.0, Palette.STRAW)
+	world.fx.explosion(global_position, 12.0 * TURRET_SCALE)
+	world.fx.shockwave(global_position, 40.0 * TURRET_SCALE, Palette.BUTTER)
+	world.fx.debris(global_position, 40, debris, 20.0 * TURRET_SCALE, 0.8)
+	world.fx.dust(global_position, 30, 12.0 * TURRET_SCALE, Palette.STRAW)
 	world.award(score, global_position, true)
 	world.style_event("GIANT", 300.0)
 	world.shake(0.8, global_position)
