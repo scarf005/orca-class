@@ -19,7 +19,7 @@ func test_driveable_sand_gradient_stays_tank_safe() -> void:
 	var worst := 0.0
 	var at := Vector2.ZERO
 	for d in range(0, int(Stage3.LENGTH)):
-		for u in range(-50, 51, 2):
+		for u in range(-64, 65, 2):
 			var limit := minf(stage.lateral_limit(d), stage.lateral_limit(d + 1.0)) - 1.0
 			if absf(u) > limit or _by_a_ramp(stage, d, u):
 				continue
@@ -40,7 +40,7 @@ func test_the_floor_is_there_wherever_the_hull_can_reach() -> void:
 			if _by_a_ramp(stage, d, u):
 				continue
 			var h := stage.height(d, u)
-			check(h > -1.5 and h < 10.0, "the floor at d=%d u=%.0f is a driveable height (%.2f)" % [d, u, h])
+			check(h > -stage.tunnel_depth(d) - 1.5 and h < 10.0, "the floor at d=%d u=%.0f is a driveable height (%.2f)" % [d, u, h])
 
 
 func test_the_pit_arena_is_level() -> void:

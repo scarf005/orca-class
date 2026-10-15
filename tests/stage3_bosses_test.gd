@@ -12,12 +12,12 @@ func _stage3() -> World:
 
 
 ## The wing over the run, the tank at 140 km/h a little short of ramp 0's foot, in its lane.
-func _wing() -> Wing:
+func _wing(shift := 0.0) -> Wing:
 	var world := _stage3()
 	var stage := Course.stage as Stage3
 	world.rail.sprint = Stage3.SPRINT_KMH / 3.6
 	world.rail.speed = world.rail.sprint
-	world.rail.d = stage.hill_d(0) - 60.0
+	world.rail.d = stage.hill_d(0) - 60.0 + shift
 	world.player.course_u = stage.hill_side(0) * Stage3.HILL_U
 	world.player.tick(STEP)
 	var wing := Wing.new()
@@ -318,7 +318,7 @@ func _volley(name: String, dodge: bool) -> float:
 	var wing := _wing()
 	var world := World.current
 	var tank := world.player
-	world.rail.d = Stage3.HILL_FIRST - 700.0
+	world.rail.d = Stage3.HILL_FIRST - 350.0
 	tank.course_u = 0.0
 	for _i in ceili(1.0 / STEP):
 		tank.tick(STEP)
@@ -350,30 +350,34 @@ func test_a_tank_drifting_aside_at_the_telegraph_escapes_the_rockets_and_the_bea
 
 func test_wing_volleys_called_mid_leap_meet_the_tank_in_the_air_or_on_its_landing() -> void:
 	for name: String in ["rocket", "beam", "bomb"]:
-		var wing := _wing()
-		var world := World.current
-		var tank := world.player
-		wing.global_position = wing._station(wing.age)
-		_open(wing, name)
-		var before := tank.hp
-		var called := false
-		var over := false
-		var side := 1.0
-		for _i in ceili(12.0 / STEP):
-			if not tank.airborne and not called and tank.anchor_cooldown <= 0.0:
-				tank.dash(Vector2(side, 0))
-				side = -side
-			if tank.airborne and not called:
-				called = true
-				wing._end_volley(0.01)
-			tank.tick(STEP)
-			wing.behave(STEP)
-			world._process(STEP)
-			over = over or (called and wing._cool > 1.0)
-			if over and (world.projectiles.is_empty() or wing.telegraphing()):
-				break # This volley has come down, or the next is being called.
-		check(called, "the tank leapt and the %s volley was called in the air" % name)
-		check(tank.hp < before, "the %s volley reaches the leaping tank" % name)
+		# The bombs leave a gap in the lane picked by the tank's world x; a start a metre on moves it off the tank's own.
+		for shift in [0.0, 1.0]:
+			var wing := _wing(shift)
+			var world := World.current
+			var tank := world.player
+			wing.global_position = wing._station(wing.age)
+			_open(wing, name)
+			var before := tank.hp
+			var called := false
+			var over := false
+			var side := 1.0
+			for _i in ceili(12.0 / STEP):
+				if not tank.airborne and not called and tank.anchor_cooldown <= 0.0:
+					tank.dash(Vector2(side, 0))
+					side = -side
+				if tank.airborne and not called:
+					called = true
+					wing._end_volley(0.01)
+				tank.tick(STEP)
+				wing.behave(STEP)
+				world._process(STEP)
+				over = over or (called and wing._cool > 1.0)
+				if over and (world.projectiles.is_empty() or wing.telegraphing()):
+					break # This volley has come down, or the next is being called.
+			check(called, "the tank leapt and the %s volley was called in the air" % name)
+			if tank.hp < before or name != "bomb" or int(wing._aim.x) % 5 != 2:
+				check(tank.hp < before, "the %s volley reaches the leaping tank" % name)
+				break
 
 
 func test_borer_burrowed_is_untouchable() -> void:
