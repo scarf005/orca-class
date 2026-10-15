@@ -10,6 +10,7 @@ extends Node
 ##        [--trace-fire] # one line per enemy projectile with the shooter's kind, to see who actually attacks and how often
 ##        [--storm=30] # start the stage's storm right away for that many seconds, to judge its look
 ##        [--trace-damage] # one line per hit on the tank: where, by what, and the hull left after it
+## Every leap off a launch ramp prints a LEAP line and its landing a LAND line.
 
 var screen: GameScreen
 var bot := "hold"
@@ -106,6 +107,7 @@ func run() -> int:
 	var tank_structure_violations := 0
 	var camera_pull_ins := 0
 	var mode := world.rail.mode
+	var leaping := false
 	var telegraphs := {}
 	await get_tree().process_frame
 	await _capture("section-%d" % _section)
@@ -197,6 +199,9 @@ func run() -> int:
 			var at: float = shots.pop_front()
 			var stamp := "%03d" % int(at) if at == floorf(at) else "%06.2f" % at # Bursts of fractional shots keep their own files.
 			get_viewport().get_texture().get_image().save_png("%s/t%s.png" % [out, stamp])
+		if world.player.airborne != leaping:
+			leaping = world.player.airborne
+			print("%s t=%.2f d=%.0f u=%.1f floor=%.2f speed=%.0f" % ["LEAP" if leaping else "LAND", world.stats.time, world.rail.d + world.player.course_offset, world.player.course_u, Course.height(world.rail.d + world.player.course_offset, world.player.course_u), world.rail.speed])
 		if world.rail.mode != mode:
 			mode = world.rail.mode
 			print("MODE mode=%s t=%.2f d=%.0f" % [Rail.Mode.keys()[mode], world.stats.time, world.rail.d])
@@ -395,19 +400,28 @@ func _drive(world: World, t: float) -> void:
 func _ride_ramp(world: World) -> bool:
 	var tank := world.player
 	var d := world.rail.d + tank.course_offset
-	for ahead in range(0, 300, 5):
-		for side: float in [-1.0, 1.0]:
-			var u := side * Stage3.HILL_U
-			if Course.stage.ramp_at(d + ahead, u) < 0.0:
-				continue
-			Input.action_release("move_left")
-			Input.action_release("move_right")
-			if Course.stage.ramp_at(d, tank.course_u) < 0.0:
-				Input.action_press("move_right" if u > tank.course_u else "move_left")
-			elif tank.anchor_cooldown <= 0.0:
-				tank.dash(Vector2(-signf(tank.course_u - u) if absf(tank.course_u - u) > 1.0 else 1.0, 0))
-			return true
+	for ahead in range(0, 300, 10):
+		var u := _ramp_lane(d + ahead, tank.course_u)
+		if is_nan(u):
+			continue
+		Input.action_release("move_left")
+		Input.action_release("move_right")
+		if Course.stage.ramp_at(d, tank.course_u) < 0.0:
+			Input.action_press("move_right" if u > tank.course_u else "move_left")
+		elif tank.anchor_cooldown <= 0.0:
+			tank.dash(Vector2(-signf(tank.course_u - u) if absf(tank.course_u - u) > 1.0 else 1.0, 0))
+		return true
 	return false
+
+
+## The lateral offset nearest `near` at which a launch ramp's track (StageDef.ramp_at) crosses `d`, or NAN.
+func _ramp_lane(d: float, near: float) -> float:
+	var limit := Tank.lateral_limit(d)
+	var best := NAN
+	for u in range(-int(limit), int(limit) + 1, 2):
+		if Course.stage.ramp_at(d, float(u)) >= 0.0 and (is_nan(best) or absf(u - near) < absf(best - near)):
+			best = float(u)
+	return best
 
 
 ## Dashes toward open space when a hostile shot is within 12 m and closing; the dash's own cooldown
