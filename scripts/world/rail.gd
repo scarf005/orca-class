@@ -1,6 +1,6 @@
 class_name Rail
 extends RefCounted
-## The forward-scrolling frame the player moves within. Overdrive and brake share one meter.
+## The forward-scrolling frame the player moves within.
 
 enum Mode { RAIL, HOLD, ARENA }
 
@@ -14,8 +14,6 @@ static func set_cruise(kmh: float) -> void:
 	CRUISE = kmh / 3.6
 	OVERDRIVE = CRUISE * 1.9
 	BRAKE = CRUISE * 0.36
-const METER_DRAIN := 0.45 ## Per second while boosting or braking.
-const METER_REFILL := 0.3
 const SURGE_MAX := 26.0
 const SURGE_EBB := 4.0
 
@@ -27,7 +25,6 @@ static var WADE_SPEED := 0.55 ## Share of cruise the speed is capped at in water
 var mode := Mode.RAIL
 var d := 0.0
 var speed := CRUISE
-var meter := 1.0
 var throttle := 0 ## -1 brake, 0 cruise, 1 overdrive; what the rail is actually doing.
 var hold_at := INF ## In HOLD mode the rail eases to a stop here.
 var sprint := 0.0 ## When above zero the RAIL runs at this speed (m/s), whatever the throttle says.
@@ -40,25 +37,16 @@ var arena_radius := INF: ## ...and radius.
 var arena_u := INF ## ARENA mode also keeps the tank this near the road's centreline.
 var arena_land: Array[Rect2] = [] ## When set, ARENA mode keeps the hull on these (u, d) rectangles; only a dash carries it over a gap.
 var wading := false ## The tank is in water or mud: the speed is capped.
-var _meter_locked := false
 var _stop_timer := 0.0
 var _since_jolt := INF ## Seconds since the tank hit a hard building.
 
 
 ## `command` is the player's wish: -1 brake, 0 cruise, 1 overdrive.
-func advance(delta: float, command: int, refill := 1.0) -> void:
+func advance(delta: float, command: int) -> void:
 	if sprint > 0.0:
 		command = 0
-	if meter <= 0.0:
-		_meter_locked = true
-	elif meter > 0.35:
-		_meter_locked = false
-	throttle = command if not _meter_locked else 0
+	throttle = command
 	_since_jolt += delta
-	if throttle != 0:
-		meter = maxf(0.0, meter - METER_DRAIN * delta)
-	else:
-		meter = minf(1.0, meter + METER_REFILL * refill * delta)
 	var target := CRUISE
 	match throttle:
 		1: target = OVERDRIVE
@@ -105,10 +93,6 @@ func kick(amount: float) -> void:
 func anchor_stop(duration: float) -> void:
 	_stop_timer = duration
 	speed = minf(speed, 2.0)
-
-
-func is_meter_locked() -> bool:
-	return _meter_locked
 
 
 func forward() -> Vector3:

@@ -92,7 +92,6 @@ func test_water_caps_the_speed_even_in_overdrive() -> void:
 	await frames(60)
 	check(world.player._wet, "the tank stands in the reservoir")
 	check_near(world.rail.speed, Rail.CRUISE * Rail.WADE_SPEED, 0.2, "the speed is capped to the wade share")
-	world.rail.meter = 1.0
 	world.rail.advance(0.5, 1)
 	check(world.rail.speed <= Rail.CRUISE * Rail.WADE_SPEED + 0.01, "overdrive cannot beat the cap")
 

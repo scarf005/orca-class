@@ -18,8 +18,7 @@ const ACCEL := 220.0
 const HULL_RADIUS := 2.3
 const CIWS_RANGE := 16.0
 const CIWS_DRONE_RANGE := 9.0
-const CIWS_HEAT_RATE := 1.3
-const CIWS_COOL_RATE := 0.15
+const CIWS_HEAT_RATE := 0.6 ## Heat per second of laser fire; the pool is shared, so it fills slower than the CIWS alone once did.
 const CIWS_LASER_DPS := 3.5
 const CIWS_ENTITY_DPS := 10.0
 const ANCHOR_COOLDOWN := 0.6
@@ -67,7 +66,17 @@ const RESPAWN_DELAY := 1.8
 const RESPAWN_INVULN := 2.6
 const WADE_SPEED := 0.85 ## Strafe speed and acceleration in shallow water.
 const DEEP_SPEED := 0.65 ## In deep water.
-const DEEP_REFILL := 0.5 ## How fast the overdrive meter refills in deep water.
+const DEEP_REFILL := 0.5 ## How fast heat bleeds off in deep water.
+## One heat pool powers the drift, the CIWS laser and the throttle; at 1.0 the tank vents until VENT_REARM.
+const HEAT_COOL := 0.1 ## Heat shed per second while working.
+const HEAT_COOL_IDLE := 0.25 ## ...and once HEAT_IDLE seconds have passed without a heat action.
+const HEAT_IDLE := 0.5
+const VENT_REARM := 0.4 ## Venting ends when heat falls to this.
+const VENT_RELOAD := 2.0 ## Main-gun recovery multiplier while venting.
+const DASH_HEAT := 0.3
+const THROTTLE_HEAT := 0.3 ## Per second of overdrive or brake.
+const HEAT_PER_DAMAGE := 0.01 ## Heat taken from armor damage by flame and beam hits.
+const COOL_FLOOR := 0.25 ## A wrecked engine still sheds this share of the cooling, so venting always ends.
 const CRUSH_SPEED := 5.0 ## Ground speed above which the tank runs down ground enemies.
 const RAM_DAMAGE := 150.0
 const RAM_COOLDOWN := 0.6 ## Seconds between crushing hits on the same enemy, matching dash recovery.
@@ -126,8 +135,9 @@ var _burst := 0.0 ## Seconds of coax fire left in the current burst.
 var _burst_gap := 0.0 ## Seconds until the coax may start its next burst.
 var _coax_timers: Array[float] = []
 
-var ciws_heat := 0.0
-var ciws_overheated := false
+var heat := 0.0 ## 0..1, shared by drift, CIWS and throttle.
+var overheated := false ## Venting: heat actions are off and the gun reloads slowly until heat drops to VENT_REARM.
+var _heat_idle := 0.0
 var ciws_target: Object
 var _ciws_sound_cooldown := 0.0
 
@@ -270,6 +280,7 @@ func tick(delta: float) -> void:
 	_update_aim(delta)
 	_update_weapons(delta)
 	_update_ciws(delta)
+	_update_heat(delta)
 	if REFLECT:
 		_reflect_shots()
 	tail.update(delta, global_basis, lateral_velocity)
@@ -317,7 +328,6 @@ func _update_movement(delta: float) -> void:
 	var world := World.current
 	var rail := world.rail
 	_update_terrain()
-	var refill := modules.meter_refill_factor() * (DEEP_REFILL if water_depth > Water.DEEP else 1.0)
 	var input := _input_vector()
 	_read_dash(input)
 	# W and S double as the throttle: pushing forward boosts the rail, pulling back brakes it.
@@ -326,14 +336,18 @@ func _update_movement(delta: float) -> void:
 		command = 1
 	elif input.y < -0.5:
 		command = -1
+	if overheated:
+		command = 0 # Venting: cruise only.
 	if rail.mode == Rail.Mode.ARENA:
 		_move_arena(delta, input)
-		rail.advance(delta, 0, refill)
+		rail.advance(delta, 0)
 		return
 	var sand := Course.stage.quicksand_at(rail.d + course_offset, course_u) if not airborne else Vector3.ZERO
 	rail.wading = _wet or TrackMarks.over_fungus(global_position) or sand.z > QUICKSAND_WADE
 	_wade_spray(delta)
-	rail.advance(delta, command, refill)
+	rail.advance(delta, command)
+	if rail.throttle != 0: # A sprint holds the rail and costs no heat.
+		add_heat(THROTTLE_HEAT * delta)
 	var hold := _lock_move_factor() * water_factor() * lerpf(1.0, SINK_GRIP, sand.z)
 	var target := Vector2(input.x * MOVE_SPEED.x * hold, input.y * MOVE_SPEED.y) * modules.move_factor()
 	local_velocity = local_velocity.move_toward(target, ACCEL * water_factor() * delta)
@@ -642,8 +656,8 @@ func _read_dash(input: Vector2) -> void:
 ## A burst of speed the way it was asked for, kicked off by the tail slamming the ground: sideways it
 ## is a dodge that lashes whatever is beside the hull, forward it surges the rail, back it digs in.
 func dash(direction: Vector2) -> void:
-	if _respawn > 0.0 or tail.destroyed or airborne:
-		return # The tail kicks the hull off the ground: no tail or no ground, no dash.
+	if _respawn > 0.0 or tail.destroyed or airborne or overheated:
+		return # The tail kicks the hull off the ground: no tail or no ground, no dash; and no heat to spare.
 	if absf(direction.x) > 0.3:
 		_last_lateral = signf(direction.x)
 	_anchor(direction)
@@ -710,6 +724,7 @@ func _anchor(input: Vector2) -> void:
 	if anchor_cooldown > 0.0:
 		return
 	anchor_cooldown = ANCHOR_COOLDOWN
+	add_heat(DASH_HEAT)
 	invuln = maxf(invuln, DASH_TIME)
 	_ghost_timer = 0.0
 	world.screen_flash(Palette.CYAN, 0.1)
@@ -1282,7 +1297,7 @@ func _update_weapons(delta: float) -> void:
 	if _fire_released or _auto_fire:
 		if input_enabled and (Armament.stage(charge) >= 1 or not micro_locks.is_empty()):
 			fire_cannon(Vector3.INF, Vector3.ZERO, charge)
-			_recover = Armament.CANNON_RECOVER
+			_recover = Armament.CANNON_RECOVER * (VENT_RELOAD if overheated else 1.0)
 			_spent = _auto_fire
 		_reset_charge()
 
@@ -1801,25 +1816,36 @@ func _ciws_pick_target() -> Object:
 	return target
 
 
+## A heat action: fills the pool and restarts the idle wait; filling it vents the tank.
+func add_heat(amount: float) -> void:
+	_heat_idle = 0.0
+	heat = minf(heat + amount, 1.0)
+	if heat >= 1.0 and not overheated:
+		overheated = true
+		ciws_target = null
+		World.current.screen_flash(Palette.RED, 0.3)
+		Sfx.play("overheat", global_position)
+
+
+func _update_heat(delta: float) -> void:
+	_heat_idle += delta
+	var cool := HEAT_COOL_IDLE if _heat_idle >= HEAT_IDLE else HEAT_COOL
+	var factor := maxf(modules.meter_refill_factor(), COOL_FLOOR) * (DEEP_REFILL if water_depth > Water.DEEP else 1.0)
+	heat = maxf(0.0, heat - cool * factor * delta)
+	if overheated and heat <= VENT_REARM:
+		overheated = false
+
+
 func _update_ciws(delta: float) -> void:
 	var world := World.current
 	_ciws_sound_cooldown = maxf(0.0, _ciws_sound_cooldown - delta)
-	if not modules.laser_online():
-		ciws_target = null
-		ciws_heat = 0.0
-		ciws_overheated = false
-		return
-	if ciws_overheated:
-		ciws_heat = maxf(0.0, ciws_heat - CIWS_COOL_RATE * delta)
-		if ciws_heat <= 0.3:
-			ciws_overheated = false
+	if not modules.laser_online() or overheated:
 		ciws_target = null
 		return
 	var origin := model.rws_lens.global_position
 	var target := _ciws_pick_target()
 	if target == null:
 		ciws_target = null
-		ciws_heat = maxf(0.0, ciws_heat - CIWS_COOL_RATE * delta)
 		model.rws.rotation.y = rotate_toward(model.rws.rotation.y, 0.0, 3.0 * delta)
 		return
 	if target != ciws_target and _ciws_sound_cooldown <= 0.0:
@@ -1837,7 +1863,7 @@ func _update_ciws(delta: float) -> void:
 	world.fx.spawn(Fx.Kind.FLAME, point, Vector3(randf_range(-2, 2), randf_range(0, 3), randf_range(-2, 2)), 0.1, 0.3, Palette.WHITE)
 	if target is Projectile:
 		if (target as Projectile).laser(CIWS_LASER_DPS * delta):
-			ciws_heat += 0.06
+			add_heat(0.06)
 			world.award(10, point, false)
 			world.intercepted.emit(point)
 	else:
@@ -1846,12 +1872,7 @@ func _update_ciws(delta: float) -> void:
 		(target as Entity).take_hit(zap)
 		if (target as Entity).dead:
 			world.intercepted.emit(point)
-	ciws_heat += CIWS_HEAT_RATE * delta
-	if ciws_heat >= 1.0:
-		ciws_heat = 1.0
-		ciws_overheated = true
-		ciws_target = null
-		Sfx.play("overheat", origin)
+	add_heat(CIWS_HEAT_RATE * delta)
 
 
 ## The tail acts on its own so the driver only drives and shoots. Priorities: swat anything about
@@ -2186,6 +2207,8 @@ func struck_sensor(hit: Hit) -> String:
 
 func on_damaged(hit: Hit, amount: float) -> void:
 	var world := World.current
+	if hit.kind in [Hit.Kind.FIRE, Hit.Kind.LASER]:
+		add_heat(amount * HEAT_PER_DAMAGE)
 	world.stats.damage_taken += amount
 	world.stats.section_damage += amount
 	world.stats.lose_style(RunStats.STYLE_HIT_PENALTY * clampf(amount / 15.0, 0.3, 1.5))
@@ -2261,6 +2284,8 @@ func refit() -> void:
 
 func _finish_respawn() -> void:
 	_cancel_charge()
+	heat = 0.0
+	overheated = false
 	refit()
 	invuln = RESPAWN_INVULN
 	_blink = RESPAWN_INVULN
