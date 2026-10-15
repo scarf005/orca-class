@@ -92,7 +92,8 @@ func _init() -> void:
 	set_meta("title", "BOSS_FORTRESS")
 	set_meta("phase_marks", [0.66, 0.33])
 	set_meta("frame", 0.3)
-	set_meta("zoom", 2.2) # The arena camera backs off this many times to keep the whole hull in view.
+	set_meta("giant", 34.0 * SCALE) # How far above its origin the camera keeps in frame.
+	set_meta("zoom", 1.5) # The arena camera backs off this many times to keep the whole hull in view.
 
 
 func _ready() -> void:
@@ -241,7 +242,7 @@ func _break(name: String, direction: Vector3) -> void:
 	var world := World.current
 	var node := _nodes[name]
 	var at := module_at(name)
-	world.fx.explosion(at, MODULE_RADIUS[name] * 0.6)
+	world.fx.explosion(at, 2.5) # The camera hangs close to a hull this big, so a bigger ball would hide it.
 	world.award(1000, at, false)
 	Sfx.play("blast", at)
 	world.shake(0.5, at)
@@ -375,10 +376,10 @@ func _exhaust(delta: float) -> void:
 	_smoke -= delta
 	if _smoke > 0.0 or _state == State.DYING:
 		return
-	_smoke = 0.25
+	_smoke = 0.5
 	var fx := World.current.fx
 	for side in [-1.0, 1.0]:
-		fx.smoke_puff(model.to_global(Vector3(side * 12.5, 21.0, 8.0) * SCALE), 5.0)
+		fx.smoke_puff(model.to_global(Vector3(side * 12.5, 21.0, 8.0) * SCALE), 2.5)
 	if _speed > 3.0:
 		for side in [-1.0, 1.0]:
 			fx.dust(model.to_global(Vector3(side * TRACK_AT, 1.0, 30.0 * SCALE)), 3, 9.0, Palette.STRAW)
@@ -428,6 +429,11 @@ func _flames_alive() -> Array[String]:
 func _in_arc(name: String, tank: Tank) -> bool:
 	var local := model.global_transform.affine_inverse() * tank.hit_center() - (_guns[name].get_parent() as Node3D).position
 	return Vector3(local.x, 0.0, local.z).angle_to(Vector3.FORWARD) <= FLAME_ARC
+
+
+## A hull this big would white out the screen with every hit; its hits read as sparks and damage numbers instead.
+func flash() -> void:
+	pass
 
 
 func _end_attack() -> void:
@@ -498,7 +504,7 @@ func _update_flame(delta: float, tank: Tank, wind: float) -> void:
 	if burning and _jets.is_empty():
 		for name in _flames_alive():
 			_jets.append(FlameJet.start(self, _muzzles[name], 2.6 + 0.4 * phase, FLAME_REACH, 3.0))
-	if burning and _jets.all(func(jet: FlameJet) -> bool: return not is_instance_valid(jet)):
+	if burning and _jets.all(func(jet) -> bool: return not is_instance_valid(jet)):
 		_end_attack()
 
 

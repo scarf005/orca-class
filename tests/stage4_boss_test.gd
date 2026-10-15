@@ -178,6 +178,28 @@ func test_the_flame_is_announced_before_it_burns_and_then_burns_the_tank() -> vo
 	check(burned - warned >= Fortress.WIND * 0.95, "the first burn comes at least %.1f s after the warning (%.2f s)" % [Fortress.WIND, burned - warned])
 
 
+func test_the_flame_attack_ends_once_its_jets_burn_out() -> void:
+	var fortress := _fight(Fortress.HULL_FRONT + 25.0)
+	fortress._pattern = 1
+	fortress._next_attack = 0.0
+	var started := false
+	var ended := false
+	for _i in 140:
+		_step(fortress, 0.1)
+		await frames(1) # The burnt-out jets are freed between frames.
+		started = started or fortress._attack == Fortress.Attack.FLAME
+		if started and fortress._attack != Fortress.Attack.FLAME:
+			ended = true
+			break
+	check(started and ended, "the flame attack runs and then returns the fortress to its idle pattern")
+
+
+func test_a_hit_does_not_white_out_the_hull() -> void:
+	var fortress := _fight()
+	fortress.take_hit(_shell(fortress.module_at("turret"), 1.0))
+	check(fortress._meshes.all(func(mesh: GeometryInstance3D) -> bool: return mesh.material_overlay == fortress.rest_overlay), "no mesh carries the white flash overlay")
+
+
 func test_the_salvo_marks_every_shell_and_the_shells_can_be_shot_down() -> void:
 	var fortress := _fight(Fortress.HULL_FRONT + 50.0)
 	fortress._attack = Fortress.Attack.SALVO

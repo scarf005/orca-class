@@ -79,6 +79,15 @@ func follow(delta: float) -> void:
 		var zoom := float(world.boss.get_meta("zoom", 1.0)) if is_instance_valid(world.boss) else 1.0 # A giant boss asks the camera to back off.
 		eye = player.global_position + away * ARENA_BACK * zoom + Vector3.UP * ARENA_HEIGHT * zoom
 		look = player.global_position.lerp(focus, 1.0 if _watch_point != Vector3.INF else 0.3) + Vector3.UP * 1.0
+		if _watch_point == Vector3.INF and is_instance_valid(world.boss) and world.boss.has_meta("giant"):
+			# A giant fills the frame: the view widens and tilts to hold its top and the tank's bottom margin.
+			var top: Vector3 = world.boss.global_position + Vector3.UP * float(world.boss.get_meta("giant"))
+			var aim := Vector3(top.x - eye.x, 0.0, top.z - eye.z)
+			var tank := player.hit_center()
+			var above := atan2(top.y - eye.y, aim.length()) + deg_to_rad(FRAME_TOP_MARGIN * 0.5)
+			var below := atan2(tank.y - eye.y, Vector2(tank.x - eye.x, tank.z - eye.z).length()) - deg_to_rad(FRAME_BOTTOM_MARGIN)
+			view_fov = clampf(rad_to_deg(above - below), FOV, MAX_FOV)
+			look = eye + aim.normalized() * 50.0 + Vector3.UP * tan((above + below) * 0.5) * 50.0
 	else:
 		var d := world.rail.d
 		var u := player.course_u
