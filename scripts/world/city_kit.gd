@@ -473,6 +473,43 @@ static func _glass(size: Vector3, variant: int, rng: RandomNumberGenerator) -> M
 	return b.mesh()
 
 
+## A gutted tower: size is the collision box. Each bay of the block keeps a few storeys of wall, and above them
+## only its concrete skeleton stands, columns and bare floor slabs, to a different height per bay; the top slabs hang
+## tipped where the rest came down, with rebar sticking out.
+static func ruin(size: Vector3, variant: int) -> Mesh:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([size, variant, "ruin"])
+	var b := LowPoly.new()
+	var wall: Color = (FACADES[variant % FACADES.size()] as Color).lerp(Palette.CONCRETE, 0.5).darkened(0.12)
+	var cells := Vector2i(2, maxi(2, int(size.z / 9.0)))
+	var cell := Vector2(size.x / cells.x, size.z / cells.y)
+	var tallest := rng.randi_range(0, cells.x * cells.y - 1)
+	for i in cells.x * cells.y:
+		var at := Vector2(-size.x * 0.5 + cell.x * (i % cells.x + 0.5), -size.z * 0.5 + cell.y * (i / cells.x + 0.5))
+		var h := size.y if i == tallest else size.y * rng.randf_range(0.2, 0.9)
+		var shell := minf(h, maxf(7.2, size.y * rng.randf_range(0.15, 0.45))) # Storeys that keep their walls.
+		b.box(_xf(Vector3(at.x, shell * 0.5, at.y)), Vector3(cell.x, shell, cell.y), wall)
+		for f in range(1, int(shell / 3.6)):
+			b.box(_xf(Vector3(at.x, f * 3.6 + 1.6, at.y)), Vector3(cell.x + 0.06, 1.3, cell.y + 0.06), Palette.INK)
+		if h <= shell + 1.0:
+			continue
+		for corner in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+			var column := h - rng.randf_range(0.0, 3.6) if rng.randf() < 0.75 else shell + rng.randf_range(1.0, 4.0)
+			b.box(_xf(Vector3(at.x + corner.x * (cell.x * 0.5 - 0.5), (shell + column) * 0.5, at.y + corner.y * (cell.y * 0.5 - 0.5))), Vector3(0.8, column - shell, 0.8), Palette.STONE)
+		var floors := int((h - shell) / 3.6)
+		for f in range(1, floors + 1):
+			if rng.randf() < 0.2 and f < floors:
+				continue # A slab that fell through.
+			var top := f == floors
+			var tip := rng.randf_range(0.15, 0.45) * (1.0 if rng.randf() < 0.5 else -1.0) if top else 0.0
+			b.box(_xf(Vector3(at.x, shell + f * 3.6, at.y), 0.0, tip, rng.randf_range(-0.08, 0.08)), Vector3(cell.x + 0.4, 0.35, cell.y + 0.4), Palette.CONCRETE)
+		for k in 3:
+			var p := Vector3(at.x + rng.randf_range(-0.45, 0.45) * cell.x, h + 1.0, at.y + rng.randf_range(-0.45, 0.45) * cell.y)
+			b.box(_xf(p, 0.0, rng.randf_range(-0.5, 0.5), rng.randf_range(-0.5, 0.5)), Vector3(0.15, 2.4, 0.15), Palette.CORAL.darkened(0.35))
+	b.box(_xf(Vector3(0, 4.55, 0)), Vector3(size.x * 1.015, 0.42, size.z * 1.015), Palette.INK.darkened(0.25))
+	return b.mesh()
+
+
 ## A shipping container: corrugated sides, door end and a painted stripe; the colour varies.
 static func container(size: Vector3, variant: int) -> Mesh:
 	var b := LowPoly.new()

@@ -75,9 +75,9 @@ static func structure_mesh(kind: String, size: Vector3, variant: int) -> Mesh:
 	var key := "%s:%s:%d" % [kind, size, variant]
 	if _cache.has(key):
 		return _cache[key]
-	if kind in ["city_building", "city_leaning", "city_terminal", "city_department", "city_clock", "city_toppled", "city_sag_span", "container", "ship"]:
+	if kind in ["city_building", "city_ruin", "city_leaning", "city_terminal", "city_department", "city_clock", "city_toppled", "city_sag_span", "container", "ship"]:
 		var mesh_kind: String = {
-			"city_building": "tower", "city_leaning": "tower", "city_terminal": "terminal",
+			"city_building": "tower", "city_ruin": "ruin", "city_leaning": "tower", "city_terminal": "terminal",
 			"city_department": "department", "city_clock": "clock", "city_toppled": "toppled",
 			"city_sag_span": "sag_span", "container": "container", "ship": "ship"
 		}[kind]

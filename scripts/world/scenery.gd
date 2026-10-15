@@ -56,6 +56,7 @@ const PROPS := {
 	"city_terminal": [14.0, 12.0, 180.0, false, false, 0, false, false],
 	"city_department": [13.0, 28.0, 200.0, false, false, 0, false, false],
 	"city_clock": [7.0, 30.0, 200.0, false, false, 0, false, false],
+	"city_ruin": [15.0, 36.0, 200.0, false, false, 0, false, false],
 	"city_leaning": [15.0, 36.0, 200.0, false, false, 0, false, false],
 	"city_toppled": [12.0, 4.0, 200.0, false, false, 0, false, false],
 	"city_sag_span": [12.0, 2.6, 200.0, false, false, 0, false, false],
@@ -89,7 +90,7 @@ const VEHICLES := ["car", "truck", "infested_car", "cultivator"]
 const FALLING := ["pole", "plane_tree", "persimmon", "cordyceps", "streetlamp", "traffic_light", "road_sign"]
 
 ## Solid buildings and structures: the tank breaks them but is slowed hard (Rail.jolt).
-const HARD := ["house", "infested_house", "hall", "church_nave", "church_tower", "church_spire", "school_wing", "school_center", "gas_station", "overpass_pier", "overpass_deck", "gate", "rock", "fungal_spire", "zelkova_trunk", "city_building", "city_shop", "city_terminal", "city_department", "city_clock", "city_leaning", "city_toppled", "city_pier", "city_deck", "city_sag_span", "container", "ship"]
+const HARD := ["house", "infested_house", "hall", "church_nave", "church_tower", "church_spire", "school_wing", "school_center", "gas_station", "overpass_pier", "overpass_deck", "gate", "rock", "fungal_spire", "zelkova_trunk", "city_building", "city_ruin", "city_shop", "city_terminal", "city_department", "city_clock", "city_leaning", "city_toppled", "city_pier", "city_deck", "city_sag_span", "container", "ship"]
 
 ## Plain props that spawn overgrown more often the deeper the stage goes.
 const INFESTED := {"house": "infested_house", "car": "infested_car"}
@@ -324,8 +325,11 @@ func _city() -> void:
 			var under_deck := false
 			for ahead in [0.0, 50.0, 100.0]: # Deck hunters hold about 100 m ahead, so the gap leads each change of side.
 				under_deck = under_deck or (stage.section_at(shop_d + ahead) == Stage2.Section.VIADUCT and side == stage.expressway_side(shop_d + ahead))
-			if has_shop and not under_deck and not stage.in_arena(shop_d, 35.0) and not _near_split(shop_d, 26.0):
+			var ruined := stage.section_at(shop_d) == Stage2.Section.CANYON # The canyon's shops lie in its rubble.
+			if has_shop and not under_deck and not ruined and not stage.in_arena(shop_d, 35.0) and not _near_split(shop_d, 26.0):
 				add("city_shop", shop_d, side * kerb, -side * PI * 0.5, variant)
+			elif has_shop and ruined and not _near_split(shop_d, 26.0):
+				add("city_rubble", shop_d, side * (kerb + 1.0), variant * 0.5, variant % 4).set_meta("y", stage.height(shop_d, side * (kerb + 1.0)))
 			shop_d += rng.randf_range(15.0, 24.0)
 	for d in range(180, 3150, 150):
 		var side := -1.0 if d / 150 % 2 else 1.0
@@ -340,6 +344,7 @@ func _city() -> void:
 	for d in range(2250, 3150, 180):
 		add("truck", float(d), 8.0, 0.0, 1)
 	_expressway_decor(stage)
+	_canyon_rubble(stage)
 	_concourse_decor()
 	_kicker_decor(stage)
 
@@ -375,6 +380,24 @@ func _parapet_mesh(stage: Stage2, d: float, length: float) -> Mesh:
 				b.glow = false
 		s += step
 	return b.mesh()
+
+
+## Heaps of rubble and drowned roofs strewn over the canyon's open lots, where the towers came down.
+func _canyon_rubble(stage: Stage2) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 2150
+	for side: float in Stage2.CANYON_LOTS:
+		for lot: Array in Stage2.CANYON_LOTS[side]:
+			if lot[2] != "open":
+				continue
+			var d: float = lot[0] + rng.randf_range(4.0, 12.0)
+			while d < lot[1]:
+				var u := side * (stage.street_half(d) + rng.randf_range(5.0, 30.0))
+				if rng.randf() < 0.4:
+					add_decor(CityKit.decor("roof_island", rng.randi_range(0, 5)), d, u, rng.randf() * TAU, Stage2.WATER_LEVEL - 0.6)
+				else:
+					add_decor(CityKit.decor("rubble", rng.randi_range(0, 7)), d, u, rng.randf() * TAU, Stage2.WATER_LEVEL - 0.4)
+				d += rng.randf_range(14.0, 22.0)
 
 
 ## Ceiling lamp panels along the flooded concourse: the only light in it besides the mouths.

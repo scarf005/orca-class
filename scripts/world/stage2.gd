@@ -79,6 +79,7 @@ const RELIEF: Array[Dictionary] = [
 ]
 
 const BACKDROP_ROWS := [45.0, 95.0] ## Setback of each backdrop row from the wall line, beyond the front tower row.
+const VIADUCT_SETBACK := 70.0 ## Extra setback of the far row beside the viaduct and the ruins, whose near row is left out.
 ## Frontage per section: the roof-height range of the blocks along the street and the share of lots built. Only the
 ## boulevard is a continuous canyon of towers; the others are low, patchy or open.
 const FRONTAGE := [
@@ -88,12 +89,16 @@ const FRONTAGE := [
 	{"h": [14.0, 52.0], "built": 1.0},
 	{"h": [6.0, 11.0], "built": 0.9},
 ]
-## The canyon's broken frontage by side (-1 left, 1 right): [from, to, kind] with kind tall, stump or open (a flooded
-## lot). It never walls both sides at once, and its inner corners stay open so the bends read.
+## The canyon's ruined frontage by side (-1 left, 1 right): [from, to, kind]. A wall is a row of tall gutted towers
+## on the outside of a bend, facing the camera as the street turns; ruins and stumps are gutted towers standing to
+## different heights, lean a tower tipped on its footing, and open a flooded lot of rubble that shows the skyline.
+## It never walls both sides at once, and its inner corners stay open so the bends read.
 const CANYON_LOTS := {
-	-1.0: [[2150.0, 2290.0, "open"], [2290.0, 2420.0, "tall"], [2420.0, 2480.0, "stump"], [2480.0, 2640.0, "open"], [2640.0, 2700.0, "tall"], [2950.0, 3010.0, "tall"], [3010.0, 3200.0, "open"]],
-	1.0: [[2150.0, 2290.0, "tall"], [2290.0, 2410.0, "open"], [2410.0, 2640.0, "tall"], [2640.0, 2700.0, "stump"], [2950.0, 3100.0, "stump"], [3100.0, 3200.0, "tall"]],
+	-1.0: [[2150.0, 2230.0, "ruin"], [2230.0, 2290.0, "open"], [2290.0, 2440.0, "wall"], [2440.0, 2490.0, "stump"], [2490.0, 2640.0, "open"], [2640.0, 2700.0, "lean"], [2950.0, 3020.0, "stump"], [3020.0, 3120.0, "open"], [3120.0, 3200.0, "ruin"]],
+	1.0: [[2150.0, 2230.0, "stump"], [2230.0, 2430.0, "open"], [2430.0, 2500.0, "ruin"], [2500.0, 2640.0, "wall"], [2640.0, 2700.0, "stump"], [2950.0, 3050.0, "lean"], [3050.0, 3200.0, "open"]],
 }
+## Towers that came down across the canyon's open lots and lie half drowned: [d, u, yaw].
+const FALLEN := [[2330.0, 46.0, 0.5], [2560.0, -44.0, -0.45], [3070.0, -46.0, 0.35]]
 ## Bends (from, to, inner side) the backdrop skips on the inside, where it would fold over the road.
 const BENDS := [[2230.0, 2420.0, 1.0], [2440.0, 2630.0, -1.0]]
 
@@ -139,6 +144,8 @@ func _init() -> void:
 	_structure("city_clock", PLAZA_D, 80.0, Vector3(14.0, 30.0, 14.0), WATER_LEVEL - 4.5, 14)
 	_structure("city_building", 2200.0, -38.0, Vector3(24.0, 28.0, 22.0), WATER_LEVEL - 4.5, 11)
 	_structure("city_leaning", 2670.0, 38.0, Vector3(18.0, 26.0, 22.0), WATER_LEVEL - 4.5, 15, 0.0, Vector3(0.0, 0.0, 0.16))
+	for fallen: Array in FALLEN:
+		_structure("city_toppled", fallen[0], fallen[1], Vector3(12.0, 4.0, 44.0), WATER_LEVEL - 1.8, int(fallen[0]) % 8, fallen[2])
 	# The tower that falls across the canyon (see ToppleTower) stands on the rubble at the end of its slab until then.
 	_structure("city_building", ramp_lip(SLAB) - SLAB_SIZE.z * 0.5, float(RAMPS[SLAB].u), SLAB_SIZE, float(RAMPS[SLAB].height) + 0.15, SLAB_VARIANT)
 	# A bay-facing rim remains outside the boss arena; the yard and ships fill the water beyond it.
@@ -179,13 +186,28 @@ func _generate_walls() -> void:
 					var variant := _tower_kind(d, rng) + 4 * rng.randi_range(0, 3)
 					var lot := _lot(section_index, d, side, built)
 					if lot != "open" and not _expressway_occupies(d, along, side) and not _roofed(d, along):
-						_structure("city_building", d, centre, Vector3(across, maxf(h * 0.35, 9.0) if lot == "stump" else h, along), WATER_LEVEL - 4.5, variant)
+						_frontage(lot, d, centre, Vector3(across, h, along), variant)
 					frontage_gaps.append({"d": d + along + gap * 0.5, "u": side * (setback + across + 8.0), "gap": gap, "side": side})
 				d = next_d
 				along = next_along
 
 
-## What stands on a lot at `d` on `side`: a tall tower, a broken stump or nothing (a flooded lot).
+## Builds the block on a frontage lot (see _lot) at (d, u): `size.y` is the section's drawn roof height.
+func _frontage(lot: String, d: float, u: float, size: Vector3, variant: int) -> void:
+	match lot:
+		"tall":
+			_structure("city_building", d, u, size, WATER_LEVEL - 4.5, variant)
+		"wall":
+			_structure("city_ruin", d, u, Vector3(size.x, maxf(size.y, 30.0), size.z), WATER_LEVEL - 4.5, variant)
+		"ruin":
+			_structure("city_ruin", d, u, Vector3(size.x, clampf(size.y, 16.0, 30.0), size.z), WATER_LEVEL - 4.5, variant)
+		"stump":
+			_structure("city_ruin", d, u, Vector3(size.x, clampf(size.y * 0.3, 8.0, 12.0), size.z), WATER_LEVEL - 4.5, variant)
+		"lean":
+			_structure("city_leaning", d, u, Vector3(size.x, clampf(size.y, 20.0, 34.0), size.z), WATER_LEVEL - 4.5, variant, 0.0, Vector3(0.0, 0.0, signf(u) * 0.2))
+
+
+## What stands on a lot at `d` on `side`: a tall tower, a ruin, a stump, a leaning tower or nothing (a flooded lot).
 func _lot(section_index: int, d: float, side: float, built: bool) -> String:
 	if section_index == Section.BAY and side < 0.0:
 		return "open" # The bay opens to the water on the left.
@@ -214,11 +236,12 @@ func _generate_backdrop() -> void:
 			while d < land_end:
 				var along := float(rng.randi_range(0, 2)) * 6.0 + 28.0
 				var across := float(rng.randi_range(0, 2)) * 6.0 + 24.0
-				var inner := street_half(d) + float(BACKDROP_ROWS[row]) + rng.randf_range(0.0, 6.0)
+				var low_rise := section_at(d) in [Section.VIADUCT, Section.CANYON] # Over the low roofs and the ruins the skyline stands back.
+				var inner := street_half(d) + float(BACKDROP_ROWS[row]) + (VIADUCT_SETBACK if low_rise else 0.0) + rng.randf_range(0.0, 6.0)
 				var warehouse := d >= SECTION_STARTS[Section.BAY]
 				var roof := float(rng.randi_range(4, 7) if warehouse else (rng.randi_range(11, 22) if row == 0 else rng.randi_range(22, 35))) * 2.0
 				var variant := rng.randi_range(0, 7)
-				if d + along * 0.5 <= land_end and not _backdrop_skips(d, side):
+				if d + along * 0.5 <= land_end and not _backdrop_skips(d, side) and not (low_rise and row == 0):
 					_backdrop(d, side * (inner + across * 0.5), Vector3(across, roof + 4.5, along), variant)
 				d += along + rng.randf_range(0.0, 10.0)
 	# The plaza arena stays clear; blocks ring its rim just outside the keep-out radius.
