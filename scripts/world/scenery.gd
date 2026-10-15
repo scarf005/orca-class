@@ -74,6 +74,8 @@ const PROPS := {
 	"raft": [2.5, 1.0, 6.0, true, true, 10, false, false],
 	"city_rubble": [2.5, 2.2, 10.0, true, false, 5, false, false],
 	"subway_entrance": [4.2, 2.85, 20.0, true, false, 15, false, false],
+	"tunnel_roof": [12.0, 2.0, 200.0, false, false, 0, false, false],
+	"tunnel_wall": [1.0, 10.5, 200.0, false, false, 0, false, false],
 }
 
 ## The highway crossing overhead: piers standing in the valley (lateral offsets) and deck spans
@@ -90,7 +92,7 @@ const VEHICLES := ["car", "truck", "infested_car", "cultivator"]
 const FALLING := ["pole", "plane_tree", "persimmon", "cordyceps", "streetlamp", "traffic_light", "road_sign"]
 
 ## Solid buildings and structures: the tank breaks them but is slowed hard (Rail.jolt).
-const HARD := ["house", "infested_house", "hall", "church_nave", "church_tower", "church_spire", "school_wing", "school_center", "gas_station", "overpass_pier", "overpass_deck", "gate", "rock", "fungal_spire", "zelkova_trunk", "city_building", "city_ruin", "city_shop", "city_terminal", "city_department", "city_clock", "city_leaning", "city_toppled", "city_pier", "city_deck", "city_sag_span", "container", "ship"]
+const HARD := ["house", "infested_house", "hall", "church_nave", "church_tower", "church_spire", "school_wing", "school_center", "gas_station", "overpass_pier", "overpass_deck", "gate", "rock", "fungal_spire", "zelkova_trunk", "city_building", "city_ruin", "city_shop", "city_terminal", "city_department", "city_clock", "city_leaning", "city_toppled", "city_pier", "city_deck", "city_sag_span", "container", "ship", "tunnel_roof", "tunnel_wall"]
 
 ## Plain props that spawn overgrown more often the deeper the stage goes.
 const INFESTED := {"house": "infested_house", "car": "infested_car"}
@@ -127,6 +129,7 @@ var _next := 0
 var _live: Array[Spec] = []
 var _wires_of := {} ## Pole spec -> the wire decor specs strung from it.
 var _blinking: Array[Spec] = [] ## Decor that flashes on and off, like a ramp's IN sign.
+var _swirling: Array[Spec] = [] ## Decor that turns slowly about its own vertical axis, like quicksand.
 var _groups: Array[Dictionary] = [] ## Compound id -> {piece index: Prop}, filled as pieces stream in.
 
 
@@ -443,45 +446,70 @@ func _kicker_decor(stage: Stage2) -> void:
 	_blinking.append(sign)
 
 
-## Sand-buried downtown: the street furniture is sunk into the dunes and the cars lie half under them.
+## Sand-buried downtown: the street furniture is sunk into the dunes and the cars lie half under them. Only the
+## avenue, the canyon and the run are streets; the dune sea and the pit's basin keep just wrecks and signs.
 func _buried_city() -> void:
-	var stage := _city_shell()
+	var stage := _city_shell() as Stage3
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20261017
 	var last := int(Stage3.LENGTH) - 300
+	var street := func(d: float) -> bool: return stage.section_at(d) not in [Stage3.Section.OUTSKIRTS, Stage3.Section.PIT] and not (d > Stage3.DIVE_D - 20.0 and d < Stage3.RISE_END + 20.0)
+	var basin := func(d: float) -> bool: return stage.section_at(d) == Stage3.Section.PIT
+	# Every loop draws its random numbers as it always did and only then drops what the open stretches do not have, so
+	# the run's decor below stays where it was.
 	for d in range(100, last, 40):
 		if stage.in_arena(float(d), 40.0):
 			continue
 		var side := -1.0 if (d / 40) % 2 == 0 else 1.0
 		var u := side * (stage.lateral_limit(float(d)) - 3.0)
-		var lamp := add("streetlamp", float(d), u, 0.0 if side < 0.0 else PI, 0)
-		lamp.set_meta("y", stage.height(float(d), u) - rng.randf_range(2.0, 5.0))
-		lamp.tilt = Vector3(0.0, 0.0, rng.randf_range(-0.25, 0.25))
+		var buried := rng.randf_range(2.0, 5.0)
+		var lean := rng.randf_range(-0.25, 0.25)
+		if street.call(float(d)):
+			var lamp := add("streetlamp", float(d), u, 0.0 if side < 0.0 else PI, 0)
+			lamp.set_meta("y", stage.height(float(d), u) - buried)
+			lamp.tilt = Vector3(0.0, 0.0, lean)
 	for d in range(180, last, 140):
-		if stage.in_arena(float(d), 60.0):
+		if stage.in_arena(float(d), 60.0) or not street.call(float(d)):
 			continue
 		var u := stage.lateral_limit(float(d)) - 4.0
 		add("traffic_light", float(d), u, PI, 0).set_meta("y", stage.height(float(d), u) - 2.5)
 		add("road_sign", float(d) + 55.0, -u, 0.0, d % 4).set_meta("y", stage.height(float(d) + 55.0, -u) - 1.8)
-	# Cars drowned in sand to the windows, thicker in the quiet opening.
+	# Cars drowned in sand to the windows, thicker in the quiet opening and scattered wide over the dune sea.
 	for d in range(100, last, 55):
 		if stage.in_arena(float(d), 30.0) or rng.randf() < (0.25 if d > 700 else 0.1):
 			continue
 		var lane := rng.randf_range(-9.0, 9.0)
-		var car := add("car", float(d), lane, rng.randf_range(-0.3, 0.3) + (PI if lane > 0.0 else 0.0), rng.randi_range(0, 11))
+		var yaw := rng.randf_range(-0.3, 0.3) + (PI if lane > 0.0 else 0.0)
+		var variant := rng.randi_range(0, 11)
+		var tilt := Vector3(rng.randf_range(-0.1, 0.1), 0.0, rng.randf_range(-0.12, 0.12))
+		if basin.call(float(d)):
+			continue
+		lane *= 4.0 if d < int(Stage3.OPEN_END) - 60 else 1.0
+		var car := add("car", float(d), lane, yaw, variant)
 		car.set_meta("y", stage.height(float(d), lane) - 0.6)
-		car.tilt = Vector3(rng.randf_range(-0.1, 0.1), 0.0, rng.randf_range(-0.12, 0.12))
+		car.tilt = tilt
 	for d in range(220, last, 210):
 		if stage.in_arena(float(d), 50.0):
 			continue
 		var lane := rng.randf_range(-7.0, 7.0)
-		add("bus_wreck", float(d), lane, rng.randf_range(-0.4, 0.4), rng.randi_range(0, 5)).set_meta("y", stage.height(float(d), lane) - 0.8)
+		var yaw := rng.randf_range(-0.4, 0.4)
+		var variant := rng.randi_range(0, 5)
+		if not basin.call(float(d)):
+			add("bus_wreck", float(d), lane, yaw, variant).set_meta("y", stage.height(float(d), lane) - 0.8)
 	for d in range(330, last, 260):
 		if stage.in_arena(float(d), 50.0):
 			continue
 		var u := 11.0 if d % 2 == 0 else -11.0
-		add("barricade", float(d), rng.randf_range(-6.0, 6.0), rng.randf_range(-0.3, 0.3), rng.randi_range(0, 3))
-		add("city_rubble", float(d) + 20.0, u, rng.randf() * TAU, d % 4).set_meta("y", stage.height(float(d) + 20.0, u))
+		var across := rng.randf_range(-6.0, 6.0)
+		var yaw := rng.randf_range(-0.3, 0.3)
+		var variant := rng.randi_range(0, 3)
+		var rubble_yaw := rng.randf() * TAU
+		if not basin.call(float(d)):
+			add("barricade", float(d), across, yaw, variant)
+			add("city_rubble", float(d) + 20.0, u, rubble_yaw, d % 4).set_meta("y", stage.height(float(d) + 20.0, u))
+	_dune_sea(stage)
+	_tunnel(stage)
+	_quicksand(stage)
 	# Along the dune run the city is buried to its crowns: tower tops stick out of the sand far beyond the ramps.
 	for d in range(int(Stage3.SECTION_STARTS[Stage3.Section.RUN]) + 40, int(Stage3.LENGTH), 70):
 		var side := -1.0 if rng.randf() < 0.5 else 1.0
@@ -510,6 +538,71 @@ func _buried_city() -> void:
 		_blinking.append(sign)
 
 
+## The dune sea: tower tops and broken signs poking out of the sand at every distance from the road.
+func _dune_sea(stage: Stage3) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20261019
+	for d in range(30, int(Stage3.OPEN_END), 24):
+		var side := -1.0 if rng.randf() < 0.5 else 1.0
+		var u := side * (stage.lateral_limit(float(d)) + 6.0 + 130.0 * pow(rng.randf(), 2.0))
+		var size := Vector3(rng.randf_range(14.0, 26.0), 70.0, rng.randf_range(14.0, 26.0))
+		var top := add_decor(CityKit.tower(size, rng.randi_range(0, 15)), float(d) + rng.randf_range(-12.0, 12.0), u, rng.randf_range(-0.4, 0.4), stage.height(float(d), u) - size.y + rng.randf_range(8.0, 34.0))
+		top.tilt = Vector3(rng.randf_range(-0.2, 0.2), 0.0, rng.randf_range(-0.2, 0.2))
+		top.set_meta("range", 700.0)
+	# Signs on the lanes themselves: a broken one stands in the way, or topples for a point.
+	for d in range(60, int(Stage3.OPEN_END) - 40, 46):
+		var u := rng.randf_range(-48.0, 48.0)
+		var sign := add("road_sign", float(d) + rng.randf_range(-10.0, 10.0), u, rng.randf() * TAU, rng.randi_range(0, 3))
+		sign.set_meta("y", stage.height(sign.d, u) - 1.8)
+		sign.tilt = Vector3(rng.randf_range(-0.25, 0.25), 0.0, rng.randf_range(-0.25, 0.25))
+
+
+## The subway tunnel: a lintel at each mouth and painted lane lines down the floor. Its roof and walls are structures.
+func _tunnel(stage: Stage3) -> void:
+	var floor_y := stage.height(Stage3.TUNNEL_D + Stage3.TUNNEL_BAY, 0.0)
+	var mouth := add_decor(CityKit.decor("tunnel_portal"), Stage3.TUNNEL_D - 2.0, 0.0, 0.0, floor_y)
+	mouth.set_meta("range", 500.0)
+	var exit_mouth := add_decor(CityKit.decor("tunnel_portal"), Stage3.TUNNEL_END + 2.0, 0.0, PI, floor_y)
+	exit_mouth.set_meta("range", 500.0)
+	var b := LowPoly.new()
+	var length := Stage3.TUNNEL_END - Stage3.TUNNEL_D
+	for lane: float in [-Stage3.TUNNEL_HALF * 0.5, Stage3.TUNNEL_HALF * 0.5, 0.0]:
+		var z := 3.0
+		while z < length:
+			b.box(Transform3D(Basis(), Vector3(lane, 0.04, -z)), Vector3(0.25 if lane != 0.0 else 0.5, 0.04, 5.0), Palette.CREAM if lane != 0.0 else Palette.AMBER)
+			z += 12.0
+	add_decor(b.mesh(), Stage3.TUNNEL_D, 0.0, 0.0, floor_y).set_meta("range", 500.0)
+
+
+## The quicksand: a swirl of ochre arms over each funnel that turns slowly, so the sink reads from afar.
+func _quicksand(stage: Stage3) -> void:
+	for sink in Stage3.SINKS:
+		var b := LowPoly.new()
+		var rings := 8
+		var sectors := 24
+		var heights: Array[float] = []
+		for ring in rings + 1:
+			var total := 0.0
+			for sector in sectors:
+				var angle := TAU * sector / sectors
+				total += stage.height(sink.x + cos(angle) * Stage3.SINK_RADIUS * ring / rings, sink.y + sin(angle) * Stage3.SINK_RADIUS * ring / rings)
+			heights.append(total / sectors + 0.3)
+		var vertex := func(ring: int, sector: int) -> Vector3:
+			var angle := TAU * sector / sectors
+			var r := Stage3.SINK_RADIUS * ring / rings
+			return Vector3(cos(angle) * r, heights[ring], sin(angle) * r)
+		for ring in rings:
+			for sector in sectors:
+				var arm := (sector + ring) % 8 < 4
+				var color := Palette.OCHRE.darkened(0.35) if arm else Palette.STRAW.darkened(0.1)
+				var next := (sector + 1) % sectors
+				b.tri(vertex.call(ring, sector), vertex.call(ring, next), vertex.call(ring + 1, next), color, Vector3.UP)
+				b.tri(vertex.call(ring, sector), vertex.call(ring + 1, next), vertex.call(ring + 1, sector), color, Vector3.UP)
+		var swirl := add_decor(b.mesh(), sink.x, sink.y, 0.0, 0.0)
+		swirl.set_meta("range", 450.0)
+		_swirling.append(swirl)
+
+
 ## The skyline behind the front towers, merged into one mesh per BACKDROP_CHUNK of street to keep the live count low.
 func _backdrop_chunks(stage: StageDef) -> void:
 	var chunks := {}
@@ -536,11 +629,14 @@ static func _near_split(d: float, reach: float) -> bool:
 	return Stage2.SPLITS.any(func(split: Dictionary) -> bool: return absf(d - float(split.d)) < maxf(reach, 100.0))
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	var lit := fmod(Time.get_ticks_msec() * 0.001, 0.6) < 0.4
 	for spec in _blinking:
 		if is_instance_valid(spec.node):
 			spec.node.visible = lit
+	for spec in _swirling:
+		if is_instance_valid(spec.node):
+			spec.node.rotate_y(-delta * 0.5)
 	var world := World.current
 	if not world or not world.player or Course.stage.structures.is_empty():
 		return
