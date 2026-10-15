@@ -70,7 +70,6 @@ const VENT_REARM := 0.4 ## Venting ends when heat falls to this.
 const VENT_RELOAD := 2.0 ## Main-gun recovery multiplier while venting.
 const DASH_HEAT := 0.3
 const THROTTLE_HEAT := 0.3 ## Per second of overdrive or brake.
-const HEAT_PER_DAMAGE := 0.01 ## Heat taken from armor damage by flame and beam hits.
 const COOL_FLOOR := 0.25 ## A wrecked engine still sheds this share of the cooling, so venting always ends.
 const CRUSH_SPEED := 5.0 ## Ground speed above which the tank runs down ground enemies.
 const RAM_DAMAGE := 150.0
@@ -1701,6 +1700,12 @@ func add_heat(amount: float) -> void:
 		Sfx.play("overheat", global_position)
 
 
+## Heat from an enemy flame or beam: it soaks through armor, but not through a dash.
+func scorch(amount: float) -> void:
+	if invuln <= 0.0 and amount > 0.0:
+		add_heat(amount)
+
+
 func _update_heat(delta: float) -> void:
 	_heat_idle += delta
 	var cool := HEAT_COOL_IDLE if _heat_idle >= HEAT_IDLE else HEAT_COOL
@@ -2014,6 +2019,7 @@ func take_hit(hit: Hit) -> void:
 	if dead or invulnerable or _respawn > 0.0:
 		return
 	flash() # Every blow shows on the hull, even one the armor or ERA turns.
+	scorch(hit.heat)
 	if is_small_arms(hit):
 		_glance_off(hit)
 		return
@@ -2081,8 +2087,6 @@ func struck_sensor(hit: Hit) -> String:
 
 func on_damaged(hit: Hit, amount: float) -> void:
 	var world := World.current
-	if hit.kind in [Hit.Kind.FIRE, Hit.Kind.LASER]:
-		add_heat(amount * HEAT_PER_DAMAGE)
 	world.stats.damage_taken += amount
 	world.stats.section_damage += amount
 	world.stats.lose_style(RunStats.STYLE_HIT_PENALTY * clampf(amount / 15.0, 0.3, 1.5))

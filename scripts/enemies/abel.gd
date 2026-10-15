@@ -3,6 +3,8 @@ extends BipedMech
 ## Canopy-cockpit police/labor mech: a spinning gatling and right-arm kinetic launcher.
 ## The laser gives a second to rush it; breaking the three tubes leaves only small arms.
 
+const LASER_HEAT := 0.5 ## Heat one full designation gives the tank: half the gauge; one and two drifts overload.
+
 var launcher_hp := 45.0
 var disarmed := false
 var _attack_timer := 1.5
@@ -161,7 +163,7 @@ func behave(delta: float) -> void:
 	if _wind > 0.0:
 		_wind -= delta
 		if _losat:
-			_designate(tank)
+			_designate(tank, delta)
 		else:
 			_barrels.rotation.z += delta * 25.0
 			if fmod(_wind, 0.16) < 0.05:
@@ -201,11 +203,12 @@ func _fire_losat(tank: Tank) -> void:
 
 ## The aim: a fat flickering red beam with a white core to the tank, a glow that swells in the tube and a star that
 ## blinks on the hull, so the target knows exactly who is being lased.
-func _designate(tank: Tank) -> void:
+func _designate(tank: Tank, delta: float) -> void:
 	var fx := World.current.fx
 	var from := _launch_muzzle.global_position
 	var charge := 1.0 - clampf(_wind / maxf(_wind_total, 0.01), 0.0, 1.0)
 	var pulse := 0.5 + 0.5 * sin(_wind * 50.0)
+	tank.scorch(LASER_HEAT * delta / maxf(_wind_total, 0.01))
 	fx.beam(from, tank.hit_center(), Palette.RED, 0.5 + 0.7 * pulse * charge + 0.3 * charge, 0.05)
 	fx.beam(from, tank.hit_center(), Palette.WHITE, 0.18 + 0.1 * charge, 0.05)
 	fx.light_flash(from, 10.0 + 30.0 * charge, Palette.RED, 20.0 + 20.0 * charge)
