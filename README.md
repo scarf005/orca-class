@@ -7,7 +7,7 @@
 
 ## Play
 
-Needs Godot 4.7.2+ (stable)
+Needs Godot 4.7.2+ (stable) and [Git LFS](https://git-lfs.com) for the audio, model, image and font assets.
 
 ```sh
 godot --path .

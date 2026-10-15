@@ -25,6 +25,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with: {lfs: true}
       - name: Check itch.io credentials
         env: {BUTLER_API_KEY: "${{ secrets.BUTLER_API_KEY }}"}
         run: test -n "$BUTLER_API_KEY"
