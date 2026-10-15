@@ -272,6 +272,12 @@ func _fire(event: Dictionary) -> void:
 			world.rail.sprint = float(event.kmh) / 3.6
 		"music":
 			Sfx.play_music(event.path)
+		"topple":
+			world.add_child(ToppleTower.new())
+		"surge":
+			var surge := TidalSurge.new()
+			surge.d = event.d_center
+			world.add_child(surge)
 
 
 func spawn_ambush(event: Dictionary) -> Enemy:
