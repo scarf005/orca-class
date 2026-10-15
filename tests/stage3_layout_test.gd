@@ -205,6 +205,19 @@ func test_a_bulge_swells_in_view_for_at_least_1_5_s_before_it_bursts() -> void:
 	check_near(stage.height(site.x, site.y), flat, 0.001, "nor does the stage's own height")
 
 
+func test_a_swelling_bulge_stands_a_column_up_that_shows_from_afar_until_it_bursts() -> void:
+	var world := _stage3()
+	var bulge := _bulge(world, Vector2(1650.0, 2.0))
+	_age(bulge, 0.5)
+	var early := bulge._mesh.get_aabb().size.y
+	check(early > 4.0, "half a second in, the column stands %.1f m over the lane" % early)
+	_age(bulge, 1.0)
+	var later := bulge._mesh.get_aabb().size.y
+	check(later > early + 3.0 and later > 10.0, "it climbs to %.1f m before the burst" % later)
+	_age(bulge, 1.2)
+	check(bulge._mesh.get_aabb().size.y < 6.0, "the column is gone once the sand has burst")
+
+
 func test_standing_on_the_burst_hurts_and_a_lane_aside_does_not() -> void:
 	var world := _stage3()
 	var tank := world.player
@@ -312,8 +325,10 @@ func test_the_tunnel_is_a_dark_roofed_200_to_300_m_with_tiled_walls() -> void:
 			if absf(roof.d - d) <= roof.size.z * 0.5:
 				check(roof.y - floor_y >= Stage3.TUNNEL_CLEAR - 0.5, "the soffit at d=%d clears the floor by %.1f m" % [d, roof.y - floor_y])
 	var stage := Course.stage as Stage3
-	check(stage.ambient_energy_at((from + to) * 0.5) < stage.ambient_energy * 0.6, "the tunnel is dark inside")
-	check_near(stage.ambient_energy_at(1000.0), stage.ambient_energy, 0.001, "and bright outside")
+	check(stage.sun_scale_at((from + to) * 0.5) < 0.2, "the roof shuts the sun out of the tunnel")
+	check(stage.ambient_energy_at((from + to) * 0.5) < stage.ambient_energy, "its sky-light is dimmer inside")
+	check_near(stage.sun_scale_at(1000.0), 1.0, 0.001, "the sun is whole outside")
+	check_near(stage.ambient_energy_at(1000.0), stage.ambient_energy, 0.001, "and so is the sky-light")
 	check(stage.fog_tint((from + to) * 0.5).v < stage.fog_tint(1000.0).v * 0.6, "its haze is dark")
 
 
