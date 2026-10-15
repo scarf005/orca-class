@@ -419,10 +419,17 @@ class Song:
             f.setframerate(RATE)
             f.writeframes(data.tobytes())
         out = os.path.join(MUSIC_DIR, name + ".ogg")
-        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", tmp, "-c:a", "libvorbis", "-q:a", "6", out], check=True)
+        # About 128 kbps; step up only when the codec would add a click at the loop seam.
+        seam = np.max(np.abs(data[0].astype(np.float64) - data[-1])) / 32768
+        for quality in (4, 5, 6):
+            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", tmp, "-c:a", "libvorbis", "-q:a", str(quality), out], check=True)
+            decoded = subprocess.run(["ffmpeg", "-loglevel", "error", "-i", out, "-f", "f32le", "-"], capture_output=True, check=True).stdout
+            decoded = np.frombuffer(decoded, np.float32).reshape(-1, 2)
+            if np.max(np.abs(decoded[0] - decoded[-1])) <= seam + 0.02:
+                break
         os.remove(tmp)
         rms = np.sqrt(np.mean(stereo ** 2))
-        print("wrote", out, f"{self.length:.1f}s rms {20 * np.log10(rms):.1f} dBFS")
+        print("wrote", out, f"{self.length:.1f}s rms {20 * np.log10(rms):.1f} dBFS, Vorbis q{quality}")
 
 
 def saw_stack(f, seconds, voices=(0.0,), bend=0.0, bend_time=0.04):
