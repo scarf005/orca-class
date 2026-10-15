@@ -418,6 +418,8 @@ func damage_multiplier(hit: Hit) -> float:
 
 func on_death(hit: Hit) -> void:
 	var world := World.current
+	if burnable and hit != null and hit.kind == Hit.Kind.FIRE and hit.weapon in Wildfire.ENEMY_FIRE:
+		Wildfire.spread(self)
 	var center := global_position + Vector3.UP * height * 0.4
 	var push := Enemy.kill_push(hit)
 	# Rammed at speed, the pieces fly on ahead of the tank like it hit them at 80 km/h. What leaves

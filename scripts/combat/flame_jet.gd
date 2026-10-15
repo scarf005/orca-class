@@ -80,7 +80,9 @@ func _process(delta: float) -> void:
 		var point := origin + dir * (step * 4.0)
 		for prop: Prop in world.props.in_radius(point, half_width(step * 4.0, thickness) + 1.0):
 			if prop.burnable:
-				prop.take_hit(Hit.make(Hit.Kind.FIRE, PROP_DAMAGE, point, dir))
+				var burn := Hit.make(Hit.Kind.FIRE, PROP_DAMAGE, point, dir)
+				burn.weapon = "flame"
+				prop.take_hit(burn)
 		if point.y <= Course.height_at(point) + 0.6:
 			landing = point
 			break

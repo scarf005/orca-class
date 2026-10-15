@@ -162,4 +162,6 @@ func _process(delta: float) -> void:
 			entity.take_hit(burn)
 	for prop: Prop in world.props.in_radius(global_position, RADIUS):
 		if prop.burnable:
-			prop.take_hit(Hit.make(Hit.Kind.FIRE, 10.0, global_position))
+			var burn := Hit.make(Hit.Kind.FIRE, 10.0, global_position)
+			burn.weapon = weapon if hostile else ""
+			prop.take_hit(burn)
