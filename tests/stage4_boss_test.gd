@@ -26,7 +26,7 @@ func _fight(ahead := 70.0) -> Fortress:
 
 func _place_tank(fortress: Fortress, ahead: float, across := 0.0) -> void:
 	var at := fortress.global_position + Vector3(across, 0.0, -ahead)
-	world_tank().global_position = Vector3(at.x, Course.height_at(at), at.z)
+	world_tank().displace(Vector3(at.x, Course.height_at(at), at.z))
 
 
 func world_tank() -> Tank:
@@ -250,3 +250,16 @@ func test_the_fortress_goes_down_with_its_last_module_after_a_burning_death_thro
 	check(not fortress.dead, "but it does not vanish at once")
 	_step(fortress, 3.5)
 	check(fortress.dead or not is_instance_valid(fortress), "after the death throes it is destroyed")
+
+
+func test_a_hull_shove_is_not_read_as_driving_speed() -> void:
+	var fortress := _fight()
+	var tank := world_tank()
+	World.current.rail.mode = Rail.Mode.ARENA
+	tank.tick(STEP)
+	_place_tank(fortress, -5.0, 6.0)
+	fortress._collide(tank, STEP)
+	var thrown := tank.global_position.distance_to(fortress.global_position)
+	check(thrown > Fortress.HULL_HALF, "the shove moved the tank clear of the hull (%.1f m)" % thrown)
+	tank.tick(STEP)
+	check(tank.velocity.length() < Tank.ARENA_SPEED + Fortress.HULL_SHOVE + 1.0, "the speed readout stays within what the tank and the shove can reach (%.0f km/h)" % (tank.velocity.length() * 3.6))

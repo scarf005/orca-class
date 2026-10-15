@@ -935,6 +935,13 @@ func _set_pose(p: Vector3, yaw: float) -> void:
 	global_basis = Basis.from_euler(Vector3(pitch, yaw, -roll), EULER_ORDER_YXZ)
 
 
+## Moves the tank to `p` because something solid shoved it there, without the jump counting as driving speed.
+func displace(p: Vector3) -> void:
+	var before := global_position
+	_set_pose(p, hull_yaw)
+	_last_position += global_position - before
+
+
 func _update_aim(delta: float) -> void:
 	var world := World.current
 	var view_size := Vector2(DitherView.RESOLUTION)

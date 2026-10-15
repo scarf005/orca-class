@@ -401,7 +401,7 @@ func _collide(tank: Tank, delta: float) -> void:
 	else:
 		local.z = -HULL_FRONT - tank.radius if nearest == 1 else HULL_REAR + tank.radius
 	var pushed := global_position + yaw * local
-	tank._set_pose(Vector3(pushed.x, Course.height_at(pushed), pushed.z), tank.hull_yaw)
+	tank.displace(Vector3(pushed.x, Course.height_at(pushed), pushed.z))
 	if _bump <= 0.0:
 		_bump = 1.0
 		var away := Vector3(tank.global_position.x - global_position.x, 0.0, tank.global_position.z - global_position.z).normalized()
