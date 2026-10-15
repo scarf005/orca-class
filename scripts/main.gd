@@ -50,6 +50,7 @@ func _open_tutorial() -> void:
 func _open_map_editor() -> void:
 	var editor := MapEditor.new()
 	editor.stage_number = Game.stage
+	editor.hard = StageEvents.playtest.get("hard", false)
 	editor.play.connect(start_game.bind(""))
 	editor.exit.connect(_quit)
 	_swap(editor)

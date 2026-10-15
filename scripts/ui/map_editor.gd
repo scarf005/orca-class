@@ -20,6 +20,7 @@ const TOOLS := ["select", "wave", "pickup", "hold", "checkpoint"]
 const TYPES := ["wave", "pickup", "hold", "release", "checkpoint", "midboss", "boss", "storm", "sprint", "music", "ambush"]
 
 var stage_number := 1
+var hard := false ## Which difficulty's list is being edited.
 var events: Array[Dictionary] = []
 var world: World
 var scenery := Scenery.new()
@@ -36,6 +37,7 @@ var _info := Label.new()
 var _fields := VBoxContainer.new()
 var _materials := {}
 var _choices: Dictionary
+var _lists := {} ## Difficulty -> the list being edited for it, loaded when first shown.
 
 
 func _ready() -> void:
@@ -52,15 +54,13 @@ func _ready() -> void:
 	scenery.build()
 	world.add_child(_markers)
 	_choices = {"type": TYPES, "kind": Director.ENEMY_SCRIPTS.keys(), "id": Pickup.IDS}
-	events = Course.stage.run_events(false)
-	events.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.d < b.d)
-	timeline.events = events
 	timeline.length = Course.stage.plan_start + Course.stage.plan.reduce(func(sum: float, piece: Array) -> float: return sum + piece[0], 0.0)
 	timeline.scrubbed.connect(scrub)
 	timeline.picked.connect(func(index: int) -> void:
 		select(index)
 		scrub(events[index].d))
 	_build_ui()
+	set_hard(hard)
 	scrub(0.0)
 	_rebuild()
 
@@ -69,6 +69,8 @@ func _build_ui() -> void:
 	var toolbar := HBoxContainer.new()
 	for tool_name: String in TOOLS:
 		toolbar.add_child(_button(tool_name.to_upper(), func() -> void: _tool = tool_name))
+	toolbar.add_child(_button("NORMAL", set_hard.bind(false)))
+	toolbar.add_child(_button("HARD", set_hard.bind(true)))
 	toolbar.add_child(_button("DELETE", delete_selected))
 	toolbar.add_child(_button("SAVE", save))
 	toolbar.add_child(_button("PLAY", start_playtest))
@@ -189,6 +191,18 @@ func _click(at: Vector2) -> bool:
 	return false
 
 
+## Switches to one difficulty's list, loading the saved or coded one the first time.
+func set_hard(value: bool) -> void:
+	hard = value
+	if not _lists.has(hard):
+		var loaded := Course.stage.run_events(hard)
+		loaded.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.d < b.d)
+		_lists[hard] = loaded
+	events = _lists[hard]
+	timeline.events = events
+	select(-1)
+
+
 func select(index: int) -> void:
 	_selected = index
 	_rebuild()
@@ -209,13 +223,14 @@ func delete_selected() -> void:
 
 
 func save() -> void:
-	var status := StageEvents.save(stage_number, events)
-	_info.text = "  SAVED %s" % StageEvents.path(stage_number) if status == OK else "  SAVE FAILED %s" % error_string(status)
+	var status := StageEvents.save(stage_number, events, hard)
+	_info.text = "  SAVED %s" % StageEvents.path(stage_number, hard) if status == OK else "  SAVE FAILED %s" % error_string(status)
 
 
 ## Starts the game at the selected event, or at the camera's distance, with this list instead of the stage's own.
 func start_playtest() -> void:
-	StageEvents.playtest = {"stage": stage_number, "events": events.duplicate(true), "d": events[_selected].d if _selected >= 0 else snappedf(timeline.view_d, 1.0)}
+	Game.difficulty = Game.Difficulty.HARD if hard else Game.Difficulty.NORMAL
+	StageEvents.playtest = {"stage": stage_number, "hard": hard, "events": events.duplicate(true), "d": events[_selected].d if _selected >= 0 else snappedf(timeline.view_d, 1.0)}
 	play.emit()
 
 

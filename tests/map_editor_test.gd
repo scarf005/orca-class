@@ -8,15 +8,18 @@ var _dir := StageEvents.dir
 func _use_sandbox() -> void:
 	StageEvents.dir = SANDBOX
 	StageEvents.playtest = {}
-	var path := StageEvents.path(3)
-	if FileAccess.file_exists(path):
-		DirAccess.remove_absolute(path)
+	_remove_files()
+
+
+func _remove_files() -> void:
+	for hard in [false, true]:
+		for number in [1, 2, 3]:
+			if FileAccess.file_exists(StageEvents.path(number, hard)):
+				DirAccess.remove_absolute(StageEvents.path(number, hard))
 
 
 func _restore() -> void:
-	var path := StageEvents.path(3)
-	if FileAccess.file_exists(path):
-		DirAccess.remove_absolute(path)
+	_remove_files()
 	StageEvents.dir = _dir
 	StageEvents.playtest = {}
 
@@ -63,6 +66,21 @@ func test_without_a_file_the_stage_plays_its_coded_events() -> void:
 	_restore()
 
 
+func test_a_saved_list_replaces_only_its_own_difficulty() -> void:
+	_use_sandbox()
+	var stage := Stage3.new()
+	var other := [{"d": 5.0, "type": "pickup", "id": "repair"}] as Array[Dictionary]
+	check(not _same(stage.events(false), stage.events(true)), "stage 3 codes a different hard list")
+	StageEvents.save(3, other)
+	check(_same(stage.run_events(false), other), "the normal file replaces the normal run")
+	check(_same(stage.run_events(true), stage.events(true)), "the hard run stays coded")
+	_remove_files()
+	StageEvents.save(3, other, true)
+	check(_same(stage.run_events(true), other), "the hard file replaces the hard run")
+	check(_same(stage.run_events(false), stage.events(false)), "the normal run stays coded")
+	_restore()
+
+
 func test_a_saved_file_decides_what_spawns() -> void:
 	_use_sandbox()
 	StageEvents.save(3, [{"d": 0.0, "type": "wave", "kind": "ugv", "count": 2, "ahead": 60.0}] as Array[Dictionary])
@@ -76,7 +94,7 @@ func test_a_saved_file_decides_what_spawns() -> void:
 
 func test_playtest_starts_at_the_chosen_distance_with_the_edited_wave() -> void:
 	_use_sandbox()
-	StageEvents.playtest = {"stage": 3, "events": [{"d": 1000.0, "type": "wave", "kind": "abel", "ahead": 70.0}, {"d": 200.0, "type": "wave", "kind": "ugv", "ahead": 70.0}] as Array[Dictionary], "d": 1000.0}
+	StageEvents.playtest = {"stage": 3, "hard": false, "events": [{"d": 1000.0, "type": "wave", "kind": "abel", "ahead": 70.0}, {"d": 200.0, "type": "wave", "kind": "ugv", "ahead": 70.0}] as Array[Dictionary], "d": 1000.0}
 	var world := stage("", true, 3)
 	check_near(world.rail.d, 1000.0, 0.001, "the rail starts at the chosen distance")
 	check(not world.stats.ranked, "a playtest is not ranked")
@@ -113,6 +131,25 @@ func test_an_event_placed_at_its_own_spot_does_not_move() -> void:
 	check_near(StageEvents.spot(wave).x, 800.0, 0.5, "a wave spawns where it was placed")
 	check_near(wave.d, 710.0, 0.5, "and triggers its default 90 m earlier")
 	check_near(wave.u, -6.0, 0.001, "at the picked lateral offset")
+
+
+func test_the_hard_toggle_edits_and_saves_the_hard_list() -> void:
+	_use_sandbox()
+	var editor := MapEditor.new()
+	editor.stage_number = 3
+	add_child(editor)
+	await frames(3)
+	check(_same(editor.events, Stage3.new().events(false)), "the editor opens on the normal list")
+	editor.set_hard(true)
+	check(_same(editor.events, Stage3.new().events(true)), "the toggle loads the coded hard list")
+	editor.delete_selected()
+	editor.events.remove_at(0)
+	editor.save()
+	check(FileAccess.file_exists(StageEvents.path(3, true)) and not FileAccess.file_exists(StageEvents.path(3)), "saving writes only the hard file")
+	editor.set_hard(false)
+	check(_same(editor.events, Stage3.new().events(false)), "the normal list is untouched")
+	editor.queue_free()
+	_restore()
 
 
 func test_the_editor_adds_a_wave_where_the_view_is_clicked_and_saves_it() -> void:

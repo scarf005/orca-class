@@ -13,32 +13,33 @@ const TEMPLATES := {
 const SNAP := 0.5 ## Metres an edited position snaps to.
 
 static var dir := "res://data/stages"
-## The editor's unsaved list under test: {stage, events, d}, empty outside a playtest.
+## The editor's unsaved list under test: {stage, hard, events, d}, empty outside a playtest.
 static var playtest := {}
 
 
-static func path(number: int) -> String:
-	return "%s/stage%d.json" % [dir, number]
+## Normal and easy share `stage<N>.json`; hard has its own `stage<N>_hard.json`.
+static func path(number: int, hard := false) -> String:
+	return "%s/stage%d%s.json" % [dir, number, "_hard" if hard else ""]
 
 
-## The list a run of stage `number` plays instead of the coded one, or null when none is saved.
-static func edited(number: int) -> Variant:
-	if playtest.get("stage", 0) == number:
+## The list a run of stage `number` on that difficulty plays instead of the coded one, or null when none is saved.
+static func edited(number: int, hard := false) -> Variant:
+	if playtest.get("stage", 0) == number and playtest.hard == hard:
 		return playtest.events.duplicate(true)
-	if not FileAccess.file_exists(path(number)):
+	if not FileAccess.file_exists(path(number, hard)):
 		return null
-	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path(number)))
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path(number, hard)))
 	if not parsed is Array:
-		push_error("%s is not an event list" % path(number))
+		push_error("%s is not an event list" % path(number, hard))
 		return null
 	var events: Array[Dictionary] = []
 	events.assign(parsed)
 	return events
 
 
-static func save(number: int, events: Array[Dictionary]) -> Error:
+static func save(number: int, events: Array[Dictionary], hard := false) -> Error:
 	DirAccess.make_dir_recursive_absolute(dir)
-	var file := FileAccess.open(path(number), FileAccess.WRITE)
+	var file := FileAccess.open(path(number, hard), FileAccess.WRITE)
 	if not file:
 		return FileAccess.get_open_error()
 	file.store_string(JSON.stringify(events, "\t") + "\n")

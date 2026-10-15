@@ -120,9 +120,9 @@ func events(_hard: bool) -> Array[Dictionary]:
 	return []
 
 
-## The events a run plays: the editor's playtest or the stage's saved data file when there is one, else the coded list.
+## The events a run plays: the editor's playtest or the saved data file for that difficulty when there is one, else the coded list.
 func run_events(hard: bool) -> Array[Dictionary]:
-	var edited: Variant = StageEvents.edited(number)
+	var edited: Variant = StageEvents.edited(number, hard)
 	return events(hard) if edited == null else edited
 
 
