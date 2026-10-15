@@ -32,6 +32,7 @@ var throttle := 0 ## -1 brake, 0 cruise, 1 overdrive; what the rail is actually 
 var hold_at := INF ## In HOLD mode the rail eases to a stop here.
 var sprint := 0.0 ## When above zero the RAIL runs at this speed (m/s), whatever the throttle says.
 var surge := 0.0 ## Speed (m/s) a drift up a ramp has added over the target, ebbing at SURGE_EBB.
+var undertow := 0.0 ## Share (0..1) of the target speed a tidal surge holds back while it washes over the tank.
 var arena_d := INF: ## In ARENA mode the tank drives freely inside this circle: centre distance along the road (the stage's arena unless set)...
 	get: return Course.stage.arena_center_d if arena_d == INF else arena_d
 var arena_radius := INF: ## ...and radius.
@@ -65,7 +66,7 @@ func advance(delta: float, command: int, refill := 1.0) -> void:
 	if sprint > 0.0:
 		target = sprint
 	surge = move_toward(surge, 0.0, SURGE_EBB * delta)
-	target = minf(target, speed_cap()) + surge
+	target = (minf(target, speed_cap()) + surge) * (1.0 - undertow)
 	if _stop_timer > 0.0:
 		_stop_timer -= delta
 		target = 0.0
