@@ -94,6 +94,27 @@ func ramp_at(_d: float, _u: float) -> float:
 	return -1.0
 
 
+## Height that changes while the stage is played (mounds, holes): added to `height` for everything that stands or
+## drives on the ground, but never baked into the streamed terrain.
+func dynamic_height(_d: float, _u: float) -> float:
+	return 0.0
+
+
+## What quicksand at (d, u) does to a tank: x and y pull it toward a centre in u and d (m/s) and z, 0..1, slows it.
+func quicksand_at(_d: float, _u: float) -> Vector3:
+	return Vector3.ZERO
+
+
+## Whether a ground crest at d throws a fast tank into the air (see Tank._leap).
+func hops_at(_d: float) -> bool:
+	return false
+
+
+## Light the sky gives the scene at rail distance d.
+func ambient_energy_at(_d: float) -> float:
+	return ambient_energy
+
+
 ## Maximum tank offset from the road centerline outside an all-range arena.
 func lateral_limit(d: float) -> float:
 	if deck_blend(d) > 0.5:

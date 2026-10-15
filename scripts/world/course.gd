@@ -224,7 +224,14 @@ static func section_at(d: float) -> int:
 
 
 static func height(d: float, u: float) -> float:
-	return 0.0 if flat else stage.height(d, u)
+	return 0.0 if flat else stage.height(d, u) + stage.dynamic_height(d, u)
+
+
+## The ground as the streamed terrain draws it, without what changes during play.
+static func terrain_at(d: float, u: float) -> Vector3:
+	var p := to_world(d, u)
+	p.y = 0.0 if flat else stage.height(d, u)
+	return p
 
 
 ## How overgrown the ground is (0..1).

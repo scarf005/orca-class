@@ -204,7 +204,7 @@ func _advance(job: ChunkBuild, deadline := 0) -> bool:
 	while job.cursor < total and (deadline == 0 or Time.get_ticks_usec() < deadline):
 		if job.cursor < vertices:
 			var r := job.cursor / columns
-			job.grid.append(Course.ground_at(job.index * CHUNK_LENGTH + r * STEP_D, _columns[job.cursor % columns]))
+			job.grid.append(Course.terrain_at(job.index * CHUNK_LENGTH + r * STEP_D, _columns[job.cursor % columns]))
 		else:
 			var cell := job.cursor - vertices
 			var r := cell / (columns - 1)

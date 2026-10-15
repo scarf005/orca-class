@@ -34,7 +34,10 @@ const FALL_GRAVITY := 9.8
 const LEDGE := 0.6 ## A falling hull this far below the land it reaches lands on it; any lower, it hits the side.
 const FUNNEL := 2.5 ## A hull driving into an edge slides sideways onto land this close beside it: into a bridge's mouth.
 const DASH_SPEED := 2.0 * DASH_DISTANCE / DASH_TIME ## Starts this fast and eases to a stop, covering DASH_DISTANCE.
+const QUICKSAND_WADE := 0.15 ## How deep in quicksand (0..1) the rail wades.
+const SINK_GRIP := 0.55 ## Share of its steering the hull keeps at a funnel's centre.
 const RAMP_KICK := 9.0 ## Metres per second a drift's tail kick on a ramp adds to the rail.
+const CREST_RISE := 0.5 ## Metres per second a hull must still be climbing for a crest to throw it.
 const AIR_GRAVITY := 20.0 ## Pulls a hull that left a ramp's lip back down; heavy enough that a high leap lands short of the next ramp.
 const COAX_RANGE := 140.0
 const SOFT_LOCK_RADIUS := 40.0 ## Screen pixels (3D view) around the reticle; the FCS scales it.
@@ -327,10 +330,11 @@ func _update_movement(delta: float) -> void:
 		_move_arena(delta, input)
 		rail.advance(delta, 0, refill)
 		return
-	rail.wading = _wet or TrackMarks.over_fungus(global_position)
+	var sand := Course.stage.quicksand_at(rail.d + course_offset, course_u) if not airborne else Vector3.ZERO
+	rail.wading = _wet or TrackMarks.over_fungus(global_position) or sand.z > QUICKSAND_WADE
 	_wade_spray(delta)
 	rail.advance(delta, command, refill)
-	var hold := _lock_move_factor() * water_factor()
+	var hold := _lock_move_factor() * water_factor() * lerpf(1.0, SINK_GRIP, sand.z)
 	var target := Vector2(input.x * MOVE_SPEED.x * hold, input.y * MOVE_SPEED.y) * modules.move_factor()
 	local_velocity = local_velocity.move_toward(target, ACCEL * water_factor() * delta)
 	local_velocity.x = clampf(local_velocity.x, -MOVE_SPEED.x * hold, MOVE_SPEED.x * hold)
@@ -340,6 +344,9 @@ func _update_movement(delta: float) -> void:
 			local_velocity.x = _drift_dir * DASH_SPEED * (_drift / DASH_TIME)
 	_drift_dust(delta)
 	var next_u := course_u + (local_velocity.x + flow) * delta
+	if _drift <= 0.0:
+		next_u += sand.x * delta # Quicksand drags the hull toward its centre until a drift breaks it free.
+		course_offset += sand.y * delta
 	var d := rail.d + course_offset
 	if not airborne and Course.stage.ramp_at(d, course_u) >= 0.0 and Course.stage.ramp_at(d, next_u) < 0.0:
 		next_u = course_u # The ramp's rail holds the hull on its track, drifts and all, up to the lip.
@@ -368,14 +375,30 @@ func _leap(delta: float, d: float) -> void:
 			_land()
 		return
 	var ramp := Course.stage.ramp_at(d, course_u)
+	var speed := World.current.rail.speed + local_velocity.y
 	if ramp < 0.0 and _ramp > 0.9 and _ramp_slope > 0.0:
 		airborne = true
 		_air_y = global_position.y
-		_air_vy = _ramp_slope * (World.current.rail.speed + local_velocity.y) * ramp_lift
+		_air_vy = _ramp_slope * speed * ramp_lift
 		World.current.fx.dust(global_position, 12, 3.0, Palette.STRAW)
 		Sfx.play("skid", global_position, 0.0, 0.7)
+	elif Course.stage.hops_at(d) and _crest_throws(d, speed):
+		# A crest whose curve is tighter than a fall at AIR_GRAVITY leaves the hull behind: it flies on as it was rising.
+		airborne = true
+		_air_y = global_position.y
+		_air_vy = (Course.height(d + 1.0, course_u) - Course.height(d - 1.0, course_u)) * 0.5 * speed
+		World.current.fx.dust(global_position, 6, 2.0, Palette.STRAW)
 	_ramp = ramp
 	_ramp_slope = (ground - Course.height(d - 2.0, course_u)) / 2.0
+
+
+## Whether the ground at rail distance `d` under the hull, driving at `speed`, curves away faster than free fall while
+## it is still climbing: the hull cannot follow and leaves it.
+func _crest_throws(d: float, speed: float) -> bool:
+	var ahead := Course.height(d + 1.0, course_u)
+	var behind := Course.height(d - 1.0, course_u)
+	var bend := ahead + behind - 2.0 * Course.height(d, course_u)
+	return (ahead - behind) * 0.5 * speed > CREST_RISE and bend * speed * speed < -AIR_GRAVITY
 
 
 ## Seconds until a leaping hull is back on the ground; 0 on the ground.
@@ -405,10 +428,11 @@ func _land() -> void:
 	_ramp = -1.0
 	world.fx.dust(global_position, 24, 4.0, Palette.STRAW)
 	world.fx.debris(global_position, 8, [Fx.Debris.DIRT], 6.0, 0.3)
-	world.shake(0.45)
-	world.camera.kick(0.05)
-	model.rotation.x = -0.18
-	Sfx.play("impact", global_position, 2.0, 0.7)
+	var blow := clampf(-_air_vy / 12.0, 0.2, 1.0) # A dune's hop lands softer than a ramp's leap.
+	world.shake(0.45 * blow)
+	world.camera.kick(0.05 * blow)
+	model.rotation.x = -0.18 * blow
+	Sfx.play("impact", global_position, 2.0 * blow, 0.7)
 
 
 ## Water and mud throw spray up behind the tracks while they hold the tank back.
