@@ -102,6 +102,8 @@ func _process(delta: float) -> void:
 	environment.fog_depth_end = Course.stage.fog_distance(rail.d)
 	environment.fog_light_color = Course.stage.fog_tint(rail.d)
 	environment.ambient_light_energy = Course.stage.ambient_energy_at(rail.d)
+	environment.ambient_light_color = Course.stage.ambient_color_at(rail.d)
+	sun.light_energy = Course.stage.sun_energy * Course.stage.sun_scale_at(rail.d)
 	if rail.mode == Rail.Mode.ARENA and not Course.stage.arenas.is_empty():
 		var arena := Course.stage.arena_at(rail.d)
 		Course.stage.arena_center_d = arena.d

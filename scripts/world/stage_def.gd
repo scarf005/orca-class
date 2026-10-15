@@ -115,6 +115,16 @@ func ambient_energy_at(_d: float) -> float:
 	return ambient_energy
 
 
+## The colour of that light.
+func ambient_color_at(_d: float) -> Color:
+	return ambient
+
+
+## How much of the sun reaches the scene at rail distance d (a roof shuts it out).
+func sun_scale_at(_d: float) -> float:
+	return 1.0
+
+
 ## Maximum tank offset from the road centerline outside an all-range arena.
 func lateral_limit(d: float) -> float:
 	if deck_blend(d) > 0.5:
