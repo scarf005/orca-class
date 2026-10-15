@@ -29,7 +29,7 @@ func _ready() -> void:
 	_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_mesh)
 	var ground := Course.terrain_at(site.x, site.y)
-	World.current.fx.marker(ground, Stage3.BULGE_RADIUS + 1.0, warn_time(), Palette.RED)
+	World.current.fx.marker(ground, Stage3.BULGE_RADIUS + 3.0, warn_time(), Palette.RED)
 	Sfx.play("warn", ground, 0.0, 0.7)
 	_rebuild()
 
@@ -73,6 +73,9 @@ func _rumble(ground: Vector3, growth: float) -> void:
 		var at := ground + Vector3(cos(angle), 0.0, sin(angle)) * Stage3.BULGE_RADIUS
 		at.y = Course.terrain_at(site.x, site.y).y + 0.3
 		world.fx.dust(at, 2, 1.0 + growth, Palette.STRAW)
+	var top := ground + Vector3.UP * (Stage3.BULGE_HEIGHT * growth * growth)
+	world.fx.dust(top, 4, 3.0 + 3.0 * growth, Palette.STRAW)
+	world.fx.debris(top, 2 + int(4.0 * growth), [Fx.Debris.DIRT], 6.0 + 6.0 * growth, 0.4)
 	world.shake(0.04 + 0.12 * growth, ground)
 	Sfx.play("impact", ground, -8.0 + 8.0 * growth, 0.5)
 
@@ -121,8 +124,17 @@ func _rebuild() -> void:
 			var c := points[ring * SECTORS + next]
 			var e := points[(ring + 1) * SECTORS + sector]
 			var f := points[(ring + 1) * SECTORS + next]
-			var shade := Palette.PEACH.lerp(Palette.OCHRE, _mound.crater * 0.6).lerp(Palette.BUTTER, _mound.swell * (1.0 - float(ring) / RINGS) * 0.6)
-			shade = shade.lerp(Palette.CREAM, 0.2 * float((ring + sector) % 2))
+			var shade := Palette.PEACH.lerp(Palette.OCHRE, _mound.crater * 0.6)
+			# The swelling sand glows in hot rings, strongest at the centre, so it reads from the lane ahead.
+			shade = shade.lerp(Palette.RED if ring % 2 == 0 else Palette.CORAL, (1.0 - float(ring) / RINGS) * minf(_mound.swell * 6.0, 1.0) * 0.85)
+			shade = shade.lerp(Palette.CREAM, 0.2 * float((ring + sector) % 2) * (1.0 - _mound.swell))
+			shade = shade.lerp(Palette.CREAM if ring == 4 else Palette.OCHRE.darkened(0.25), _mound.crater * (0.8 if ring == 4 else 0.7 * (1.0 - float(ring) / 4.0)) * (1.0 if ring <= 4 else 0.0))
 			b.tri(a, c, f, shade, Vector3.UP)
 			b.tri(a, f, e, shade, Vector3.UP)
+	if not burst:
+		# A glowing geyser stands up out of the swell and climbs with it, a column that shows against the horizon.
+		var centre := Course.terrain_at(site.x, site.y)
+		var height := 2.0 + 14.0 * sqrt(_mound.swell)
+		b.glow = true
+		b.prism(Transform3D(Basis.IDENTITY, centre + Vector3.UP * _mound.swell * Stage3.BULGE_HEIGHT * 0.8), 2.2, height, 6, Palette.HOT, 1.0)
 	_mesh.mesh = b.mesh()
