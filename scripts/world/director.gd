@@ -16,6 +16,7 @@ const ENEMY_SCRIPTS := {
 	"skimmer": "res://scripts/enemies/skimmer.gd",
 	"burrower": "res://scripts/enemies/burrower.gd",
 	"glinter": "res://scripts/enemies/glinter.gd",
+	"torpedo_boat": "res://scripts/enemies/torpedo_boat.gd",
 	"ugv": "res://scripts/enemies/ugv.gd",
 	"uav": "res://scripts/enemies/uav.gd",
 	"crawler": "res://scripts/enemies/crawler.gd",

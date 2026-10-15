@@ -255,6 +255,7 @@ const PROJECTILE_SHAPES := {
 	"atgm": ["missile", 0.24, 1.3, 2.2],
 	"micro": ["missile", 0.2, 1.1, 1.8],
 	"bomb": ["missile", 0.3, 0.9, 1.8],
+	"torpedo": ["missile", 0.34, 1.6, 1.9],
 }
 const HOSTILE_CORE := 1.8 ## Enemy shot core size relative to a player round's.
 static var _shape_meshes := {}

@@ -86,7 +86,7 @@ func test_squad_arrives_with_exactly_one_elite() -> void:
 				expected += int(member.get("count", 1))
 			check_eq(spawned.size(), expected, "all escorts arrive in the leader's frame")
 			check_eq(world.stats.spawned - before, expected, "squad contributes to real spawn accounting")
-			check_eq(spawned.filter(func(e: Enemy) -> bool: return e is BipedMech or e is Hind).size(), 1, "one elite leads every squad")
+			check_eq(spawned.filter(func(e: Enemy) -> bool: return e is BipedMech or e is TorpedoBoat or e is Mortar).size(), 1, "one elite leads every squad")
 			for enemy in spawned:
 				enemy.despawn()
 

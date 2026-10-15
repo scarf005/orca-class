@@ -54,8 +54,8 @@ func test_quiet_opening_and_release_keep_the_elite_count_low() -> void:
 	check(not waves.is_empty(), "city has hunters")
 	if waves.is_empty():
 		return
-	check(waves[0].d <= 60.0 and waves[0].kind == "fpv" and waves[0].get("count", 1) == 1, "the first contact is a lone drone within seconds of the start")
-	check(waves[1].d >= 180.0 and waves[1].kind == "abel" and waves[1].get("count", 1) == 1, "the first hunter teaches the LOSAT alone")
+	check(waves[0].d <= 60.0 and waves[0].kind == "drone_boat" and waves[0].get("count", 1) == 1, "the first contact is a lone boat within seconds of the start")
+	check(waves[1].d >= 180.0 and waves[1].kind == "torpedo_boat" and waves[1].get("count", 1) == 1, "the first hunter teaches the torpedo lane alone")
 	var city_count := 0
 	var farm_count := 0
 	for event in waves:
@@ -179,25 +179,22 @@ func test_city_results_store_only_city_bests_and_offer_retry_and_title() -> void
 	check_eq(actions, ["retry", "title"], "both final-stage menu actions reach their flow signals")
 
 
-func test_opening_hunter_is_outside_cover_and_cannot_fire_through_it() -> void:
+func test_opening_gunboat_spawns_in_the_haze_and_marks_its_lane_before_launching() -> void:
 	var world := stage("", false, 2)
 	world.director.set_process(false)
-	var event: Dictionary = Stage2.new().events(false).filter(func(e: Dictionary) -> bool: return e.type == "wave" and e.kind == "abel")[0]
+	var event: Dictionary = Stage2.new().events(false).filter(func(e: Dictionary) -> bool: return e.type == "wave" and e.kind == "torpedo_boat")[0]
 	world.rail.d = event.d
 	world.player._place(event.d)
 	world.camera.snap()
-	world.director.scenery.stream(event.d, 100000)
 	world.camera.follow(0.0)
-	var hunter := world.director.spawn_wave(event)[0] as Abel
-	check(not world.director.scenery.line_blocked(world.player.hit_center(), hunter.hit_center()), "first LOSAT hunter offers a clear shot inside the street")
-	check(not world.director.scenery.line_blocked(hunter.hit_center(), hunter.hit_center()), "hunter is not embedded in the building")
-	check(Course.to_course(hunter.global_position).x - event.d > 160.0, "the hunter spawns out in the haze, not mid-street")
-	hunter.global_position = Course.ground_at(event.d + 110.0, float(event.u))
+	var boat := world.director.spawn_wave(event)[0] as TorpedoBoat
+	check(Course.to_course(boat.global_position).x - event.d > 160.0, "the gunboat spawns out in the haze, not mid-street")
+	boat._set_state(TorpedoBoat.State.AIM)
+	boat._aim_lane(world.player)
 	var shots := world.projectiles.size()
-	hunter._attack_timer = 0.0
-	hunter.behave(0.01)
-	check(hunter.telegraphing(), "visible street hunter warns before attacking")
-	check_eq(world.projectiles.size(), shots, "cover blocks the first attack")
+	boat.behave(0.01)
+	check(boat.telegraphing(), "the gunboat warns before it launches")
+	check_eq(world.projectiles.size(), shots, "the warning launches nothing")
 
 
 func test_boss_deaths_resume_then_clear() -> void:

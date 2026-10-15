@@ -200,13 +200,11 @@ func _generate_expressway() -> void:
 
 ## Pushes a wave and its squad out to the haze. A unit on the expressway deck stays short of the last span on its side, before the deck changes sides at d=1120.
 func _to_horizon(event: Dictionary, d: float) -> void:
-	if event.kind == "fpv" and not event.has("ahead"):
-		event.ahead = 90.0 # The director's default slot, which would pop the drone up mid-street.
-	if event.has("ahead"):
-		var shift := HORIZON_SHIFT
-		if is_equal_approx(float(event.get("height", 0.0)), DECK_TOP):
-			shift = clampf(1060.0 - d - float(event.ahead), 0.0, shift)
-		event.ahead += shift
+	event.ahead = event.get("ahead", 90.0) # 90 m is the director's default slot, which would pop the unit up mid-street.
+	var shift := HORIZON_SHIFT
+	if is_equal_approx(float(event.get("height", 0.0)), DECK_TOP):
+		shift = clampf(1060.0 - d - float(event.ahead), 0.0, shift)
+	event.ahead += shift
 	for member: Dictionary in event.get("squad", []):
 		_to_horizon(member, d)
 
@@ -399,22 +397,22 @@ func events(hard: bool) -> Array[Dictionary]:
 		e.append(event)
 
 	# Few enemies, each deadly: one hunter and at most one escort (the first duty is two boats) every 230 m (about 10 s at wading speed), never a
-	# crowd. Boulevard builds from one hunter to a pair, the viaduct adds deck and air threats, the canyon repeats
+	# crowd. Boulevard builds from a boat to a torpedo gunboat and a depth-charge barge, the viaduct adds deck guns, the canyon repeats
 	# them tighter, and quiet stretches before the plaza and the bay let the tank refit.
-	wave.call(30.0, "fpv", {"height": 5.0}) # Contact within seconds: a lone drone crosses the horizon before the first hunter.
-	wave.call(240.0, "abel", {"u": -17.0, "ahead": 85.0, "drop": "coax", "squad": [
-		{"kind": "fpv", "height": 5.0}]})
-	wave.call(450.0, "kain", {"u": 21.0, "ahead": 85.0, "peak": true, "squad": [
-		{"kind": "ugv", "u": -8.0, "ahead": 80.0, "props": {"weapon": "atgm"}}]})
+	wave.call(30.0, "drone_boat", {"ahead": 90.0}) # Contact within seconds: a lone boat crosses the horizon before the first hunter.
+	wave.call(240.0, "torpedo_boat", {"u": -17.0, "ahead": 85.0, "drop": "coax", "squad": [
+		{"kind": "sea_mine", "u": 6.0, "ahead": 60.0}]})
+	wave.call(450.0, "mortar", {"u": 21.0, "ahead": 85.0, "peak": true, "props": {"naval": true}, "squad": [
+		{"kind": "drone_boat", "u": -8.0, "ahead": 70.0}]})
 	wave.call(670.0, "drone_boat", {"count": 2, "u": -14.0, "spacing": 8.0, "ahead": 60.0})
 
 	wave.call(700.0, "rooftop_battery", {"u": -40.0, "ahead": 150.0, "height": DECK_TOP})
 	wave.call(890.0, "kain", {"u": -38.5, "ahead": 65.0, "height": DECK_TOP, "squad": [
-		{"kind": "fpv", "height": 5.0}]})
-	wave.call(1000.0, "sea_mine", {"count": 2, "u": 12.0, "spacing": 4.0, "ahead": 45.0})
+		{"kind": "sea_mine", "ahead": 90.0}]})
+	wave.call(1000.0, "sea_mine", {"count": 2, "u": 12.0, "spacing": 8.0, "ahead": 45.0})
 	e.append({"d": 1070.0, "type": "pickup", "id": "atgm"})
-	wave.call(1120.0, "hind", {"u": 8.0, "height": 5.0, "ahead": 90.0, "drop": "micro", "squad": [
-		{"kind": "fpv", "height": 5.0}]})
+	wave.call(1120.0, "torpedo_boat", {"u": 8.0, "ahead": 90.0, "drop": "micro", "squad": [
+		{"kind": "sea_mine", "u": -6.0, "ahead": 70.0}]})
 	wave.call(1350.0, "adam", {"u": 17.0, "ahead": 65.0, "peak": true, "squad": [
 		{"kind": "drone_boat", "u": 10.0, "ahead": 70.0}]})
 	e.append({"d": 1480.0, "type": "pickup", "id": "micro", "u": -4.0})
@@ -422,20 +420,20 @@ func events(hard: bool) -> Array[Dictionary]:
 	e.append({"d": 1660.0, "type": "checkpoint", "name": "midboss"})
 	e.append({"d": 1750.0, "type": "pickup", "id": "micro", "ahead": 15.0}) # Overlapping salvos are what exhaust the hovercraft's laser.
 	e.append({"d": PLAZA_D - 110.0, "type": "midboss", "kind": "hovercraft", "ahead": 60.0, "peak": true, "hold": PLAZA_D - 56.0, "music": "res://assets/music/stage2_hovercraft.ogg"})
-	wave.call(2060.0, "abel", {"u": 19.0, "ahead": 45.0, "squad": [
-		{"kind": "walker", "u": 10.0, "ahead": 75.0, "props": {"weapon": "missile"}}]})
+	wave.call(2060.0, "mortar", {"u": 19.0, "ahead": 45.0, "props": {"naval": true}, "squad": [
+		{"kind": "drone_boat", "u": 10.0, "ahead": 75.0}]})
 
-	wave.call(2290.0, "hind", {"u": -8.0, "height": 5.0, "ahead": 85.0, "squad": [
-		{"kind": "ugv", "u": 8.0, "ahead": 75.0, "props": {"weapon": "atgm"}}]})
+	wave.call(2290.0, "torpedo_boat", {"u": -8.0, "ahead": 85.0, "squad": [
+		{"kind": "sea_mine", "u": 8.0, "ahead": 75.0}]})
 	wave.call(2520.0, "adam", {"u": -15.0, "ahead": 65.0, "squad": [
-		{"kind": "walker", "u": 6.0, "ahead": 90.0, "props": {"weapon": "missile"}}]})
+		{"kind": "drone_boat", "u": 6.0, "ahead": 90.0}]})
 	wave.call(2750.0, "kain", {"u": 14.5, "ahead": 85.0, "squad": [
-		{"kind": "fpv", "height": 5.0}]})
-	wave.call(2980.0, "abel", {"u": -10.0, "ahead": 100.0, "peak": true, "squad": [
+		{"kind": "sea_mine", "ahead": 90.0}]})
+	wave.call(2980.0, "mortar", {"u": -10.0, "ahead": 100.0, "peak": true, "props": {"naval": true}, "squad": [
 		{"kind": "drone_boat", "count": 2, "spacing": 5.0, "ahead": 65.0}]})
 	e.append({"d": 3100.0, "type": "hold", "at": 3115.0, "timeout": 25.0, "reward": "repair"})
 
-	wave.call(3240.0, "hind", {"u": 8.0, "height": 5.0, "ahead": 85.0, "peak": true})
+	wave.call(3240.0, "torpedo_boat", {"u": 8.0, "ahead": 85.0, "peak": true})
 	e.append({"d": 3260.0, "type": "pickup", "id": "era", "u": -4.0})
 	e.append({"d": 3330.0, "type": "pickup", "id": "atgm", "u": 4.0})
 	e.append({"d": 3390.0, "type": "checkpoint", "name": "boss"})
@@ -452,7 +450,7 @@ func events(hard: bool) -> Array[Dictionary]:
 			e.append({"d": split.d - 70.0, "ahead": 70.0, "type": "pickup", "u": lanes[side], "id": counters[index % counters.size()] if (side == 0) == rich_left else ("repair" if index % 3 == 0 else "era")})
 
 	if hard:
-		var pressure := {450.0: {"ugv": 1}, 1120.0: {"fpv": 1}}
+		var pressure := {450.0: {"drone_boat": 1}, 1120.0: {"sea_mine": 1}}
 		# Remixed firing lanes and earlier escorts compress the build, not the releases or elite health.
 		for event in e:
 			if event.type != "wave" or not event.has("squad"):
@@ -461,8 +459,6 @@ func events(hard: bool) -> Array[Dictionary]:
 				member.count = int(member.get("count", 1)) * 2 + int(pressure.get(event.d, {}).get(member.kind, 0))
 				member.u = -float(member.get("u", 0.0))
 				member.ahead = 50.0 if member.kind == "drone_boat" else 65.0
-				if member.kind == "ugv":
-					member.props = {"weapon": "atgm"}
 		wave.call(720.0, "rooftop_battery", {"u": -40.0, "ahead": 150.0, "height": DECK_TOP})
 	for event in e:
 		if event.type == "wave":
