@@ -10,7 +10,7 @@ func test_an_undodged_skimmer_rams_while_riding_above_the_sand() -> void:
 	world.player.invuln = 0.0
 	world.player.velocity = Vector3.ZERO
 	var skimmer := Skimmer.new()
-	skimmer.position = world.player.global_position + Vector3(0, 0, -Skimmer.new().charge_range + 5.0)
+	skimmer.position = world.player.global_position + Vector3(0, 0, -skimmer.charge_range + 5.0)
 	world.add_enemy(skimmer)
 	var hp := world.player.hp
 	skimmer.behave(0.01)
