@@ -45,8 +45,11 @@ var _hitstop := 0.0
 var game_speed := 1.0:
 	set(value):
 		game_speed = value
-		if current == self:
-			Engine.time_scale = game_speed * (0.05 if _hitstop > 0.0 else 1.0)
+		_apply_time_scale()
+var slow := 1.0: ## Bullet time on top of the game speed (1: none).
+	set(value):
+		slow = value
+		_apply_time_scale()
 var _chain := 0
 var _last_kill := -INF
 var _enemy_container := Node3D.new()
@@ -105,7 +108,7 @@ func _process(delta: float) -> void:
 	if _hitstop > 0.0:
 		_hitstop -= delta / maxf(Engine.time_scale, 0.001)
 		if _hitstop <= 0.0:
-			Engine.time_scale = game_speed
+			_apply_time_scale()
 	var step := minf(delta, 1.0 / 30.0)
 	for projectile in projectiles.duplicate():
 		if is_instance_valid(projectile) and not projectile.is_queued_for_deletion():
@@ -523,7 +526,12 @@ func hitstop(duration: float) -> void:
 	if duration <= _hitstop:
 		return
 	_hitstop = duration
-	Engine.time_scale = game_speed * 0.05
+	_apply_time_scale()
+
+
+func _apply_time_scale() -> void:
+	if current == self:
+		Engine.time_scale = game_speed * slow * (0.05 if _hitstop > 0.0 else 1.0)
 
 
 func screen_flash(color: Color, amount: float) -> void:

@@ -34,6 +34,8 @@ const FALL_GRAVITY := 9.8
 const LEDGE := 0.6 ## A falling hull this far below the land it reaches lands on it; any lower, it hits the side.
 const FUNNEL := 2.5 ## A hull driving into an edge slides sideways onto land this close beside it: into a bridge's mouth.
 const DASH_SPEED := 2.0 * DASH_DISTANCE / DASH_TIME ## Starts this fast and eases to a stop, covering DASH_DISTANCE.
+const RAMP_KICK := 9.0 ## Metres per second a drift's tail kick on a ramp adds to the rail.
+const AIR_GRAVITY := 12.0 ## Pulls a hull that left a ramp's lip back down; light, so a fast leap hangs.
 const COAX_RANGE := 140.0
 const SOFT_LOCK_RADIUS := 40.0 ## Screen pixels (3D view) around the reticle; the FCS scales it.
 const LOCK_EDGE := Vector2(60.0, 180.0) ## 3D-view pixels from the screen edge: a locked target this close stops sideways driving, this far lets it run free.
@@ -142,6 +144,11 @@ var _dashing := false ## A dash was carrying the hull over the arena's land last
 var _fall := 0.0 ## Seconds left of a fall off the arena's land, from the moment a dash carries the hull's centre off it.
 var _fall_velocity := Vector3.ZERO
 var _fall_axis := Vector3.RIGHT ## The hull tips about this, toward where it was going.
+var airborne := false ## Flying off a ramp's lip: the rail carries it on while it rises and falls.
+var _air_y := 0.0
+var _air_vy := 0.0
+var _ramp := -1.0 ## How far up a ramp's track the hull was last frame (see StageDef.ramp_at).
+var _ramp_slope := 0.0 ## The track's gradient under the hull last frame.
 var _stage_rung := 0 ## The last lock box whose note has rung.
 var _stabilized_yaw := 0.0 ## Hull yaw the turret was last laid against. ## The nose's swing against a sideways dash, eased in and out.
 var _respawn := 0.0
@@ -330,16 +337,55 @@ func _update_movement(delta: float) -> void:
 		if _drift_dir != 0.0:
 			local_velocity.x = _drift_dir * DASH_SPEED * (_drift / DASH_TIME)
 	_drift_dust(delta)
-	course_u += local_velocity.x * delta
+	var next_u := course_u + local_velocity.x * delta
+	var d := rail.d + course_offset
+	if not airborne and Course.stage.ramp_at(d, course_u) >= 0.0 and Course.stage.ramp_at(d, next_u) < 0.0:
+		next_u = course_u # The ramp's rail holds the hull on its track, drifts and all, up to the lip.
+	course_u = next_u
 	course_offset += local_velocity.y * delta
 	var limit := lateral_limit(rail.d + course_offset)
 	course_u = clampf(course_u, -limit, limit)
 	course_offset = clampf(course_offset, FORWARD_LIMIT.x, FORWARD_LIMIT.y)
 	lateral_velocity = local_velocity.x
-	_collide_props()
-	_ram_enemies(delta)
+	_leap(delta, rail.d + course_offset)
+	if not airborne:
+		_collide_props()
+		_ram_enemies(delta)
 	_place(rail.d)
 	model.animate_tracks(delta, rail.speed + local_velocity.y, rail.speed + local_velocity.y)
+
+
+## Driving off a ramp's lip (StageDef.ramp_at) the hull flies on, climbing as steeply as the track did at the rail's
+## speed, so a faster run up leaps higher; it lands wherever it comes down.
+func _leap(delta: float, d: float) -> void:
+	var ground := Course.height(d, course_u)
+	if airborne:
+		_air_vy -= AIR_GRAVITY * delta
+		_air_y += _air_vy * delta
+		if _air_y <= ground and _air_vy < 0.0:
+			_land()
+		return
+	var ramp := Course.stage.ramp_at(d, course_u)
+	if ramp < 0.0 and _ramp > 0.9 and _ramp_slope > 0.0:
+		airborne = true
+		_air_y = global_position.y
+		_air_vy = _ramp_slope * (World.current.rail.speed + local_velocity.y)
+		World.current.fx.dust(global_position, 12, 3.0, Palette.STRAW)
+		Sfx.play("skid", global_position, 0.0, 0.7)
+	_ramp = ramp
+	_ramp_slope = (ground - Course.height(d - 2.0, course_u)) / 2.0
+
+
+func _land() -> void:
+	var world := World.current
+	airborne = false
+	_ramp = -1.0
+	world.fx.dust(global_position, 24, 4.0, Palette.STRAW)
+	world.fx.debris(global_position, 8, [Fx.Debris.DIRT], 6.0, 0.3)
+	world.shake(0.45)
+	world.camera.kick(0.05)
+	model.rotation.x = -0.18
+	Sfx.play("impact", global_position, 2.0, 0.7)
 
 
 ## Water and mud throw spray up behind the tracks while they hold the tank back.
@@ -487,7 +533,7 @@ func _move_arena(delta: float, input: Vector2) -> void:
 ## Over a gap in the arena's land, or falling through one: no ground for the tracks to print on.
 func _off_land() -> bool:
 	var land := World.current.rail.arena_land
-	if _fall > 0.0:
+	if _fall > 0.0 or airborne:
 		return true
 	if land.is_empty():
 		return false
@@ -549,8 +595,8 @@ func _read_dash(input: Vector2) -> void:
 ## A burst of speed the way it was asked for, kicked off by the tail slamming the ground: sideways it
 ## is a dodge that lashes whatever is beside the hull, forward it surges the rail, back it digs in.
 func dash(direction: Vector2) -> void:
-	if _respawn > 0.0 or tail.destroyed:
-		return # The tail kicks the hull off the ground: no tail, no dash.
+	if _respawn > 0.0 or tail.destroyed or airborne:
+		return # The tail kicks the hull off the ground: no tail or no ground, no dash.
 	if absf(direction.x) > 0.3:
 		_last_lateral = signf(direction.x)
 	_anchor(direction)
@@ -628,6 +674,10 @@ func _anchor(input: Vector2) -> void:
 		_drift_dir = signf(input.x)
 		swat(false)
 		Sfx.play("skid", global_position)
+		var c := Course.to_course(global_position)
+		if world.rail.mode == Rail.Mode.RAIL and Course.stage.ramp_at(c.x, c.y) >= 0.0:
+			world.rail.kick(RAMP_KICK)
+			world.camera.kick(0.03)
 		if not is_instance_valid(tail.held) and not tail.destroyed:
 			_tail_kick(global_position + global_basis.x * -_drift_dir * 4.5 + global_basis.z * 3.5)
 		return
@@ -799,6 +849,10 @@ func _place(d: float) -> void:
 	var lean := atan2(local_velocity.x, rail.speed + local_velocity.y + 4.0) * 0.6 * (1.0 - absf(_drift_yaw) / maxf(DRIFT_ANGLE, 0.001))
 	var yaw := atan2(-f.x, -f.z) - lean + _drift_yaw
 	hull_yaw = yaw
+	if airborne:
+		global_position = Vector3(p.x, _air_y, p.z)
+		global_basis = Basis.from_euler(Vector3(atan2(_air_vy, rail.speed), yaw, 0.0), EULER_ORDER_YXZ)
+		return
 	_set_pose(p, yaw)
 
 
@@ -2122,6 +2176,7 @@ func die(_hit: Hit) -> void:
 		world.game_over.emit()
 		return
 	_respawn = RESPAWN_DELAY
+	airborne = false
 
 
 ## Whole again: full armor, every module and the tail.
@@ -2140,6 +2195,7 @@ func _finish_respawn() -> void:
 	course_u = 0.0
 	course_offset = 4.0
 	local_velocity = Vector2.ZERO
+	_ramp = -1.0
 	model.visible = true
 	tail.visible = true
 	World.current.fx.shockwave(global_position, 6.0, Palette.MINT)

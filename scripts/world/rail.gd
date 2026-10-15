@@ -16,6 +16,8 @@ static func set_cruise(kmh: float) -> void:
 	BRAKE = CRUISE * 0.36
 const METER_DRAIN := 0.45 ## Per second while boosting or braking.
 const METER_REFILL := 0.3
+const SURGE_MAX := 26.0
+const SURGE_EBB := 4.0
 
 ## Tuned live in the duel mode, hence static vars.
 static var HARD_HIT_SPEED := 0.25 ## Share of cruise a hard building leaves the tank at.
@@ -29,6 +31,7 @@ var meter := 1.0
 var throttle := 0 ## -1 brake, 0 cruise, 1 overdrive; what the rail is actually doing.
 var hold_at := INF ## In HOLD mode the rail eases to a stop here.
 var sprint := 0.0 ## When above zero the RAIL runs at this speed (m/s), whatever the throttle says.
+var surge := 0.0 ## Speed (m/s) a drift up a ramp has added over the target, ebbing at SURGE_EBB.
 var arena_d := INF: ## In ARENA mode the tank drives freely inside this circle: centre distance along the road (the stage's arena unless set)...
 	get: return Course.stage.arena_center_d if arena_d == INF else arena_d
 var arena_radius := INF: ## ...and radius.
@@ -61,7 +64,8 @@ func advance(delta: float, command: int, refill := 1.0) -> void:
 		-1: target = BRAKE
 	if sprint > 0.0:
 		target = sprint
-	target = minf(target, speed_cap())
+	surge = move_toward(surge, 0.0, SURGE_EBB * delta)
+	target = minf(target, speed_cap()) + surge
 	if _stop_timer > 0.0:
 		_stop_timer -= delta
 		target = 0.0
@@ -77,6 +81,7 @@ func advance(delta: float, command: int, refill := 1.0) -> void:
 ## The tank rammed a hard building: the speed drops at once and the cap lifts over HARD_RECOVER.
 func jolt() -> void:
 	_since_jolt = 0.0
+	surge = 0.0
 	speed = minf(speed, speed_cap())
 
 
@@ -86,6 +91,13 @@ func speed_cap() -> float:
 	var jolted := lerpf(hit_speed * CRUISE, OVERDRIVE + 1.0, clampf(_since_jolt / HARD_RECOVER, 0.0, 1.0))
 	var wade := Course.stage.wade_scale if Course.stage != null and Course.stage.wade_scale > 0.0 else WADE_SPEED
 	return minf(jolted, wade * CRUISE if wading else INF)
+
+
+## A drift's tail kick on a ramp: the speed jumps by `amount` at once and ebbs back over SURGE_EBB.
+func kick(amount: float) -> void:
+	var added := minf(amount, SURGE_MAX - surge)
+	surge += added
+	speed += added
 
 
 ## Anchor stop: the rail halts almost instantly, then resumes.

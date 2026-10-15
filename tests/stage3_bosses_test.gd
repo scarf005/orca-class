@@ -1,5 +1,5 @@
 extends TestCase
-## The sand kite flying wing and the borer centipede: exposed turrets, route up the ramps, burrow and telegraphs.
+## The flying wing and the borer centipede: turrets sniped from a drifted ramp leap, burrow and telegraphs.
 
 const STEP := 1.0 / 60.0
 
@@ -10,12 +10,59 @@ func _stage3() -> World:
 	return world
 
 
+## The wing over the run, the tank at 140 km/h a little short of ramp 0's foot, in its lane.
 func _wing() -> Wing:
 	var world := _stage3()
+	var stage := Course.stage as Stage3
+	world.rail.sprint = Stage3.SPRINT_KMH / 3.6
+	world.rail.speed = world.rail.sprint
+	world.rail.d = stage.hill_d(0) - 60.0
+	world.player.course_u = stage.hill_side(0) * Stage3.HILL_U
+	world.player.tick(STEP)
 	var wing := Wing.new()
 	world.add_enemy(wing)
-	wing.global_position = wing._ramp_point(0, 0.0)
+	world.boss = wing
 	return wing
+
+
+## Opens turret `name` as if it had already fired its first volley.
+func _open(wing: Wing, name: String) -> void:
+	wing._active = Wing.TURRETS.find(name)
+	wing._open[name] = 1.0
+	wing._armed[name] = true
+	wing._cool = 1000.0
+
+
+## Drives the tank up ramp 0 and off its lip, drifting across the track every `every` seconds (0: never), until
+## it lands. Returns [highest the turret came into sight (bool), slowest time scale seen, peak height over the lip].
+func _leap(wing: Wing, every: float) -> Array:
+	var world := World.current
+	var tank := world.player
+	var lip := (Course.stage as Stage3).hill_point(0, 1.0)
+	var sight := false
+	var slow := 1.0
+	var peak := -INF
+	var flew := false
+	var side := 1.0
+	var wait := 0.0
+	for _i in ceili(12.0 / STEP):
+		if every > 0.0 and not tank.airborne:
+			wait -= STEP
+			if wait <= 0.0:
+				wait = every
+				tank.dash(Vector2(side, 0))
+				side = -side
+		tank.tick(STEP)
+		wing.behave(STEP)
+		flew = flew or tank.airborne
+		peak = maxf(peak, tank.global_position.y - lip.y)
+		sight = sight or (tank.airborne and wing.in_sight("flak"))
+		slow = minf(slow, world.slow)
+		if flew and not tank.airborne:
+			break
+	check(flew, "the tank leaves the lip")
+	check(not tank.airborne, "and lands again")
+	return [sight, slow, peak]
 
 
 func _borer() -> Borer:
@@ -50,31 +97,68 @@ func test_closed_wing_turrets_cannot_be_shot() -> void:
 	check(wing.aim_parts().is_empty(), "no turret is a lock target while every hatch is shut")
 
 
-func test_an_opened_turret_cannot_be_shot_before_its_first_volley() -> void:
+func test_the_open_turret_is_out_of_the_roads_sight_over_the_ramps() -> void:
 	var wing := _wing()
-	wing.player().global_position = wing.global_position + Vector3(0, -12, 60)
-	wing._s = Stage3.HILL_LENGTH
-	wing.behave(STEP)
-	var name: String = Wing.TURRETS[wing._active]
-	var hittable_before_fire := false
-	for _i in ceili(Wing.FLIGHT_TIME / STEP):
-		wing.behave(STEP)
-		if wing._open[name] >= 0.5 and wing._shots == 0 and not wing._armed.has(name):
-			wing.take_hit(_shell(wing.player(), wing._turret_world(name), 10.0))
-			hittable_before_fire = hittable_before_fire or wing.parts[name] < Wing.TURRET_HP
-		if wing._armed.has(name):
-			break
-	check(not hittable_before_fire, "the open turret shrugs off shells until it has fired")
-	check(wing._armed.has(name), "it fires during the flight")
-	wing.take_hit(_shell(wing.player(), wing._turret_world(name), 10.0))
-	check(wing.parts[name] < Wing.TURRET_HP, "once it has fired it can be shot")
+	_run(wing, 3.0)
+	_open(wing, "flak")
+	check(not wing.in_sight("flak"), "the belly skirts hide the turret from the tank on the road")
+	var before := wing.hp
+	wing.take_hit(_shell(wing.player(), wing._turret_world("flak"), 100.0))
+	check_eq(wing.hp, before, "a shell from the road only sparks the hull")
+	check(wing.aim_parts().is_empty(), "nothing to lock from the road")
 
 
-func test_open_turret_takes_round_damage_and_small_arms_glance() -> void:
+func test_a_tank_drifting_up_a_ramp_leaps_into_the_open_turrets_sight_in_slowed_time() -> void:
 	var wing := _wing()
-	wing._active = 0
-	wing._open.flak = 1.0
-	wing._armed.flak = true
+	_run(wing, 3.0)
+	_open(wing, "flak")
+	var result := _leap(wing, Tank.ANCHOR_COOLDOWN)
+	check(result[0], "the drifted leap rises into the open turret's sight (peak %.1f m over the lip)" % result[2])
+	check_near(result[1], Wing.SLOW, 0.001, "time slows while the tank has the shot")
+	check_eq(World.current.slow, 1.0, "and runs on again once it lands")
+
+
+func test_a_tank_driving_straight_up_a_ramp_leaps_short_of_the_turrets_sight() -> void:
+	var wing := _wing()
+	_run(wing, 3.0)
+	_open(wing, "flak")
+	var result := _leap(wing, 0.0)
+	check(not result[0], "an undrifted leap never sees past the skirts (peak %.1f m over the lip)" % result[2])
+	check_eq(result[1], 1.0, "and time never slows")
+
+
+func test_drifting_on_a_ramp_speeds_the_rail_and_holds_the_hull_on_the_track() -> void:
+	var wing := _wing()
+	var world := World.current
+	var stage := Course.stage as Stage3
+	world.rail.d = stage.hill_d(0) + 10.0
+	world.player.tick(STEP)
+	var cruise := world.rail.speed
+	for direction: float in [1.0, -1.0, 1.0]:
+		world.player.dash(Vector2(direction, 0))
+		for _i in ceili(Tank.ANCHOR_COOLDOWN / STEP) + 1:
+			world.player.tick(STEP)
+			wing.behave(STEP)
+			var c := Course.to_course(world.player.global_position)
+			check(stage.ramp_at(c.x, c.y) >= 0.0 or c.x > stage.hill_d(0) + Stage3.HILL_LENGTH, "the hull stays on the track")
+	check(world.rail.speed > cruise + Tank.RAMP_KICK, "three drifts sped the rail up (%.0f -> %.0f km/h)" % [cruise * 3.6, world.rail.speed * 3.6])
+
+
+func test_past_the_last_ramp_the_wing_comes_down_into_the_roads_sight() -> void:
+	var wing := _wing()
+	var world := World.current
+	world.rail.d = (Course.stage as Stage3).ramps_end() + 20.0
+	world.player.course_u = 0.0
+	world.player.tick(STEP)
+	_run(wing, 4.0)
+	_open(wing, "flak")
+	check(wing.in_sight("flak"), "the low wing's open turret can be shot from the road")
+
+
+func test_open_turret_in_sight_takes_round_damage_and_small_arms_glance() -> void:
+	var wing := _wing()
+	_open(wing, "flak")
+	wing.player().global_position = wing._turret_world("flak") + Vector3(0, -5, 60)
 	var bullet := Hit.make(Hit.Kind.BULLET, 30.0, wing._turret_world("flak"), Vector3.FORWARD)
 	bullet.caliber = 12
 	bullet.source = wing.player()
@@ -86,59 +170,56 @@ func test_open_turret_takes_round_damage_and_small_arms_glance() -> void:
 	check(wing.aim_parts().has("flak"), "the open turret is a lock target")
 
 
+func test_an_opened_turret_cannot_be_shot_before_its_first_volley() -> void:
+	var wing := _wing()
+	var tank := wing.player()
+	var hittable_before_fire := false
+	var name := ""
+	for _i in ceili(6.0 / STEP):
+		wing.behave(STEP)
+		if wing._active < 0:
+			continue
+		name = Wing.TURRETS[wing._active]
+		tank.global_position = wing._turret_world(name) + Vector3(0, -5, 60) # Level with it, as from a leap.
+		if wing._open[name] >= 0.5 and not wing._armed.has(name):
+			wing.take_hit(_shell(tank, wing._turret_world(name), 10.0))
+			hittable_before_fire = hittable_before_fire or wing.parts[name] < Wing.TURRET_HP
+		if wing._armed.has(name):
+			break
+	check(not hittable_before_fire, "the open turret shrugs off shells until it has fired")
+	check(wing._armed.has(name), "it opens and fires on its own")
+	wing.take_hit(_shell(tank, wing._turret_world(name), 10.0))
+	check(wing.parts[name] < Wing.TURRET_HP, "once it has fired it can be shot")
+
+
+func test_the_next_turret_opens_only_when_the_open_one_is_shot_out() -> void:
+	var wing := _wing()
+	_run(wing, 2.0)
+	var first: String = Wing.TURRETS[wing._active]
+	_run(wing, 10.0)
+	check_eq(Wing.TURRETS[wing._active], first, "the same turret stays open while it lives")
+	wing._armed[first] = true
+	wing.player().global_position = wing._turret_world(first) + Vector3(0, -5, 60)
+	wing.take_hit(_shell(wing.player(), wing._turret_world(first), Wing.TURRET_HP + 1.0))
+	_run(wing, 1.0)
+	check(wing._active >= 0 and Wing.TURRETS[wing._active] != first, "the next one opens")
+	var open := Wing.TURRETS.filter(func(n: String) -> bool: return wing._open[n] >= 0.5)
+	check_eq(open.size(), 1, "exactly one turret stands open")
+
+
 func test_losing_every_turret_brings_the_wing_down() -> void:
 	var wing := _wing()
 	for name: String in Wing.TURRETS:
-		wing._active = Wing.TURRETS.find(name)
-		wing._open[name] = 1.0
-		wing._armed[name] = true
+		_open(wing, name)
+		wing.player().global_position = wing._turret_world(name) + Vector3(0, -5, 60)
 		wing.take_hit(_shell(wing.player(), wing._turret_world(name), Wing.TURRET_HP + 1.0))
 	check(wing.hp <= 0.0, "all five turrets gone empties the hull")
 	_run(wing, 6.0)
 	check(wing.dead, "the wing crashes and dies after its turrets are shot out")
 
 
-func test_wing_drifts_up_a_ramp_then_lands_on_the_opposite_side() -> void:
-	var wing := _wing()
-	var stage := Course.stage as Stage3
-	var seen_flight := false
-	var peak := 0.0
-	for _i in ceili(30.0 / STEP):
-		wing.behave(STEP)
-		if wing._state == Wing.State.FLIGHT:
-			seen_flight = true
-			peak = maxf(peak, wing.global_position.y)
-		if wing._ramp == 1 and wing._state == Wing.State.DRIFT:
-			break
-	check(seen_flight, "the wing leaves the first lip")
-	var lip := stage.hill_point(0, 1.0)
-	check(peak > lip.y, "it arcs above the lip (%.1f > %.1f)" % [peak, lip.y])
-	check_eq(wing._ramp, 1, "it lands on the next ramp")
-	var u := Course.to_course(wing.global_position).y
-	check(u * stage.hill_side(0) < 0.0, "the landing is on the opposite side of the road (u=%.0f)" % u)
-	check(wing.global_position.distance_to(stage.hill_point(1, 0.0)) < 6.0, "it touches down at the foot of the next ramp")
-
-
-func test_one_turret_opens_per_flight_and_shuts_on_landing() -> void:
-	var wing := _wing()
-	wing._s = Stage3.HILL_LENGTH
-	wing.behave(STEP)
-	check_eq(wing._state, Wing.State.FLIGHT, "the lip launches it")
-	check(wing._active >= 0, "a turret is selected for the flight")
-	_run(wing, 1.5)
-	var open := Wing.TURRETS.filter(func(n: String) -> bool: return wing._open[n] >= 0.5)
-	check_eq(open.size(), 1, "exactly one turret stands open")
-	_run(wing, Wing.FLIGHT_TIME)
-	check_eq(wing._state, Wing.State.DRIFT, "it lands")
-	check_eq(wing._active, -1, "the hatch is shut on landing")
-
-
 func test_wing_fires_at_the_tank_from_its_open_turret() -> void:
 	var wing := _wing()
-	wing.player().global_position = wing.global_position + Vector3(0, -12, 60)
-	wing._s = Stage3.HILL_LENGTH
-	wing._active = -1
-	wing.behave(STEP)
 	var world := World.current
 	var before := world.projectiles.size()
 	_run(wing, 5.0)
@@ -210,21 +291,21 @@ func test_burrow_erupts_under_a_marker_and_hurts_a_tank_standing_there() -> void
 	check(tank.hp < before, "a tank left on the marker is hit by the eruption")
 
 
-func test_rail_camera_leans_toward_the_wing_on_its_ramp() -> void:
+func test_rail_camera_leans_toward_the_wing_ahead() -> void:
 	var wing := _wing()
 	var world := World.current
-	world.rail.d = (Course.stage as Stage3).hill_d(0) - 60.0
-	world.player.global_position = Course.ground_at(world.rail.d, 0.0)
+	# Swung wide across the road from the tank and low enough that the view need not tilt up for it.
+	var d := world.rail.d + Wing.STATION
+	wing.global_position = Course.ground_at(d, -world.player.course_u * 2.0) + Vector3.UP * Wing.LOW_ALTITUDE
 	var toward := func() -> float:
 		world.camera.snap()
 		world.camera.follow(STEP)
 		var to_wing := (wing.global_position - world.camera.global_position).normalized()
 		return rad_to_deg((-world.camera.global_basis.z).angle_to(to_wing))
-	world.boss = wing
 	var framed: float = toward.call()
 	wing.remove_meta("frame")
 	var plain: float = toward.call()
-	check(framed < plain - 5.0, "the view turns toward the wing (%.0f vs %.0f degrees off)" % [framed, plain])
+	check(framed < plain - 2.0, "the view turns toward the wing (%.0f vs %.0f degrees off)" % [framed, plain])
 	check(framed < 45.0, "the wing sits inside the frame (%.0f degrees off centre)" % framed)
 	var size := world.camera.get_viewport().get_visible_rect().size
 	var unframed := world.camera.unproject_position(world.player.hit_center()) / size
@@ -235,14 +316,10 @@ func test_rail_camera_leans_toward_the_wing_on_its_ramp() -> void:
 	check_near(tank.y, unframed.y, 0.03, "leaning toward the wing keeps the tank's height on screen")
 
 
-
-func test_rail_camera_tilts_up_to_keep_a_gliding_wing_in_frame() -> void:
+func test_rail_camera_tilts_up_to_keep_the_high_wing_in_frame() -> void:
 	var wing := _wing()
 	var world := World.current
-	world.rail.d = (Course.stage as Stage3).hill_d(0) - 60.0
-	world.player.global_position = Course.ground_at(world.rail.d, 0.0)
-	world.boss = wing
-	wing.global_position = Course.ground_at(world.rail.d + 90.0, 30.0) + Vector3.UP * (Wing.LOFT + 34.0) # Topping a glide between two ramp lips.
+	_run(wing, 3.0)
 	world.camera.snap()
 	world.camera.follow(STEP)
 	var size := world.camera.get_viewport().get_visible_rect().size
@@ -251,15 +328,15 @@ func test_rail_camera_tilts_up_to_keep_a_gliding_wing_in_frame() -> void:
 	check(seen.y > 0.12, "the wing's hull clears the top edge (y %.2f)" % seen.y)
 	check(tank.y < 0.85, "the tank stays above the bottom panels (y %.2f)" % tank.y)
 
+
 func test_a_player_shell_aimed_at_the_open_turret_breaks_it_not_the_hull() -> void:
 	var wing := _wing()
 	var world := World.current
-	wing._active = 0
-	wing._open.flak = 1.0
-	wing._armed.flak = true
+	_open(wing, "flak")
 	var turret := wing._turret_world("flak")
-	# From behind and below, the way the chasing tank sees it: the line crosses the hull outline first.
-	var from := turret + Vector3(0, -14, 40)
+	# From behind and a little below, the way the leaping tank sees it: the line crosses the hull outline first.
+	var from := turret + Vector3(0, -5, 40)
+	world.player.global_position = from
 	var to := turret + (turret - from).normalized() * 6.0
 	var shot := world.spawn_projectile(Entity.Team.PLAYER, from, (to - from).normalized() * 600.0, "shell", Palette.BUTTER)
 	shot.hit = _shell(world.player, from, 60.0)

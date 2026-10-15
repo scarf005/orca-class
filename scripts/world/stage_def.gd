@@ -88,6 +88,12 @@ func deck_blend(_d: float) -> float:
 	return 0.0
 
 
+## How far up a launch ramp's track (d, u) lies, 0 at its foot to 1 at its lip, or -1 off every ramp. A drift on
+## the track speeds the rail up, and a tank that drives off the lip flies.
+func ramp_at(_d: float, _u: float) -> float:
+	return -1.0
+
+
 ## Maximum tank offset from the road centerline outside an all-range arena.
 func lateral_limit(d: float) -> float:
 	if deck_blend(d) > 0.5:

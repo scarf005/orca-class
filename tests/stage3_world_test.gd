@@ -4,6 +4,15 @@ extends TestCase
 const MAX_SLOPE := 0.32
 
 
+## Whether (d, u) is on a launch ramp or the sand falling away around it, which climb and drop steeply by design.
+func _by_a_ramp(stage: Stage3, d: float, u: float) -> bool:
+	for index in Stage3.HILL_COUNT:
+		var s := d - stage.hill_d(index)
+		if s > -31.0 and s < Stage3.HILL_LENGTH + 25.0 and absf(u - stage.hill_side(index) * Stage3.HILL_U) < Stage3.HILL_HALF + Stage3.HILL_FLANK + 1.0:
+			return true
+	return false
+
+
 func test_driveable_sand_gradient_stays_tank_safe() -> void:
 	Course.use(3)
 	var stage := Course.stage as Stage3
@@ -12,7 +21,7 @@ func test_driveable_sand_gradient_stays_tank_safe() -> void:
 	for d in range(0, int(Stage3.LENGTH)):
 		for u in range(-50, 51, 2):
 			var limit := minf(stage.lateral_limit(d), stage.lateral_limit(d + 1.0)) - 1.0
-			if absf(u) > limit:
+			if absf(u) > limit or _by_a_ramp(stage, d, u):
 				continue
 			var here := stage.height(d, u)
 			var slope := Vector2(stage.height(d + 1.0, u) - here, stage.height(d, u + 1.0) - here).length()
@@ -28,6 +37,8 @@ func test_the_floor_is_there_wherever_the_hull_can_reach() -> void:
 	for d in range(0, int(Stage3.LENGTH), 3):
 		var reach := stage.lateral_limit(d) + Stage3.HULL_MARGIN
 		for u in [-reach, -reach * 0.5, 0.0, reach * 0.5, reach]:
+			if _by_a_ramp(stage, d, u):
+				continue
 			var h := stage.height(d, u)
 			check(h > -1.5 and h < 10.0, "the floor at d=%d u=%.0f is a driveable height (%.2f)" % [d, u, h])
 
@@ -40,7 +51,7 @@ func test_the_pit_arena_is_level() -> void:
 			check_near(Course.stage.height(Stage3.PIT_D + p.x, p.y), 0.2, 0.15, "the pit floor is level")
 
 
-func test_sand_ramps_alternate_sides_and_climb_to_a_lip() -> void:
+func test_sand_ramps_alternate_sides_inside_the_tanks_reach_and_climb_to_a_lip() -> void:
 	Course.use(3)
 	var stage := Course.stage as Stage3
 	for index in Stage3.HILL_COUNT:
@@ -52,9 +63,10 @@ func test_sand_ramps_alternate_sides_and_climb_to_a_lip() -> void:
 		var past := Course.ground_at(stage.hill_d(index) + Stage3.HILL_LENGTH + 40.0, side * Stage3.HILL_U)
 		check(past.y < lip.y - Stage3.HILL_HEIGHT * 0.7, "ramp %d drops away behind its lip" % index)
 		check(absf(Course.to_course(lip).y - side * Stage3.HILL_U) < 0.5, "the lip lies on the track")
-		check(Stage3.HILL_U - Stage3.HILL_HALF - 22.0 > stage.lateral_limit(stage.hill_d(index)) + Stage3.HULL_MARGIN, "the ramp and its flank stay outside the tank's reach")
-	for index in Stage3.HILL_COUNT - 1:
-		check(stage.hill_d(index + 1) - stage.hill_d(index) > Stage3.HILL_LENGTH + 100.0, "ramps %d and %d leave room to land between them" % [index, index + 1])
+		check(Stage3.HILL_U + Stage3.HILL_HALF < stage.lateral_limit(stage.hill_d(index)), "the tank can drive the whole width of ramp %d's track" % index)
+		check(stage.hill_d(index) > Stage3.SECTION_STARTS[Stage3.Section.RUN], "ramp %d is on the run" % index)
+		check_eq(stage.ramp_at(stage.hill_d(index) + Stage3.HILL_LENGTH * 0.5, side * Stage3.HILL_U), 0.5, "halfway up ramp %d's track" % index)
+		check_eq(stage.ramp_at(stage.hill_d(index) + Stage3.HILL_LENGTH * 0.5, -side * Stage3.HILL_U), -1.0, "the other lane is no ramp")
 
 
 func test_events_are_ordered_and_every_kind_exists() -> void:

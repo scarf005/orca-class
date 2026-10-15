@@ -2,7 +2,7 @@ class_name Stage3
 extends StageDef
 ## A downtown the desert has swallowed: dunes bank against the towers up to their middle floors, the avenue shows
 ## through the sand in the troughs, a terraforming borer's pit opens in the middle, and the last third is a
-## dune highway where the boss drifts up sand ramps and takes off at 140 km/h.
+## dune highway at 140 km/h where the tank drifts up sand ramps and leaps into the flying wing's sight.
 
 enum Section { OUTSKIRTS, AVENUE, PIT, CANYON, RUN }
 
@@ -15,14 +15,16 @@ const PIT_D := 1800.0
 const PIT_RADIUS := 80.0
 const SPRINT_KMH := 140.0
 const PLAN := [[1100.0, 0.0], [500.0, 30.0], [500.0, -30.0], [500.0, 0.0], [600.0, -40.0], [600.0, 40.0], [2500.0, 0.0], [700.0, 0.0]]
-## Sand ramps along the run: the boss drifts up one, leaves its lip and flies to the next. {d, side}.
+## Sand ramps along the run, inside the tank's reach and alternating sides: drifting up one builds speed, and the
+## faster the tank leaves its lip the higher it flies.
 const HILL_FIRST := 3560.0
-const HILL_SPACING := 400.0
-const HILL_COUNT := 6
-const HILL_LENGTH := 200.0
-const HILL_HEIGHT := 24.0
-const HILL_U := 92.0 ## Lateral offset of a ramp's track.
-const HILL_HALF := 12.0 ## Half width of its track.
+const HILL_SPACING := 400.0 ## Room for the longest leap off one ramp to land short of the next.
+const HILL_COUNT := 5
+const HILL_LENGTH := 120.0
+const HILL_HEIGHT := 12.0
+const HILL_U := 22.0 ## Lateral offset of a ramp's track.
+const HILL_HALF := 8.0 ## Half width of its track.
+const HILL_FLANK := 10.0 ## Width of the sand falling away beside the track.
 const STORM_D := 2100.0
 const FALLEN_D := 2700.0 ## The fallen tower that arches over the canyon.
 const FALLEN_U := -70.0 ## Its base, behind the left front towers.
@@ -158,32 +160,46 @@ func height(d: float, u: float) -> float:
 	h += smoothstep(limit + HULL_MARGIN, limit + 20.0, au) * DRIFT
 	h += smoothstep(limit + 20.0, limit + 110.0, au) * (5.0 + 14.0 * (_far.get_noise_2d(d, u) * 0.5 + 0.5))
 	for index in HILL_COUNT:
-		h += _hill(index, d, u)
+		var hill := _hill(index, d, u)
+		h = lerpf(h, floor_h, hill.y) + hill.x
 	return lerpf(floor_h, h, smoothstep(0.0, 24.0, outside)) if outside < INF else h
 
 
-## The sand ramp `index` adds at (d, u): a track that climbs along d to a lip and falls away behind it.
-func _hill(index: int, d: float, u: float) -> float:
+## The sand ramp `index` at (d, u): x is the height it adds, a track that climbs along d to a lip and falls away
+## behind it; y how much it smooths the dunes under it away, so the track's gradient is its own.
+func _hill(index: int, d: float, u: float) -> Vector2:
 	var s := d - hill_d(index)
 	if s < -30.0 or s > HILL_LENGTH + 40.0:
-		return 0.0
-	var across := 1.0 - smoothstep(HILL_HALF, HILL_HALF + 22.0, absf(u - hill_side(index) * HILL_U))
-	var along := pow(clampf(s / HILL_LENGTH, 0.0, 1.0), 2.0) * (1.0 - smoothstep(0.0, 34.0, s - HILL_LENGTH))
-	return HILL_HEIGHT * along * across
+		return Vector2.ZERO
+	var across := 1.0 - smoothstep(HILL_HALF, HILL_HALF + HILL_FLANK, absf(u - hill_side(index) * HILL_U))
+	var along := pow(clampf(s / HILL_LENGTH, 0.0, 1.0), 4.0) * (1.0 - smoothstep(0.0, 24.0, s - HILL_LENGTH))
+	return Vector2(HILL_HEIGHT * along, band(s, -30.0, 0.0, HILL_LENGTH, HILL_LENGTH + 24.0)) * across
 
 
-## Where a boss on ramp `index` stands at fraction `t` (0 foot, 1 lip), centred on the track.
+## Where ramp `index`'s track lies at fraction `t` (0 foot, 1 lip), on its centre line.
 func hill_point(index: int, t: float) -> Vector3:
 	return Course.ground_at(hill_d(index) + HILL_LENGTH * t, hill_side(index) * HILL_U)
+
+
+func ramp_at(d: float, u: float) -> float:
+	for index in HILL_COUNT:
+		var s := d - hill_d(index)
+		if s >= 0.0 and s <= HILL_LENGTH and absf(u - hill_side(index) * HILL_U) < HILL_HALF:
+			return s / HILL_LENGTH
+	return -1.0
+
+
+## Rail distance past which no ramp is left to leap from.
+func ramps_end() -> float:
+	return hill_d(HILL_COUNT - 1) + HILL_LENGTH + 250.0
 
 
 func ground_color(d: float, u: float, h: float, slope: float) -> Color:
 	var au := absf(u)
 	var grain := _grain.get_noise_2d(d, u)
-	for index in HILL_COUNT:
-		var s := d - hill_d(index)
-		if s >= 0.0 and s <= HILL_LENGTH + 6.0 and absf(u - hill_side(index) * HILL_U) < HILL_HALF:
-			return Palette.CREAM if int(s / 10.0) % 2 == 0 else Palette.STONE
+	var ramp := ramp_at(d, u)
+	if ramp >= 0.0:
+		return Palette.CREAM if int(ramp * HILL_LENGTH / 10.0) % 2 == 0 else Palette.STONE
 	# Colours blend continuously with height, slope and grain so the facets shade softly instead of breaking into
 	# hard-edged blotches at thresholds.
 	# Crests catch the light, troughs settle into peach, and a face climbing toward the camera glows while the lee
@@ -307,14 +323,14 @@ func events(hard: bool) -> Array[Dictionary]:
 	e.append({"d": 3160.0, "type": "pickup", "id": "era", "u": -4.0})
 	e.append({"d": 3220.0, "type": "pickup", "id": "atgm", "u": 4.0})
 
-	# The run: the rail floors it to 140 km/h and the flying wing shows itself.
+	# The run: the rail floors it to 140 km/h and the flying wing shows itself above the ramps.
 	e.append({"d": SECTION_STARTS[Section.RUN] + 20.0, "type": "checkpoint", "name": "boss"})
 	e.append({"d": SECTION_STARTS[Section.RUN] + 60.0, "type": "pickup", "id": "repair", "u": -4.0, "ahead": 20.0})
 	e.append({"d": SECTION_STARTS[Section.RUN] + 90.0, "type": "pickup", "id": "dragon", "ahead": 15.0})
 	e.append({"d": SECTION_STARTS[Section.RUN] + 130.0, "type": "sprint", "kmh": SPRINT_KMH})
 	e.append({"d": hill_d(0) - 62.0, "type": "boss", "kind": "wing", "rail": true})
-	# Past the last ramp the rail stops short of the road's end, so the wing cannot simply fly away.
-	e.append({"d": hill_d(HILL_COUNT - 1) + HILL_LENGTH, "type": "hold", "at": hill_d(HILL_COUNT - 1) + HILL_LENGTH + 150.0, "timeout": 600.0})
+	# Past the last ramp the rail stops short of the road's end and the wing comes down to finish the tank.
+	e.append({"d": ramps_end(), "type": "hold", "at": ramps_end() + 170.0, "timeout": 600.0})
 
 	if hard:
 		var pressure := {450.0: {"ugv": 1}, 700.0: {"fpv": 1}}

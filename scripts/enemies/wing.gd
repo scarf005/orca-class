@@ -1,13 +1,13 @@
 class_name Wing
 extends Enemy
-## Stage 3 boss: a flying wing that fights along the dune run while the rail floors it at 140 km/h. It drifts up
-## a sand ramp on its skids to build speed, leaves the lip and glides to the next ramp on the other side of
-## the road. Its five belly turrets stay shut except for one: each flight the next living turret opens and
-## fires back at the chasing tank until it is shot out (or the wing lands and shuts it). The hull itself only
-## sparks; the turrets are the boss's health. Past the last ramp the wing keeps station ahead and the turrets
-## take turns until none are left, then it falls out of the sky.
+## Stage 3 boss: a flying wing that keeps station high over the dune run while the rail floors it at 140 km/h.
+## Its five belly turrets open one at a time and fire down at the tank, each until it is shot out. Skirts under
+## the belly hide them from any shot climbing steeper than SKIRT_ANGLE, so the ground cannot reach them: the tank
+## drifts up a ramp to build speed and leaps off its lip high enough to snipe the open turret, with time slowed
+## while it has the shot. The hull itself only sparks; the turrets are the boss's health. Past the last ramp it
+## comes down low enough to be shot from the road, and when the last turret goes it falls out of the sky.
 
-enum State { DRIFT, FLIGHT, ORBIT, DYING }
+enum State { CRUISE, DYING }
 
 const TURRETS := ["flak", "rocket", "beam", "bomb", "hangar"]
 const TURRET_AT := {
@@ -23,24 +23,17 @@ const ROUND_DAMAGE := 40.0 ## Like the other bosses, main-gun damage counts in r
 const TURRET_RADIUS := 3.2
 const HULL_RADIUS := 13.0
 const HULL_SPHERES: Array[Vector3] = [Vector3(0, 0, 6.0), Vector3(-11, 2, 5.0), Vector3(11, 2, 5.0)] ## (x, z, radius) in the model.
-const DRIFT_SPEED := Vector2(34.0, 80.0) ## Metres per second at the foot and at the lip of a ramp.
-const FLIGHT_TIME := 6.5
-const LOFT := 22.0 ## Extra height the glide arcs to between two ramps.
-const HOVER := 1.5 ## The skids ride this high over the sand.
 const OPEN_RATE := 2.2
 const WIND := 0.9
-const ORBIT_CYCLE := 9.0
-const STATION := 120.0 ## Metres ahead of the rail the wing keeps once the ramps run out.
+const STATION := 130.0 ## Metres ahead of the rail the wing keeps.
+const WEAVE := 20.0 ## Metres it sways across the road.
+const ALTITUDE := 46.0 ## Over the road along the ramps: out of the ground's sight, inside a drifted leap's.
+const LOW_ALTITUDE := 14.0 ## Past the last ramp: low enough for the road to reach.
+const SKIRT_ANGLE := deg_to_rad(10.0) ## Steepest climb a shot can take into the belly's turret bays.
+const SLOW := 0.4 ## Time scale while the tank has a turret in sight in the air.
 
 var parts: Dictionary = {}
-var _state := State.DRIFT
-var _ramp := 0
-var _s := 0.0 ## Metres up the ramp.
-var _flight := 0.0
-var _from := Vector3.ZERO
-var _from_tangent := Vector3.ZERO
-var _to := Vector3.ZERO
-var _to_tangent := Vector3.ZERO
+var _state := State.CRUISE
 var _forward := Vector3.FORWARD
 var _active := -1 ## Index of the open turret.
 var _next := 0
@@ -54,8 +47,6 @@ var _wind := 0.0
 var _shots := 0
 var _shot_timer := 0.0
 var _aim := Vector3.ZERO
-var _cycle := 0.0
-var _dust := 0.0
 var _dying := 0.0
 var _flames := 0.0
 
@@ -83,8 +74,7 @@ func _init() -> void:
 
 func _ready() -> void:
 	super()
-	if Course.stage is Stage3:
-		_place_on_ramp()
+	global_position = _station(0.0)
 
 
 func build() -> void:
@@ -190,14 +180,23 @@ func _turret_world(name: String) -> Vector3:
 	return _pods[name].global_position
 
 
-## Turrets whose hatches stand open enough to be hit. Like a hunter walking in, a turret cannot be hit before
-## its first volley, so every turret gets to shoot back at least once.
+## Turrets whose hatches stand open enough to be hit and that the tank can see past the skirts. Like a hunter
+## walking in, a turret cannot be hit before its first volley, so every turret gets to shoot back at least once.
 func _exposed() -> Array[String]:
 	var result: Array[String] = []
 	for name: String in TURRETS:
-		if parts[name] > 0.0 and _open[name] >= 0.5 and _armed.has(name):
+		if parts[name] > 0.0 and _open[name] >= 0.5 and _armed.has(name) and in_sight(name):
 			result.append(name)
 	return result
+
+
+## Whether the tank's gun sees turret `name` past the belly skirts: it climbs no steeper than SKIRT_ANGLE to it.
+func in_sight(name: String) -> bool:
+	var tank := player()
+	if tank == null:
+		return false
+	var to := _turret_world(name) - tank.hit_center()
+	return atan2(to.y, Vector2(to.x, to.z).length()) <= SKIRT_ANGLE
 
 
 func aim_parts() -> Dictionary:
@@ -287,139 +286,42 @@ func telegraphing() -> bool:
 	return _wind > 0.0
 
 
-## The ramp's track point at `s` metres up, swaying across it as the wing slides from side to side.
-func _ramp_point(index: int, s: float) -> Vector3:
-	var stage := Course.stage as Stage3
-	var sway := sin(s * 0.045) * Stage3.HILL_HALF * 0.55
-	var p := Course.to_world(stage.hill_d(index) + s, stage.hill_side(index) * Stage3.HILL_U + sway)
-	p.y = Course.height(stage.hill_d(index) + s, stage.hill_side(index) * Stage3.HILL_U + sway) + HOVER
+## Where it keeps station: ahead of the rail, swaying across the road, high over the ramps and low past them.
+func _station(weave_time: float) -> Vector3:
+	var rail := World.current.rail
+	var d := rail.d + STATION
+	var u := sin(weave_time * 0.5) * WEAVE
+	var low := Course.stage is Stage3 and rail.d > (Course.stage as Stage3).ramps_end()
+	var p := Course.to_world(d, u)
+	p.y = Course.height(d, u) + (LOW_ALTITUDE if low else ALTITUDE) + sin(weave_time * 1.1) * 2.0
 	return p
-
-
-func _place_on_ramp() -> void:
-	global_position = _ramp_point(_ramp, 0.0)
-	_forward = (_ramp_point(_ramp, 4.0) - global_position).normalized()
-
-
-func _hermite(u: float) -> Vector3:
-	var u2 := u * u
-	var u3 := u2 * u
-	return _from * (2.0 * u3 - 3.0 * u2 + 1.0) + _from_tangent * (u3 - 2.0 * u2 + u) + _to * (-2.0 * u3 + 3.0 * u2) + _to_tangent * (u3 - u2) + Vector3.UP * LOFT * sin(PI * u)
 
 
 func behave(delta: float) -> void:
 	var world := World.current
 	var tank := player()
 	if _state == State.DYING:
+		world.slow = 1.0
 		_die_in_the_air(delta)
 		return
 	if tank == null:
 		return
 	var before := global_position
-	match _state:
-		State.DRIFT:
-			_drift(delta)
-		State.FLIGHT:
-			_glide(delta)
-		State.ORBIT:
-			_orbit(delta, tank)
+	global_position = global_position.lerp(_station(age), 1.0 - exp(-2.5 * delta))
 	var moved := global_position - before
 	if moved.length() > 0.001:
 		_forward = _forward.lerp(moved.normalized(), minf(delta * 10.0, 1.0)).normalized()
 	_pose(delta)
+	if _active < 0:
+		_open_next()
 	_update_turrets(delta, tank)
-	_dust -= delta
-	if _state == State.DRIFT and _dust <= 0.0:
-		_dust = 0.05
-		for side in [-1.0, 1.0]:
-			var skid := model.global_transform * Vector3(side * 4.0, -1.8, 4.0)
-			world.fx.dust(skid, 2, 2.4, Palette.STRAW)
-			world.fx.sparks(skid, Vector3.UP, 2, Palette.BUTTER, 12.0)
+	world.slow = SLOW if tank.airborne and not _exposed().is_empty() else 1.0
 
 
-func _drift(delta: float) -> void:
-	var stage := Course.stage as Stage3
-	var speed := lerpf(DRIFT_SPEED.x, DRIFT_SPEED.y, smoothstep(0.0, 1.0, _s / Stage3.HILL_LENGTH))
-	_s += speed * delta
-	if _s >= Stage3.HILL_LENGTH:
-		_leave_ramp(stage)
-		return
-	global_position = _ramp_point(_ramp, _s)
-	if fmod(age, 0.5) < delta:
-		Sfx.play("skid", global_position, -6.0, 0.9)
-
-
-func _leave_ramp(stage: Stage3) -> void:
-	var world := World.current
-	_from = _ramp_point(_ramp, Stage3.HILL_LENGTH)
-	var ahead := (_ramp_point(_ramp, Stage3.HILL_LENGTH) - _ramp_point(_ramp, Stage3.HILL_LENGTH - 6.0)).normalized()
-	var last := _ramp + 1 >= Stage3.HILL_COUNT
-	if last:
-		_to = Course.to_world(stage.hill_d(_ramp) + Stage3.HILL_LENGTH + 260.0, 0.0)
-		_to.y = Course.height_at(_to) + 30.0
-		_to_tangent = Course.forward(stage.hill_d(_ramp)) * 200.0
-	else:
-		_to = _ramp_point(_ramp + 1, 0.0)
-		_to_tangent = Course.forward(stage.hill_d(_ramp + 1)) * 160.0
-	var chord := _from.distance_to(_to)
-	_from_tangent = (Vector3(ahead.x, 0.0, ahead.z).normalized() * 0.9 + Vector3.UP * 0.35).normalized() * chord * 1.1
-	_flight = 0.0
-	_state = State.ORBIT if last else State.FLIGHT
-	world.fx.shockwave(_from, 18.0, Palette.BUTTER)
-	world.fx.dust(_from, 14, 6.0, Palette.STRAW)
-	world.shake(0.3, _from)
-	Sfx.play("jet", _from, 2.0)
-	if last:
-		_cycle = 0.0
-	else:
-		_open_next()
-
-
-func _glide(delta: float) -> void:
-	_flight += delta
-	var u := clampf(_flight / FLIGHT_TIME, 0.0, 1.0)
-	global_position = _hermite(u)
-	if u >= 1.0:
-		_ramp += 1
-		_s = 0.0
-		_state = State.DRIFT
-		_close_all()
-		World.current.fx.dust(global_position, 10, 5.0, Palette.STRAW)
-
-
-## Past the last ramp: it holds station ahead of the rail, weaving, and the turrets take turns.
-func _orbit(delta: float, _tank: Tank) -> void:
-	var world := World.current
-	_flight += delta
-	if _flight < FLIGHT_TIME:
-		global_position = _hermite(clampf(_flight / FLIGHT_TIME, 0.0, 1.0))
-	else:
-		var d := world.rail.d + STATION
-		var u := sin(age * 0.6) * 26.0
-		var station := Course.to_world(d, u)
-		station.y = Course.height(d, u) + 30.0 + sin(age * 1.1) * 3.0
-		global_position = global_position.lerp(station, 1.0 - exp(-2.5 * delta))
-	_cycle -= delta
-	if _cycle <= 0.0 and _active < 0:
-		_cycle = ORBIT_CYCLE
-		_open_next()
-	elif _cycle <= 0.0 and _active >= 0:
-		_cycle = ORBIT_CYCLE
-		_close_all()
-		_cycle = 1.5
-
-
+## Banks into its sway.
 func _pose(delta: float) -> void:
-	var slip := 0.0
-	var roll := 0.0
-	if _state == State.DRIFT:
-		slip = cos(_s * 0.045) * 0.5
-		roll = -slip * 0.7
-	elif _state == State.FLIGHT:
-		roll = sin(_flight / FLIGHT_TIME * TAU) * 0.35 * (Course.stage as Stage3).hill_side(_ramp)
-	var heading := _forward.rotated(Vector3.UP, slip)
-	var up := Vector3.UP.rotated(_forward, roll)
-	model.global_basis = model.global_basis.orthonormalized().slerp(Basis.looking_at(heading, up), minf(delta * 8.0, 1.0)) if delta > 0.0 else model.global_basis
+	var up := Vector3.UP.rotated(_forward, -cos(age * 0.5) * 0.3)
+	model.global_basis = model.global_basis.orthonormalized().slerp(Basis.looking_at(_forward, up), minf(delta * 8.0, 1.0)) if delta > 0.0 else model.global_basis
 
 
 func _open_next() -> void:
@@ -431,12 +333,6 @@ func _open_next() -> void:
 			_cool = 0.4
 			_end_volley(0.8)
 			return
-
-
-func _close_all() -> void:
-	_active = -1
-	_wind = 0.0
-	_shots = 0
 
 
 func _end_volley(pause: float) -> void:
@@ -599,6 +495,7 @@ func _die_in_the_air(delta: float) -> void:
 
 func on_death(_hit: Hit) -> void:
 	var world := World.current
+	world.slow = 1.0
 	world.fx.explosion(global_position, 12.0)
 	world.fx.shockwave(global_position, 40.0, Palette.BUTTER)
 	world.fx.debris(global_position, 40, debris, 20.0, 0.8)
