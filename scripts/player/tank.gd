@@ -376,6 +376,27 @@ func _leap(delta: float, d: float) -> void:
 	_ramp_slope = (ground - Course.height(d - 2.0, course_u)) / 2.0
 
 
+## Seconds until a leaping hull is back on the ground; 0 on the ground.
+func landing_in() -> float:
+	if not airborne:
+		return 0.0
+	var drop := maxf(_air_y - Course.height_at(global_position), 0.0)
+	return (_air_vy + sqrt(_air_vy * _air_vy + 2.0 * AIR_GRAVITY * drop)) / AIR_GRAVITY
+
+
+## Where the hit centre will be in `t` seconds if the hull keeps its heading: carried along the ground, or along
+## its leap until it lands.
+func predicted(t: float) -> Vector3:
+	var rail := World.current.rail
+	var ebb := minf(t, rail.surge / Rail.SURGE_EBB) # A drift's surge ebbs away meanwhile.
+	var p := global_position + Vector3(velocity.x, 0.0, velocity.z) * t - rail.forward() * Rail.SURGE_EBB * ebb * (t - ebb * 0.5)
+	var ground := Course.height_at(p)
+	p.y = ground
+	if airborne and t < landing_in():
+		p.y = maxf(_air_y + _air_vy * t - 0.5 * AIR_GRAVITY * t * t, ground)
+	return p + Vector3.UP * center_height
+
+
 func _land() -> void:
 	var world := World.current
 	airborne = false

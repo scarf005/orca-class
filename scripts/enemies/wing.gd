@@ -31,6 +31,7 @@ const ALTITUDE := 46.0 ## Over the road along the ramps: out of the ground's sig
 const LOW_ALTITUDE := 14.0 ## Past the last ramp: low enough for the road to reach.
 const SKIRT_ANGLE := deg_to_rad(10.0) ## Steepest climb a shot can take into the belly's turret bays.
 const SLOW := 0.4 ## Time scale while the tank has a turret in sight in the air.
+const FLIGHT := {"rocket": 1.4, "bomb": 1.8} ## Seconds the ground-attack rounds fall; held while a leap would outlast them.
 
 var parts: Dictionary = {}
 var _state := State.CRUISE
@@ -47,6 +48,7 @@ var _wind := 0.0
 var _shots := 0
 var _shot_timer := 0.0
 var _aim := Vector3.ZERO
+var _aim_u := 0.0 ## The tank's lane when the volley was called: a rocket salvo keeps to it.
 var _dying := 0.0
 var _flames := 0.0
 
@@ -367,7 +369,7 @@ func _update_turrets(delta: float, tank: Tank) -> void:
 		_wind -= delta
 		return
 	_shot_timer -= delta
-	if _shot_timer <= 0.0:
+	if _shot_timer <= 0.0 and tank.landing_in() <= FLIGHT.get(name, INF):
 		_armed[name] = true
 		_fire(name, tank)
 
@@ -384,12 +386,14 @@ func _begin_volley(name: String, tank: Tank) -> void:
 	_shots = 0
 	_shot_timer = 0.0
 	var muzzle := _muzzles[name].global_position
-	_aim = tank.global_position + tank.velocity * 1.4
-	_aim.y = Course.height_at(_aim)
+	# The beam passes where the hull will be when it fires, in the air or not; the rest show where they will fall.
+	_aim = tank.predicted(_wind if name == "beam" else 1.4)
+	_aim_u = Course.to_course(tank.global_position).y
 	match name:
 		"beam":
-			world.fx.beam(muzzle, _aim, Palette.HOT, 0.14, _wind)
-			world.fx.marker(_aim, 4.0, _wind, Palette.RED)
+			var end := _through(muzzle, _aim)
+			world.fx.beam(muzzle, end, Palette.HOT, 0.14, _wind)
+			world.fx.marker(end, 4.0, _wind, Palette.RED)
 		"rocket", "bomb":
 			world.fx.beam(muzzle, _aim, Palette.HOT, 0.1, _wind)
 		_:
@@ -410,18 +414,23 @@ func _fire(name: String, tank: Tank) -> void:
 			if _shots >= 14:
 				_end_volley(1.6)
 		"rocket":
-			var target := _aim + Course.right(Course.to_course(_aim).x) * (_shots - 2.5) * 3.5
+			# Each rocket falls where the tank will be when it arrives, held while the tank is in the air until it
+			# would come down on the landing, the salvo spread across the lane it was in when the volley was called,
+			# narrow enough that one drift out of the lane at the first marker clears it.
+			var flight: float = FLIGHT.rocket
+			var target := Course.ground_at(Course.to_course(tank.predicted(flight)).x, _aim_u + (_shots - 2.5) * 2.0)
 			var from := muzzle.global_position
-			var velocity := (target - from) / 1.4 + Vector3.UP * 13.7
-			var shot := fire_along("rocket", muzzle, velocity.length(), 0.0, Palette.HOT, velocity)
+			var velocity := (target - from) / flight + Vector3.UP * 0.5 * 20.0 * flight
+			var shot := fire_along("rocket", muzzle, velocity.length(), 0.0, Palette.HOT, velocity, 180.0) # Lofted off the rail, not down the barrel.
 			shot.gravity = 20.0
+			shot.life = flight + 1.0
 			shot.hit = Hit.make(Hit.Kind.SHELL, 0.0, from)
 			shot.hit.source = self
 			shot.blast_radius = 4.0
 			shot.blast_damage = 20.0
 			shot.interceptable = true
 			shot.trail = Projectile.ROCKET_SMOKE
-			world.fx.marker(target, 4.0, 1.4, Palette.RED)
+			world.fx.marker(target, 4.0, flight, Palette.RED)
 			Sfx.play("launch", from)
 			_shots += 1
 			_shot_timer = 0.16
@@ -429,7 +438,7 @@ func _fire(name: String, tank: Tank) -> void:
 				_end_volley(2.0)
 		"beam":
 			var from := muzzle.global_position
-			var to := _aim
+			var to := _through(from, _aim)
 			world.fx.rail_beam(from, to, Palette.HOT)
 			world.fx.explosion(to, 3.0)
 			Sfx.play("cannon", from, 2.0)
@@ -452,16 +461,15 @@ func _fire(name: String, tank: Tank) -> void:
 			_end_volley(4.0)
 
 
-## Bombs come down in a line across the road a little way ahead of the tank, one lane left open.
+## Bombs come down in a line across the road where the tank will be when they land, one lane left open.
 func _drop_bomb(from: Vector3, tank: Tank, index: int) -> void:
 	var world := World.current
 	var gap := int(_aim.x) % 5
-	var centre := Course.to_course(tank.global_position + tank.velocity * 1.8)
-	var target := Course.to_world(centre.x, centre.y + (index - 2) * 6.5)
-	target.y = Course.height_at(target)
+	var flight: float = FLIGHT.bomb
+	var centre := Course.to_course(tank.predicted(flight))
+	var target := Course.ground_at(centre.x, centre.y + (index - 2) * 6.5)
 	if index == absi(gap):
 		return
-	var flight := 1.8
 	var velocity := (target - from) / flight + Vector3.UP * 0.5 * 20.0 * flight
 	var shell := world.spawn_projectile(Team.ENEMY, from, velocity, "mortar", Palette.HOT)
 	shell.gravity = 20.0
@@ -475,6 +483,12 @@ func _drop_bomb(from: Vector3, tank: Tank, index: int) -> void:
 	shell.trail = Palette.DUSK
 	world.fx.marker(target, 4.0, flight, Palette.HOT)
 	Sfx.play("launch", from, 0.0, 0.7)
+
+
+## Where a straight line from `from` through `point` meets the ground.
+func _through(from: Vector3, point: Vector3) -> Vector3:
+	var ground := Course.height_at(point)
+	return from + (point - from) * (from.y - ground) / maxf(from.y - point.y, 0.1)
 
 
 ## Hull gone: it loses height trailing fire, then breaks up on the sand.

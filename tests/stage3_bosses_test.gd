@@ -226,6 +226,70 @@ func test_wing_fires_at_the_tank_from_its_open_turret() -> void:
 	check(world.projectiles.size() > before or wing._shots > 0, "the opened turret has shot at the chasing tank")
 
 
+## Runs one volley (4 s, before the next is called) from turret `name` at the tank sprinting down the road's
+## centre short of the ramps, the tank drifting aside once at the first telegraph if `dodge`. Returns the hull lost.
+func _volley(name: String, dodge: bool) -> float:
+	var wing := _wing()
+	var world := World.current
+	var tank := world.player
+	world.rail.d = Stage3.HILL_FIRST - 700.0
+	tank.course_u = 0.0
+	for _i in ceili(1.0 / STEP):
+		tank.tick(STEP)
+	wing.global_position = wing._station(wing.age)
+	_open(wing, name)
+	wing._end_volley(0.3)
+	var before := tank.hp
+	var dodged := false
+	for _i in ceili(4.0 / STEP):
+		if dodge and not dodged and (wing.telegraphing() or wing._shots > 0):
+			dodged = true
+			tank.dash(Vector2(1, 0))
+		tank.tick(STEP)
+		wing.behave(STEP)
+		world._process(STEP)
+	check(dodged or not dodge, "the %s volley showed its telegraph" % name)
+	return before - tank.hp
+
+
+func test_wing_volleys_land_on_a_tank_holding_its_line_at_full_sprint() -> void:
+	for name: String in ["rocket", "beam", "bomb"]:
+		check(_volley(name, false) > 0.0, "the %s volley hits a tank that keeps straight on" % name)
+
+
+func test_a_tank_drifting_aside_at_the_telegraph_escapes_the_rockets_and_the_beam() -> void:
+	for name: String in ["rocket", "beam"]:
+		check_eq(_volley(name, true), 0.0, "a drift at the %s telegraph clears it" % name)
+
+
+func test_wing_volleys_called_mid_leap_meet_the_tank_in_the_air_or_on_its_landing() -> void:
+	for name: String in ["rocket", "beam", "bomb"]:
+		var wing := _wing()
+		var world := World.current
+		var tank := world.player
+		wing.global_position = wing._station(wing.age)
+		_open(wing, name)
+		var before := tank.hp
+		var called := false
+		var over := false
+		var side := 1.0
+		for _i in ceili(12.0 / STEP):
+			if not tank.airborne and not called and tank.anchor_cooldown <= 0.0:
+				tank.dash(Vector2(side, 0))
+				side = -side
+			if tank.airborne and not called:
+				called = true
+				wing._end_volley(0.01)
+			tank.tick(STEP)
+			wing.behave(STEP)
+			world._process(STEP)
+			over = over or (called and wing._cool > 1.0)
+			if over and (world.projectiles.is_empty() or wing.telegraphing()):
+				break # This volley has come down, or the next is being called.
+		check(called, "the tank leapt and the %s volley was called in the air" % name)
+		check(tank.hp < before, "the %s volley reaches the leaping tank" % name)
+
+
 func test_borer_burrowed_is_untouchable() -> void:
 	var borer := _borer()
 	borer._burrowed = true
