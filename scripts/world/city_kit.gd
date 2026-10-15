@@ -589,6 +589,52 @@ static func backdrop(blocks: Array) -> Mesh:
 	return b.mesh()
 
 
+## One bay of a subway tunnel's roof: a sand-skinned slab over a tiled soffit with a rib at each end and two rows of
+## lamps. `size` is the exact collision box, its base at the soffit.
+static func tunnel_roof(size: Vector3, _variant: int) -> Mesh:
+	var b := LowPoly.new()
+	b.box(_xf(Vector3(0, size.y * 0.5, 0)), size, Palette.DUSK, Palette.PEACH)
+	for z in [-size.z * 0.5 + 0.5, size.z * 0.5 - 0.5]:
+		b.box(_xf(Vector3(0, -0.45, z)), Vector3(size.x, 0.9, 1.0), Palette.STONE)
+	for x in [-size.x * 0.22, size.x * 0.22]:
+		b.glow = true
+		b.box(_xf(Vector3(x, -0.12, 0)), Vector3(0.7, 0.16, 6.0), Palette.CREAM)
+		b.glow = false
+	return b.mesh()
+
+
+## One bay of a tunnel wall: glazed tiles up to a red line stripe, plaster above, grout lines and a lamp. Variant 0 is the
+## wall on the right of the road (its inside faces -X), 1 the left.
+static func tunnel_wall(size: Vector3, variant: int) -> Mesh:
+	var b := LowPoly.new()
+	var inside := -1.0 if variant == 0 else 1.0
+	var face := inside * (size.x * 0.5 + 0.03)
+	b.box(_xf(Vector3(0, size.y * 0.5, 0)), size, Palette.STONE)
+	b.box(_xf(Vector3(face, 1.7, 0)), Vector3(0.1, 3.4, size.z), Palette.TEAL.lightened(0.15))
+	b.box(_xf(Vector3(face, 3.6, 0)), Vector3(0.12, 0.45, size.z), Palette.RED)
+	b.box(_xf(Vector3(face, 6.8, 0)), Vector3(0.1, 6.0, size.z), Palette.MIST)
+	for z in range(-int(size.z * 0.5) + 3, int(size.z * 0.5), 3):
+		b.box(_xf(Vector3(face + inside * 0.03, size.y * 0.5, float(z))), Vector3(0.06, size.y - 1.0, 0.08), Palette.SLATE)
+	b.glow = true
+	b.box(_xf(Vector3(face + inside * 0.1, 8.4, 0)), Vector3(0.2, 0.5, 2.4), Palette.AMBER)
+	return b.mesh()
+
+
+## The mouth of the tunnel: a lintel over the lanes on two piers, hazard-striped, with a lit sign board.
+static func _tunnel_portal(_variant: int, _rng: RandomNumberGenerator) -> Mesh:
+	var b := LowPoly.new()
+	var half: float = Stage3.TUNNEL_HALF + Stage3.HULL_MARGIN + 3.0
+	for side in [-1.0, 1.0]:
+		b.box(_xf(Vector3(side * half, 5.5, 0)), Vector3(3.0, 11.0, 4.0), Palette.CONCRETE)
+	b.box(_xf(Vector3(0, 11.0, 0)), Vector3(half * 2.0 + 3.0, 2.2, 4.0), Palette.CONCRETE)
+	for i in 10:
+		b.box(_xf(Vector3(-half + 1.5 + i * (half * 2.0 - 3.0) / 9.0, 11.0, 2.02)), Vector3(2.0, 1.6, 0.06), Palette.AMBER if i % 2 == 0 else Palette.INK)
+	b.box(_xf(Vector3(0, 14.0, 0)), Vector3(18.0, 3.0, 0.5), Palette.INK)
+	b.glow = true
+	b.box(_xf(Vector3(0, 14.0, 0.3)), Vector3(15.0, 1.2, 0.1), Palette.CYAN)
+	return b.mesh()
+
+
 static func _window(b: LowPoly, center: Vector3, half_width: Vector3, color: Color, outward: Vector3, half_height: float) -> void:
 	var up := Vector3.UP * half_height
 	var a := center - half_width - up

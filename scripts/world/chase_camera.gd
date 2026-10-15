@@ -12,6 +12,7 @@ const FOV := 70.0
 const MAX_FOV := 90.0 ## Widest the view opens to keep a framed boss and the tank both in sight.
 const FRAME_TOP_MARGIN := 10.0 ## Degrees a framed boss keeps below the top edge.
 const FRAME_BOTTOM_MARGIN := 15.0 ## Degrees the tank keeps above the bottom edge when the view tilts up for one.
+const SOLID_OVERHEAD := ["tunnel_roof", "tunnel_wall"] ## The camera rides inside these: they never fade.
 
 var trauma := 0.0
 var _kick := 0.0
@@ -137,7 +138,7 @@ func _fade_occluders(target: Vector3) -> void:
 	_faded_enemies = blocking
 	var still: Array[Prop] = []
 	for prop: Prop in World.current.props.near(global_position, target, 8.0):
-		if prop.dead:
+		if prop.dead or prop.kind in SOLID_OVERHEAD:
 			continue
 		var base := prop.global_position
 		var reach := maxf(prop.footprint, prop.spread)

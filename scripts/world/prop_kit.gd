@@ -75,11 +75,12 @@ static func structure_mesh(kind: String, size: Vector3, variant: int) -> Mesh:
 	var key := "%s:%s:%d" % [kind, size, variant]
 	if _cache.has(key):
 		return _cache[key]
-	if kind in ["city_building", "city_ruin", "city_leaning", "city_terminal", "city_department", "city_clock", "city_toppled", "city_sag_span", "container", "ship"]:
+	if kind in ["city_building", "city_ruin", "city_leaning", "city_terminal", "city_department", "city_clock", "city_toppled", "city_sag_span", "container", "ship", "tunnel_roof", "tunnel_wall"]:
 		var mesh_kind: String = {
 			"city_building": "tower", "city_ruin": "ruin", "city_leaning": "tower", "city_terminal": "terminal",
 			"city_department": "department", "city_clock": "clock", "city_toppled": "toppled",
-			"city_sag_span": "sag_span", "container": "container", "ship": "ship"
+			"city_sag_span": "sag_span", "container": "container", "ship": "ship",
+			"tunnel_roof": "tunnel_roof", "tunnel_wall": "tunnel_wall"
 		}[kind]
 		_cache[key] = Callable(CityKit, mesh_kind).call(size, variant)
 		return _cache[key]
