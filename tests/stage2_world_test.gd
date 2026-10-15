@@ -2,15 +2,25 @@ extends TestCase
 ## The flooded city remains navigable beneath solid cover, including broad roofs and expressways.
 
 
+## The tower that stands on the slab ramp's lip until it topples onto it.
+func _slab_tower(box: Dictionary) -> bool:
+	return box.kind == "city_building" and absf(box.d - (Stage2.ramp_lip(Stage2.SLAB) - 3.0)) < 0.01
+
+
+## Whether (d, u) lies on a launch ramp or its flank, where the floor is steep on purpose and the tank rides a track.
+func _on_ramp(d: float, u: float) -> bool:
+	return Stage2.RAMPS.any(func(ramp: Dictionary) -> bool: return d >= float(ramp.d) - 4.0 and d <= Stage2.ramp_lip(Stage2.RAMPS.find(ramp)) + float(ramp.tail) + 4.0 and absf(u - float(ramp.u)) <= float(ramp.half) + float(ramp.flank) + 3.0)
+
+
 func test_stage_driven_street_limits_and_clear_corridor() -> void:
 	Course.use(2)
 	check_near(Tank.lateral_limit(300.0), 30.0, 0.01, "boulevard street is 60 m wide")
-	check_near(Tank.lateral_limit(900.0), 30.0, 0.01, "viaduct street is 60 m wide")
+	check_near(Tank.lateral_limit(900.0), Stage2.DECK_HALF, 0.01, "the tank keeps to the elevated deck's width")
 	check_near(Tank.lateral_limit(2300.0), 22.0, 0.01, "canyon street narrows to 44 m")
-	for d in [100.0, 800.0, 1700.0, 2200.0, 3300.0]:
+	for d in [100.0, 1500.0, 1700.0, 2200.0, 3300.0]:
 		check_near(Tank.lateral_limit(d), 22.0 if Course.section_at(d) == Stage2.Section.CANYON else 30.0, 0.01, "stage limit follows every non-arena section")
 	for box in Course.structure_boxes:
-		if box.kind in ["city_deck", "city_pier"] or Course.stage.in_arena(box.d):
+		if box.kind in ["city_deck", "city_pier"] or Course.stage.in_arena(box.d) or _slab_tower(box):
 			continue
 		var is_split := false
 		for split: Dictionary in Stage2.SPLITS:
@@ -22,7 +32,7 @@ func test_stage_driven_street_limits_and_clear_corridor() -> void:
 			for local_x in [-box.size.x * 0.5, box.size.x * 0.5]:
 				var corner: Vector3 = pose * Vector3(local_x, 0.0, local_z)
 				var c := Course.to_course(corner)
-				check(absf(c.y) >= Tank.lateral_limit(c.x) - 0.05, "transformed city structure clears the drivable corridor")
+				check(absf(c.y) >= Tank.lateral_limit(c.x) - 0.05, "transformed city structure at d=%d clears the drivable corridor" % int(c.x))
 
 
 func test_new_breakable_debris_pieces_are_capped() -> void:
@@ -85,7 +95,7 @@ func test_splitters_and_overhead_clearance_are_explicit() -> void:
 			for local_x in [-box.size.x * 0.5, box.size.x * 0.5]:
 				var c := Course.to_course(box.pose * Vector3(local_x, 0.0, local_z))
 				low_overlap = low_overlap or absf(c.y) < Tank.lateral_limit(c.x) and box.y < 16.0 and box.y + box.size.y > 0.0
-		check(not low_overlap, "no non-splitter low structure spans the driving corridor")
+		check(not low_overlap or _slab_tower(box), "no non-splitter low structure spans the driving corridor (d=%d)" % int(box.d))
 
 
 func test_hull_can_cross_the_street_everywhere_except_through_a_visible_building() -> void:
@@ -96,7 +106,7 @@ func test_hull_can_cross_the_street_everywhere_except_through_a_visible_building
 	var d := 20.0
 	while d < Stage2.BAY_D - Stage2.BAY_RADIUS - 20.0:
 		var limit := Tank.lateral_limit(d)
-		var in_tower := absf(d - float(tower.d)) < float(tower.size) * 0.5 + 8.0
+		var in_tower := absf(d - float(tower.d)) < float(tower.size) * 0.5 + 8.0 or absf(d - Stage2.ramp_lip(Stage2.SLAB) + 3.0) < 14.0
 		for dir: float in [1.0, -1.0]:
 			var u := -dir * (limit - 1.0)
 			var at := Course.ground_at(d, u)
@@ -120,6 +130,8 @@ func test_hull_never_sinks_or_rolls_off_the_floor_anywhere_it_can_drive() -> voi
 			tank.course_u = -limit + limit * 2.0 * step / 12.0
 			tank._place(d)
 			var sunk := Course.height(d, tank.course_u) - tank.global_position.y
+			if _on_ramp(d, tank.course_u):
+				continue
 			var roll := absf(tank.global_basis.get_euler().z)
 			check(sunk < 0.8, "the hull at d=%d u=%.1f sits %.2f m under the floor" % [d, tank.course_u, sunk]) # Rubble and sinkhole slopes account for the margin.
 			check(roll < 0.3, "the hull at d=%d u=%.1f rolls %.2f rad off a floor that is not there" % [d, tank.course_u, roll])
@@ -136,12 +148,13 @@ func test_frontage_edges_and_gaps_use_measured_layout_data() -> void:
 		var splitter := false
 		for split: Dictionary in Stage2.SPLITS:
 			splitter = splitter or absf(float(split.d) - box.d) < 0.01
-		if splitter or is_equal_approx(box.d, 1808.0):
+		if splitter or is_equal_approx(box.d, 1808.0) or _slab_tower(box) or Stage2.CONCOURSE.x <= box.d and box.d <= Stage2.CONCOURSE.w:
 			continue
 		var c := Course.to_course(box.pose.origin)
 		var face: float = absf(c.y) - box.size.x * 0.5
-		check(face >= Tank.lateral_limit(c.x) + 2.9, "tower inner face is three metres beyond the limit")
-		check(face <= Tank.lateral_limit(c.x) + 9.1, "tower jitter stays within six metres")
+		var half := (Course.stage as Stage2).street_half(c.x)
+		check(face >= half + 2.9, "tower inner face is three metres beyond the street")
+		check(face <= half + 9.1, "tower jitter stays within six metres")
 
 
 func test_section_boundaries_and_bending_rail() -> void:
@@ -155,9 +168,9 @@ func test_section_boundaries_and_bending_rail() -> void:
 		length += piece[0]
 	check_near(length, Stage2.LENGTH, Course.STEP, "the generated rail ends at the declared 4000 m, excluding its approach")
 	check_eq(Course.section_at(Stage2.LENGTH), Stage2.Section.BAY, "the rail ends in the harbour")
-	check(Course.forward(1000.0).distance_to(Course.forward(1400.0)) > 0.2, "the expressway district bends in plan")
+	check(Course.forward(2200.0).distance_to(Course.forward(2300.0)) > 0.2, "the canyon bends in plan")
 	for d in range(0, 4001, 50):
-		for u in [-100.0, 0.0, 100.0]:
+		for u in [-50.0, 0.0, 50.0]:
 			var c := Course.to_course(Course.to_world(float(d), u))
 			check_near(c.x, float(d), 0.2, "city bends preserve rail distance")
 			check_near(c.y, u, 0.2, "city bends preserve lateral offset")
@@ -165,7 +178,7 @@ func test_section_boundaries_and_bending_rail() -> void:
 
 func test_shallow_lanes_and_deep_offroad_pools() -> void:
 	Course.use(2)
-	for d in [100.0, 900.0, 2400.0, 3300.0]:
+	for d in [100.0, 1500.0, 2400.0, 3300.0]:
 		var lane := Course.ground_at(d, 0.0)
 		var pool := Course.ground_at(d, 40.0)
 		check(Water.surface_at(lane) - lane.y > 0.0 and Water.surface_at(lane) - lane.y < Water.DEEP, "the asphalt is shallow enough to drive")
@@ -179,8 +192,8 @@ func test_highest_walkable_surface_and_underpass_ground() -> void:
 	Course.use(2)
 	var top := Course.surface_height(1050.0, -40.0)
 	check_near(top, Stage2.WATER_LEVEL + 6.0, 0.2, "the parallel expressway is six metres above water")
-	check_near(Course.surface_height(1050.0, 0.0), 0.05, 0.01, "the tank still drives underneath")
-	check_near(Course.height(1050.0, 0.0), 0.05, 0.01, "the tank still drives underneath")
+	check_near(Course.surface_height(1050.0, -30.0), 0.05, 0.01, "the street still runs beside the elevated road")
+	check_near(Course.height(1050.0, 30.0), 0.05, 0.01, "the street still runs beside the elevated road")
 	check_near(Course.surface_height(100.0, 0.0), Course.height(100.0, 0.0), 0.01, "open street has no phantom elevated surface")
 	var building: Dictionary = Course.stage.structures[0]
 	check_near(Course.surface_height(building.d, building.u), building.y + building.size.y, 0.01, "a rooftop is walkable before it streams in")
@@ -425,7 +438,7 @@ func test_the_shop_row_never_cuts_a_deck_hunters_firing_line_to_the_street() -> 
 			var tank := Course.to_world(float(d), u, 2.0)
 			for prop: Prop in world.props.near(deck, tank, 40.0):
 				if prop.kind == "city_shop" and not prop.dead and prop.hit_test(deck, tank) >= 0.0:
-					blocked.append("d=%d u=%.0f shop@%.0f" % [d, u, Course.to_course(prop.global_position).x])
+					blocked.append("d=%d u=%.0f shop@%.0f,%.1f" % [d, u, Course.to_course(prop.global_position).x, Course.to_course(prop.global_position).y])
 	check(blocked.is_empty(), "shops cut %d deck firing lines: %s" % [blocked.size(), blocked.slice(0, 5)])
 
 

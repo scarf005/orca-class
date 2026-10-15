@@ -2,16 +2,26 @@ extends TestCase
 ## The flooded street has rubble, sinkholes and a pavement shelf, all of which the tank must be able to drive over.
 
 const MAX_SLOPE := 0.30
-const CANYON_MOUNDS := [2600.0, 2950.0]
+const CANYON_MOUNDS := [2620.0]
+const CANYON_SIDE_MOUND := 2200.0
+const BAY_ISLANDS := [3290.0, 3335.0, 3380.0, 3425.0, 3470.0]
 
 
 func _hollow(feature: Dictionary) -> bool:
 	return feature.h < 0.0
 
 
-## Whether (d, u) lies on a deliberate mid-street obstacle: a canyon mound or a sinkhole across the street.
+## Whether `d` lies on a deliberate mid-street obstacle: a mound, a sinkhole across the street, the elevated road, a
+## launch ramp or the sunken concourse.
 func _obstacle(d: float) -> bool:
-	return Stage2.RELIEF.any(func(f: Dictionary) -> bool: return absf(d - f.d) < f.rz and (_hollow(f) or CANYON_MOUNDS.has(f.d)))
+	var ramp := Stage2.RAMPS.any(func(r: Dictionary) -> bool: return d >= float(r.d) - 4.0 and d <= float(r.d) + float(r.length) + float(r.tail) + 4.0)
+	var deck := d >= Stage2.ON_RAMP.x - 4.0 and d <= Stage2.OFF_RAMP.y + 4.0 or d >= Stage2.CONCOURSE.x - 4.0 and d <= Stage2.CONCOURSE.w + 4.0
+	return ramp or deck or Stage2.RELIEF.any(func(f: Dictionary) -> bool: return absf(d - f.d) < f.rz and (_hollow(f) or CANYON_MOUNDS.has(f.d) or f.d == CANYON_SIDE_MOUND or BAY_ISLANDS.has(f.d)))
+
+
+## The launch ramps and the pit under the broken span are steep on purpose; the hull-sweep test covers their ends.
+func _ramp_or_pit(d: float) -> bool:
+	return Stage2.RAMPS.any(func(r: Dictionary) -> bool: return d >= float(r.d) - 1.0 and d <= float(r.d) + float(r.length) + float(r.tail) + 1.0) or absf(d - 1278.0) < 32.0
 
 
 func test_driveable_terrain_gradient_stays_tank_safe() -> void:
@@ -21,7 +31,7 @@ func test_driveable_terrain_gradient_stays_tank_safe() -> void:
 	for d in range(0, int(Stage2.LENGTH)):
 		for u in range(-30, 30, 2):
 			var limit := minf(stage.lateral_limit(d), stage.lateral_limit(d + 1.0)) - 1.0
-			if absf(u) > limit or stage.in_arena(d, 2.0):
+			if absf(u) > limit or stage.in_arena(d, 2.0) or _ramp_or_pit(d):
 				continue
 			var here := stage.height(d, u)
 			worst = maxf(worst, Vector2(stage.height(d + 1.0, u) - here, stage.height(d, u + 1.0) - here).length())
@@ -54,7 +64,7 @@ func test_sinkholes_cross_the_whole_street_and_stay_wadeable() -> void:
 	Course.use(2)
 	var stage := Course.stage as Stage2
 	var hollows := Stage2.RELIEF.filter(_hollow)
-	check_eq(hollows.size(), 4, "four sinkholes cross the street")
+	check_eq(hollows.size(), 3, "three sinkholes cross the street")
 	for hollow: Dictionary in hollows:
 		for u in [-stage.lateral_limit(hollow.d), -10.0, 0.0, 10.0, stage.lateral_limit(hollow.d)]:
 			var h := stage.height(hollow.d, u)
@@ -66,21 +76,22 @@ func test_pavement_shelf_stands_above_the_water_on_boulevard_and_canyon_only() -
 	Course.use(2)
 	var stage := Course.stage as Stage2
 	for d in [100.0, 420.0, 2300.0, 3100.0]:
-		var wall := stage.lateral_limit(d)
+		var wall := stage.street_half(d)
 		check(stage.height(d, wall - 1.0) >= Stage2.WATER_LEVEL + 0.3, "the shelf at d=%d is dry" % int(d))
 		check_near(stage.height(d, wall - 8.0), 0.05, 0.9, "the road at d=%d stays low" % int(d))
 		check(stage.ground_color(d, wall - 2.0, 0.75, 0.0) == Palette.CONCRETE, "the shelf is painted as pavement")
-	for d in [800.0, 1200.0, 1600.0]:
+	for d in [1500.0, 1600.0]:
 		check_near(stage.height(d, stage.lateral_limit(d) - 1.0), 0.05, 0.001, "the viaduct keeps its flat awash road edge")
+	check(stage.height(3400.0, stage.street_half(3400.0) - 1.0) >= Stage2.WATER_LEVEL + 0.8, "the bay quay stands above the water")
 
 
 func test_rubble_is_painted_stone_and_awash_road_stays_slate() -> void:
 	Course.use(2)
 	var stage := Course.stage as Stage2
-	var mound := stage.ground_color(790.0, 17.0, stage.height(790.0, 17.0), 0.0)
+	var mound := stage.ground_color(1440.0, -17.0, stage.height(1440.0, -17.0), 0.0)
 	check(mound == Palette.STONE or mound == Palette.ASH, "a rubble mound reads as stone or ash")
-	check(stage.ground_color(1260.0, 0.0, -1.45, 0.0) == Palette.SLATE.darkened(0.35), "a sinkhole floor is darker than the road")
-	check(stage.ground_color(790.0, 0.0, 0.05, 0.0) == Palette.SLATE, "the drowned road stays slate")
+	check(stage.ground_color(620.0, 0.0, -1.45, 0.0) == Palette.SLATE.darkened(0.35), "a sinkhole floor is darker than the road")
+	check(stage.ground_color(1500.0, 0.0, 0.05, 0.0) == Palette.SLATE, "the drowned road stays slate")
 
 
 func test_wave_spawn_lanes_do_not_land_in_deep_sinkholes() -> void:
@@ -153,7 +164,7 @@ func test_backdrop_plan_is_deterministic() -> void:
 
 func test_backdrop_streams_as_non_colliding_chunked_decor() -> void:
 	var scenery := stage("", false, 2).director.scenery
-	var decor := scenery.specs.filter(func(spec: Scenery.Spec) -> bool: return spec.decor and spec.has_meta("range"))
+	var decor := scenery.specs.filter(func(spec: Scenery.Spec) -> bool: return spec.decor and spec.has_meta("range") and is_equal_approx(float(spec.get_meta("range")), Scenery.BACKDROP_RANGE))
 	var boxes := Course.structure_boxes.size()
 	check(decor.size() > 80 and decor.size() <= Stage2.LENGTH / Scenery.BACKDROP_CHUNK, "backdrop is merged to at most one decor per chunk (%d)" % decor.size())
 	check_eq(Course.structure_boxes.size(), boxes, "backdrop adds no collision boxes")

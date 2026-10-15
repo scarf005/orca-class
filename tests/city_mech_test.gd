@@ -457,7 +457,7 @@ func test_city_mechs_never_wade_into_deep_water() -> void:
 	for _i in 240:
 		abel.walk_to(deep, 9.0, STEP)
 	check(Water.surface_at(abel.hit_center()) < abel.hit_center().y, "the hunter stops at the edge instead of sinking: at u %.1f" % Course.to_course(abel.global_position).y)
-	check(absf(Course.to_course(abel.global_position).y) <= Course.stage.lateral_limit(800.0) + 0.5, "it stays on the drowned avenue")
+	check(absf(Course.to_course(abel.global_position).y) <= (Course.stage as Stage2).street_half(800.0) + Stage2.HULL_MARGIN + 0.5, "it stays on the drowned avenue (u %.1f)" % Course.to_course(abel.global_position).y)
 
 
 func test_city_mechs_stride_through_a_sinkhole_across_the_street() -> void:
