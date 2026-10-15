@@ -21,7 +21,7 @@ func test_intercepts_incoming_rocket() -> void:
 	var ok := await wait_until(gone(rocket), 120)
 	check(ok, "rocket shot down before impact")
 	check_eq(tank.hp, hp, "no damage taken")
-	check(tank.ciws_heat > 0.0, "engaging builds heat")
+	check(tank.heat > 0.0, "engaging builds heat")
 
 
 func test_ignores_receding_and_distant_threats() -> void:
@@ -38,13 +38,13 @@ func test_ignores_receding_and_distant_threats() -> void:
 func test_saturation_overheats_and_recovers() -> void:
 	var world := stage()
 	var tank := world.player
-	tank.ciws_heat = 0.98
+	tank.heat = 0.98
 	var from := tank.global_position + Vector3(0, 12, -25)
 	var rocket := _rocket(world, from, (tank.hit_center() - from).normalized() * 4.0)
 	rocket.intercept_hp = 100.0
-	await wait_until(func() -> bool: return tank.ciws_overheated, 60)
-	check(tank.ciws_overheated, "heat at 1.0 locks the laser")
+	await wait_until(func() -> bool: return tank.overheated, 60)
+	check(tank.overheated, "heat at 1.0 locks the laser")
 	rocket.queue_free()
-	var recovered := await wait_until(func() -> bool: return not tank.ciws_overheated, 600)
+	var recovered := await wait_until(func() -> bool: return not tank.overheated, 600)
 	check(recovered, "laser cools down and comes back")
-	check(tank.ciws_heat <= 0.3, "comes back only once cooled")
+	check(tank.heat <= Tank.VENT_REARM, "comes back only once cooled")

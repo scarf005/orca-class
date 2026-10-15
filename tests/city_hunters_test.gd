@@ -62,7 +62,7 @@ func test_atgm_survives_long_flight_and_ciws_shoots_it() -> void:
 	heli.stagger = 10.0
 	var hp := world.player.hp
 	check(await wait_until(gone(missile), 180), "CIWS destroys the missile")
-	check(world.player.ciws_heat > 0.0, "the laser actually engaged")
+	check(world.player.heat > 0.0, "the laser actually engaged")
 	check_eq(world.player.hp, hp, "intercept prevents damage")
 
 

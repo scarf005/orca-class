@@ -1,5 +1,5 @@
 extends TestCase
-## Where a stage says water slows the tank, shallow water cuts the strafe, deep water cuts it more and halves the overdrive refill.
+## Where a stage says water slows the tank, shallow water cuts the strafe, deep water cuts it more and halves how fast heat bleeds off.
 
 const DRY_U := 0.0
 const SHALLOW_U := 20.0
@@ -33,12 +33,12 @@ func _flooded(definition: StageDef) -> World:
 	return world
 
 
-## The tank on a spot, pinned there so only its strafe speed and the meter change.
+## The tank on a spot, pinned there so only its strafe speed and the heat change.
 func _drive(world: World, u: float, frame_count: int, action := "") -> Dictionary:
 	var tank := world.player
 	tank.input_enabled = not action.is_empty()
 	world.rail.d = D
-	world.rail.meter = 0.2
+	tank.heat = 0.8
 	tank.course_u = u
 	tank.course_offset = 0.0
 	tank.local_velocity = Vector2.ZERO
@@ -53,7 +53,7 @@ func _drive(world: World, u: float, frame_count: int, action := "") -> Dictionar
 	if not action.is_empty():
 		Input.action_release(action)
 	tank.input_enabled = false
-	return {"speed": fastest, "meter": world.rail.meter, "depth": tank.water_depth}
+	return {"speed": fastest, "heat": tank.heat, "depth": tank.water_depth}
 
 
 func test_wading_slows_the_strafe_and_deep_water_slows_the_refill() -> void:
@@ -70,8 +70,8 @@ func test_wading_slows_the_strafe_and_deep_water_slows_the_refill() -> void:
 	var gains := {}
 	for name: String in ["dry", "shallow", "deep"]:
 		var u: float = {"dry": DRY_U, "shallow": SHALLOW_U, "deep": DEEP_U}[name]
-		gains[name] = (await _drive(world, u, 60)).meter - 0.2
-	check(gains.dry > 0.05, "the meter refills on dry ground (%.3f)" % gains.dry)
+		gains[name] = 0.8 - (await _drive(world, u, 60)).heat
+	check(gains.dry > 0.05, "heat bleeds off on dry ground (%.3f)" % gains.dry)
 	check_near(gains.shallow, gains.dry, 0.01, "shallow water leaves the refill alone")
 	check_near(gains.deep, gains.dry * Tank.DEEP_REFILL, gains.dry * 0.06, "deep water halves it (%.3f vs %.3f)" % [gains.deep, gains.dry])
 

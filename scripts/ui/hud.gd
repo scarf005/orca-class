@@ -1,6 +1,6 @@
 class_name Hud
 extends Control
-## In-game HUD drawn by hand at 960×540: armor, weapons, laser heat, throttle, score and combo,
+## In-game HUD drawn by hand at 960×540: armor, weapons, heat, score and combo,
 ## the reticle with lead marker, boss bar, threat arrows and score popups.
 
 const SCALE := 960.0 / DitherView.RESOLUTION.x ## Screen pixels per 3D-view pixel.
@@ -222,20 +222,21 @@ func _draw_status() -> void:
 	_bar(Rect2(origin + Vector2(104, 28), Vector2(96, 5)), p.tail.hp / Tail.MAX_HP, _tail_color(), 10)
 	for i in world.stats.lives:
 		draw_texture(_life_view.get_texture(), origin + Vector2(104 + i * 24, 76))
-	# Throttle meter between brake and boost chevrons.
-	var rail := world.rail
+	# Heat gauge between brake and boost chevrons: the re-arm level is ticked, and venting flashes red.
 	var m := Vector2(392, 508)
-	_panel(Rect2(m - Vector2(8, 12), Vector2(192, 26)), Palette.SKY)
-	var meter_color := Palette.SKY
-	if rail.is_meter_locked():
-		meter_color = Palette.STONE
-	elif rail.throttle == 1:
-		meter_color = Palette.BUTTER
-	elif rail.throttle == -1:
-		meter_color = Palette.PERIWINKLE
-	_chevrons(m + Vector2(8, 1), -1.0, Palette.PERIWINKLE if rail.throttle == -1 else Palette.STONE)
-	_bar(Rect2(m + Vector2(22, -3), Vector2(132, 8)), rail.meter, meter_color, 12)
-	_chevrons(m + Vector2(166, 1), 1.0, Palette.BUTTER if rail.throttle == 1 else Palette.STONE)
+	_panel(Rect2(m - Vector2(8, 12), Vector2(192, 26)), Palette.RED if p.overheated else Palette.SKY)
+	_chevrons(m + Vector2(8, 1), -1.0, Palette.PERIWINKLE if world.rail.throttle == -1 else Palette.STONE)
+	_bar(Rect2(m + Vector2(22, -3), Vector2(132, 8)), p.heat, heat_color(), 12)
+	draw_rect(Rect2(m + Vector2(22 + 132 * Tank.VENT_REARM - 1, -6), Vector2(2, 14)), Palette.CREAM)
+	_chevrons(m + Vector2(166, 1), 1.0, Palette.BUTTER if world.rail.throttle == 1 else Palette.STONE)
+
+
+## The heat gauge's colour: sky when cool, butter when close to overload, flashing red while venting.
+func heat_color() -> Color:
+	var p := world.player
+	if p.overheated:
+		return Palette.RED if fmod(_time, 0.3) < 0.15 else Palette.CORAL
+	return Palette.BUTTER if p.heat > 0.7 else Palette.SKY
 
 
 func _armor_color(armor: float) -> Color:
@@ -360,17 +361,17 @@ func _draw_weapons() -> void:
 		draw_rect(Rect2(origin + Vector2(120 + i * 15, 46), Vector2(11, 6)), Palette.BUTTER if i <= p.coax_tier else Palette.DUSK)
 	# Laser CIWS: the RWS model and its heat; empty and dim until an RWS is mounted.
 	var heat_color := Palette.MINT
-	if p.ciws_overheated:
+	if p.overheated:
 		heat_color = Palette.RED if fmod(_time, 0.3) < 0.15 else Palette.CORAL
-	elif p.ciws_heat > 0.7:
+	elif p.heat > 0.7:
 		heat_color = Palette.BUTTER
 	if not p.modules.laser_online():
 		heat_color = Palette.DUSK
 	_paint(_laser_view.root, heat_color)
 	draw_texture(_laser_view.get_texture(), origin + Vector2(6, 68))
-	if p.ciws_target != null and not p.ciws_overheated and fmod(_time, 0.1) < 0.06:
+	if p.ciws_target != null and not p.overheated and fmod(_time, 0.1) < 0.06:
 		draw_line(origin + Vector2(30, 78), origin + Vector2(40, 78), Palette.WHITE, 2.0)
-	_bar(Rect2(origin + Vector2(42, 76), Vector2(130, 8)), p.ciws_heat, heat_color, 10)
+	_bar(Rect2(origin + Vector2(42, 76), Vector2(130, 8)), p.heat, heat_color, 10)
 	_text(origin + Vector2(178, 86), "×%d" % _intercepts, Palette.MINT if p.modules.laser_online() else Palette.DUSK, 12)
 
 

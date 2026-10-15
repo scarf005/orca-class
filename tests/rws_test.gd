@@ -33,7 +33,7 @@ func test_the_tank_starts_without_an_rws() -> void:
 	var got := []
 	world.intercepted.connect(func(at: Vector3) -> void: got.append(at))
 	await frames(90)
-	check(tank.ciws_target == null and tank.ciws_heat == 0.0, "the CIWS never fires")
+	check(tank.ciws_target == null and tank.heat == 0.0, "the CIWS never fires")
 	check(got.is_empty(), "nothing is intercepted")
 	check(is_instance_valid(rocket) and rocket.intercept_hp == 0.5, "the rocket is untouched")
 
