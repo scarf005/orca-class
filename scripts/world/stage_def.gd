@@ -120,6 +120,12 @@ func events(_hard: bool) -> Array[Dictionary]:
 	return []
 
 
+## The events a run plays: the editor's playtest or the stage's saved data file when there is one, else the coded list.
+func run_events(hard: bool) -> Array[Dictionary]:
+	var edited: Variant = StageEvents.edited(number)
+	return events(hard) if edited == null else edited
+
+
 ## Music track for a section; empty leaves the current music (the boss event starts its own).
 func music(_section: int) -> String:
 	return ""

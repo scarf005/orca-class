@@ -88,10 +88,12 @@ func begin(checkpoint: String) -> void:
 	_hard = Game.difficulty == Game.Difficulty.HARD
 	var world := World.current
 	world.rail.d = Course.stage.checkpoints.get(checkpoint, 0.0)
-	if not checkpoint.is_empty():
+	if not StageEvents.playtest.is_empty():
+		world.rail.d = StageEvents.playtest.d
+	if not checkpoint.is_empty() or not StageEvents.playtest.is_empty():
 		world.stats.ranked = false
 	_duel = checkpoint == "duel"
-	events = Course.stage.events(_hard)
+	events = Course.stage.run_events(_hard)
 	if _duel:
 		events.clear()
 	events.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.d < b.d)
