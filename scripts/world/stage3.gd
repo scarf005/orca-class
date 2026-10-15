@@ -79,9 +79,9 @@ func _init() -> void:
 	arena_center_d = PIT_D
 	arena_radius = PIT_RADIUS
 	arenas = [{"d": PIT_D, "radius": PIT_RADIUS}]
-	sky_top = Palette.PEACH.lerp(Palette.CORAL, 0.55)
-	sky_horizon = Palette.BUTTER
-	sky_ground = Palette.PEACH
+	sky_top = Palette.SKY.lerp(Palette.TEAL, 0.25)
+	sky_horizon = Palette.CREAM.lerp(Palette.SKY, 0.3)
+	sky_ground = Palette.CREAM.lerp(Palette.SKY, 0.3)
 	# Hard desert light: a high afternoon sun rakes the dunes and the shade falls cool lilac, so facets keep their value range.
 	ambient = Palette.LILAC.lerp(Palette.PEACH, 0.6)
 	ambient_energy = 0.62
@@ -235,6 +235,7 @@ func height(d: float, u: float) -> float:
 	if cut > 0.0:
 		var inside := 1.0 - smoothstep(limit + HULL_MARGIN + 0.5, limit + 10.0, au)
 		h = lerpf(h, lerpf(floor_h, 0.2, cut / TUNNEL_DEPTH), inside * cut / TUNNEL_DEPTH) - cut * inside # The tunnel floor is dead flat.
+	h += _spill(d, u)
 	h -= SINK_DEPTH * sink_at(d, u)
 	for index in HILL_COUNT:
 		var hill := _hill(index, d, u)
@@ -256,6 +257,14 @@ func _rim(d: float, u: float) -> float:
 		return 0.0
 	var r := Vector2(d - PIT_D, u).length()
 	return exp(-pow((r - PIT_RADIUS - 45.0) / 20.0, 2.0)) * smoothstep(40.0, 75.0, absf(u))
+
+
+## Sand that has blown in at both portals: drifts piled against the tunnel's walls, heaped just inside the mouth and thinning out down the tunnel.
+func _spill(d: float, u: float) -> float:
+	var depth := minf(d - TUNNEL_D, TUNNEL_END - d)
+	if depth < 0.0 or depth > 40.0:
+		return 0.0
+	return 1.4 * smoothstep(0.0, 14.0, depth) * (1.0 - smoothstep(14.0, 40.0, depth)) * smoothstep(2.0, TUNNEL_HALF, absf(u)) * (0.7 + 0.3 * _swell.get_noise_2d(d, u))
 
 
 ## How far the street lies under the sand's level at d.
@@ -352,13 +361,22 @@ func ground_color(d: float, u: float, h: float, slope: float) -> Color:
 	# side falls into ochre shade, so even low drivable swells read as dunes.
 	var ridge := 1.0 - absf(_crest.get_noise_2d(d, u))
 	var rise := height(d + 1.5, u) - height(d - 1.5, u)
+	if d < 1800.0 and (d < OPEN_END or band(d, 1540.0, 1580.0, 1740.0, 1790.0) > 0.0):
+		rise = (height(d + 5.0, u) - height(d - 5.0, u)) * 0.3 # The slope of the dune, not of its ripples.
 	var sand := Palette.PEACH.lerp(Palette.BUTTER, smoothstep(0.6, 1.0, ridge) * 0.6 + smoothstep(2.0, 8.0, h) * 0.2)
 	sand = sand.lerp(Palette.STRAW, clampf(-grain, 0.0, 1.0) * 0.35)
-	# The dune sea's gentle swells read with the same light and shade as steeper sand.
+	# The open stretches' gentle swells read with the same light and shade as steeper sand: the windward face glows, the
+	# lee falls into dark ochre, the crest keeps a lit edge, the troughs shade and ripple bands run across the sand.
 	var open := 1.0 - smoothstep(520.0, OPEN_END, d) if d < OPEN_END else 0.0
-	var lit := lerpf(0.2, 0.06, open)
-	var shade := lerpf(0.8, 0.28, open)
-	sand = sand.lerp(Palette.CREAM, smoothstep(lit, shade, rise) * 0.3).lerp(Palette.OCHRE, smoothstep(-lit, -shade, rise) * (0.3 + 0.2 * open))
+	var wide := maxf(open, band(d, 1540.0, 1580.0, 1740.0, 1790.0))
+	var lit := lerpf(0.2, 0.015, wide)
+	var shade := lerpf(0.8, 0.12, wide)
+	sand = sand.lerp(Palette.CREAM, smoothstep(lit, shade, rise) * lerpf(0.3, 0.75, wide))
+	sand = sand.lerp(Palette.OCHRE.darkened(0.3 * wide), smoothstep(-lit, -shade, rise) * (0.3 + 0.6 * wide))
+	if wide > 0.0:
+		var bend := (height(d + 8.0, u) + height(d - 8.0, u) - 2.0 * h) * 9.0 / 64.0 # Curvature of the dune itself, not its ripples.
+		sand = sand.lerp(Palette.CREAM, smoothstep(0.1, 0.5, -bend) * 0.7 * wide).lerp(Palette.OCHRE, smoothstep(0.1, 0.5, bend) * 0.4 * wide)
+	sand = sand.lerp(Palette.OCHRE, smoothstep(0.5, 0.9, sin((d + u * 0.35) * 1.3 + _ripple.get_noise_2d(d, u) * 7.0)) * 0.3 * (0.4 + 0.6 * wide))
 	sand = sand.lerp(Palette.OCHRE, smoothstep(0.25, 0.8, slope) * 0.6)
 	for arena in arenas:
 		var r := Vector2(d - arena.d, u).length()
@@ -368,7 +386,10 @@ func ground_color(d: float, u: float, h: float, slope: float) -> Color:
 			return floor_color.lerp(Palette.STONE, smoothstep(arena.radius - 8.0, arena.radius, r) * 0.6)
 	sand = sand.lerp(Palette.OCHRE.darkened(0.3), sink_at(d, u) * 0.85)
 	if tunnel_depth(d) > 1.0 and au < lateral_limit(d) + HULL_MARGIN + 0.5:
-		return Palette.SLATE.lerp(Palette.ASH, 0.2 + grain * 0.2).lerp(sand, smoothstep(2.0, 0.5, tunnel_depth(d)))
+		# Asphalt, dark between the lamps' pools of light (the lamps hang at d = 5 mod 10).
+		var pool := 1.0 - absf(fposmod(d, 10.0) - 5.0) / 5.0
+		var asphalt := Palette.SLATE.lerp(Palette.ASH, pool * pool * 0.3)
+		return asphalt.lerp(sand, maxf(smoothstep(2.0, 0.5, tunnel_depth(d)), smoothstep(0.1, 0.5, _spill(d, u))))
 	if au < lateral_limit(d) - 2.0:
 		return sand.lerp(Palette.ASH, smoothstep(0.3, -0.6, h) * 0.5)
 	return sand
@@ -390,9 +411,17 @@ func tunnel_share(d: float) -> float:
 	return band(d, TUNNEL_D - 40.0, TUNNEL_D + 20.0, TUNNEL_END - 20.0, TUNNEL_END + 40.0)
 
 
-## The tunnel is dark: only its lamps and the portals' daylight light it.
+## The tunnel is dark and cool: the roof shuts the sun out and only a dim blue sky-light and its lamps light it.
 func ambient_energy_at(d: float) -> float:
-	return lerpf(ambient_energy, 0.3, tunnel_share(d))
+	return lerpf(ambient_energy, 0.45, tunnel_share(d))
+
+
+func ambient_color_at(d: float) -> Color:
+	return ambient.lerp(Palette.PERIWINKLE, 0.8 * tunnel_share(d))
+
+
+func sun_scale_at(d: float) -> float:
+	return 1.0 - 0.9 * tunnel_share(d)
 
 
 func fog_distance(d: float) -> float:
