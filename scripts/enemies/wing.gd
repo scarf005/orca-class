@@ -38,14 +38,15 @@ const WIND := 0.9
 const STATION := 150.0 ## Metres ahead of the rail the wing's centre keeps.
 const BARE_STATION := 120.0 ## Closer once the belly is bare, so a leap tops out over its back.
 const WEAVE := 20.0 ## Metres it sways across the road.
-const ALTITUDE := 58.0 ## Over the road along the ramps: out of the ground's sight, inside a drifted leap's.
-const BARE_ALTITUDE := 46.0 ## Lower once the belly is bare, its wingtips still clear of the buried towers.
-const LOW_ALTITUDE := 24.0 ## Past the last ramp: low enough for the road to reach.
-const LOW_BARE_ALTITUDE := 36.0 ## High enough for its tail to clear the sand while it rears.
+const ALTITUDE := 85.0 ## Over the road along the ramps: out of the ground's sight, inside a drifted leap's.
+const BARE_ALTITUDE := 70.0 ## Lower once the belly is bare, its wingtips still clear of the buried towers.
+const LOW_ALTITUDE := 30.0 ## Past the last ramp: low enough for the road to reach.
+const LOW_BARE_ALTITUDE := 42.0 ## High enough for its tail to clear the sand while it rears.
 const SKIRT_ANGLE := deg_to_rad(10.0) ## Steepest climb a shot can take into the belly's turret bays.
 const SLOW := 0.4 ## Time scale while the tank has a turret in sight in the air.
 const REAR := 0.55 ## Radians it pitches nose-up past the last ramp once its belly is bare.
-const BARE_LIFT := 1.7 ## How much harder the ramps throw the tank up once the belly is bare.
+const LIFT := 1.9 ## How much harder the ramps throw the tank up while the wing is in the air: a drifted leap reaches its belly.
+const BARE_LIFT := 2.65 ## And once the belly is bare: over its back.
 const FLIGHT := {"rocket": 1.4, "bomb": 1.8, "spine": 1.4} ## Seconds the ground-attack rounds fall; held while a leap would outlast them.
 
 var parts: Dictionary = {}
@@ -309,7 +310,7 @@ func behave(delta: float) -> void:
 		return
 	if tank == null:
 		return
-	tank.ramp_lift = BARE_LIFT if bare() else 1.0
+	tank.ramp_lift = BARE_LIFT if bare() else LIFT
 	var before := global_position
 	global_position = global_position.lerp(_station(age), 1.0 - exp(-2.5 * delta))
 	var moved := global_position - before
