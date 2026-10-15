@@ -20,7 +20,7 @@ const TURRET_AT := {
 	"hangar": Vector3(12.0, -0.4, 3.6),
 }
 const UPPER := ["spine", "engine_l", "engine_r"] ## On its back: only a tank above the wing sees them.
-const UPPER_AT := {"spine": Vector3(0.0, 1.9, 0.6), "engine_l": Vector3(-3.2, 1.9, 2.4), "engine_r": Vector3(3.2, 1.9, 2.4)}
+const UPPER_AT := {"spine": Vector3(-3.2, 1.95, 0.8), "engine_l": Vector3(-4.4, 1.25, 3.2), "engine_r": Vector3(4.4, 1.25, 3.2)}
 const LABELS := {"flak": "WING_FLAK", "rocket": "WING_ROCKET", "beam": "WING_BEAM", "bomb": "WING_BOMB", "hangar": "WING_HANGAR", "spine": "WING_SPINE", "engine_l": "WING_ENGINE_L", "engine_r": "WING_ENGINE_R"}
 const MODEL_SCALE := 8.0 ## The airframe is drawn this much bigger than its model-space layout: a carrier's span.
 const TURRET_SCALE := 3.0 ## The turrets and back structures are drawn this much bigger than their own layout.
@@ -91,46 +91,150 @@ func _ready() -> void:
 	global_position = _station(0.0)
 
 
+## Spanwise sections of the airframe from the centreline out to the right tip, mirrored for the left: (x, leading
+## edge z, trailing edge z, crest height above the chord, keel depth below it). The fat middle is a blended hull
+## carrying the flight deck; the wings sweep back to a saw-toothed trailing edge.
+const SECTIONS: Array[Array] = [
+	[0.0, -9.0, 7.0, 2.1, 1.7],
+	[2.6, -8.2, 7.0, 2.0, 1.6],
+	[5.5, -6.0, 6.6, 1.5, 1.2],
+	[9.0, -3.2, 3.6, 0.8, 0.55],
+	[13.0, -0.4, 6.0, 0.5, 0.35],
+	[17.0, 2.6, 4.6, 0.3, 0.2],
+	[18.0, 3.4, 4.8, 0.2, 0.15],
+]
+const RING := [0.0, 0.28, 0.72, 1.0, 0.72, 0.3] ## Chord fraction of each point round a section, upper side first.
+
+
 func build() -> void:
 	var b := LowPoly.new()
-	# Planform from the nose round the left tip, along the saw-toothed trailing edge and back up the right side.
-	var edge: Array[Vector2] = [Vector2(0, -9), Vector2(-6, -5), Vector2(-18, 3), Vector2(-18, 5.5), Vector2(-12, 4), Vector2(-8, 6.5), Vector2(-4, 4.5), Vector2(0, 7.5), Vector2(4, 4.5), Vector2(8, 6.5), Vector2(12, 4), Vector2(18, 5.5), Vector2(18, 3), Vector2(6, -5)]
-	var centre := Vector2(0, -0.5)
-	for i in edge.size():
-		var a := edge[i]
-		var c := edge[(i + 1) % edge.size()]
-		var ma := centre + (a - centre) * 0.5
-		var mc := centre + (c - centre) * 0.5
-		var tip := absf(a.x) > 16.0 or absf(c.x) > 16.0
-		var lead := i in [0, 1, 2, 12, 13]
-		for side in [1.0, -1.0]:
-			var y: float = side
-			var ea := Vector3(a.x, 0.22 * y, a.y)
-			var ec := Vector3(c.x, 0.22 * y, c.y)
-			var ra := Vector3(ma.x, 1.05 * y, ma.y)
-			var rc := Vector3(mc.x, 1.05 * y, mc.y)
-			var apex := Vector3(centre.x, 1.5 * y, centre.y)
-			var skin: Color = (Palette.WHITE if i % 2 == 0 else Palette.HULL_LIGHT) if side > 0.0 else (Palette.ASH if i % 2 == 0 else Palette.STONE)
-			var rim: Color = Palette.CORAL if (tip or lead) else skin
-			b.quad(ea, ec, rc, ra, rim, Vector3.UP * y)
-			b.tri(ra, rc, apex, skin, Vector3.UP * y)
-		b.quad(Vector3(a.x, 0.22, a.y), Vector3(c.x, 0.22, c.y), Vector3(c.x, -0.22, c.y), Vector3(a.x, -0.22, a.y), Palette.INK, Vector3(((a + c) * 0.5 - centre).x, 0.0, ((a + c) * 0.5 - centre).y))
-	# Canopy, intakes, exhaust slits and landing skids.
+	var sections: Array[Array] = []
+	for i in range(SECTIONS.size() - 1, 0, -1):
+		var mirrored: Array = SECTIONS[i].duplicate()
+		mirrored[0] = -mirrored[0]
+		sections.append(mirrored)
+	sections.append_array(SECTIONS)
+	var rings: Array[Array] = []
+	for section in sections:
+		rings.append(_ring(section))
+	for i in rings.size() - 1:
+		var x := absf((sections[i][0] + sections[i + 1][0]) * 0.5)
+		var centre: Vector3 = (rings[i][1] + rings[i + 1][4]) * 0.5
+		for k in RING.size():
+			var a: Vector3 = rings[i][k]
+			var c: Vector3 = rings[i + 1][k]
+			var d: Vector3 = rings[i + 1][(k + 1) % RING.size()]
+			var e: Vector3 = rings[i][(k + 1) % RING.size()]
+			b.quad(a, c, d, e, _skin(k, i, x), (a + c + d + e) * 0.25 - centre)
+	for tip in [rings[0], rings[rings.size() - 1]]:
+		var middle: Vector3 = (tip[1] + tip[4]) * 0.5
+		for k in RING.size():
+			b.tri(middle, tip[k], tip[(k + 1) % RING.size()], Palette.CORAL, Vector3(signf(middle.x), 0, 0))
+	_deck(b)
+	_belly(b)
+	_underside(b, rings)
+	# Navigation lights on the tips and exhaust slits along the hull's trailing edge.
 	b.glow = true
-	b.box(Transform3D(Basis(Vector3.RIGHT, -0.12), Vector3(0, 1.55, -4.8)), Vector3(1.8, 0.45, 2.6), Palette.CYAN)
-	for side in [-1.0, 1.0]:
-		b.glow = true
-		b.box(Transform3D(Basis(), Vector3(side * 4.2, 0.0, 6.0)), Vector3(2.4, 0.18, 0.2), Palette.AMBER)
-		b.glow = false
-		b.box(Transform3D(Basis(), Vector3(side * 4.0, -1.7, 0.4)), Vector3(0.5, 0.35, 10.0), Palette.STONE)
-		for z in [-3.0, 3.6]:
-			b.box(Transform3D(Basis(), Vector3(side * 4.0, -1.1, z)), Vector3(0.3, 1.2, 0.3), Palette.DUSK)
+	b.box(Transform3D(Basis(), Vector3(-18.1, 0.0, 4.1)), Vector3(0.3, 0.3, 0.8), Palette.RED)
+	b.box(Transform3D(Basis(), Vector3(18.1, 0.0, 4.1)), Vector3(0.3, 0.3, 0.8), Palette.MINT)
+	for x in [-2.0, 2.0]:
+		b.box(Transform3D(Basis(), Vector3(x, 0.35, 6.9)), Vector3(1.6, 0.25, 0.12), Palette.AMBER)
 	_add_mesh(model, b.mesh())
 	model.scale = Vector3.ONE * MODEL_SCALE
 	for name: String in TURRETS:
 		_make_turret(name)
 	for name: String in UPPER:
 		_make_upper(name)
+
+
+## The points round a section: leading edge, upper crest, upper aft, trailing edge, lower aft, keel.
+func _ring(section: Array) -> Array[Vector3]:
+	var heights := [0.0, section[3], section[3] * 0.55, 0.05, -section[4] * 0.5, -section[4]]
+	var ring: Array[Vector3] = []
+	for k in RING.size():
+		ring.append(Vector3(section[0], heights[k], lerpf(section[1], section[2], RING[k])))
+	return ring
+
+
+## Colour of face `k` round the section (see RING) between sections `i` and `i + 1`, `x` out from the centreline:
+## a pale upper skin in alternating panels, darker control surfaces aft, coral leading edges at the tips, and a
+## lighter underside in panels, so the belly the tank mostly sees keeps its shape against the sky.
+func _skin(k: int, i: int, x: float) -> Color:
+	match k:
+		0:
+			return Palette.CORAL if x > 12.0 else Palette.MIST
+		1:
+			return Palette.WHITE if i % 2 == 0 else Palette.ASH
+		2:
+			return Palette.STONE
+		3:
+			return Palette.ASH
+		4:
+			if x > 10.0 and x < 14.0:
+				return Palette.CORAL # A band under each wing, the boss's marking.
+			if x < 2.0:
+				return Palette.DUSK # The keel.
+			return Palette.WHITE if i % 2 == 0 else Palette.CREAM
+	return Palette.CORAL if x > 10.0 and x < 14.0 else Palette.MIST
+
+
+## The flight deck along the hull's crest, its centreline and edge lights, and the bridge beside it.
+func _deck(b: LowPoly) -> void:
+	b.glow = false
+	b.box(Transform3D(Basis(), Vector3(0, 2.1, -1.0)), Vector3(2.8, 0.08, 7.6), Palette.SLATE)
+	for z in range(-4, 3):
+		b.box(Transform3D(Basis(), Vector3(0, 2.15, z + 0.0)), Vector3(0.12, 0.04, 0.5), Palette.WHITE)
+	b.glow = true
+	for z in range(-4, 3):
+		for x in [-1.35, 1.35]:
+			b.box(Transform3D(Basis(), Vector3(x, 2.16, z + 0.5)), Vector3(0.1, 0.06, 0.1), Palette.AMBER)
+	# The nose's bridge windows.
+	b.box(Transform3D(Basis(Vector3.RIGHT, -0.42), Vector3(0, 1.0, -7.0)), Vector3(3.2, 0.12, 0.7), Palette.CYAN)
+	b.glow = false
+	var bridge := Vector3(3.2, 1.95, -2.4)
+	b.box(Transform3D(Basis(), bridge + Vector3(0, 0.45, 0)), Vector3(0.9, 0.9, 2.0), Palette.HULL_LIGHT, Palette.MIST)
+	b.box(Transform3D(Basis(), bridge + Vector3(0, 1.0, -0.2)), Vector3(0.7, 0.3, 1.2), Palette.ASH)
+	b.tube(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), bridge + Vector3(0, 1.1, 0.3)), 0.05, 1.2, 4, Palette.INK)
+	b.glow = true
+	b.box(Transform3D(Basis(), bridge + Vector3(0, 1.0, -0.82)), Vector3(0.6, 0.1, 0.04), Palette.CYAN)
+
+
+## What the chasing tank sees of the hull, from behind and below: the lit mouth of the hangar in the hull's tail, a
+## row of lights along the trailing edge, ribs down the belly and fins hanging under the tips.
+func _underside(b: LowPoly, rings: Array[Array]) -> void:
+	b.glow = false
+	b.box(Transform3D(Basis(), Vector3(0, -0.3, 6.75)), Vector3(3.2, 0.6, 0.5), Palette.INK)
+	b.glow = true
+	b.box(Transform3D(Basis(), Vector3(0, -0.3, 6.98)), Vector3(2.8, 0.4, 0.05), Palette.AMBER)
+	for x in [-0.7, 0.7]:
+		b.box(Transform3D(Basis(), Vector3(x, -0.3, 7.0)), Vector3(0.1, 0.42, 0.06), Palette.INK)
+	for i in rings.size() - 1:
+		for t in [0.25, 0.75]:
+			var at: Vector3 = rings[i][4].lerp(rings[i][3], 0.8).lerp(rings[i + 1][4].lerp(rings[i + 1][3], 0.8), t)
+			b.box(Transform3D(Basis(), at + Vector3.DOWN * 0.05), Vector3(0.35, 0.1, 0.35), Palette.CYAN if absf(at.x) > 6.0 else Palette.BUTTER)
+	b.glow = false
+	for x in [-3.6, 3.6, -8.0, 8.0]:
+		var depth := lerpf(1.25, 0.6, (absf(x) - 3.6) / 4.4)
+		b.box(Transform3D(Basis(), Vector3(x, -depth - 0.1, 0.8)), Vector3(0.35, 0.35, 8.0 - absf(x) * 0.4), Palette.SLATE)
+	for side in [-1.0, 1.0]:
+		var fin := Vector3(side * 15.5, -0.6, 4.4)
+		b.quad(fin + Vector3(0, 0.5, -1.6), fin + Vector3(0, 0.5, 1.0), fin + Vector3(0, -1.3, 1.4), fin + Vector3(0, -1.1, -0.4), Palette.HULL_LIGHT, Vector3(side, 0, 0))
+		b.quad(fin + Vector3(0, 0.5, -1.6), fin + Vector3(0, 0.5, 1.0), fin + Vector3(0, -1.3, 1.4), fin + Vector3(0, -1.1, -0.4), Palette.ASH, Vector3(-side, 0, 0))
+		b.glow = true
+		b.box(Transform3D(Basis(), fin + Vector3(0, -1.2, 1.3)), Vector3(0.15, 0.25, 0.25), Palette.RED if side < 0.0 else Palette.MINT)
+		b.glow = false
+
+
+## Recessed bays round the belly turrets, framed in amber so the open one reads from the ground.
+func _belly(b: LowPoly) -> void:
+	for name: String in TURRETS:
+		var at: Vector3 = TURRET_AT[name] + Vector3(0, 0.12, 0)
+		b.glow = false
+		b.box(Transform3D(Basis(), at), Vector3(2.0, 0.1, 2.4), Palette.INK)
+		b.glow = true
+		for side in [-1.0, 1.0]:
+			b.box(Transform3D(Basis(), at + Vector3(side * 1.05, -0.06, 0)), Vector3(0.1, 0.06, 2.5), Palette.AMBER)
+			b.box(Transform3D(Basis(), at + Vector3(0, -0.06, side * 1.25)), Vector3(2.2, 0.06, 0.1), Palette.AMBER)
 
 
 func _add_mesh(parent: Node3D, mesh: Mesh) -> void:
@@ -201,22 +305,24 @@ func _make_upper(name: String) -> void:
 	_pods[name] = pod
 	var g := LowPoly.new()
 	if name == "spine":
-		g.box(Transform3D(Basis(), Vector3(0, -0.2, 0)), Vector3(2.6, 0.8, 3.4), Palette.HULL_LIGHT)
+		# A block of vertical launch cells opposite the bridge, its lids lit.
+		g.box(Transform3D(Basis(), Vector3(0, 0.2, 0)), Vector3(3.0, 0.7, 4.0), Palette.SLATE, Palette.ASH)
 		g.glow = true
-		for x in [-0.7, 0.0, 0.7]:
-			for z in [-0.8, 0.6]:
-				g.tube(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(x, 0.25, z)), 0.22, 0.12, 6, Palette.AMBER)
+		for x in [-0.9, 0.0, 0.9]:
+			for z in [-1.35, -0.45, 0.45, 1.35]:
+				g.box(Transform3D(Basis(), Vector3(x, 0.58, z)), Vector3(0.6, 0.06, 0.6), Palette.AMBER)
 		var muzzle := Node3D.new()
-		muzzle.position = Vector3(0, 0.6, 0)
+		muzzle.position = Vector3(0, 0.8, 0)
 		pod.add_child(muzzle)
 		_muzzles[name] = muzzle
 	else:
-		var side := signf(UPPER_AT[name].x)
-		g.box(Transform3D(Basis(), Vector3(0, -0.7, 0)), Vector3(2.4, 1.0, 3.2), Palette.INK)
-		g.box(Transform3D(Basis(Vector3.BACK, side * 0.1), Vector3(0, -0.15, -0.4)), Vector3(2.0, 0.12, 3.6), Palette.SLATE)
+		# A long engine nacelle on a pylon: dark intake with a lit fan ahead, glowing exhaust behind.
+		g.box(Transform3D(Basis(), Vector3(0, -0.9, 0.4)), Vector3(0.6, 0.8, 6.0), Palette.STONE)
+		g.tube(Transform3D(Basis(), Vector3(0, 0, -4.5)), 1.1, 9.0, 8, Palette.HULL_LIGHT)
+		g.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0, 0, -4.55)), 1.0, 0.1, 8, Palette.INK)
 		g.glow = true
-		g.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0, -0.7, -1.62)), 0.7, 0.05, 10, Palette.CYAN)
-		g.box(Transform3D(Basis(), Vector3(0, -0.7, 1.62)), Vector3(1.8, 0.5, 0.05), Palette.AMBER)
+		g.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0, 0, -4.62)), 0.5, 0.05, 8, Palette.CYAN)
+		g.prism(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(0, 0, 4.55)), 0.85, 0.1, 8, Palette.AMBER)
 	_add_mesh(pod, g.mesh())
 
 
