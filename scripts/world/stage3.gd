@@ -269,10 +269,7 @@ func boss_music(_phase := 0) -> String:
 
 ## Pushes a wave and its squad out to the haze.
 func _to_horizon(event: Dictionary) -> void:
-	if event.kind == "fpv" and not event.has("ahead"):
-		event.ahead = 90.0 # The director's default slot, which would pop the drone up mid-street.
-	if event.has("ahead"):
-		event.ahead += HORIZON_SHIFT
+	event.ahead = event.get("ahead", 90.0) + HORIZON_SHIFT # 90 m is the director's default slot, which would pop the unit up mid-street.
 	for member: Dictionary in event.get("squad", []):
 		_to_horizon(member)
 
@@ -285,23 +282,23 @@ func events(hard: bool) -> Array[Dictionary]:
 		e.append(event)
 
 	# Few enemies, each deadly: one hunter and at most one escort every 230 m, never a crowd. Outskirts build from a
-	# drone to a mech pair, the avenue adds air and rocket threats, the canyon repeats them tighter inside the
+	# skimmer to burrowers and snipers, the avenue adds mortar crews, the canyon repeats them tighter inside the
 	# storm, and quiet stretches before the pit and the run let the tank refit.
-	wave.call(30.0, "fpv", {"height": 5.0})
-	wave.call(240.0, "abel", {"u": -17.0, "ahead": 85.0, "drop": "coax", "squad": [
-		{"kind": "fpv", "height": 5.0}]})
-	wave.call(450.0, "kain", {"u": 21.0, "ahead": 85.0, "peak": true, "squad": [
-		{"kind": "ugv", "u": -8.0, "ahead": 80.0, "props": {"weapon": "atgm"}}]})
+	wave.call(30.0, "skimmer", {})
+	wave.call(240.0, "burrower", {"u": -17.0, "ahead": 85.0, "drop": "coax", "squad": [
+		{"kind": "skimmer"}]})
+	wave.call(450.0, "glinter", {"u": 21.0, "ahead": 85.0, "peak": true, "squad": [
+		{"kind": "mortar", "u": -8.0, "ahead": 80.0}]})
 	e.append({"d": 640.0, "type": "pickup", "id": "atgm"})
 
-	wave.call(700.0, "hind", {"u": 8.0, "height": 5.0, "ahead": 90.0, "drop": "micro", "squad": [
-		{"kind": "fpv", "height": 5.0}]})
-	wave.call(930.0, "adam", {"u": 17.0, "ahead": 65.0, "squad": [
-		{"kind": "walker", "u": -10.0, "ahead": 90.0, "props": {"weapon": "missile"}}]})
-	wave.call(1150.0, "kain", {"u": -14.5, "ahead": 85.0, "peak": true, "squad": [
-		{"kind": "fpv", "height": 5.0}]})
-	wave.call(1370.0, "abel", {"u": 19.0, "ahead": 80.0, "squad": [
-		{"kind": "ugv", "u": 8.0, "ahead": 75.0, "props": {"weapon": "atgm"}}]})
+	wave.call(700.0, "mortar", {"u": 8.0, "ahead": 90.0, "drop": "micro", "squad": [
+		{"kind": "skimmer"}]})
+	wave.call(930.0, "burrower", {"u": 17.0, "ahead": 65.0, "squad": [
+		{"kind": "glinter", "u": -10.0, "ahead": 90.0}]})
+	wave.call(1150.0, "glinter", {"u": -14.5, "ahead": 85.0, "peak": true, "squad": [
+		{"kind": "skimmer"}]})
+	wave.call(1370.0, "burrower", {"u": 19.0, "ahead": 80.0, "squad": [
+		{"kind": "mortar", "u": 8.0, "ahead": 75.0}]})
 	e.append({"d": 1470.0, "type": "pickup", "id": "micro", "u": -4.0})
 
 	e.append({"d": PIT_D - 270.0, "type": "checkpoint", "name": "midboss"})
@@ -310,16 +307,16 @@ func events(hard: bool) -> Array[Dictionary]:
 	e.append({"d": PIT_D - 110.0, "type": "midboss", "kind": "borer", "ahead": 60.0, "peak": true, "hold": PIT_D - 56.0})
 
 	e.append({"d": STORM_D, "type": "storm", "duration": 35.0})
-	wave.call(2160.0, "hind", {"u": -8.0, "height": 5.0, "ahead": 85.0, "squad": [
-		{"kind": "ugv", "u": 8.0, "ahead": 75.0, "props": {"weapon": "atgm"}}]})
-	wave.call(2390.0, "kain", {"u": 14.5, "ahead": 85.0, "squad": [
-		{"kind": "walker", "u": -6.0, "ahead": 90.0, "props": {"weapon": "missile"}}]})
-	wave.call(2620.0, "abel", {"u": -10.0, "ahead": 100.0, "peak": true, "squad": [
-		{"kind": "fpv", "count": 2, "height": 5.0}]})
-	wave.call(2850.0, "adam", {"u": 15.0, "ahead": 65.0, "squad": [
-		{"kind": "ugv", "u": -8.0, "ahead": 75.0, "props": {"weapon": "atgm"}}]})
+	wave.call(2160.0, "mortar", {"u": -8.0, "ahead": 85.0, "squad": [
+		{"kind": "glinter", "u": 8.0, "ahead": 75.0}]})
+	wave.call(2390.0, "glinter", {"u": 14.5, "ahead": 85.0, "squad": [
+		{"kind": "burrower", "u": -6.0, "ahead": 90.0}]})
+	wave.call(2620.0, "burrower", {"u": -10.0, "ahead": 100.0, "peak": true, "squad": [
+		{"kind": "skimmer", "count": 2}]})
+	wave.call(2850.0, "mortar", {"u": 15.0, "ahead": 65.0, "squad": [
+		{"kind": "glinter", "u": -8.0, "ahead": 75.0}]})
 	e.append({"d": 3000.0, "type": "hold", "at": 3015.0, "timeout": 25.0, "reward": "repair"})
-	wave.call(3100.0, "hind", {"u": 8.0, "height": 5.0, "ahead": 85.0, "peak": true})
+	wave.call(3100.0, "burrower", {"u": 8.0, "ahead": 85.0, "peak": true})
 	e.append({"d": 3160.0, "type": "pickup", "id": "era", "u": -4.0})
 	e.append({"d": 3220.0, "type": "pickup", "id": "atgm", "u": 4.0})
 
@@ -333,7 +330,7 @@ func events(hard: bool) -> Array[Dictionary]:
 	e.append({"d": ramps_end(), "type": "hold", "at": ramps_end() + 170.0, "timeout": 600.0})
 
 	if hard:
-		var pressure := {450.0: {"ugv": 1}, 700.0: {"fpv": 1}}
+		var pressure := {450.0: {"mortar": 1}, 700.0: {"skimmer": 1}}
 		for event in e:
 			if event.type != "wave" or not event.has("squad"):
 				continue

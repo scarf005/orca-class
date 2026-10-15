@@ -11,6 +11,7 @@ var _telegraph := 0.0
 var _sac: MeshInstance3D
 var _stalk := Node3D.new()
 var _hard := false
+var _shell_color := Palette.FUNGUS ## Shell body and impact marker.
 
 
 func _init() -> void:
@@ -81,27 +82,47 @@ func _volley(tank: Tank) -> void:
 	var from := _sac.global_position + Vector3.UP * 0.8
 	var shots := 4 if _hard else 3
 	for i in shots:
-		var flight := (1.6 + i * 0.15) * Game.telegraph_scale()
-		var target := tank.global_position + tank.velocity * flight
-		if _hard:
-			target += tank.global_basis.x * (i - (shots - 1) * 0.5) * 6.0
-		elif i > 0:
-			target += Vector3(randf_range(-6, 6), 0, randf_range(-6, 6))
+		var flight := _flight(i)
+		var target := _aim(tank, i, shots, flight)
 		target.y = Course.height_at(target)
 		var velocity_out := (target - from) / flight
 		velocity_out.y += 0.5 * 20.0 * flight
-		var mortar := world.spawn_projectile(Team.ENEMY, from, velocity_out, "mortar", Palette.FUNGUS)
+		var mortar := world.spawn_projectile(Team.ENEMY, from, velocity_out, "mortar", _shell_color)
 		mortar.gravity = 20.0
 		mortar.hit = Hit.make(Hit.Kind.SPORE, 0.0, from)
 		mortar.hit.source = self
 		mortar.blast_radius = 3.2
 		mortar.blast_damage = 20.0
-		mortar.blast_colors = [Palette.WHITE, Palette.BLUSH, Palette.FUNGUS, Palette.LILAC]
 		mortar.interceptable = true
 		mortar.intercept_hp = 1.0
 		mortar.life = flight + 1.0
-		mortar.trail = SPORE_TRAIL
-		mortar.impacted.connect(func(_p: Projectile, point: Vector3, _t: Entity) -> void: Hazard.spawn(point, 2.8, 2.0, 7.0))
-		world.fx.marker(target, 3.2, flight, Palette.FUNGUS)
-	world.fx.spores(from, 12, 1.2)
+		_arm(mortar)
+		world.fx.marker(target, mortar.blast_radius, flight, _shell_color)
+	_puff(from)
+
+
+## Seconds shell `i` of a volley flies.
+func _flight(i: int) -> float:
+	return (1.6 + i * 0.15) * Game.telegraph_scale()
+
+
+## Where shell `i` of `shots` lands: scattered around where the tank will be, in a spread across its path on Hard.
+func _aim(tank: Tank, i: int, shots: int, flight: float) -> Vector3:
+	var target := tank.global_position + tank.velocity * flight
+	if _hard:
+		target += tank.global_basis.x * (i - (shots - 1) * 0.5) * 6.0
+	elif i > 0:
+		target += Vector3(randf_range(-6, 6), 0, randf_range(-6, 6))
+	return target
+
+
+## The shell's look and what it leaves behind: here a lingering spore cloud.
+func _arm(shell: Projectile) -> void:
+	shell.blast_colors = [Palette.WHITE, Palette.BLUSH, Palette.FUNGUS, Palette.LILAC]
+	shell.trail = SPORE_TRAIL
+	shell.impacted.connect(func(_p: Projectile, point: Vector3, _t: Entity) -> void: Hazard.spawn(point, 2.8, 2.0, 7.0))
+
+
+func _puff(from: Vector3) -> void:
+	World.current.fx.spores(from, 12, 1.2)
 	Sfx.play("spore", from)
