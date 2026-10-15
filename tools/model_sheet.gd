@@ -2,7 +2,7 @@ extends Node
 ## Poses enemies beside the tank on the flat checkered floor (10 m squares) and saves four views of each, for
 ## judging silhouettes and size against the hull.
 ## Usage: xvfb-run -a godot --path . --resolution 960x540 -- --run=res://tools/model_sheet.gd --kind=abel,kain \
-##        [--dist=16] [--h=4] [--far=60] [--solo] [--out=builds/model_sheet] # --far adds a view from the chase
+##        [--dist=16] [--h=4] [--far=60] [--solo] [--naval] [--out=builds/model_sheet] # --far adds a view from the chase
 ##        distance; --solo frames the enemy alone
 
 
@@ -27,7 +27,10 @@ func run() -> int:
 	for kind: String in String(args.get("kind", "abel")).split(",", false):
 		var enemy: Enemy = load(Director.ENEMY_SCRIPTS[kind]).new()
 		enemy.position = at
+		if args.has("naval"):
+			enemy.set("naval", true) # A depth-charge barge, not a dune crew.
 		world.add_enemy(enemy)
+		enemy.visible = true # A buried burrower starts hidden.
 		enemy.set_process(false)
 		enemy.set_physics_process(false)
 		enemy.global_position = at
