@@ -923,6 +923,17 @@ func stream(d: float, budget := 8) -> void:
 	_live = keep
 
 
+## Drops what is live and streams the plan afresh around `d`, so a jump in either direction shows its props.
+func seek(d: float) -> void:
+	for spec in _live:
+		if is_instance_valid(spec.node):
+			spec.node.queue_free()
+		spec.node = null
+	_live.clear()
+	_next = 0
+	stream(d, 100000)
+
+
 func _instantiate(spec: Spec) -> void:
 	var y: float = spec.get_meta("y") if spec.has_meta("y") else Course.height(spec.d, spec.u) + spec.lift
 	var position := Course.to_world(spec.d, spec.u, y)

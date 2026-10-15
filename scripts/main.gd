@@ -17,6 +17,9 @@ func _ready() -> void:
 	elif OS.get_cmdline_user_args().has("--play"):
 		Game.stage = int(_arg("stage")) if not _arg("stage").is_empty() else 1
 		start_game(_arg("checkpoint"))
+	elif OS.get_cmdline_user_args().has("--map-editor"):
+		Game.stage = int(_arg("stage")) if not _arg("stage").is_empty() else 1
+		_open_map_editor()
 	elif OS.get_cmdline_user_args().has("--duel"):
 		start_game("duel")
 	elif OS.get_cmdline_user_args().has("--debug-room"):
@@ -26,6 +29,7 @@ func _ready() -> void:
 
 
 func show_title() -> void:
+	StageEvents.playtest = {}
 	_swap(load("res://scripts/ui/title.gd").new())
 	_screen.start.connect(start_game)
 	_screen.debug_room.connect(_open_debug_room)
@@ -42,6 +46,15 @@ func _open_tutorial() -> void:
 	_swap(tutorial)
 
 
+## The editor's PLAY starts the game with its list; leaving that game returns to the editor with the list intact.
+func _open_map_editor() -> void:
+	var editor := MapEditor.new()
+	editor.stage_number = Game.stage
+	editor.play.connect(start_game.bind(""))
+	editor.exit.connect(_quit)
+	_swap(editor)
+
+
 func _open_debug_room() -> void:
 	var room := DebugRoom.new()
 	room.exit.connect(show_title)
@@ -55,7 +68,7 @@ func start_game(checkpoint: String) -> void:
 	screen.checkpoint = checkpoint
 	screen.stage = Game.stage
 	_swap(screen)
-	screen.quit_to_title.connect(show_title)
+	screen.quit_to_title.connect(show_title if StageEvents.playtest.is_empty() else _open_map_editor)
 	screen.restart.connect(start_game)
 
 

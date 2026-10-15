@@ -17,6 +17,10 @@ run *args:
 play *args:
     {{ quote(godot) }} --path . -- --play "$@"
 
+# Edit a stage's events on its course; e.g. just map-editor 3.
+map-editor stage="1":
+    {{ quote(godot) }} --path . -- --map-editor --stage={{ stage }}
+
 # Fight one hunter group over and over (tiltrotor and walkers) on a held rail.
 duel *args:
     {{ quote(godot) }} --path . -- --duel "$@"

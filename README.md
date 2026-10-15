@@ -47,6 +47,7 @@ Install [just](https://just.systems), then run `just` to list recipes in the [ju
 
 ```sh
 just play          # skip the title screen
+just map-editor 3  # edit stage 3's events on its course; SAVE writes data/stages/stage3.json, which then replaces the coded list
 just test          # run all tests; just test tail runs only matching files
 just serve         # export and serve the web build; just serve 8080 changes the port
 just export        # export web, Linux, Windows, and macOS builds
