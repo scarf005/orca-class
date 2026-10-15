@@ -316,7 +316,7 @@ func _city() -> void:
 	for side in [-1.0, 1.0]:
 		var shop_d := 120.0 + (0.0 if side < 0.0 else 9.0)
 		while shop_d < 3150.0:
-			var kerb := stage.lateral_limit(shop_d) - 4.0
+			var kerb := stage.street_half(shop_d) - 4.0
 			# Sample candidates even when a fork removes them, so exclusions do not reshuffle the frontage.
 			var has_shop := rng.randf() < 0.65
 			var variant := rng.randi_range(0, 11)
@@ -329,7 +329,7 @@ func _city() -> void:
 			shop_d += rng.randf_range(15.0, 24.0)
 	for d in range(180, 3150, 150):
 		var side := -1.0 if d / 150 % 2 else 1.0
-		var pavement := stage.lateral_limit(float(d)) - 9.0
+		var pavement := stage.street_half(float(d)) - 9.0
 		if not stage.in_arena(float(d), 30.0) and not _near_split(float(d), 30.0):
 			add("bus_shelter" if d / 150 % 3 else "kiosk", float(d), side * pavement, -side * PI * 0.5, d % 4)
 	for d in range(140, 3150, 64):
@@ -339,6 +339,65 @@ func _city() -> void:
 	add("subway_entrance", Stage2.PLAZA_D - 65.0, 55.0, 0.0, 0).set_meta("y", stage.height(Stage2.PLAZA_D - 65.0, 55.0))
 	for d in range(2250, 3150, 180):
 		add("truck", float(d), 8.0, 0.0, 1)
+	_expressway_decor(stage)
+	_concourse_decor()
+	_kicker_decor(stage)
+
+
+## Parapets along the elevated road, in 40 m pieces from the on-ramp to the broken span and again on its sagged far end.
+func _expressway_decor(stage: Stage2) -> void:
+	for start in range(int(Stage2.ON_RAMP.x), int(Stage2.OFF_RAMP.y), 40):
+		var middle := float(start) + 20.0
+		if stage.deck_level(middle) < 0.8 or middle > Stage2.GAP.x and middle < Stage2.GAP.y:
+			continue
+		add_decor(_parapet_mesh(stage, middle, 40.0), middle, 0.0, 0.0, 0.0).set_meta("range", 420.0)
+
+
+## A concrete parapet and its lamp posts on both edges of the deck, following its surface, in the frame of a decor
+## placed at (d, 0).
+func _parapet_mesh(stage: Stage2, d: float, length: float) -> Mesh:
+	var origin := Course.to_world(d, 0.0, 0.0)
+	var yaw := Course.yaw_at(d)
+	var local := func(p: Vector3) -> Vector3: return (p - origin).rotated(Vector3.UP, -yaw)
+	var b := LowPoly.new()
+	var step := 4.0
+	var s := -length * 0.5
+	while s < length * 0.5:
+		for side: float in [-1.0, 1.0]:
+			var a: Vector3 = local.call(Course.ground_at(d + s, side * (stage.lateral_limit(d + s) + 0.4)))
+			var c: Vector3 = local.call(Course.ground_at(d + s + step, side * (stage.lateral_limit(d + s + step) + 0.4)))
+			var along := c - a
+			b.box(Transform3D(Basis.looking_at(along, Vector3.UP), (a + c) * 0.5 + Vector3.UP * 0.5), Vector3(0.7, 1.0, along.length() + 0.05), Palette.MIST, Palette.CREAM)
+			if int(d + s) % 24 == 0:
+				b.box(Transform3D(Basis(), a + Vector3.UP * 3.0), Vector3(0.25, 6.0, 0.25), Palette.ASH)
+				b.glow = true
+				b.box(Transform3D(Basis(), a + Vector3.UP * 6.1 - Vector3(side * 0.8, 0.0, 0.0)), Vector3(0.9, 0.2, 0.5), Palette.BUTTER)
+				b.glow = false
+		s += step
+	return b.mesh()
+
+
+## Ceiling lamp panels along the flooded concourse: the only light in it besides the mouths.
+func _concourse_decor() -> void:
+	var d := Stage2.CONCOURSE.y
+	while d < Stage2.CONCOURSE.z:
+		var b := LowPoly.new()
+		b.glow = true
+		for row: float in [-14.0, 0.0, 14.0]:
+			b.box(Transform3D(Basis(), Vector3(row, 0.0, 0.0)), Vector3(3.2, 0.2, 1.6), Palette.CREAM if row == 0.0 else Palette.BUTTER)
+		add_decor(b.mesh(), d, 0.0, 0.0, Stage2.ROOF_Y - 0.25).set_meta("range", 260.0)
+		d += 16.0
+
+
+## The IN sign and the steel rails up the deck's kicker, like the sand ramps of stage 3.
+func _kicker_decor(stage: Stage2) -> void:
+	var ramp: Dictionary = Stage2.RAMPS[Stage2.KICKER]
+	var d := float(ramp.d)
+	add_decor(_ramp_rails_mesh(d, 0.0, float(ramp.length)), d, 0.0, 0.0, 0.0).set_meta("range", 700.0)
+	var sign_d := d - 24.0
+	var sign := add_decor(_in_sign_mesh(sign_d), sign_d, 0.0, 0.0, stage.height(sign_d, 0.0) + 15.0)
+	sign.set_meta("range", 700.0)
+	_blinking.append(sign)
 
 
 ## Sand-buried downtown: the street furniture is sunk into the dunes and the cars lie half under them.
@@ -553,6 +612,15 @@ func crush_cover(from: Vector3, to: Vector3, reach: float, kinds: Array[String])
 		World.current.fx.debris(at + Vector3.UP, 12, [Fx.Debris.METAL, Fx.Debris.CONCRETE], 12.0, 0.6)
 		removed += 1
 	return removed
+
+
+## Takes a solid structure away at run time: its collision box and its prop, if streamed in.
+func remove_structure(kind: String, d: float, u: float) -> void:
+	for spec in specs:
+		if spec.kind == kind and spec.size != Vector3.ZERO and spec.d == d and spec.u == u and not spec.has_meta("destroyed"):
+			_destroy_spec(spec)
+			if is_instance_valid(spec.node):
+				spec.node.queue_free()
 
 
 func _destroy_spec(spec: Spec) -> void:
@@ -812,15 +880,15 @@ const RAMP_GAUGE := TrackMarks.TRACK_OFFSET * 2.0 ## The rails run under the tan
 
 ## Rails, sleepers and guide lights from just short of a ramp's foot to its lip, in the frame of a decor placed at
 ## (d, u) on the ground's zero.
-func _ramp_rails_mesh(d: float, u: float) -> Mesh:
+func _ramp_rails_mesh(d: float, u: float, length := Stage3.HILL_LENGTH) -> Mesh:
 	var origin := Course.to_world(d, u, 0.0)
 	var yaw := Course.yaw_at(d)
 	var local := func(p: Vector3) -> Vector3: return (p - origin).rotated(Vector3.UP, -yaw)
 	var b := LowPoly.new()
 	var step := 4.0
 	var s := -12.0
-	while s < Stage3.HILL_LENGTH:
-		var next := minf(s + step, Stage3.HILL_LENGTH)
+	while s < length:
+		var next := minf(s + step, length)
 		for side: float in [-1.0, 1.0]:
 			var x := u + side * RAMP_GAUGE * 0.5
 			var a: Vector3 = local.call(Course.ground_at(d + s, x) + Vector3.UP * 0.25)

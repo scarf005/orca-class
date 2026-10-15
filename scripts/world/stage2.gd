@@ -6,7 +6,7 @@ enum Section { BOULEVARD, VIADUCT, PLAZA, CANYON, BAY }
 
 const SECTION_STARTS := [0.0, 700.0, 1650.0, 2150.0, 3200.0]
 const LENGTH := 4000.0
-const DECK_TOP := 6.25 ## Expressway deck hunters stand this high above the drowned road under it.
+const DECK_TOP := 6.25 ## Side viaducts and rooftops hunters stand on, this high above the drowned road.
 const HORIZON_SHIFT := 120.0 ## Squads spawn this much farther out, in the haze, and walk in instead of popping up mid-street.
 const WATER_LEVEL := 0.3
 const HULL_MARGIN := 3.0
@@ -14,37 +14,88 @@ const PLAZA_D := 1900.0
 const PLAZA_RADIUS := 72.0
 const BAY_D := 3650.0
 const BAY_RADIUS := 128.0
-const PLAN := [[1100.0, 0.0], [500.0, 35.0], [500.0, -35.0], [600.0, 0.0], [500.0, -40.0], [500.0, 40.0], [800.0, 0.0]]
+## The canyon zigzags through two 80 degree bends (right at d 2290, left at d 2500) and the viaduct bows gently.
+const PLAN := [[1200.0, 0.0], [450.0, 16.0], [500.0, -16.0], [500.0, 0.0], [140.0, 0.0], [60.0, 80.0], [150.0, 0.0], [60.0, -80.0], [1440.0, 0.0]]
 const SPLITS: Array[Dictionary] = [
 	{"d": 300.0, "u": 0.0, "size": 8.0, "kind": "tower"},
 ]
 
+const STREET_HALF := 30.0 ## Half width of the drowned street; the canyon narrows it to CANYON_HALF.
+const CANYON_HALF := 22.0
 const KERB_HEIGHT := 0.7 ## Pavement shelf above the drowned road on the boulevard and in the canyon.
 const KERB_RAMP := 3.0 ## Metres of road it takes to climb onto the shelf (about 0.22 rise/run).
+const BAY_KERB := 1.8 ## The quay shelf along the bay approach is this many times higher: the surge passes over it.
+
+## The tank's elevated expressway: an on-ramp, a deck above the flood, a span that has collapsed into a flooded
+## gap and its sagged far end, which slopes back down to the street. Heights are over the street.
+const DECK_H := 5.5
+const DECK_HALF := 12.0 ## The tank's lateral limit on the deck.
+const ON_RAMP := Vector2(740.0, 830.0)
+const GAP := Vector2(1250.0, 1306.0) ## Where the deck ends and the sagged far end begins.
+const FAR_DECK_H := 2.4
+const OFF_RAMP := Vector2(1340.0, 1420.0)
+const PIT_FLOOR := -1.25 ## The flooded gap under the broken span.
+
+## Launch ramps (see StageDef.ramp_at): the deck's kicker before the gap, and the fallen tower in the canyon. A track
+## climbs `height` over `length` metres by `power`, then falls away over `tail`; `half` and `flank` shape its sides.
+const RAMPS: Array[Dictionary] = [
+	{"d": 1190.0, "u": 0.0, "length": 60.0, "half": 12.5, "flank": 3.0, "height": 4.5, "power": 4.0, "tail": 6.0},
+	{"d": 2428.0, "u": -10.0, "length": 49.0, "half": 7.0, "flank": 3.0, "height": 9.0, "power": 1.0, "tail": 10.0},
+]
+const SURGE_D := 3330.0 ## Middle of the stretch the tidal surge washes over.
+const KICKER := 0
+const SLAB := 1
+const SLAB_SIZE := Vector3(14.0, 52.0, 6.0) ## The tower that falls across the canyon: width, height, thickness.
+const SLAB_VARIANT := 3 ## A glass curtain wall.
+
+## The flooded concourse: the street dives into it, a collapsed block roofs it, and it climbs out again.
+const CONCOURSE := Vector4(2700.0, 2745.0, 2905.0, 2950.0) ## Dive starts, floor level, floor ends, street level.
+const CONCOURSE_FLOOR := -1.45
+const ROOF_Y := 6.0 ## Underside of the roof block over the concourse.
+
 ## Smooth bumps (h > 0) and hollows (h < 0) added to the road. The weight falls off as a cosine from the flat
 ## `flat` fraction of the footprint (half-extents rx across, rz along; rx INF spans the whole street) to zero at its
 ## edge, so slopes stay below h * PI / 2 / ((1 - flat) * extent) and the tank can ride over all of it.
 const RELIEF: Array[Dictionary] = [
-	# Rubble and collapsed-road ramps. Off-centre ones narrow one side of the street; the two canyon mounds sit on it.
+	# Rubble and collapsed-road ramps. Off-centre ones narrow one side of the street; the canyon mound sits on it.
 	{"d": 150.0, "u": -15.0, "rx": 9.0, "rz": 14.0, "h": 1.2},
 	{"d": 230.0, "u": 18.0, "rx": 9.0, "rz": 12.0, "h": 1.0},
 	{"d": 430.0, "u": 16.0, "rx": 8.0, "rz": 12.0, "h": 1.1},
 	{"d": 520.0, "u": -16.0, "rx": 8.0, "rz": 11.0, "h": 1.4},
-	{"d": 790.0, "u": 17.0, "rx": 10.0, "rz": 15.0, "h": 1.3},
-	{"d": 960.0, "u": -18.0, "rx": 12.0, "rz": 13.0, "h": 1.2},
-	{"d": 1050.0, "u": 16.0, "rx": 9.0, "rz": 12.0, "h": 1.0},
-	{"d": 1420.0, "u": -17.0, "rx": 10.0, "rz": 14.0, "h": 1.4},
+	{"d": 1440.0, "u": -17.0, "rx": 10.0, "rz": 14.0, "h": 1.4},
 	{"d": 1590.0, "u": 15.0, "rx": 9.0, "rz": 12.0, "h": 1.1},
-	{"d": 2600.0, "u": 0.0, "rx": 8.0, "rz": 11.0, "h": 1.2},
-	{"d": 2950.0, "u": -2.0, "rx": 8.0, "rz": 10.0, "h": 1.2},
-	# Collapsed subway and sinkholes across the whole street.
+	{"d": 2200.0, "u": 11.0, "rx": 9.0, "rz": 14.0, "h": 1.6},
+	{"d": 2620.0, "u": 0.0, "rx": 8.0, "rz": 11.0, "h": 1.2},
+	# Wave-washed rubble along the bay approach: the islands a tidal surge runs over without touching the tank.
+	{"d": 3290.0, "u": -12.0, "rx": 10.0, "rz": 13.0, "h": 1.5},
+	{"d": 3335.0, "u": 10.0, "rx": 10.0, "rz": 13.0, "h": 1.5},
+	{"d": 3380.0, "u": -8.0, "rx": 10.0, "rz": 13.0, "h": 1.5},
+	{"d": 3425.0, "u": 14.0, "rx": 10.0, "rz": 13.0, "h": 1.5},
+	{"d": 3470.0, "u": -14.0, "rx": 10.0, "rz": 13.0, "h": 1.5},
+	# Collapsed subway and sinkholes across the whole street; the deck's broken span is the deepest.
 	{"d": 620.0, "u": 0.0, "rx": INF, "rz": 22.0, "h": -1.5, "flat": 0.4},
-	{"d": 1260.0, "u": 0.0, "rx": INF, "rz": 22.0, "h": -1.5, "flat": 0.4},
-	{"d": 2430.0, "u": 0.0, "rx": INF, "rz": 22.0, "h": -1.5, "flat": 0.4},
+	{"d": 1278.0, "u": 0.0, "rx": INF, "rz": 30.0, "h": PIT_FLOOR, "flat": 0.6},
 	{"d": 3000.0, "u": 0.0, "rx": INF, "rz": 22.0, "h": -1.5, "flat": 0.4},
 ]
 
 const BACKDROP_ROWS := [45.0, 95.0] ## Setback of each backdrop row from the wall line, beyond the front tower row.
+## Frontage per section: the roof-height range of the blocks along the street and the share of lots built. Only the
+## boulevard is a continuous canyon of towers; the others are low, patchy or open.
+const FRONTAGE := [
+	{"h": [18.0, 48.0], "built": 1.0},
+	{"h": [10.5, 14.0], "built": 0.8},
+	{"h": [14.0, 30.0], "built": 0.45},
+	{"h": [14.0, 52.0], "built": 1.0},
+	{"h": [6.0, 11.0], "built": 0.9},
+]
+## The canyon's broken frontage by side (-1 left, 1 right): [from, to, kind] with kind tall, stump or open (a flooded
+## lot). It never walls both sides at once, and its inner corners stay open so the bends read.
+const CANYON_LOTS := {
+	-1.0: [[2150.0, 2290.0, "open"], [2290.0, 2420.0, "tall"], [2420.0, 2480.0, "stump"], [2480.0, 2640.0, "open"], [2640.0, 2700.0, "tall"], [2950.0, 3010.0, "tall"], [3010.0, 3200.0, "open"]],
+	1.0: [[2150.0, 2290.0, "tall"], [2290.0, 2410.0, "open"], [2410.0, 2640.0, "tall"], [2640.0, 2700.0, "stump"], [2950.0, 3100.0, "stump"], [3100.0, 3200.0, "tall"]],
+}
+## Bends (from, to, inner side) the backdrop skips on the inside, where it would fold over the road.
+const BENDS := [[2230.0, 2420.0, 1.0], [2440.0, 2630.0, -1.0]]
 
 var frontage_gaps: Array[Dictionary] = []
 
@@ -78,6 +129,7 @@ func _init() -> void:
 	_generate_walls()
 	_generate_splitters()
 	_generate_expressway()
+	_generate_concourse()
 	# Hand-placed landmarks break up the procedural frontage without narrowing the street.
 	# Boulevard bus terminal facade gives the opening hunter a readable peek from cover.
 	_structure("city_building", 336.0, 45.0, Vector3(22.0, 30.0, 24.0), WATER_LEVEL - 4.5, 6)
@@ -86,7 +138,9 @@ func _init() -> void:
 	_structure("city_building", 1760.0, 48.0, Vector3(26.0, 30.0, 24.0), WATER_LEVEL - 4.5, 9)
 	_structure("city_clock", PLAZA_D, 80.0, Vector3(14.0, 30.0, 14.0), WATER_LEVEL - 4.5, 14)
 	_structure("city_building", 2200.0, -38.0, Vector3(24.0, 28.0, 22.0), WATER_LEVEL - 4.5, 11)
-	_structure("city_leaning", 2500.0, 38.0, Vector3(18.0, 26.0, 22.0), WATER_LEVEL - 4.5, 15, 0.0, Vector3(0.0, 0.0, 0.16))
+	_structure("city_leaning", 2670.0, 38.0, Vector3(18.0, 26.0, 22.0), WATER_LEVEL - 4.5, 15, 0.0, Vector3(0.0, 0.0, 0.16))
+	# The tower that falls across the canyon (see ToppleTower) stands on the rubble at the end of its slab until then.
+	_structure("city_building", ramp_lip(SLAB) - SLAB_SIZE.z * 0.5, float(RAMPS[SLAB].u), SLAB_SIZE, float(RAMPS[SLAB].height) + 0.15, SLAB_VARIANT)
 	# A bay-facing rim remains outside the boss arena; the yard and ships fill the water beyond it.
 	_structure("city_building", PLAZA_D - PLAZA_RADIUS - 20.0, -54.0, Vector3(24.0, 32.0, 22.0), WATER_LEVEL - 4.5, 12)
 	# Container yard, freighters and cranes stay in the harbour.
@@ -105,25 +159,47 @@ func _generate_walls() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20261004
 	var ranges := [[0.0, 700.0], [700.0, 1650.0], [1650.0, 2150.0], [2150.0, 3200.0], [3200.0, LENGTH]]
-	for section_range: Array in ranges:
+	for section_index in ranges.size():
+		var section_range: Array = ranges[section_index]
+		var style: Dictionary = FRONTAGE[section_index]
 		for side: float in [-1.0, 1.0]:
 			var d: float = float(section_range[0]) + rng.randf_range(0.0, 10.0)
 			var along: float = rng.randf_range(16.0, 34.0)
 			while d < section_range[1]:
 				var across: float = rng.randf_range(18.0, 30.0)
-				var h: float = rng.randf_range(18.0, 48.0)
-				var setback: float = lateral_limit(d) + 3.0 + rng.randf_range(0.0, 6.0)
+				var h: float = rng.randf_range(style.h[0], style.h[1])
+				var setback: float = street_half(d) + 3.0 + rng.randf_range(0.0, 6.0)
 				var centre: float = side * (setback + across * 0.5)
 				var gap: float = rng.randf_range(0.0, 14.0)
 				var next_along: float = rng.randf_range(16.0, 34.0)
 				var next_d := d + (along + next_along) * 0.5 + gap
+				var built: bool = style.built >= 1.0 or rng.randf() < float(style.built)
 				var within_section := d - along * 0.5 >= float(section_range[0]) and d + along * 0.5 <= float(section_range[1])
 				if within_section and not in_arena(d, 10.0 + along * 0.5):
-					if not _expressway_occupies(d, along, side):
-						_structure("city_building", d, centre, Vector3(across, h, along), WATER_LEVEL - 4.5, _tower_kind(d, rng) + 4 * rng.randi_range(0, 3))
+					var variant := _tower_kind(d, rng) + 4 * rng.randi_range(0, 3)
+					var lot := _lot(section_index, d, side, built)
+					if lot != "open" and not _expressway_occupies(d, along, side) and not _roofed(d, along):
+						_structure("city_building", d, centre, Vector3(across, maxf(h * 0.35, 9.0) if lot == "stump" else h, along), WATER_LEVEL - 4.5, variant)
 					frontage_gaps.append({"d": d + along + gap * 0.5, "u": side * (setback + across + 8.0), "gap": gap, "side": side})
 				d = next_d
 				along = next_along
+
+
+## What stands on a lot at `d` on `side`: a tall tower, a broken stump or nothing (a flooded lot).
+func _lot(section_index: int, d: float, side: float, built: bool) -> String:
+	if section_index == Section.BAY and side < 0.0:
+		return "open" # The bay opens to the water on the left.
+	if section_index == Section.CANYON:
+		for lot: Array in CANYON_LOTS[side]:
+			if d >= lot[0] and d < lot[1]:
+				return lot[2]
+		return "open"
+	return "tall" if built else "open"
+
+
+## Whether a block at `d` would stand where the concourse's walls and roof block are built (see _generate_concourse).
+func _roofed(d: float, along: float) -> bool:
+	return d + along * 0.5 > CONCOURSE.y - 10.0 and d - along * 0.5 < CONCOURSE.z + 10.0
 
 
 ## Two rows of lower, plainer blocks behind the frontage so the street never ends in a void. They climb with
@@ -138,12 +214,11 @@ func _generate_backdrop() -> void:
 			while d < land_end:
 				var along := float(rng.randi_range(0, 2)) * 6.0 + 28.0
 				var across := float(rng.randi_range(0, 2)) * 6.0 + 24.0
-				var base := 22.0 if section_at(d) == Section.CANYON else 30.0
-				var inner := base + float(BACKDROP_ROWS[row]) + rng.randf_range(0.0, 6.0)
+				var inner := street_half(d) + float(BACKDROP_ROWS[row]) + rng.randf_range(0.0, 6.0)
 				var warehouse := d >= SECTION_STARTS[Section.BAY]
 				var roof := float(rng.randi_range(4, 7) if warehouse else (rng.randi_range(11, 22) if row == 0 else rng.randi_range(22, 35))) * 2.0
 				var variant := rng.randi_range(0, 7)
-				if d + along * 0.5 <= land_end:
+				if d + along * 0.5 <= land_end and not _backdrop_skips(d, side):
 					_backdrop(d, side * (inner + across * 0.5), Vector3(across, roof + 4.5, along), variant)
 				d += along + rng.randf_range(0.0, 10.0)
 	# The plaza arena stays clear; blocks ring its rim just outside the keep-out radius.
@@ -151,6 +226,12 @@ func _generate_backdrop() -> void:
 	for step in 24:
 		var angle := TAU * step / 24.0
 		_backdrop(PLAZA_D + cos(angle) * ring, sin(angle) * ring, Vector3(30.0, float(rng.randi_range(11, 22)) * 2.0 + 4.5, 30.0), rng.randi_range(0, 7))
+
+
+## Whether the backdrop leaves `side` of the road at `d` clear: the inside of one of the canyon's bends, where it
+## would fold over the road, and the bay approach's left, which opens onto the water.
+func _backdrop_skips(d: float, side: float) -> bool:
+	return (d >= SECTION_STARTS[Section.BAY] and side < 0.0) or BENDS.any(func(bend: Array) -> bool: return d >= bend[0] and d <= bend[1] and side == bend[2])
 
 
 ## Each part of town has its own mix of tower kinds (see CityKit.tower): shop signs on the boulevard, apartment
@@ -198,6 +279,21 @@ func _generate_expressway() -> void:
 			_structure("city_pier", float(d) + offset, side * 40.0, Vector3(3.0, 10.5, 3.0), WATER_LEVEL - 4.5, int(d / 90) % 4)
 
 
+## The flooded concourse: concrete walls and a collapsed block over the street, and a colonnade along each wall.
+func _generate_concourse() -> void:
+	var length := CONCOURSE.z - CONCOURSE.y + 20.0
+	var centre := (CONCOURSE.y + CONCOURSE.z) * 0.5
+	var wall := street_half(centre) + 3.0
+	for side: float in [-1.0, 1.0]:
+		_structure("city_deck", centre, side * (wall + 4.0), Vector3(8.0, ROOF_Y + 6.0, length), -6.0, 2)
+	_structure("city_building", centre, 0.0, Vector3((wall + 8.0) * 2.0, 16.0, length), ROOF_Y, 1)
+	var d := CONCOURSE.y + 12.0
+	while d < CONCOURSE.z - 6.0:
+		for side: float in [-1.0, 1.0]:
+			_structure("city_pier", d, side * (wall - 1.5), Vector3(2.4, ROOF_Y + 2.0, 2.4), -2.0, 1)
+		d += 24.0
+
+
 ## Pushes a wave and its squad out to the haze. A unit on the expressway deck stays short of the last span on its side, before the deck changes sides at d=1120.
 func _to_horizon(event: Dictionary, d: float) -> void:
 	event.ahead = event.get("ahead", 90.0) # 90 m is the director's default slot, which would pop the unit up mid-street.
@@ -209,11 +305,26 @@ func _to_horizon(event: Dictionary, d: float) -> void:
 		_to_horizon(member, d)
 
 
+## Half width of the street itself: the canyon narrows it, and the bay approach widens it back.
+func street_half(d: float) -> float:
+	return lerpf(lerpf(STREET_HALF, CANYON_HALF, smoothstep(2120.0, 2170.0, d)), STREET_HALF, smoothstep(3160.0, 3220.0, d))
+
+
+## Height of the elevated road over the street at `d` (see DECK_H): its on-ramp, the deck, the span that collapsed
+## and the sagged far end that slopes back down.
+func deck_level(d: float) -> float:
+	var near := DECK_H * smoothstep(ON_RAMP.x, ON_RAMP.y, d) * (1.0 - smoothstep(GAP.x, GAP.x + 6.0, d))
+	var far := FAR_DECK_H * smoothstep(GAP.y - 8.0, GAP.y + 22.0, d) * (1.0 - smoothstep(OFF_RAMP.x, OFF_RAMP.y, d))
+	return near + far
+
+
+## The tank keeps to the deck's width once it is up on the elevated road, and has the whole street below it. The limit
+## closes in no faster than the deck's edge follows it, so the hull's edge never hangs over the drop.
 func lateral_limit(d: float) -> float:
 	for arena in arenas:
 		if absf(d - arena.d) <= arena.radius:
 			return arena.radius - 6.0
-	return 22.0 if section_at(d) == Section.CANYON else 30.0
+	return lerpf(street_half(d), DECK_HALF, smoothstep(0.0, DECK_H, deck_level(d)))
 
 
 func split_lane_centres(index: int) -> Vector2:
@@ -232,7 +343,7 @@ func camera_u(d: float, u: float) -> float:
 
 
 func valley_half_width(d: float) -> float:
-	return lateral_limit(d) + 16.0
+	return street_half(d) + 16.0
 
 
 func height(d: float, u: float) -> float:
@@ -241,18 +352,57 @@ func height(d: float, u: float) -> float:
 		if Vector2(d - arena.d, u).length() < arena.radius or (absf(d - arena.d) <= arena.radius + 2.0 * HULL_MARGIN and absf(u) <= arena.radius - 6.0 + HULL_MARGIN):
 			return -0.15
 	# Under the expressway the drowned road runs on to the piers, so its hunters can come down to the street.
-	# The floor runs 3 m past the hull's limit, fore and aft, so the track samples at the kerb never hang over the drop.
-	var reach := maxf(lateral_limit(d - HULL_MARGIN), lateral_limit(d + HULL_MARGIN)) + HULL_MARGIN + (14.0 if section_at(d) == Section.VIADUCT and signf(u) == expressway_side(d) else 0.0)
+	# The floor runs 3 m past the street's edge, fore and aft, so the track samples at the kerb never hang over the drop.
+	var reach := maxf(street_half(d - HULL_MARGIN), street_half(d + HULL_MARGIN)) + HULL_MARGIN + (14.0 if section_at(d) == Section.VIADUCT and signf(u) == expressway_side(d) else 0.0)
 	if absf(u) > reach:
 		return WATER_LEVEL - 4.5
-	return 0.05 + _kerb(d, absf(u)) + _relief(d, u)
+	var h := 0.05 + _kerb(d, absf(u)) + _relief(d, u) + _deck(d, absf(u)) + CONCOURSE_FLOOR * _dive(d)
+	for index in RAMPS.size():
+		h += _ramp_height(index, d, u)
+	return h
 
 
-## The pavement shelf rises along the boulevard and canyon walls and fades out where the section ends.
+## The pavement shelf rises along the boulevard, the canyon and the bay quay, and fades out where its stretch ends.
 func _kerb(d: float, au: float) -> float:
-	var weight := (1.0 - smoothstep(660.0, 700.0, d)) + smoothstep(2150.0, 2190.0, d) * (1.0 - smoothstep(3160.0, 3200.0, d))
-	var edge := lateral_limit(d) - 4.0
-	return KERB_HEIGHT * weight * clampf((au - edge + KERB_RAMP) / KERB_RAMP, 0.0, 1.0)
+	var weight := (1.0 - smoothstep(660.0, 700.0, d)) + smoothstep(2150.0, 2190.0, d) * (1.0 - smoothstep(3460.0, 3520.0, d)) * (1.0 - _dive(d))
+	var edge := street_half(d) - 4.0
+	var rise := lerpf(1.0, BAY_KERB, smoothstep(3180.0, 3260.0, d)) # The quay shelf is higher, and so its ramp longer.
+	return KERB_HEIGHT * weight * rise * clampf((au - edge + KERB_RAMP * rise) / (KERB_RAMP * rise), 0.0, 1.0)
+
+
+## The elevated road: full height across the deck, then a short fall to the street beyond its edge.
+func _deck(d: float, au: float) -> float:
+	var edge := maxf(lateral_limit(d - HULL_MARGIN), lateral_limit(d + HULL_MARGIN)) + 1.0 # Wide enough for the hull's fore and aft track samples.
+	return deck_level(d) * (1.0 - smoothstep(edge, edge + 5.0, au))
+
+
+## 0 on the street, 1 on the concourse's floor: the street dives in and climbs out again.
+func _dive(d: float) -> float:
+	return band(d, CONCOURSE.x, CONCOURSE.y, CONCOURSE.z, CONCOURSE.w)
+
+
+## The height launch ramp `index` adds at (d, u): a track that climbs along d to a lip and falls away behind it.
+func _ramp_height(index: int, d: float, u: float) -> float:
+	var ramp: Dictionary = RAMPS[index]
+	var s := d - float(ramp.d)
+	if s < 0.0 or s > float(ramp.length) + float(ramp.tail):
+		return 0.0
+	var across := 1.0 - smoothstep(float(ramp.half), float(ramp.half) + float(ramp.flank), absf(u - float(ramp.u)))
+	var along := pow(clampf(s / float(ramp.length), 0.0, 1.0), float(ramp.power)) * (1.0 - smoothstep(0.0, float(ramp.tail), s - float(ramp.length)))
+	return float(ramp.height) * along * across
+
+
+func ramp_at(d: float, u: float) -> float:
+	for ramp in RAMPS:
+		var s := d - float(ramp.d)
+		if s >= 0.0 and s <= float(ramp.length) and absf(u - float(ramp.u)) < float(ramp.half):
+			return s / float(ramp.length)
+	return -1.0
+
+
+## Rail distance of launch ramp `index`'s lip.
+static func ramp_lip(index: int) -> float:
+	return float(RAMPS[index].d) + float(RAMPS[index].length)
 
 
 func _relief(d: float, u: float) -> float:
@@ -269,13 +419,26 @@ func ground_color(d: float, u: float, h: float, _slope: float) -> Color:
 	var au := absf(u)
 	if section_at(d) == Section.PLAZA and Vector2(d - PLAZA_D, u).length() < PLAZA_RADIUS:
 		return Palette.MIST if int(Vector2(d - PLAZA_D, u).length() / 8.0) % 2 else Palette.STONE
-	if section_at(d) == Section.BAY:
+	if d >= BAY_D - BAY_RADIUS - 8.0:
 		return Palette.TEAL
+	var ramp := ramp_at(d, u)
+	if ramp >= 0.0:
+		if d < SECTION_STARTS[Section.PLAZA]:
+			return Palette.BUTTER if int(ramp * float(RAMPS[KICKER].length) / 6.0) % 2 == 0 else Palette.SLATE # Hazard stripes up the kicker.
+		return Palette.SKY.darkened(0.25) # The fallen tower's glass.
 	var limit := lateral_limit(d)
-	if au > limit:
+	if deck_level(d) > 0.8 and au <= limit + 6.0:
+		# The elevated road: dark asphalt between concrete parapets, and a bare concrete wall past its edge.
+		if au > limit + 1.2:
+			return Palette.CONCRETE.darkened(0.15)
+		return Palette.CONCRETE if au > limit - 1.5 else Palette.SLATE.lightened(0.12)
+	if _dive(d) > 0.3:
+		return Palette.INK.lerp(Palette.SLATE, 0.45)
+	var street := street_half(d)
+	if au > street:
 		return Palette.MOSS
 	# Terrain vertices are metres apart, so painted lines would smear into big triangles: only broad surfaces.
-	if au > limit - 4.0:
+	if au > street - 4.0:
 		return Palette.CONCRETE
 	if h > WATER_LEVEL:
 		return Palette.ASH if (int(d / 3.0) + int(u / 3.0)) % 2 == 0 else Palette.STONE
@@ -306,7 +469,7 @@ func water_mesh() -> ArrayMesh:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 77
 	for structure in structures:
-		if structure.kind == "city_deck":
+		if structure.kind == "city_deck" or structure.y >= ROOF_Y:
 			continue
 		for rect: Array in CityKit.foam(structure.size):
 			var lo: Vector2 = rect[0]
@@ -346,12 +509,12 @@ func water_mesh() -> ArrayMesh:
 ## Each part of town has its own haze, blended over the first 120 m of the section: dawn blush on the boulevard,
 ## lilac shade under the expressway, bright cream on the plaza, a deep periwinkle canyon, teal over the bay.
 func fog_tint(d: float) -> Color:
-	return _section_blend([fog_color, fog_color.lerp(Palette.LILAC, 0.4).darkened(0.08), fog_color.lerp(Palette.CREAM, 0.5), fog_color.lerp(Palette.PERIWINKLE, 0.5).darkened(0.1), fog_color.lerp(Palette.TEAL, 0.45)], d)
+	return _section_blend([fog_color, fog_color.lerp(Palette.LILAC, 0.4).darkened(0.08), fog_color.lerp(Palette.CREAM, 0.5), fog_color.lerp(Palette.PERIWINKLE, 0.5).darkened(0.1), fog_color.lerp(Palette.TEAL, 0.45)], d).darkened(0.6 * _dive(d))
 
 
 ## The flood's own colour per section, so the water that fills every frame says where the tank is.
 func water_tint(d: float) -> Color:
-	return _section_blend([Palette.SKY, Palette.PERIWINKLE, Palette.SKY, Palette.SKY.lerp(Palette.LILAC, 0.55), Palette.MINT.lerp(Palette.SKY, 0.3)], d)
+	return _section_blend([Palette.SKY, Palette.PERIWINKLE, Palette.SKY, Palette.SKY.lerp(Palette.LILAC, 0.55), Palette.MINT.lerp(Palette.SKY, 0.3)], d).darkened(0.5 * _dive(d))
 
 
 func _section_blend(colors: Array, d: float) -> Color:
@@ -360,6 +523,10 @@ func _section_blend(colors: Array, d: float) -> Color:
 
 
 func fog_distance(d: float) -> float:
+	return lerpf(_section_fog_distance(d), 110.0, _dive(d))
+
+
+func _section_fog_distance(d: float) -> float:
 	match section_at(d):
 		Section.BOULEVARD:
 			return lerpf(280.0, 320.0, smoothstep(0.0, 700.0, d))
@@ -406,13 +573,13 @@ func events(hard: bool) -> Array[Dictionary]:
 		{"kind": "drone_boat", "u": -8.0, "ahead": 70.0}]})
 	wave.call(670.0, "drone_boat", {"count": 2, "u": -14.0, "spacing": 8.0, "ahead": 60.0})
 
+	# The viaduct is a ground war: rooftop batteries and a hunter on the side viaduct shoot at the tank on its deck, and a
+	# second hunter wades the flood below it. Boats and mines keep to the open water, off the road.
 	wave.call(700.0, "rooftop_battery", {"u": -40.0, "ahead": 150.0, "height": DECK_TOP})
-	wave.call(890.0, "kain", {"u": -38.5, "ahead": 65.0, "height": DECK_TOP, "squad": [
-		{"kind": "sea_mine", "ahead": 90.0}]})
-	wave.call(1000.0, "sea_mine", {"count": 2, "u": 12.0, "spacing": 8.0, "ahead": 45.0})
+	wave.call(890.0, "kain", {"u": -38.5, "ahead": 65.0, "height": DECK_TOP})
+	wave.call(1000.0, "rooftop_battery", {"u": -40.0, "ahead": 45.0, "height": DECK_TOP})
 	e.append({"d": 1070.0, "type": "pickup", "id": "atgm"})
-	wave.call(1120.0, "torpedo_boat", {"u": 8.0, "ahead": 90.0, "drop": "micro", "squad": [
-		{"kind": "sea_mine", "u": -6.0, "ahead": 70.0}]})
+	wave.call(1120.0, "abel", {"u": -26.0, "ahead": 90.0, "drop": "micro"})
 	wave.call(1350.0, "adam", {"u": 17.0, "ahead": 65.0, "peak": true, "squad": [
 		{"kind": "drone_boat", "u": 10.0, "ahead": 70.0}]})
 	e.append({"d": 1480.0, "type": "pickup", "id": "micro", "u": -4.0})
@@ -432,6 +599,9 @@ func events(hard: bool) -> Array[Dictionary]:
 	wave.call(2980.0, "mortar", {"u": -10.0, "ahead": 100.0, "peak": true, "props": {"naval": true}, "squad": [
 		{"kind": "drone_boat", "count": 2, "spacing": 5.0, "ahead": 65.0}]})
 	e.append({"d": 3100.0, "type": "hold", "at": 3115.0, "timeout": 25.0, "reward": "repair"})
+	# The tower across the canyon comes down once the tank is round the first bend; the surge crosses the bay approach.
+	e.append({"d": 2330.0, "type": "topple"})
+	e.append({"d": SURGE_D - 95.0, "type": "surge", "d_center": SURGE_D})
 
 	wave.call(3240.0, "torpedo_boat", {"u": 8.0, "ahead": 85.0, "peak": true})
 	e.append({"d": 3260.0, "type": "pickup", "id": "era", "u": -4.0})
