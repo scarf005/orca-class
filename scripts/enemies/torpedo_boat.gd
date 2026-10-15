@@ -37,19 +37,11 @@ func _init() -> void:
 
 
 func build() -> void:
-	var b := LowPoly.new()
-	b.frustum(Transform3D(Basis(), Vector3(0, -0.3, 0)), Vector2(2.2, 8.0), Vector2(1.8, 7.0), 1.0, Palette.SLATE, Palette.DUSK)
-	b.box(Transform3D(Basis(), Vector3(0, 1.3, 1.4)), Vector3(1.4, 1.0, 1.6), Palette.CONCRETE)
-	b.prism(Transform3D(Basis(), Vector3(0, 1.8, 1.4)), 0.06, 1.4, 4, Palette.INK)
-	b.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(0, 0.9, -1.2)), 0.35, 2.8, 6, Palette.OCHRE)
 	var body := MeshInstance3D.new()
-	body.mesh = b.mesh()
+	body.mesh = ActorMeshes.mesh("torpedo_boat", "hull")
 	model.add_child(body)
-	var lamp := LowPoly.new()
-	lamp.glow = true
-	lamp.box(Transform3D(), Vector3(0.4, 0.2, 0.1), Palette.RED)
-	_lamp.mesh = lamp.mesh()
-	_lamp.position = Vector3(0, 1.3, -2.5)
+	_lamp.mesh = ActorMeshes.mesh("torpedo_boat", "lamp")
+	_lamp.position = Vector3(0, 3.2, 0.9)
 	model.add_child(_lamp)
 	_lane = Course.to_course(global_position).y
 

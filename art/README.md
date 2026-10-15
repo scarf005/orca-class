@@ -55,6 +55,7 @@ from Godot's importer and release builds. Commit both the edited `.blend` and it
 | wing | Stage 3 boss airframe, five belly turrets sharing one hatch, dorsal launch cells, left/right engines |
 | husk | Stage 1 rhinoceros/Hercules beetle: shell, horns, legs |
 | sporefly | Stage 1 botfly with a puffball abdomen: body, spun wing, eyes |
+| torpedo_boat | Stage 2 motor torpedo boat: hull with bridge and bow tubes, mast lamp |
 
 Only Crawler bodies and Gunship fungus need per-spawn mesh deformation. `ActorDeform`
 uses the authored unit surfaces and the original random displacement, radii and

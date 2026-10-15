@@ -410,6 +410,16 @@
         "sha256": "425fd6aceb072b50e63fdc0d69e6378895a86e4e68c670b39420708889456ec6"
       }
     },
+    "torpedo_boat": {
+      "hull": {
+        "triangles": 512,
+        "sha256": "1bdcaf3273c914baecb1adefafd3aceecb6d4b6b56cc74ce3fa8e641c7733a70"
+      },
+      "lamp": {
+        "triangles": 32,
+        "sha256": "1cde821aa2e23b82bbec4173b3c304f14ceabe11478f6405e00f95d01c121d83"
+      }
+    },
     "uav": {
       "body": {
         "triangles": 132,

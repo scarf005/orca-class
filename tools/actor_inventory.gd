@@ -7,7 +7,7 @@ const VARIANTS := {
 	"walker": ["gun", "missile"], "quad_mech": ["flak", "mortar"],
 	"fpv_drone": [""], "uav": ["bomb", "strafe"], "helicopter": [""],
 	"tiltrotor": ["", "drones", "crawlers"], "colossus": [""], "gunship": [""], "flare": [""], "wing": [""],
-	"husk": [""], "sporefly": [""],
+	"husk": [""], "sporefly": [""], "torpedo_boat": [""],
 }
 
 
@@ -46,6 +46,7 @@ static func names(actor: String, variant: String) -> Array:
 		"flare": return ["body"]
 		"husk": return ["body"]
 		"sporefly": return ["body", "wing", "wing", "wing", "wing", "light"]
+		"torpedo_boat": return ["hull", "lamp"]
 		"wing":
 			var result := ["hull"]
 			for name: String in Wing.TURRETS:
