@@ -698,8 +698,13 @@ func _anchor(input: Vector2) -> void:
 		Sfx.play("skid", global_position)
 		var c := Course.to_course(global_position)
 		if world.rail.mode == Rail.Mode.RAIL and Course.stage.ramp_at(c.x, c.y) >= 0.0:
+			# The tracks bite the ramp's rails: a launch-catapult jolt in a burst of sparks.
 			world.rail.kick(RAMP_KICK)
-			world.camera.kick(0.03)
+			world.camera.kick(0.06)
+			world.screen_flash(Palette.AMBER, 0.12)
+			Sfx.play("hit_metal", global_position, 2.0, 0.6)
+			for side: float in [-1.0, 1.0]:
+				_rail_sparks(global_position + global_basis.x * side * TrackMarks.TRACK_OFFSET, 14)
 		if not is_instance_valid(tail.held) and not tail.destroyed:
 			_tail_kick(global_position + global_basis.x * -_drift_dir * 4.5 + global_basis.z * 3.5)
 		return
@@ -744,11 +749,24 @@ func _drift_dust(delta: float) -> void:
 		return
 	_dust_wait = 0.03
 	var fx := World.current.fx
+	var c := Course.to_course(global_position)
+	var on_rails := Course.stage.ramp_at(c.x, c.y) >= 0.0
 	for side: float in [-1.0, 1.0]:
 		var at: Vector3 = global_position + global_basis.x * side * TrackMarks.TRACK_OFFSET + global_basis.z * randf_range(-1.5, 1.5)
 		at.y = Course.height_at(at) + 0.3
+		if on_rails:
+			_rail_sparks(at, 5)
+			continue
 		fx.dust(at, 6, 2.0, Palette.STRAW)
 		fx.spawn(Fx.Kind.GLOW, at, Vector3(-_drift_dir * randf_range(2, 5), randf_range(1, 3), 0).rotated(Vector3.UP, hull_yaw), randf_range(0.5, 0.9), randf_range(1.0, 1.8), [Palette.STRAW, Palette.OCHRE, Palette.MIST][randi() % 3], {"end_size": 2.6, "drag": 2.0, "fade": 0.3})
+
+
+## Track steel grinding a ramp's rail: hot sparks sprayed back and up off the slide.
+func _rail_sparks(at: Vector3, count: int) -> void:
+	var back := World.current.rail.forward() * -1.0
+	for i in count:
+		var dir := (back + Vector3.UP * randf_range(0.2, 0.9) + global_basis.x * randf_range(-0.6, 0.6)).normalized()
+		World.current.fx.spawn(Fx.Kind.FLAME, at, dir * randf_range(12.0, 26.0), randf_range(0.15, 0.4), randf_range(0.2, 0.4), [Palette.WHITE, Palette.BUTTER, Palette.AMBER][randi() % 3], {"gravity": 18.0})
 
 
 ## The drift's tail work: a quick coil over the hull, then the claw slams out onto `ground` on the far

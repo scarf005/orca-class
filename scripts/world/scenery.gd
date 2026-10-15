@@ -125,6 +125,7 @@ var _rng := RandomNumberGenerator.new()
 var _next := 0
 var _live: Array[Spec] = []
 var _wires_of := {} ## Pole spec -> the wire decor specs strung from it.
+var _blinking: Array[Spec] = [] ## Decor that flashes on and off, like a ramp's IN sign.
 var _groups: Array[Dictionary] = [] ## Compound id -> {piece index: Prop}, filled as pieces stream in.
 
 
@@ -395,6 +396,16 @@ func _buried_city() -> void:
 	for arena: Dictionary in stage.arenas:
 		var ring := add_decor(CityKit.decor("arena_ring", 2), float(arena.d), 0.0, 0.0, 0.0)
 		ring.set_meta("range", float(arena.radius) + 260.0)
+	# Launch ramps: two steel rails up each sand ramp to its lip, and a blinking IN sign hung over its foot.
+	var dunes := stage as Stage3
+	for index in Stage3.HILL_COUNT:
+		var d := dunes.hill_d(index)
+		var u := dunes.hill_side(index) * Stage3.HILL_U
+		add_decor(_ramp_rails_mesh(d, u), d, u, 0.0, 0.0).set_meta("range", 700.0)
+		var sign_d := d - 24.0
+		var sign := add_decor(_in_sign_mesh(sign_d), sign_d, u, 0.0, stage.height(sign_d, u) + 15.0)
+		sign.set_meta("range", 700.0)
+		_blinking.append(sign)
 
 
 ## The skyline behind the front towers, merged into one mesh per BACKDROP_CHUNK of street to keep the live count low.
@@ -424,6 +435,10 @@ static func _near_split(d: float, reach: float) -> bool:
 
 
 func _process(_delta: float) -> void:
+	var lit := fmod(Time.get_ticks_msec() * 0.001, 0.6) < 0.4
+	for spec in _blinking:
+		if is_instance_valid(spec.node):
+			spec.node.visible = lit
 	var world := World.current
 	if not world or not world.player or Course.stage.structures.is_empty():
 		return
@@ -790,6 +805,57 @@ func _wires() -> void:
 			previous = top
 			previous_pole = pole
 			d += 40.0
+
+
+const RAMP_GAUGE := TrackMarks.TRACK_OFFSET * 2.0 ## The rails run under the tank's tracks.
+
+
+## Rails, sleepers and guide lights from just short of a ramp's foot to its lip, in the frame of a decor placed at
+## (d, u) on the ground's zero.
+func _ramp_rails_mesh(d: float, u: float) -> Mesh:
+	var origin := Course.to_world(d, u, 0.0)
+	var yaw := Course.yaw_at(d)
+	var local := func(p: Vector3) -> Vector3: return (p - origin).rotated(Vector3.UP, -yaw)
+	var b := LowPoly.new()
+	var step := 4.0
+	var s := -12.0
+	while s < Stage3.HILL_LENGTH:
+		var next := minf(s + step, Stage3.HILL_LENGTH)
+		for side: float in [-1.0, 1.0]:
+			var x := u + side * RAMP_GAUGE * 0.5
+			var a: Vector3 = local.call(Course.ground_at(d + s, x) + Vector3.UP * 0.25)
+			var c: Vector3 = local.call(Course.ground_at(d + next, x) + Vector3.UP * 0.25)
+			b.glow = false
+			b.box(Transform3D(Basis.looking_at(c - a, Vector3.UP), (a + c) * 0.5), Vector3(0.5, 0.5, a.distance_to(c) + 0.05), Palette.DUSK, Palette.ASH)
+			if int(s) % 8 == 0:
+				b.glow = true
+				b.box(Transform3D(Basis.looking_at(c - a, Vector3.UP), a + (a - local.call(Course.ground_at(d + s, u) + Vector3.UP * 0.25)).normalized() * 0.9), Vector3(0.3, 0.2, 0.6), Palette.AMBER)
+		var tie_a: Vector3 = local.call(Course.ground_at(d + s, u))
+		var tie_c: Vector3 = local.call(Course.ground_at(d + s + 1.0, u))
+		b.glow = false
+		b.box(Transform3D(Basis.looking_at(tie_c - tie_a, Vector3.UP), tie_a + Vector3.UP * 0.05), Vector3(RAMP_GAUGE + 1.4, 0.2, 0.6), Palette.WOOD)
+		s += step
+	return b.mesh()
+
+
+## A Metal Slug style IN marker: pixel letters over a down arrow on a dark board, facing the tank coming up the
+## road at `d`, centred on the decor's origin.
+func _in_sign_mesh(d: float) -> Mesh:
+	var yaw := Course.yaw_at(d)
+	var ahead := Course.forward(d).rotated(Vector3.UP, -yaw)
+	var right := ahead.cross(Vector3.UP).normalized()
+	var facing := Basis(right, Vector3.UP, -ahead)
+	var rows := ["###.#...#", ".#..##..#", ".#..#.#.#", ".#..#..##", "###.#...#", ".........", "..#####..", "...###...", "....#...."]
+	var cell := 0.7
+	var b := LowPoly.new()
+	b.box(Transform3D(facing, ahead * 0.3 + Vector3.UP * -cell * 0.5), Vector3(cell * 11.0, cell * 11.0, 0.3), Palette.INK)
+	b.glow = true
+	for r in rows.size():
+		for c in rows[r].length():
+			if rows[r][c] == "#":
+				var at: Vector3 = right * (c - 4) * cell + Vector3.UP * (4 - r) * cell
+				b.box(Transform3D(facing, at), Vector3(cell * 0.9, cell * 0.9, 0.3), Palette.AMBER if r < 5 else Palette.HOT)
+	return b.mesh()
 
 
 func _wire_mesh(a: Vector3, b: Vector3, yaw: float) -> Mesh:
