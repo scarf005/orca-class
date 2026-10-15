@@ -88,6 +88,8 @@ func test_the_tower_groans_before_it_falls_and_lands_flush_with_the_slab_ramp() 
 		tower._process(STEP)
 		time += STEP
 	check(tower._landed, "after the fall it has landed")
+	var arrival := (float(Stage2.RAMPS[Stage2.SLAB].d) - Stage2.TOPPLE_D) / Rail.CRUISE
+	check(arrival >= ToppleTower.GROAN + ToppleTower.FALL, "a cruising tank reaches the slab %.1f s after the groan starts, once it has landed" % arrival)
 	var axis := tower._tower.global_basis.y
 	var slope := atan2(-axis.y, Vector2(axis.x, axis.z).length())
 	var ramp: Dictionary = Stage2.RAMPS[Stage2.SLAB]

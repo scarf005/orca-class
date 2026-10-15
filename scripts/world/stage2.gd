@@ -49,6 +49,7 @@ const KICKER := 0
 const SLAB := 1
 const SLAB_SIZE := Vector3(14.0, 52.0, 6.0) ## The tower that falls across the canyon: width, height, thickness.
 const SLAB_VARIANT := 3 ## A glass curtain wall.
+const TOPPLE_D := 2300.0 ## Where the tower starts to fall.
 
 ## The flooded concourse: the street dives into it, a collapsed block roofs it, and it climbs out again.
 const CONCOURSE := Vector4(2700.0, 2745.0, 2905.0, 2950.0) ## Dive starts, floor level, floor ends, street level.
@@ -626,8 +627,9 @@ func events(hard: bool) -> Array[Dictionary]:
 	wave.call(2980.0, "mortar", {"u": -10.0, "ahead": 100.0, "peak": true, "props": {"naval": true}, "squad": [
 		{"kind": "drone_boat", "count": 2, "spacing": 5.0, "ahead": 65.0}]})
 	e.append({"d": 3100.0, "type": "hold", "at": 3115.0, "timeout": 25.0, "reward": "repair"})
-	# The tower across the canyon comes down once the tank is round the first bend; the surge crosses the bay approach.
-	e.append({"d": 2330.0, "type": "topple"})
+	# The tower across the canyon comes down as the tank rounds the first bend, and has landed before a cruising tank
+	# reaches the slab; the surge crosses the bay approach.
+	e.append({"d": TOPPLE_D, "type": "topple"})
 	e.append({"d": SURGE_D - 95.0, "type": "surge", "d_center": SURGE_D})
 
 	wave.call(3240.0, "torpedo_boat", {"u": 8.0, "ahead": 85.0, "peak": true})
