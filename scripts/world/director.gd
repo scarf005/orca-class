@@ -268,6 +268,10 @@ func _fire(event: Dictionary) -> void:
 			_start_midboss(event)
 		"storm":
 			storm.emit(event.duration)
+		"bulge":
+			var bulge := SandBulge.new()
+			bulge.site = StageEvents.spot(event)
+			world.add_child(bulge)
 		"sprint":
 			world.rail.sprint = float(event.kmh) / 3.6
 		"music":
