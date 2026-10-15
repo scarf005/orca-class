@@ -266,6 +266,25 @@ func test_the_back_is_hit_only_once_the_belly_is_bare_and_its_loss_brings_the_wi
 	check_eq(tank.ramp_lift, 1.0, "the ramps throw as before once it is down")
 
 
+func test_each_engine_trails_its_nozzles_until_it_is_shot_out() -> void:
+	var wing := _wing()
+	_strip_belly(wing)
+	var tank := wing.player()
+	tank.global_position = wing._turret_world("engine_l") + Vector3(0, 25, 60)
+	wing.take_hit(_shell(tank, wing._turret_world("engine_l"), Wing.TURRET_HP + 1.0))
+	check_eq(wing.parts.engine_l, 0.0, "the left engine is shot out")
+	_run(wing, 0.5)
+	for name: String in ["engine_l", "engine_r"]:
+		check_eq(wing._exhausts[name].size(), Wing.NOZZLES.size(), name + " trails one ribbon per nozzle")
+		for trail: FlyerTrail in wing._exhausts[name]:
+			trail._process(STEP)
+			var head := trail._points[trail._live][0]
+			if name == "engine_r":
+				check(Vector3(head.x, head.y, head.z).distance_to(trail.source.global_position) < 0.01, "a live engine's trail starts at its nozzle")
+			else:
+				check(not trail._following(), "a shot-out engine's trail no longer follows its falling wreck")
+
+
 func test_past_the_last_ramp_a_bare_wing_rears_its_back_into_the_roads_sight() -> void:
 	var wing := _wing()
 	_strip_belly(wing)

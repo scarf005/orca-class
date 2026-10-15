@@ -478,12 +478,12 @@
         "sha256": "30162aef1b7f8572c2c563b6c54cc4cdf899ca7a8a5ff97fbb2035921dbe949c"
       },
       "engine_l": {
-        "triangles": 380,
-        "sha256": "711507d87fb91d740a86181e84de22ae13d0812da4add39ed9f4c69d0218fd3b"
+        "triangles": 212,
+        "sha256": "05ed7f2fd69a5fd07c72718a388b8e06e7e386a369989e3ac1b0a95820b34fe6"
       },
       "engine_r": {
-        "triangles": 380,
-        "sha256": "8b60f9a1baa1b56eb2972330e1bf5402e82922bdedefd2cb75b8e73ea75f17eb"
+        "triangles": 212,
+        "sha256": "19b8b57367587c70929134fb38d1f121e3e6da8a44b8ecd065f82927f8a9eb67"
       },
       "flak": {
         "triangles": 142,

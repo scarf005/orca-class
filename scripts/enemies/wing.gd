@@ -20,6 +20,8 @@ const TURRET_AT := {
 	"hangar": Vector3(12.0, -0.4, 3.6),
 }
 const MUZZLE_AT := {"flak": Vector3(0, 0, -3.5), "rocket": Vector3(0, 0, -2.5), "beam": Vector3(0, 0, -2.4), "bomb": Vector3(0, -0.6, 0), "hangar": Vector3(0, 0, -2.0)} ## In each turret's own layout.
+const NOZZLES := [Vector3(1.6, -1.83, 12.42), Vector3(0.0, -1.88, 11.67), Vector3(-1.6, -1.93, 10.93)] ## Exhausts in the right engine's own layout; mirrored on the left.
+const EXHAUST_WIDTH := 2.5 ## Half width of each nozzle's trail, in metres.
 const UPPER := ["spine", "engine_l", "engine_r"] ## On its back: only a tank above the wing sees them.
 const UPPER_AT := {"spine": Vector3(-3.2, 1.33, 0.8), "engine_l": Vector3(-4.4, 0.98, 1.0), "engine_r": Vector3(4.4, 0.98, 1.0)} ## Seated on the skin.
 const LABELS := {"flak": "WING_FLAK", "rocket": "WING_ROCKET", "beam": "WING_BEAM", "bomb": "WING_BOMB", "hangar": "WING_HANGAR", "spine": "WING_SPINE", "engine_l": "WING_ENGINE_L", "engine_r": "WING_ENGINE_R"}
@@ -56,6 +58,7 @@ var _armed: Dictionary[String, bool] = {} ## Turrets that have fired their first
 var _pods: Dictionary[String, Node3D] = {}
 var _hatches: Dictionary[String, Array] = {}
 var _muzzles: Dictionary[String, Node3D] = {}
+var _exhausts: Dictionary[String, Array] = {} ## Each engine's nozzle trails, cut when it is shot out.
 var _cool := 1.0
 var _wind := 0.0
 var _shots := 0
@@ -71,7 +74,6 @@ func _init() -> void:
 	boss = true
 	heavy = true
 	flying = true
-	trails = true
 	armor = 30.0
 	for name: String in TURRETS + UPPER:
 		parts[name] = TURRET_HP
@@ -90,6 +92,13 @@ func _init() -> void:
 func _ready() -> void:
 	super()
 	global_position = _station(0.0)
+	for name: String in ["engine_l", "engine_r"]:
+		_exhausts[name] = []
+		for at: Vector3 in NOZZLES:
+			var nozzle := Node3D.new()
+			nozzle.position = at * Vector3(-1.0 if name == "engine_l" else 1.0, 1.0, 1.0)
+			_pods[name].add_child(nozzle)
+			_exhausts[name].append(FlyerTrail.follow(self, nozzle, EXHAUST_WIDTH))
 
 
 ## A B-2 style airframe: one straight leading-edge sweep, a double-W trailing edge, a grey-blue splintered back with
@@ -133,7 +142,7 @@ func _make_turret(name: String) -> void:
 	_hatches[name] = plates
 
 
-## The dorsal launch cells and the two engine nacelles flaming out over the trailing edge: fixed on the back, no hatches.
+## The dorsal launch cells and the two engine nacelles, their nozzles on the trailing edge: fixed on the back, no hatches.
 func _make_upper(name: String) -> void:
 	var pod := Node3D.new()
 	pod.position = UPPER_AT[name]
@@ -256,6 +265,8 @@ func _break_turret(name: String, direction: Vector3) -> void:
 	world.fx.explosion(pod.global_position, 3.0 * TURRET_SCALE)
 	Sfx.play("blast", pod.global_position)
 	Wreck.launch(pod, pod.global_position, 2.0, true, direction * 8.0 + Vector3.DOWN * 4.0)
+	for trail: FlyerTrail in _exhausts.get(name, []):
+		trail.source = null # Its trails fade out where it stopped.
 	_open[name] = 0.0
 	if _active == name:
 		_active = ""

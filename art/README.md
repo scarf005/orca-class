@@ -52,7 +52,7 @@ from Godot's importer and release builds. Commit both the edited `.blend` and it
 | colossus | Body, three distinct nodes/caps, core, nine tendril segments, spike/geyser/strip/puff attack parts; all phases |
 | gunship | Body, masts/blades/discs, gatling balls/mounts/barrels, chin mount and canisters, flank/nose armor, racks, cannon, bay, three fungus templates; all phases |
 | flare | Decoy body: an enemy-team Entity that intercepts shells, not just a particle |
-| wing | Stage 3 boss airframe, five belly turrets sharing one hatch, dorsal launch cells, left/right engines with their flames |
+| wing | Stage 3 boss airframe, five belly turrets sharing one hatch, dorsal launch cells, left/right engines |
 
 Only Crawler bodies and Gunship fungus need per-spawn mesh deformation. `ActorDeform`
 uses the authored unit surfaces and the original random displacement, radii and

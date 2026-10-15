@@ -21,11 +21,11 @@ var _sample_timer := SAMPLE
 var _newest := 0.0 ## Time of the last position recorded.
 
 
-## Starts a trail behind `enemy` in the world; it outlives the enemy.
-static func follow(enemy: Enemy) -> FlyerTrail:
+## Starts a trail behind `enemy` in the world, or behind its part `from` `width` wide; it outlives the enemy.
+static func follow(enemy: Enemy, from: Node3D = null, width := 0.0) -> FlyerTrail:
 	var trail := FlyerTrail.new()
-	trail.source = enemy
-	trail.setup(enemy.global_position, clampf(enemy.radius * 0.25, 0.25, 1.0))
+	trail.source = from if from != null else enemy
+	trail.setup(trail.source.global_position, width if width > 0.0 else clampf(enemy.radius * 0.25, 0.25, 1.0))
 	World.current.add_child(trail)
 	return trail
 
