@@ -60,6 +60,9 @@ from Godot's importer and release builds. Commit both the edited `.blend` and it
 | glinter | Stage 3 heliostat sniper: post base, faceted mirror dish with emitter |
 | burrower | Stage 3 tunnelling worm: segmented body with spoked cutterhead, left/right mandibles |
 | skimmer | Stage 3 hovercraft sled: skirt, canopy, ducted fans, ram bar |
+| crocodile | Stage 4 flame tank: tracked hull, turret on its ring, towed fuel trailer on the hitch, bow nozzle tip |
+| burner | Stage 4 flame walker add-ons on the walker chassis: arm projector, fuel backpack, and the napalm drone's canisters |
+| fortress | Stage 4 boss: hull with dozer blade and casemate, track units with road wheels, turret ring, twin-gun barrel, hull-fixed flame sponsons with aiming guns, rear fuel tanks |
 
 Only Crawler bodies and Gunship fungus need per-spawn mesh deformation. `ActorDeform`
 uses the authored unit surfaces and the original random displacement, radii and
