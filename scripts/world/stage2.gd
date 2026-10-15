@@ -26,14 +26,16 @@ const KERB_HEIGHT := 0.7 ## Pavement shelf above the drowned road on the bouleva
 const KERB_RAMP := 3.0 ## Metres of road it takes to climb onto the shelf (about 0.22 rise/run).
 const BAY_KERB := 1.8 ## The quay shelf along the bay approach is this many times higher: the surge passes over it.
 
-## The tank's elevated expressway: an on-ramp, a deck above the flood, a span that has collapsed into a flooded
-## gap and its sagged far end, which slopes back down to the street. Heights are over the street.
-const DECK_H := 5.5
+## The tank's elevated expressway: an on-ramp, a deck high over the low roofs, a span that has collapsed into a
+## flooded gap, the far span's broken end hanging down into it, and the far deck's off-ramp. Heights are over the street.
+const DECK_H := 16.0
 const DECK_HALF := 12.0 ## The tank's lateral limit on the deck.
-const ON_RAMP := Vector2(740.0, 830.0)
-const GAP := Vector2(1250.0, 1306.0) ## Where the deck ends and the sagged far end begins.
-const FAR_DECK_H := 2.4
-const OFF_RAMP := Vector2(1340.0, 1420.0)
+const DECK_NARROW := 8.0 ## Height at which the road has narrowed to the deck's width.
+const ON_RAMP := Vector2(705.0, 880.0)
+const GAP := Vector2(1256.0, 1325.0) ## Where the near deck snaps off, just past the kicker, and where the far deck's edge stands.
+const HANG_FOOT := 1288.0 ## Where the far span's hanging end meets the flooded street in the gap.
+const FAR_DECK_H := 11.0
+const OFF_RAMP := Vector2(1400.0, 1560.0)
 const PIT_FLOOR := -1.25 ## The flooded gap under the broken span.
 
 ## Launch ramps (see StageDef.ramp_at): the deck's kicker before the gap, and the fallen tower in the canyon. A track
@@ -62,7 +64,7 @@ const RELIEF: Array[Dictionary] = [
 	{"d": 230.0, "u": 18.0, "rx": 9.0, "rz": 12.0, "h": 1.0},
 	{"d": 430.0, "u": 16.0, "rx": 8.0, "rz": 12.0, "h": 1.1},
 	{"d": 520.0, "u": -16.0, "rx": 8.0, "rz": 11.0, "h": 1.4},
-	{"d": 1440.0, "u": -17.0, "rx": 10.0, "rz": 14.0, "h": 1.4},
+	{"d": 1630.0, "u": -17.0, "rx": 10.0, "rz": 14.0, "h": 1.4},
 	{"d": 1590.0, "u": 15.0, "rx": 9.0, "rz": 12.0, "h": 1.1},
 	{"d": 2200.0, "u": 11.0, "rx": 9.0, "rz": 14.0, "h": 1.6},
 	{"d": 2620.0, "u": 0.0, "rx": 8.0, "rz": 11.0, "h": 1.2},
@@ -74,7 +76,7 @@ const RELIEF: Array[Dictionary] = [
 	{"d": 3470.0, "u": -14.0, "rx": 10.0, "rz": 13.0, "h": 1.5},
 	# Collapsed subway and sinkholes across the whole street; the deck's broken span is the deepest.
 	{"d": 620.0, "u": 0.0, "rx": INF, "rz": 22.0, "h": -1.5, "flat": 0.4},
-	{"d": 1278.0, "u": 0.0, "rx": INF, "rz": 30.0, "h": PIT_FLOOR, "flat": 0.6},
+	{"d": 1280.0, "u": 0.0, "rx": INF, "rz": 22.0, "h": PIT_FLOOR, "flat": 0.6},
 	{"d": 3000.0, "u": 0.0, "rx": INF, "rz": 22.0, "h": -1.5, "flat": 0.4},
 ]
 
@@ -84,7 +86,7 @@ const VIADUCT_SETBACK := 70.0 ## Extra setback of the far row beside the viaduct
 ## boulevard is a continuous canyon of towers; the others are low, patchy or open.
 const FRONTAGE := [
 	{"h": [18.0, 48.0], "built": 1.0},
-	{"h": [10.5, 14.0], "built": 0.8},
+	{"h": [5.0, 9.0], "built": 0.6},
 	{"h": [14.0, 30.0], "built": 0.45},
 	{"h": [14.0, 52.0], "built": 1.0},
 	{"h": [6.0, 11.0], "built": 0.9},
@@ -334,10 +336,10 @@ func street_half(d: float) -> float:
 
 
 ## Height of the elevated road over the street at `d` (see DECK_H): its on-ramp, the deck, the span that collapsed
-## and the sagged far end that slopes back down.
+## and the far span's end, which hangs from its deck down into the gap like a ramp.
 func deck_level(d: float) -> float:
-	var near := DECK_H * smoothstep(ON_RAMP.x, ON_RAMP.y, d) * (1.0 - smoothstep(GAP.x, GAP.x + 6.0, d))
-	var far := FAR_DECK_H * smoothstep(GAP.y - 8.0, GAP.y + 22.0, d) * (1.0 - smoothstep(OFF_RAMP.x, OFF_RAMP.y, d))
+	var near := DECK_H * smoothstep(ON_RAMP.x, ON_RAMP.y, d) * (1.0 - smoothstep(GAP.x, GAP.x + 2.0, d))
+	var far := FAR_DECK_H * clampf((d - HANG_FOOT) / (GAP.y - HANG_FOOT), 0.0, 1.0) * (1.0 - smoothstep(OFF_RAMP.x, OFF_RAMP.y, d))
 	return near + far
 
 
@@ -347,7 +349,7 @@ func lateral_limit(d: float) -> float:
 	for arena in arenas:
 		if absf(d - arena.d) <= arena.radius:
 			return arena.radius - 6.0
-	return lerpf(street_half(d), DECK_HALF, smoothstep(0.0, DECK_H, deck_level(d)))
+	return lerpf(street_half(d), DECK_HALF, smoothstep(0.0, DECK_NARROW, deck_level(d)))
 
 
 func split_lane_centres(index: int) -> Vector2:
@@ -395,7 +397,7 @@ func _kerb(d: float, au: float) -> float:
 
 ## The elevated road: full height across the deck, then a short fall to the street beyond its edge.
 func _deck(d: float, au: float) -> float:
-	var edge := maxf(lateral_limit(d - HULL_MARGIN), lateral_limit(d + HULL_MARGIN)) + 1.0 # Wide enough for the hull's fore and aft track samples.
+	var edge := maxf(lateral_limit(d - HULL_MARGIN), lateral_limit(d + HULL_MARGIN)) + 2.5 # Wide enough for the hull's track samples.
 	return deck_level(d) * (1.0 - smoothstep(edge, edge + 5.0, au))
 
 
@@ -450,6 +452,8 @@ func ground_color(d: float, u: float, h: float, _slope: float) -> Color:
 			return Palette.BUTTER if int(ramp * float(RAMPS[KICKER].length) / 6.0) % 2 == 0 else Palette.SLATE # Hazard stripes up the kicker.
 		return Palette.SKY.darkened(0.25) # The fallen tower's glass.
 	var limit := lateral_limit(d)
+	if d > GAP.x and d < GAP.y + 1.0 and deck_level(d) > 0.4 and au <= limit + 6.0:
+		return Palette.ASH if (int(d / 4.0) + int(u / 4.0)) % 3 == 0 else Palette.STONE.darkened(0.2) # The fallen span's broken underside.
 	if deck_level(d) > 0.8 and au <= limit + 6.0:
 		# The elevated road: dark asphalt between concrete parapets, and a bare concrete wall past its edge.
 		if au > limit + 1.2:

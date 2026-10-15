@@ -17,7 +17,7 @@ func test_stage_driven_street_limits_and_clear_corridor() -> void:
 	check_near(Tank.lateral_limit(300.0), 30.0, 0.01, "boulevard street is 60 m wide")
 	check_near(Tank.lateral_limit(900.0), Stage2.DECK_HALF, 0.01, "the tank keeps to the elevated deck's width")
 	check_near(Tank.lateral_limit(2300.0), 22.0, 0.01, "canyon street narrows to 44 m")
-	for d in [100.0, 1500.0, 1700.0, 2200.0, 3300.0]:
+	for d in [100.0, 1600.0, 1700.0, 2200.0, 3300.0]:
 		check_near(Tank.lateral_limit(d), 22.0 if Course.section_at(d) == Stage2.Section.CANYON else 30.0, 0.01, "stage limit follows every non-arena section")
 	for box in Course.structure_boxes:
 		if box.kind in ["city_deck", "city_pier"] or Course.stage.in_arena(box.d) or _slab_tower(box):
@@ -178,7 +178,7 @@ func test_section_boundaries_and_bending_rail() -> void:
 
 func test_shallow_lanes_and_deep_offroad_pools() -> void:
 	Course.use(2)
-	for d in [100.0, 1500.0, 2400.0, 3300.0]:
+	for d in [100.0, 1600.0, 2400.0, 3300.0]:
 		var lane := Course.ground_at(d, 0.0)
 		var pool := Course.ground_at(d, 40.0)
 		check(Water.surface_at(lane) - lane.y > 0.0 and Water.surface_at(lane) - lane.y < Water.DEEP, "the asphalt is shallow enough to drive")

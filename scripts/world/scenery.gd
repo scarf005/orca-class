@@ -349,13 +349,30 @@ func _city() -> void:
 	_kicker_decor(stage)
 
 
-## Parapets along the elevated road, in 40 m pieces from the on-ramp to the broken span and again on its sagged far end.
+## Parapets along the elevated road, in 40 m pieces from the on-ramp to the broken span and again from the far span's
+## hanging end to the off-ramp, and the snapped end of the near deck: broken slab and rebar hanging over the gap.
 func _expressway_decor(stage: Stage2) -> void:
 	for start in range(int(Stage2.ON_RAMP.x), int(Stage2.OFF_RAMP.y), 40):
 		var middle := float(start) + 20.0
-		if stage.deck_level(middle) < 0.8 or middle > Stage2.GAP.x and middle < Stage2.GAP.y:
-			continue
 		add_decor(_parapet_mesh(stage, middle, 40.0), middle, 0.0, 0.0, 0.0).set_meta("range", 420.0)
+	add_decor(_snapped_end_mesh(), Stage2.GAP.x, 0.0, 0.0, stage.height(Stage2.GAP.x - 1.0, 0.0)).set_meta("range", 700.0)
+
+
+## The near deck's broken end in the frame of a decor at (GAP.x, 0) on the deck: chunks of slab tipped over the edge,
+## and rebar hanging down into the gap.
+func _snapped_end_mesh() -> Mesh:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1256
+	var b := LowPoly.new()
+	var u := -Stage2.DECK_HALF - 1.0
+	while u < Stage2.DECK_HALF + 1.0:
+		var width := rng.randf_range(1.5, 3.5)
+		b.box(Transform3D(Basis.from_euler(Vector3(rng.randf_range(0.2, 0.9), rng.randf_range(-0.2, 0.2), rng.randf_range(-0.15, 0.15))), Vector3(u + width * 0.5, -0.8, rng.randf_range(0.4, 1.4))), Vector3(width, 0.6, rng.randf_range(1.2, 2.6)), Palette.CONCRETE)
+		for k in 2:
+			var length := rng.randf_range(2.0, 7.0)
+			b.box(Transform3D(Basis.from_euler(Vector3(rng.randf_range(-0.25, 0.25), 0.0, rng.randf_range(-0.2, 0.2))), Vector3(u + rng.randf_range(0.0, width), -length * 0.5, rng.randf_range(0.0, 0.8))), Vector3(0.14, length, 0.14), Palette.CORAL.darkened(0.35))
+		u += width
+	return b.mesh()
 
 
 ## A concrete parapet and its lamp posts on both edges of the deck, following its surface, in the frame of a decor
@@ -368,6 +385,9 @@ func _parapet_mesh(stage: Stage2, d: float, length: float) -> Mesh:
 	var step := 4.0
 	var s := -length * 0.5
 	while s < length * 0.5:
+		if stage.deck_level(d + s) < 0.8 or stage.deck_level(d + s + step) < 0.8:
+			s += step
+			continue
 		for side: float in [-1.0, 1.0]:
 			var a: Vector3 = local.call(Course.ground_at(d + s, side * (stage.lateral_limit(d + s) + 0.4)))
 			var c: Vector3 = local.call(Course.ground_at(d + s + step, side * (stage.lateral_limit(d + s + step) + 0.4)))

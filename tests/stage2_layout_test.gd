@@ -11,7 +11,8 @@ func _city() -> World:
 
 
 ## Drives the tank up the kicker and off its lip, drifting across its track at the given `kicks` (rail metres past the
-## ramp's foot); returns [whether it flew, rail distance where it came down, the height of the floor there].
+## ramp's foot); returns [whether it flew, rail distance where it came down, the height of the floor there, the tank's
+## height over the floor two seconds later].
 func _kicker_run(kicks: Array) -> Array:
 	var world := _city()
 	var tank := world.player
@@ -34,20 +35,26 @@ func _kicker_run(kicks: Array) -> Array:
 		if flew and not tank.airborne:
 			break
 	var d := world.rail.d + tank.course_offset
-	return [flew, d, Course.height(d, tank.course_u)]
+	var landed := Course.height(d, tank.course_u)
+	for _i in ceili(2.0 / STEP):
+		tank.tick(STEP)
+		world._process(STEP)
+	return [flew, d, landed, tank.global_position.y - Course.height(world.rail.d + tank.course_offset, tank.course_u)]
 
 
 func test_a_drifted_run_up_the_kicker_leaps_the_collapsed_span() -> void:
 	var result := _kicker_run([2.0, 22.0, 42.0])
 	check(result[0], "the drifted tank leaves the lip")
 	check(result[1] >= Stage2.GAP.y - 2.0, "it lands on the far deck, past the break at d=%d (landed at %.0f)" % [int(Stage2.GAP.y), result[1]])
-	check(result[2] >= 0.5, "and not in the flood (floor %.2f)" % result[2])
+	check(result[2] >= Stage2.FAR_DECK_H - 0.5, "up on the far deck (floor %.2f)" % result[2])
 
 
-func test_a_plain_run_up_the_kicker_drops_into_the_flooded_pit() -> void:
+func test_a_plain_run_up_the_kicker_falls_short_onto_the_hanging_span_and_climbs_out() -> void:
 	var result := _kicker_run([])
 	check(result[0], "the tank still leaves the lip")
 	check(result[1] < Stage2.GAP.y - 2.0, "an undrifted leap comes down inside the break (landed at %.0f)" % result[1])
+	check(result[2] < Stage2.FAR_DECK_H - 3.0, "low on the far span's hanging end (floor %.2f)" % result[2])
+	check(absf(result[3]) < 0.5, "and drives on up it rather than sinking or flying (%.2f m off the floor)" % result[3])
 
 
 ## The slab's hinge tower as a collision box, or an empty dictionary once it has come down.

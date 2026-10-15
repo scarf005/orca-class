@@ -80,7 +80,7 @@ func test_pavement_shelf_stands_above_the_water_on_boulevard_and_canyon_only() -
 		check(stage.height(d, wall - 1.0) >= Stage2.WATER_LEVEL + 0.3, "the shelf at d=%d is dry" % int(d))
 		check_near(stage.height(d, wall - 8.0), 0.05, 0.9, "the road at d=%d stays low" % int(d))
 		check(stage.ground_color(d, wall - 2.0, 0.75, 0.0) == Palette.CONCRETE, "the shelf is painted as pavement")
-	for d in [1500.0, 1600.0]:
+	for d in [1600.0, 1640.0]:
 		check_near(stage.height(d, stage.lateral_limit(d) - 1.0), 0.05, 0.001, "the viaduct keeps its flat awash road edge")
 	check(stage.height(3400.0, stage.street_half(3400.0) - 1.0) >= Stage2.WATER_LEVEL + 0.8, "the bay quay stands above the water")
 
@@ -88,10 +88,10 @@ func test_pavement_shelf_stands_above_the_water_on_boulevard_and_canyon_only() -
 func test_rubble_is_painted_stone_and_awash_road_stays_slate() -> void:
 	Course.use(2)
 	var stage := Course.stage as Stage2
-	var mound := stage.ground_color(1440.0, -17.0, stage.height(1440.0, -17.0), 0.0)
+	var mound := stage.ground_color(1630.0, -17.0, stage.height(1630.0, -17.0), 0.0)
 	check(mound == Palette.STONE or mound == Palette.ASH, "a rubble mound reads as stone or ash")
 	check(stage.ground_color(620.0, 0.0, -1.45, 0.0) == Palette.SLATE.darkened(0.35), "a sinkhole floor is darker than the road")
-	check(stage.ground_color(1500.0, 0.0, 0.05, 0.0) == Palette.SLATE, "the drowned road stays slate")
+	check(stage.ground_color(1600.0, 0.0, 0.05, 0.0) == Palette.SLATE, "the drowned road stays slate")
 
 
 func test_wave_spawn_lanes_do_not_land_in_deep_sinkholes() -> void:
@@ -142,7 +142,7 @@ func test_backdrop_never_touches_front_structures_road_or_arenas() -> void:
 
 func test_backdrop_count_and_heights_are_bounded() -> void:
 	var stage := Stage2.new()
-	check(stage.backdrop.size() >= 250 and stage.backdrop.size() <= 350, "backdrop holds 250..350 blocks (%d)" % stage.backdrop.size())
+	check(stage.backdrop.size() >= 200 and stage.backdrop.size() <= 350, "backdrop holds 200..350 blocks (%d)" % stage.backdrop.size())
 	var rows := [[], []] # roof heights of the near and far rows
 	for block in stage.backdrop:
 		var roof: float = block.size.y - 4.5
