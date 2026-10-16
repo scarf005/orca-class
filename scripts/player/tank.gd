@@ -723,7 +723,10 @@ func _anchor(input: Vector2) -> void:
 	if anchor_cooldown > 0.0:
 		return
 	anchor_cooldown = ANCHOR_COOLDOWN
-	add_heat(DASH_HEAT)
+	var c := Course.to_course(global_position)
+	var on_rails := world.rail.mode == Rail.Mode.RAIL and Course.stage.ramp_at(c.x, c.y) >= 0.0
+	if not on_rails:
+		add_heat(DASH_HEAT) # On a ramp the rails kick the drift and the engine spends nothing.
 	invuln = maxf(invuln, DASH_TIME)
 	_ghost_timer = 0.0
 	world.screen_flash(Palette.CYAN, 0.1)
@@ -735,8 +738,7 @@ func _anchor(input: Vector2) -> void:
 		_drift_dir = signf(input.x)
 		swat(false)
 		Sfx.play("skid", global_position)
-		var c := Course.to_course(global_position)
-		if world.rail.mode == Rail.Mode.RAIL and Course.stage.ramp_at(c.x, c.y) >= 0.0:
+		if on_rails:
 			# The tracks bite the ramp's rails: a launch-catapult jolt in a burst of sparks.
 			world.rail.kick(RAMP_KICK)
 			world.camera.kick(0.06)
