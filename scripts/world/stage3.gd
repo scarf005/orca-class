@@ -362,21 +362,21 @@ func ground_color(d: float, u: float, h: float, slope: float) -> Color:
 	var ridge := 1.0 - absf(_crest.get_noise_2d(d, u))
 	var rise := height(d + 1.5, u) - height(d - 1.5, u)
 	if d < 1800.0 and (d < OPEN_END or band(d, 1540.0, 1580.0, 1740.0, 1790.0) > 0.0):
-		rise = (height(d + 5.0, u) - height(d - 5.0, u)) * 0.3 # The slope of the dune, not of its ripples.
+		rise = (height(d + 6.0, u) - height(d - 6.0, u)) * 0.25 # The slope of the dune, not of its ripples.
 	var sand := Palette.PEACH.lerp(Palette.BUTTER, smoothstep(0.6, 1.0, ridge) * 0.6 + smoothstep(2.0, 8.0, h) * 0.2)
 	sand = sand.lerp(Palette.STRAW, clampf(-grain, 0.0, 1.0) * 0.35)
 	# The open stretches' gentle swells read with the same light and shade as steeper sand: the windward face glows, the
 	# lee falls into dark ochre, the crest keeps a lit edge, the troughs shade and ripple bands run across the sand.
 	var open := 1.0 - smoothstep(520.0, OPEN_END, d) if d < OPEN_END else 0.0
 	var wide := maxf(open, band(d, 1540.0, 1580.0, 1740.0, 1790.0))
-	var lit := lerpf(0.2, 0.015, wide)
-	var shade := lerpf(0.8, 0.12, wide)
+	var lit := lerpf(0.2, 0.1, wide)
+	var shade := lerpf(0.8, 0.35, wide)
 	sand = sand.lerp(Palette.CREAM, smoothstep(lit, shade, rise) * lerpf(0.3, 0.75, wide))
 	sand = sand.lerp(Palette.OCHRE.darkened(0.3 * wide), smoothstep(-lit, -shade, rise) * (0.3 + 0.6 * wide))
 	if wide > 0.0:
 		var bend := (height(d + 8.0, u) + height(d - 8.0, u) - 2.0 * h) * 9.0 / 64.0 # Curvature of the dune itself, not its ripples.
 		sand = sand.lerp(Palette.CREAM, smoothstep(0.1, 0.5, -bend) * 0.7 * wide).lerp(Palette.OCHRE, smoothstep(0.1, 0.5, bend) * 0.4 * wide)
-	sand = sand.lerp(Palette.OCHRE, smoothstep(0.5, 0.9, sin((d + u * 0.35) * 1.3 + _ripple.get_noise_2d(d, u) * 7.0)) * 0.3 * (0.4 + 0.6 * wide))
+	sand = sand.lerp(Palette.OCHRE, smoothstep(0.5, 0.9, sin((d + u * 0.35) * 0.45 + _ripple.get_noise_2d(d, u) * 3.0)) * 0.3 * (0.4 + 0.6 * wide))
 	sand = sand.lerp(Palette.OCHRE, smoothstep(0.25, 0.8, slope) * 0.6)
 	for arena in arenas:
 		var r := Vector2(d - arena.d, u).length()
