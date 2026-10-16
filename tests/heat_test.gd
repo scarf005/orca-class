@@ -222,3 +222,27 @@ func test_respawn_clears_heat() -> void:
 	tank.add_heat(1.0)
 	tank._finish_respawn()
 	check(tank.heat == 0.0 and not tank.overheated, "a fresh hull starts cool")
+
+
+func test_drifts_on_a_launch_ramps_rails_add_no_heat_but_drifts_beside_it_do() -> void:
+	var world := stage("", false, 3)
+	world.director._next_event = world.director.events.size()
+	var stage3 := Course.stage as Stage3
+	var tank := world.player
+	world.rail.d = stage3.hill_d(0) + Stage3.HILL_LENGTH * 0.3
+	tank.course_u = stage3.hill_side(0) * Stage3.HILL_U
+	tank.tick(1.0 / 60.0)
+	var c := Course.to_course(tank.global_position)
+	check(stage3.ramp_at(c.x, c.y) >= 0.0, "the hull sits on ramp 0's rails")
+	for i in 5:
+		tank.anchor_cooldown = 0.0
+		tank.dash(Vector2.RIGHT if i % 2 == 0 else Vector2.LEFT)
+		tank.course_u = stage3.hill_side(0) * Stage3.HILL_U
+		tank.tick(1.0 / 60.0)
+	check_eq(tank.heat, 0.0, "five drifts up the rails cost no heat")
+	check(not tank.overheated, "and never vent")
+	tank.course_u = -stage3.hill_side(0) * Stage3.HILL_U
+	tank.tick(1.0 / 60.0)
+	tank.anchor_cooldown = 0.0
+	tank.dash(Vector2.RIGHT)
+	check_near(tank.heat, Tank.DASH_HEAT, 0.05, "a drift off the rails still costs its chunk")
