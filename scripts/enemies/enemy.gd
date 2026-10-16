@@ -382,16 +382,17 @@ func _burn_flames(delta: float) -> void:
 	var fx := World.current.fx
 	var center := hit_center()
 	var lick := -Vector3(track_velocity.x, 0.0, track_velocity.z).limit_length(20.0) * 0.25
+	var size := minf(death_radius, BURN_SIZE_MAX)
 	var reach := Vector3(radius * 0.8, center_height * 0.9, radius * 0.8)
-	for i in clampi(roundi(1.0 + death_radius * 1.3), 2, 7):
+	for i in clampi(roundi(1.0 + size * 1.3), 2, 7):
 		var offset := Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1))
-		fx.tongue(center + offset * reach, (0.6 + death_radius * 0.5) * randf_range(0.7, 1.3), 0.5 + offset.y * -0.5, lick)
+		fx.tongue(center + offset * reach, (0.6 + size * 0.5) * randf_range(0.7, 1.3), 0.5 + offset.y * -0.5, lick)
 	if randf() < 0.5:
-		fx.smoke_puff(center + Vector3.UP * center_height, 0.6 + death_radius * 0.3, lick)
+		fx.smoke_puff(center + Vector3.UP * center_height, 0.6 + size * 0.3, lick)
 	if randf() < 0.35:
 		fx.embers(center, 1, radius)
 	if death_radius >= BURN_LIGHT_RADIUS and randf() < 0.5:
-		fx.light_flash(center, randf_range(2.5, 4.0), Palette.AMBER, 5.0 + death_radius * 2.0)
+		fx.light_flash(center, randf_range(2.5, 4.0), Palette.AMBER, 5.0 + size * 2.0)
 
 
 ## True during an attack wind-up that a hard enough hit breaks.
