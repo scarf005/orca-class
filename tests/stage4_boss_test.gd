@@ -290,3 +290,23 @@ func test_a_hull_shove_is_not_read_as_driving_speed() -> void:
 	check(thrown > Fortress.HULL_HALF, "the shove moved the tank clear of the hull (%.1f m)" % thrown)
 	tank.tick(STEP)
 	check(tank.velocity.length() < Tank.ARENA_SPEED + Fortress.HULL_SHOVE + 1.0, "the speed readout stays within what the tank and the shove can reach (%.0f km/h)" % (tank.velocity.length() * 3.6))
+
+
+func test_a_burning_fortress_throws_fire_and_smoke_no_bigger_than_an_ordinary_burning_body() -> void:
+	var fortress := _fight()
+	var fx := World.current.fx
+	var before := {}
+	for kind in [Fx.Kind.GLOW, Fx.Kind.FLAME]:
+		before[kind] = fx._pools[kind].duplicate()
+	fortress.burning = 3.0
+	for _i in 60:
+		fortress._burn(STEP)
+	var biggest := 0.0
+	var thrown := 0
+	for kind in [Fx.Kind.GLOW, Fx.Kind.FLAME]:
+		for p in fx._pools[kind]:
+			if p not in before[kind]:
+				thrown += 1
+				biggest = maxf(biggest, maxf(p.size, p.end_size))
+	check(thrown > 0, "the burning hull throws fire and smoke")
+	check(biggest <= Enemy.BURN_SIZE_MAX * 2.6, "no puff or tongue grows past a big ordinary body's (%.1f m)" % biggest)
