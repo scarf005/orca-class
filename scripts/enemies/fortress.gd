@@ -93,7 +93,7 @@ func _init() -> void:
 	set_meta("phase_marks", [0.66, 0.33])
 	set_meta("frame", 0.3)
 	set_meta("giant", 34.0 * SCALE) # How far above its origin the camera keeps in frame.
-	set_meta("zoom", 1.5) # The arena camera backs off this many times to keep the whole hull in view.
+	set_meta("zoom", 2.2) # The arena camera backs off this many times: lower, the modules hide behind the hull.
 
 
 func _ready() -> void:

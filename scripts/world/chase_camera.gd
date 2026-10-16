@@ -138,7 +138,7 @@ func _fade_occluders(target: Vector3) -> void:
 	var blocking: Array[Enemy] = []
 	for node in World.current.enemies:
 		var enemy := node as Enemy
-		if enemy != null and not enemy.dead and enemy.hit_test(global_position, target) >= 0.0:
+		if enemy != null and not enemy.dead and not enemy.has_meta("giant") and enemy.hit_test(global_position, target) >= 0.0: # A giant is never screen-doored: it is the picture.
 			blocking.append(enemy)
 	for enemy in _faded_enemies:
 		if is_instance_valid(enemy) and enemy not in blocking:

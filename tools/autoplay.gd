@@ -340,14 +340,17 @@ func _drive(world: World, t: float) -> void:
 	var target: Entity = null
 	var best := INF
 	for enemy in world.enemies:
-		if enemy is Enemy and (enemy as Enemy).hidden:
+		if not is_instance_valid(enemy) or (enemy is Enemy and (enemy as Enemy).hidden):
 			continue
 		var distance := enemy.global_position.distance_to(tank.global_position)
 		if distance < best and not world.camera.is_position_behind(enemy.hit_center()):
 			best = distance
 			target = enemy
 	if target != null and target.has_method("aim_parts") and not target.aim_parts().is_empty():
-		tank.aim_screen = world.camera.unproject_position(target.aim_parts().values()[0][0]) # Bosses with modules: the first one in sight.
+		# Bosses with modules: the nearest one, which is the least likely to hide behind the hull.
+		var parts: Array = target.aim_parts().values().map(func(part: Array) -> Vector3: return part[0])
+		parts.sort_custom(func(a: Vector3, b: Vector3) -> bool: return a.distance_squared_to(tank.global_position) < b.distance_squared_to(tank.global_position))
+		tank.aim_screen = world.camera.unproject_position(parts[0])
 	elif target:
 		tank.aim_screen = world.camera.unproject_position(target.hit_center())
 	else:
@@ -431,6 +434,8 @@ func _dodge(world: World) -> void:
 	if tank.anchor_cooldown > 0.0:
 		return
 	for projectile in world.projectiles:
+		if not is_instance_valid(projectile):
+			continue
 		var offset := tank.hit_center() - projectile.global_position
 		if projectile.team == Entity.Team.PLAYER or projectile.is_queued_for_deletion() or offset.length() > 12.0 or projectile.velocity.dot(offset) <= 0.0:
 			continue

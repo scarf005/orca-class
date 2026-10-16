@@ -678,13 +678,8 @@ func _jungle() -> void:
 			var angle := Stage4.ENTRY_ANGLE + rng.randf_range(-0.7, 0.7)
 			var radius := float(arena.radius) + rng.randf_range(2.0, 100.0)
 			add("fern", float(arena.d) + cos(angle) * radius, sin(angle) * radius, rng.randf() * TAU, rng.randi_range(0, 5))
-		# The fortress's way in lies in ruins: trees already crushed flat along its line, and broken walls and rubble on the plaza.
+		# The fortress's way in lies in ruins: trees already crushed flat along its line and broken slabs on the plaza, all decor so no shell is stopped by it.
 		_crushed_swath(float(arena.d), float(arena.radius), rng)
-		for i in 26:
-			var angle := TAU * i / 26.0 + rng.randf_range(-0.1, 0.1)
-			var radius := rng.randf_range(24.0, float(arena.radius) - 14.0)
-			var at := Vector2(cos(angle), sin(angle)) * radius
-			add("city_rubble" if i % 3 else "barricade", float(arena.d) + at.x, at.y, rng.randf() * TAU, rng.randi_range(0, 3))
 		# Wrecks stranded on the plaza give the fight something to read distance against and to smash.
 		for i in 14:
 			var angle := TAU * i / 14.0 + rng.randf_range(-0.2, 0.2)
@@ -712,7 +707,8 @@ func _bridge(stage: Stage4) -> void:
 	var yaw := Course.yaw_at(d)
 	var at := func(dd: float, uu: float, y: float) -> Vector3: return (Course.to_world(dd, uu, y) - origin).rotated(Vector3.UP, -yaw)
 	var beam := func(b: LowPoly, from: Vector3, to: Vector3, width: float, color: Color) -> void:
-		b.box(Transform3D(Basis.looking_at(to - from, Vector3.UP), (from + to) * 0.5), Vector3(width, width, from.distance_to(to)), color)
+		var dir := (to - from).normalized()
+		b.box(Transform3D(Basis.looking_at(dir, Vector3.RIGHT if absf(dir.y) > 0.99 else Vector3.UP), (from + to) * 0.5), Vector3(width, width, from.distance_to(to)), color)
 	var steel := Palette.WOOD.lerp(Palette.OCHRE, 0.3)
 	var b := LowPoly.new()
 	var rise := 2.6
@@ -787,6 +783,13 @@ func _crushed_swath(centre_d: float, radius: float, rng: RandomNumberGenerator) 
 		var fall := Basis(Vector3.UP, -heading.angle() + rng.randf_range(-0.5, 0.5)) * Basis(Vector3.RIGHT, -PI * 0.5)
 		b.prism(Transform3D(fall, p), rng.randf_range(0.5, 1.0), rng.randf_range(9.0, 16.0), 6, Palette.WOOD.darkened(0.3), 0.3)
 		b.blob(Transform3D(Basis().scaled(Vector3(1.4, 0.35, 1.4)), p + fall * Vector3(0.0, 13.0, 0.0)), rng.randf_range(2.5, 4.0), Palette.PINE.lerp(Palette.WOOD, 0.4), 0, 0.3, rng.randi())
+	for i in 30: # Broken walls and rubble heaps scattered over the plaza.
+		var angle := TAU * i / 30.0 + rng.randf_range(-0.1, 0.1)
+		var at := Vector2.from_angle(angle) * rng.randf_range(24.0, radius - 14.0)
+		var p := (Course.to_world(centre_d + at.x, at.y, Course.height(centre_d + at.x, at.y)) - origin).rotated(Vector3.UP, -yaw)
+		var tilt := Basis(Vector3.UP, rng.randf() * TAU) * Basis(Vector3.RIGHT, rng.randf_range(-0.25, 0.25))
+		b.box(Transform3D(tilt, p + Vector3.UP * 0.9), Vector3(rng.randf_range(4.0, 9.0), rng.randf_range(1.2, 2.6), 1.1), Palette.CONCRETE.darkened(0.15), Palette.ASH)
+		b.blob(Transform3D(Basis().scaled(Vector3(1.4, 0.5, 1.2)), p + Vector3.UP * 0.4), rng.randf_range(1.2, 2.4), Palette.STONE.lerp(Palette.MOSS, 0.3), 0, 0.4, rng.randi())
 	add_decor(b.mesh(), centre_d, 0.0, 0.0, 0.0).set_meta("range", radius + 300.0)
 
 
