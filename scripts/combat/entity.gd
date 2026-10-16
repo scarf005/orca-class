@@ -162,6 +162,7 @@ func show_damage(delta: float, size: float) -> void:
 		return
 	_smoke_tick = lerpf(0.12, 0.03, hurt)
 	var fx := World.current.fx
+	size = minf(size, BODY_FX_MAX)
 	var at := hit_center() + Vector3(randf_range(-1, 1), randf_range(0.0, 0.8), randf_range(-1, 1)) * size * 0.6
 	var puff := (0.8 + size * 0.35) * (1.0 + hurt)
 	fx.spawn(Fx.Kind.GLOW, at, Vector3(randf_range(-0.6, 0.6), randf_range(3.0, 5.0), randf_range(-0.6, 0.6)), randf_range(1.6, 2.6), puff, [Palette.INK, Palette.DUSK, Palette.SLATE, Palette.ASH][randi() % 4], {"end_size": puff * 4.0, "drag": 0.7, "fade": 0.3})
