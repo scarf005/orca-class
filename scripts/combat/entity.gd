@@ -9,6 +9,7 @@ enum Team { PLAYER, ENEMY, NEUTRAL }
 
 const FLASH_TIME := 0.07
 const OVERKILL := 3.0 ## A killing hit this many times the full health shatters scenery and hurls wrecks.
+const BODY_FX_MAX := 5.0 ## Damage smoke and fire stop growing with a body past this size, so a giant is not buried in its own smoke.
 
 static var _flash_material := _make_flash_material()
 var rest_overlay: Material = null ## Overlay the meshes wear between hit flashes.

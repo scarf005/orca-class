@@ -292,21 +292,29 @@ func test_a_hull_shove_is_not_read_as_driving_speed() -> void:
 	check(tank.velocity.length() < Tank.ARENA_SPEED + Fortress.HULL_SHOVE + 1.0, "the speed readout stays within what the tank and the shove can reach (%.0f km/h)" % (tank.velocity.length() * 3.6))
 
 
-func test_a_burning_fortress_throws_fire_and_smoke_no_bigger_than_an_ordinary_burning_body() -> void:
-	var fortress := _fight()
+## The biggest fire or smoke particle a battered, burning body throws over one second.
+func _biggest_puff(body: Enemy) -> float:
 	var fx := World.current.fx
 	var before := {}
 	for kind in [Fx.Kind.GLOW, Fx.Kind.FLAME]:
 		before[kind] = fx._pools[kind].duplicate()
-	fortress.burning = 3.0
+	body.burning = 3.0
 	for _i in 60:
-		fortress._burn(STEP)
+		body._burn(STEP)
+		body.show_damage(STEP, body.death_radius)
 	var biggest := 0.0
-	var thrown := 0
 	for kind in [Fx.Kind.GLOW, Fx.Kind.FLAME]:
 		for p in fx._pools[kind]:
 			if p not in before[kind]:
-				thrown += 1
 				biggest = maxf(biggest, maxf(p.size, p.end_size))
-	check(thrown > 0, "the burning hull throws fire and smoke")
-	check(biggest <= Enemy.BURN_SIZE_MAX * 2.6, "no puff or tongue grows past a big ordinary body's (%.1f m)" % biggest)
+	return biggest
+
+
+func test_a_battered_burning_fortress_smokes_no_bigger_than_an_ordinary_big_body() -> void:
+	var fortress := _fight()
+	fortress.hp = fortress.max_hp * 0.2
+	var giant := _biggest_puff(fortress)
+	fortress.death_radius = Entity.BODY_FX_MAX
+	var ordinary := _biggest_puff(fortress)
+	check(ordinary > 0.0, "a battered, burning body throws fire and smoke")
+	check(giant <= ordinary + 0.01, "the 112 m hull throws no bigger fire or smoke than a body of the cap's size (%.1f m against %.1f m)" % [giant, ordinary])

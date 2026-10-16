@@ -7,7 +7,6 @@ const MIN_TRACK_DELTA := 0.002 ## Frames shorter than this (hitstop) say nothing
 const TELEPORT_DISTANCE := 6.0 ## A one-frame move this long is a jump, not travel.
 const BURN_FLAME_INTERVAL := 0.1 ## Seconds between the tongues a burning body throws.
 const BURN_LIGHT_RADIUS := 2.2 ## Bodies this big light the ground while they burn.
-const BURN_SIZE_MAX := 5.0 ## Fire and smoke on a burning body stop growing with it past this size, so a giant is not buried in its own smoke.
 const SWAY_LIMIT := 30.0 ## Acceleration (m/s²) that the body's lean and bob stop reading.
 const SWAY_RATE := 6.0 ## Per second the smoothed acceleration closes on the measured one.
 const MG_SPEED := 150.0 ## Every enemy machine gun fires as fast a round as the coax: the telegraph is the warning, not a slow round.
@@ -382,7 +381,7 @@ func _burn_flames(delta: float) -> void:
 	var fx := World.current.fx
 	var center := hit_center()
 	var lick := -Vector3(track_velocity.x, 0.0, track_velocity.z).limit_length(20.0) * 0.25
-	var size := minf(death_radius, BURN_SIZE_MAX)
+	var size := minf(death_radius, BODY_FX_MAX)
 	var reach := Vector3(radius * 0.8, center_height * 0.9, radius * 0.8)
 	for i in clampi(roundi(1.0 + size * 1.3), 2, 7):
 		var offset := Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1))
