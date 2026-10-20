@@ -347,12 +347,12 @@ func music(section: int) -> String:
 		Section.CLEARING:
 			return ""
 		Section.GORGE, Section.AVENUE:
-			return "res://assets/music/stage2_canyon.ogg"
-	return "res://assets/music/stage2_boulevard.ogg"
+			return "res://assets/music/stage4_jungle.ogg"
+	return "res://assets/music/stage4_ruins.ogg"
 
 
 func boss_music(_phase := 0) -> String:
-	return "res://assets/music/stage3_boss.ogg"
+	return "res://assets/music/stage4_boss.ogg"
 
 
 ## Pushes a wave and its squad out to the haze.

@@ -136,3 +136,12 @@ func test_fodder_packs_bring_the_enemy_count_near_stage_ones() -> void:
 	var here: int = count.call(Stage4.new().events(false))
 	var farm: int = count.call(Stage1.new().events(false))
 	check(here * 3 >= farm * 2, "stage 4 sends %d enemies against stage 1's %d" % [here, farm])
+
+
+func test_stage_4_has_its_own_road_and_boss_music() -> void:
+	Course.use(4)
+	var stage := Course.stage as Stage4
+	var tracks := [stage.music(Stage4.Section.GORGE), stage.music(Stage4.Section.AVENUE), stage.music(Stage4.Section.VERGE), stage.boss_music()]
+	for path: String in tracks:
+		check(path.begins_with("res://assets/music/stage4_") and ResourceLoader.exists(path), "stage 4 plays its own existing track: %s" % path)
+	check(stage.music(Stage4.Section.GORGE) != stage.boss_music(), "the boss track differs from the road track")
