@@ -832,8 +832,9 @@ func _draw_ciws_lock(cam: Camera3D) -> void:
 ## A blinking red WARNING plate floating over every enemy that is lining up a heavy shot.
 func _draw_enemy_alerts() -> void:
 	var cam := world.camera
-	for enemy: Enemy in world.enemies:
-		var text := enemy.alert_text()
+	for entity in world.enemies:
+		var enemy := entity as Enemy
+		var text := enemy.alert_text() if enemy else ""
 		if text.is_empty() or fmod(_time, 0.24) > 0.17:
 			continue
 		var above := enemy.hit_center() + Vector3.UP * (enemy.center_height + 3.0)

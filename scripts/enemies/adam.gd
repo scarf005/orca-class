@@ -100,10 +100,10 @@ func build() -> void:
 
 ## Picks the point on the tank-facing side of an ally: the broad hull blocks the firing lane.
 func guard_spot(tank: Tank) -> Vector3:
-	var ally: Enemy
+	var ally: Entity
 	var best := 60.0
-	for enemy: Enemy in World.current.enemies:
-		if enemy == self or enemy.dead or enemy.flying:
+	for enemy in World.current.enemies:
+		if enemy == self or enemy is not Enemy or enemy.dead or enemy.flying:
 			continue
 		var distance := global_position.distance_to(enemy.global_position)
 		if distance < best:

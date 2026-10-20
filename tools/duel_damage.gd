@@ -25,8 +25,8 @@ func run() -> int:
 			if tank.hp < last - 0.01:
 				hits.append("%.1fs:-%.0f" % [elapsed, last - tank.hp])
 			last = tank.hp
-			for enemy: Enemy in screen.world.enemies:
-				var now := enemy.telegraphing()
+			for enemy in screen.world.enemies.filter(func(e: Entity) -> bool: return e is Enemy):
+				var now: bool = enemy.telegraphing()
 				if now and not warned.get(enemy, false):
 					warnings += 1
 				warned[enemy] = now
