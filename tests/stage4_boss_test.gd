@@ -130,6 +130,15 @@ func test_a_full_charge_fired_from_behind_reaches_the_rear_fuel_tanks() -> void:
 		check(fortress.parts[name] < Fortress.MODULE_HP[name], "a shell aimed from behind at %s strikes it, not the hull around it" % name)
 
 
+func test_a_full_charge_fired_from_far_ahead_reaches_the_turret_over_the_bow() -> void:
+	var fortress := _fight(Fortress.HULL_FRONT + 100.0)
+	var tank := world_tank()
+	var muzzle := tank.model.muzzle.global_position
+	tank.fire_cannon(muzzle, (fortress.module_at("turret") - muzzle).normalized(), 1.0)
+	await frames(60)
+	check(fortress.parts.turret < Fortress.MODULE_HP.turret, "a shell aimed from 100 m off the bow clears it and strikes the turret")
+
+
 func test_a_shot_out_track_tears_off_and_slows_and_two_leave_it_stranded() -> void:
 	var fortress := _fight(400.0)
 	var node := fortress._nodes.track_l
