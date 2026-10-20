@@ -149,6 +149,19 @@ func test_a_fortress_limping_on_one_track_stays_inside_the_clearing() -> void:
 		check(nearest >= Fortress.HULL_FRONT * 0.5, "with %s shot out its middle keeps %.0f m inside the rim" % [dead, nearest])
 
 
+func test_gamepad_aim_assist_pulls_toward_a_module_not_the_armoured_hull() -> void:
+	var fortress := _fight(260.0)
+	var tank := world_tank()
+	var camera := World.current.camera
+	camera.global_position = tank.global_position + Vector3(0.0, 12.0, 17.0)
+	camera.look_at(fortress.hit_center())
+	tank.aim_screen = camera.unproject_position(fortress.hit_center())
+	tank._aim_assist(1.0)
+	var modules: Array = fortress.aim_parts().values().map(func(part: Array) -> Vector2: return camera.unproject_position(part[0]))
+	var nearest: float = modules.map(func(at: Vector2) -> float: return at.distance_to(tank.aim_screen)).min()
+	check(nearest < 1.0, "the sight settles %.1f px from the nearest module" % nearest)
+
+
 func test_a_flame_gun_destroyed_cannot_burn_and_the_other_still_does() -> void:
 	var fortress := _fight(Fortress.HULL_FRONT + 25.0)
 	fortress._attack = Fortress.Attack.FLAME
