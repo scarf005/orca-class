@@ -542,7 +542,7 @@ func fog_tint(d: float) -> Color:
 
 ## The flood's own colour per section, so the water that fills every frame says where the tank is.
 func water_tint(d: float) -> Color:
-	return _section_blend([Palette.SKY, Palette.PERIWINKLE, Palette.SKY, Palette.SKY.lerp(Palette.LILAC, 0.55), Palette.MINT.lerp(Palette.SKY, 0.3)], d).darkened(0.5 * _dive(d))
+	return _section_blend([Palette.SKY, Palette.PERIWINKLE, Palette.SAGE.lerp(Palette.BUTTER, 0.3), Palette.LILAC.lerp(Palette.INK, 0.45), Palette.MINT.lerp(Palette.SKY, 0.3)], d).darkened(0.5 * _dive(d))
 
 
 func _section_blend(colors: Array, d: float) -> Color:
