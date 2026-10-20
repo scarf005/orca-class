@@ -1031,13 +1031,17 @@ func _aim_assist(delta: float) -> void:
 	var best_distance := 68.0
 	var best := Vector2.INF
 	for enemy in World.current.enemies:
-		if cam.is_position_behind(enemy.hit_center()):
-			continue
-		var screen := cam.unproject_position(enemy.hit_center())
-		var distance := screen.distance_to(aim_screen)
-		if distance < best_distance:
-			best_distance = distance
-			best = screen
+		# A boss whose armour only sparks pulls the sight onto its modules instead of its middle.
+		var parts: Dictionary = enemy.aim_parts() if enemy.has_method("aim_parts") else {}
+		var points: Array = [enemy.hit_center()] if parts.is_empty() else parts.values().map(func(part: Array) -> Vector3: return part[0])
+		for point: Vector3 in points:
+			if cam.is_position_behind(point):
+				continue
+			var screen := cam.unproject_position(point)
+			var distance := screen.distance_to(aim_screen)
+			if distance < best_distance:
+				best_distance = distance
+				best = screen
 	if best != Vector2.INF:
 		aim_screen = aim_screen.lerp(best, clampf(6.0 * delta, 0.0, 1.0))
 
