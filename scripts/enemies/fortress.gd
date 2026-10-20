@@ -31,6 +31,7 @@ const DRIVE_SPEED := 12.0
 const CHARGE_SPEED := 26.0
 const TURN := 0.22 ## Radians per second the hull swings onto the tank.
 const LIMP_TURN := 0.18 ## Radians per second it veers toward a shot-out track.
+const RIM_KEEP := 30.0 ## Closest its middle comes to the clearing's rim while it fights.
 const FLAME_REACH := 80.0
 const FLAME_ARC := deg_to_rad(100.0) ## How far either side of the bow a flame gun can swing.
 const SHELL_FLIGHT := 1.6
@@ -331,6 +332,10 @@ func _fight(delta: float, tank: Tank) -> void:
 		Attack.FLAME:
 			speed *= 0.5
 	_drive(speed, delta)
+	var center_gap := _rim_gap() - RIM_KEEP
+	if center_gap < 0.0: # Limping, it veers harder than it can steer: the clearing's edge holds it in.
+		var out := Vector3(global_position.x - center.x, 0.0, global_position.z - center.z).normalized()
+		global_position += out * center_gap
 	_update_attack(delta, tank)
 
 
