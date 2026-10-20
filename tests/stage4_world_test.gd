@@ -148,3 +148,14 @@ func test_stage_4_has_its_own_road_and_boss_music() -> void:
 	for path: String in tracks:
 		check(path.begins_with("res://assets/music/stage4_") and ResourceLoader.exists(path), "stage 4 plays its own existing track: %s" % path)
 	check(stage.music(Stage4.Section.GORGE) != stage.boss_music(), "the boss track differs from the road track")
+
+
+func test_no_roadside_fig_crown_hangs_over_the_road_where_the_chase_camera_rides() -> void:
+	var world := stage("", false, 4)
+	var stage := Course.stage as Stage4
+	var crown := 3.2 + 3.8 # PropKit.jungle_tree: the lowest tier's offset plus its largest blob.
+	var over := []
+	for spec: Scenery.Spec in (world.director.scenery as Scenery).specs:
+		if spec.kind == "jungle_tree" and not stage.in_arena(spec.d, 60.0) and absf(spec.u) - crown < stage.lateral_limit(spec.d):
+			over.append(int(spec.d))
+	check(over.is_empty(), "%d fig crowns reach inside the hull limit (first at d=%s)" % [over.size(), over.slice(0, 3)])
