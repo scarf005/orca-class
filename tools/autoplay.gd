@@ -367,10 +367,13 @@ func _drive(world: World, t: float) -> void:
 	if target != null and target.has_method("aim_parts") and not target.aim_parts().is_empty():
 		# Bosses with modules: keep wearing one down; move to the next nearest when it stops losing health.
 		var aim: Dictionary = target.aim_parts()
-		var names: Array = aim.keys()
+		# On a ground boss, modules on the far side of the hull are out of the line of fire.
+		var toward := (tank.global_position - target.global_position).normalized()
+		var facing: Array = aim.keys().filter(func(name: String) -> bool: return target.flying or (aim[name][0] - target.global_position).normalized().dot(toward) > -0.2)
+		var names: Array = facing if not facing.is_empty() else aim.keys()
 		names.sort_custom(func(a: String, b: String) -> bool: return aim[a][0].distance_squared_to(tank.global_position) < aim[b][0].distance_squared_to(tank.global_position))
 		var health := _module_health(target, aim.get(_part, [Vector3.ZERO, 0.0, ""])[2])
-		if _part not in aim:
+		if _part not in names:
 			_part = names[0]
 			_part_health = _module_health(target, aim[_part][2])
 			_part_since = t
