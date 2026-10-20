@@ -47,6 +47,8 @@ const CRUSH_REACH := 30.0
 const SALVO_SHELLS := [4, 5, 6]
 const WINDOW := [2.6, 2.0, 1.5] ## Seconds between attacks by phase.
 
+static var _hull_shape: TriangleMesh ## The hull mesh, for rounds that cross the box around it.
+
 var parts: Dictionary[String, float] = {}
 var phase := 0 ## 0..2: the hull's health bands, each faster than the last.
 var _state := State.ENTER
@@ -195,10 +197,16 @@ func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 	if best >= 0.0:
 		return best
 	var to_model := model.global_transform.affine_inverse()
-	var entry: Variant = HULL_BOX.grow(extra_radius).intersects_segment(to_model * from, to_model * to)
-	if HULL_BOX.grow(extra_radius).has_point(to_model * from):
-		return 0.0
-	return from.distance_to(model.global_transform * (entry as Vector3)) if entry != null else -1.0
+	var local_from := to_model * from
+	var local_to := to_model * to
+	var box := HULL_BOX.grow(extra_radius)
+	if box.intersects_segment(local_from, local_to) == null and not box.has_point(local_from):
+		return -1.0
+	# Inside its bounds, only the hull's own surface stops a round: the box would bury the modules on its decks.
+	if _hull_shape == null:
+		_hull_shape = ActorMeshes.mesh("fortress", "hull").generate_triangle_mesh()
+	var surface := _hull_shape.intersect_segment(local_from, local_to)
+	return from.distance_to(model.global_transform * (surface.position as Vector3)) if not surface.is_empty() else -1.0
 
 
 func take_hit(hit: Hit) -> void:
