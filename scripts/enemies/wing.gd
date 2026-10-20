@@ -42,6 +42,8 @@ const BARE_ALTITUDE := 70.0 ## Lower once the belly is bare, its wingtips still 
 const LOW_ALTITUDE := 30.0 ## Past the last ramp: low enough for the road to reach.
 const LOW_BARE_ALTITUDE := 42.0 ## High enough for its tail to clear the sand while it rears.
 const SKIRT_ANGLE := deg_to_rad(10.0) ## Steepest climb a shot can take into the belly's turret bays.
+const BANK := 0.3 ## Radians it rolls into its sway over the ramps.
+const LOW_BANK := 0.08 ## Past them: a hundred metres out on the span, a steeper roll lifts the wingtip turrets out of the road's sight.
 const REAR := 0.55 ## Radians it pitches nose-up past the last ramp once its belly is bare.
 const LIFT := 1.9 ## How much harder the ramps throw the tank up while the wing is in the air: a drifted leap reaches its belly.
 const BARE_LIFT := 2.65 ## And once the belly is bare: over its back.
@@ -307,11 +309,11 @@ func behave(delta: float) -> void:
 	if tank == null:
 		return
 	tank.ramp_lift = BARE_LIFT if bare() else LIFT
-	var before := global_position
 	global_position = global_position.lerp(_station(age), 1.0 - exp(-2.5 * delta))
-	var moved := global_position - before
-	if moved.length() > 0.001:
-		_forward = _forward.lerp(moved.normalized(), minf(delta * 10.0, 1.0)).normalized()
+	# Nose down the road even while the rail stands still and it only sways, so its belly keeps facing the tank.
+	var d := Course.to_course(global_position).x
+	var road := Course.to_world(d + 1.0, 0.0) - Course.to_world(d, 0.0)
+	_forward = _forward.lerp(Vector3(road.x, 0.0, road.z).normalized(), minf(delta * 10.0, 1.0)).normalized()
 	_pose(delta)
 	if _active.is_empty():
 		_open_next()
@@ -321,7 +323,7 @@ func behave(delta: float) -> void:
 ## Banks into its sway; down low with a bare belly it rears nose-high, its back to the chasing tank.
 func _pose(delta: float) -> void:
 	var ahead := _forward
-	var up := Vector3.UP.rotated(_forward, -cos(age * 0.5) * 0.3)
+	var up := Vector3.UP.rotated(_forward, -cos(age * 0.5) * (LOW_BANK if _low() else BANK))
 	if bare() and _low():
 		var right := _forward.cross(Vector3.UP).normalized()
 		ahead = _forward.rotated(right, REAR)

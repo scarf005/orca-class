@@ -182,6 +182,7 @@ func test_where_the_rail_stops_past_the_last_ramp_every_belly_turret_opens_into_
 		var exposed := 0.0
 		for _i in ceili(20.0 / STEP):
 			world.player.tick(STEP)
+			wing.age += STEP
 			wing.behave(STEP)
 			exposed += STEP * float(wing._exposed().has(name))
 		check(exposed >= 15.0, "the %s turret, the last one left, is open to the stopped tank's gun for %.1f s of 20" % [name, exposed])
