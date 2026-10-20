@@ -12,7 +12,7 @@ enum Attack { NONE, FLAME, SALVO, CRUSH }
 
 const MODULES := ["track_l", "track_r", "flame_l", "flame_r", "turret", "fuel_l", "fuel_r"]
 const LABELS := {"track_l": "FORTRESS_TRACK_L", "track_r": "FORTRESS_TRACK_R", "flame_l": "FORTRESS_FLAME_L", "flame_r": "FORTRESS_FLAME_R", "turret": "FORTRESS_TURRET", "fuel_l": "FORTRESS_FUEL_L", "fuel_r": "FORTRESS_FUEL_R"}
-const MODULE_HP := {"track_l": 3200.0, "track_r": 3200.0, "flame_l": 2200.0, "flame_r": 2200.0, "turret": 3900.0, "fuel_l": 1600.0, "fuel_r": 1600.0}
+const MODULE_HP := {"track_l": 800.0, "track_r": 800.0, "flame_l": 550.0, "flame_r": 550.0, "turret": 1000.0, "fuel_l": 400.0, "fuel_r": 400.0} ## About 60 s of every full charge landing.
 const MODULE_RADIUS := {"track_l": 24.0, "track_r": 24.0, "flame_l": 8.5, "flame_r": 8.5, "turret": 14.0, "fuel_l": 8.5, "fuel_r": 8.5}
 const ROUND_DAMAGE := 40.0 ## Like the other bosses, main-gun damage counts in rounds.
 const SCALE := 1.75 ## The model is built this much bigger than its 64 m design sheet; the measures below are the sheet's times this.
