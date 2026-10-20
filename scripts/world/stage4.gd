@@ -431,10 +431,11 @@ func events(hard: bool) -> Array[Dictionary]:
 	e.append({"d": CLEARING_D - 170.0, "type": "pickup", "id": "dragon", "ahead": 15.0})
 	e.append({"d": CLEARING_D - 130.0, "type": "boss", "kind": "fortress"})
 
-	# Between the flame crews, napalm drone swarms the tank mows down on the move.
+	# Between the flame crews, plain drone swarms the tank mows down on the move: napalm stays with the crews, or the
+	# fodder would carpet the road in fire.
 	var swarms := [135.0, 330.0, 600.0, 870.0, 1100.0, 1335.0, 1940.0, 2470.0, 3180.0, 3640.0]
 	for index in swarms.size():
-		wave.call(swarms[index], "fpv", {"count": 3, "u": 10.0 * (1 - index % 2 * 2), "spacing": 6.0, "ahead": 70.0, "height": 5.0, "props": napalm})
+		wave.call(swarms[index], "fpv", {"count": 3, "u": 10.0 * (1 - index % 2 * 2), "spacing": 6.0, "ahead": 70.0, "height": 5.0})
 
 	if hard:
 		for event in e:

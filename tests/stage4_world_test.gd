@@ -99,10 +99,13 @@ func test_the_script_ends_with_the_checkpoint_refit_and_the_fortress() -> void:
 	check(events.filter(func(e: Dictionary) -> bool: return e.type == "pickup" and e.d > checkpoint[0].d and e.d < boss[0].d).size() >= 3, "the clearing is stocked before the fight")
 
 
-func test_every_wave_is_flame_crews_with_at_most_two_escorts() -> void:
+func test_every_hunter_wave_is_flame_crews_with_at_most_two_escorts_and_the_swarms_between_carry_no_napalm() -> void:
 	var flame := ["crocodile", "burner", "napalm"]
 	for event in Stage4.new().events(false):
 		if event.type != "wave":
+			continue
+		if event.kind == "fpv" and event.get("count", 1) > 1:
+			check(not event.get("props", {}).get("napalm", false), "the swarm at d=%d is plain drones" % event.d)
 			continue
 		var kinds: Array = ["napalm" if event.get("props", {}).get("napalm", false) else event.kind]
 		var escorts := 0
