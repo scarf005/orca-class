@@ -30,6 +30,7 @@ const ENTER_SPEED := 18.0
 const DRIVE_SPEED := 12.0
 const CHARGE_SPEED := 26.0
 const TURN := 0.22 ## Radians per second the hull swings onto the tank.
+const STRANDED_TURN := 0.5 ## Of its turn rate left with both tracks gone: wherever it is stranded, its guns can still be reached.
 const LIMP_TURN := 0.18 ## Radians per second it veers toward a shot-out track.
 const RIM_KEEP := 30.0 ## Closest its middle comes to the clearing's rim while it fights.
 const FLAME_REACH := 80.0
@@ -337,7 +338,7 @@ func _fight(delta: float, tank: Tank) -> void:
 	var goal := tank.global_position - global_position
 	if _rim_gap() < 70.0 and (global_position - center).dot(Vector3(-sin(_yaw), 0.0, -cos(_yaw))) > 0.0:
 		goal = center - global_position # Swings back from the rim.
-	var turn := TURN * (1.0 + 0.4 * phase) * factor
+	var turn := TURN * (1.0 + 0.4 * phase) * maxf(factor, STRANDED_TURN) # Stranded, it still drags its bow round onto the tank.
 	if _attack in [Attack.CRUSH, Attack.FLAME] and _attack_time >= WIND * Game.telegraph_scale():
 		turn = 0.0 # Committed: the charge and the lit jets keep the line the telegraph showed.
 	elif _tracks() == 1:
