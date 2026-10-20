@@ -65,6 +65,8 @@ var _shots := 0
 var _shot_timer := 0.0
 var _lane := Vector3.ZERO
 var _dying := 0.0
+var _aim_frame := -1
+var _aim_cache := {}
 var _ram_ready := false ## Set by each charge; spent by the one ram it may land.
 var _crush_from := Vector3.ZERO
 var _crush_timer := 0.0
@@ -174,14 +176,37 @@ func module_at(name: String) -> Vector3:
 	return _nodes[name].global_position
 
 
+## The standing modules the tank's gun has a clear line to: the hull hides the rest, so they are never offered as a
+## lock or an assist pull that would only spark off the armour.
 func aim_parts() -> Dictionary:
-	var result := {}
 	if _state != State.FIGHT:
-		return result
+		return {}
+	if _aim_frame == Engine.get_process_frames():
+		return _aim_cache
+	_aim_frame = Engine.get_process_frames()
+	_aim_cache = {}
+	var tank := player()
 	for name: String in MODULES:
-		if parts[name] > 0.0:
-			result[name] = [module_at(name), MODULE_RADIUS[name], tr(LABELS[name])]
-	return result
+		if parts[name] > 0.0 and (tank == null or _in_line(tank.model.muzzle.global_position, name)):
+			_aim_cache[name] = [module_at(name), MODULE_RADIUS[name], tr(LABELS[name])]
+	return _aim_cache
+
+
+## Whether a round from `from` reaches module `name` before the hull's surface or another module: well inside its
+## sphere, since a track's reaches into the hull and its near rim lies under the armour.
+func _in_line(from: Vector3, name: String) -> bool:
+	var center := module_at(name)
+	var reach: float = from.distance_to(center) - MODULE_RADIUS[name] * 0.5
+	for other: String in MODULES:
+		if other != name and parts[other] > 0.0:
+			var first := Entity.segment_sphere(from, center, module_at(other), MODULE_RADIUS[other])
+			if first >= 0.0 and first < Entity.segment_sphere(from, center, center, MODULE_RADIUS[name]):
+				return false
+	var to_model := model.global_transform.affine_inverse()
+	if _hull_shape == null:
+		_hull_shape = ActorMeshes.mesh("fortress", "hull").generate_triangle_mesh()
+	var surface := _hull_shape.intersect_segment(to_model * from, to_model * center)
+	return surface.is_empty() or from.distance_to(model.global_transform * (surface.position as Vector3)) >= reach
 
 
 func module_states() -> Array:
