@@ -336,6 +336,20 @@ func test_the_flame_gun_aims_on_its_own_pivot_apart_from_its_mount_and_the_turre
 	check(absf(fortress._barrel.rotation.y) < 0.01, "nor the barrel")
 
 
+func test_a_tank_left_in_the_charges_lane_is_rammed_once_and_thrown_out_of_it() -> void:
+	var fortress := _fight(Fortress.HULL_FRONT + 40.0)
+	var tank := world_tank()
+	var rams := {"n": 0}
+	tank.damaged.connect(func(_who: Entity, hit: Hit) -> void: rams.n += int(hit.kind == Hit.Kind.RAM))
+	fortress._attack = Fortress.Attack.CRUSH
+	fortress._attack_time = 0.0
+	for _i in roundi(6.0 / STEP):
+		tank.invuln = 0.0
+		fortress.behave(STEP)
+	check(rams.n >= 1, "the charge reaches the tank")
+	check_eq(rams.n, 1, "and rams it once, not again every second it stays pinned to the bow")
+
+
 func test_the_hull_is_solid_and_throws_a_tank_off_it_for_a_hull_hit() -> void:
 	var fortress := _fight()
 	var tank := world_tank()
