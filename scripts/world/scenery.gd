@@ -746,19 +746,19 @@ func _bridge(stage: Stage4) -> void:
 			for k in 4:
 				b.prism(Transform3D(Basis(Vector3.RIGHT, (k - 1.5) * 0.25) * Basis(Vector3.FORWARD, (k % 2 - 0.5) * 0.4), base + Vector3(-0.9 + k * 0.6, top, 0.0)), 0.07, 2.2, 3, Palette.ASH, 0.02)
 	# Pylons of the cable-stayed bridge tower over the lip, so the gorge is read from far up the road: stays run back
-	# down to the deck and snapped ones hang beyond.
+	# down to the deck in the pylons' own plane, outside the chase camera's lane, and snapped ones hang beyond.
 	for side: float in [-1.0, 1.0]:
-		var x: float = u + side * (Stage4.RAMP_HALF + 2.6)
+		var x: float = u + side * (Stage4.RAMP_HALF + PYLON_OUT)
 		var foot: Vector3 = at.call(Stage4.GORGE_LIP - 2.0, x, stage.height(Stage4.GORGE_LIP - 2.0, x) - 1.0)
 		b.box(Transform3D(Basis(), foot + Vector3.UP * 12.0), Vector3(2.2, 24.0, 2.2), Palette.CONCRETE)
 		b.box(Transform3D(Basis(), foot + Vector3.UP * 24.5), Vector3(2.6, 1.2, 2.6), Palette.ASH)
 		var top := foot + Vector3.UP * 23.0
 		for k in range(1, 7):
-			beam.call(b, top, at.call(Stage4.GORGE_LIP - 2.0 - 5.0 * k, u + side * (Stage4.RAMP_HALF + 0.3), stage.height(Stage4.GORGE_LIP - 5.0 * k, u)) + Vector3.UP * 0.5, 0.18, Palette.INK)
+			beam.call(b, top, at.call(Stage4.GORGE_LIP - 2.0 - 5.0 * k, x, stage.height(Stage4.GORGE_LIP - 5.0 * k, x)) + Vector3.UP * 0.5, 0.18, Palette.INK)
 		for k in 3:
 			var hang := top + Vector3(-side * 0.3 * k, 0.0, -2.0 - 2.5 * k)
 			beam.call(b, hang, hang + Vector3(-side * 1.2, -7.0 + k * 1.5, -1.5), 0.18, Palette.INK)
-	b.box(Transform3D(Basis(), at.call(Stage4.GORGE_LIP - 2.0, u, stage.height(Stage4.GORGE_LIP - 2.0, u) + 25.0)), Vector3((Stage4.RAMP_HALF + 2.6) * 2.0 + 2.6, 1.1, 1.6), Palette.CONCRETE)
+	b.box(Transform3D(Basis(), at.call(Stage4.GORGE_LIP - 2.0, u, stage.height(Stage4.GORGE_LIP - 2.0, u) + 25.0)), Vector3((Stage4.RAMP_HALF + PYLON_OUT) * 2.0 + 2.6, 1.1, 1.6), Palette.CONCRETE)
 	# The far half: its deck dangles from the opposite bank into the gorge.
 	var far: Vector3 = at.call(Stage4.GORGE_FAR - 4.0, u, -2.0)
 	b.box(Transform3D(Basis(Vector3.RIGHT, 0.6), far), Vector3(Stage4.RAMP_HALF * 2.0, 0.7, 10.0), Palette.CONCRETE, Palette.ASH)
@@ -1205,6 +1205,7 @@ func _wires() -> void:
 
 
 const RAMP_GAUGE := TrackMarks.TRACK_OFFSET * 2.0 ## The rails run under the tank's tracks.
+const PYLON_OUT := 9.0 ## How far the broken bridge's pylons and their stays stand outside its deck: clear of the chase camera.
 
 
 ## Rails, sleepers and guide lights from just short of a ramp's foot to its lip, in the frame of a decor placed at
