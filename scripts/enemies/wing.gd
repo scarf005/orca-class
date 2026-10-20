@@ -3,8 +3,7 @@ extends Enemy
 ## Stage 3 boss: a flying wing that keeps station high over the dune run while the rail floors it at 140 km/h.
 ## Its five belly turrets open one at a time and fire down at the tank, each until it is shot out. Skirts under
 ## the belly hide them from any shot climbing steeper than SKIRT_ANGLE, so the ground cannot reach them: the tank
-## drifts up a ramp to build speed and leaps off its lip high enough to snipe the open turret, with time slowed
-## while it has the shot. Once the belly is bare the ramps throw the tank higher, over the wing, and the structures on
+## drifts up a ramp to build speed and leaps off its lip high enough to snipe the open turret. Once the belly is bare the ramps throw the tank higher, over the wing, and the structures on
 ## its back come into play: a dorsal missile rack and the two engines. The hull itself only sparks; the turrets and
 ## those structures are the boss's health. Past the last ramp it comes down low enough to be shot from the road,
 ## rearing nose-high to show its back to the road once the belly is bare, and when the last part goes it falls out of the sky.
@@ -43,8 +42,6 @@ const BARE_ALTITUDE := 70.0 ## Lower once the belly is bare, its wingtips still 
 const LOW_ALTITUDE := 30.0 ## Past the last ramp: low enough for the road to reach.
 const LOW_BARE_ALTITUDE := 42.0 ## High enough for its tail to clear the sand while it rears.
 const SKIRT_ANGLE := deg_to_rad(10.0) ## Steepest climb a shot can take into the belly's turret bays.
-const SLOW := 0.6 ## Time scale while the tank has a turret in sight in the air.
-const SLOW_LIMIT := 1.0 ## Seconds of each leap that run slowed; the rest of the shot plays at full speed.
 const REAR := 0.55 ## Radians it pitches nose-up past the last ramp once its belly is bare.
 const LIFT := 1.9 ## How much harder the ramps throw the tank up while the wing is in the air: a drifted leap reaches its belly.
 const BARE_LIFT := 2.65 ## And once the belly is bare: over its back.
@@ -57,7 +54,6 @@ var _active := "" ## The open belly turret, or the spine once the belly is bare.
 var _next := 0
 var _open: Dictionary[String, float] = {}
 var _armed: Dictionary[String, bool] = {} ## Turrets that have fired their first volley.
-var _slowed := 0.0 ## Slowed seconds spent on the current leap.
 var _pods: Dictionary[String, Node3D] = {}
 var _hatches: Dictionary[String, Array] = {}
 var _muzzles: Dictionary[String, Node3D] = {}
@@ -304,10 +300,8 @@ func _low() -> bool:
 
 
 func behave(delta: float) -> void:
-	var world := World.current
 	var tank := player()
 	if _state == State.DYING:
-		world.slow = 1.0
 		_die_in_the_air(delta)
 		return
 	if tank == null:
@@ -322,9 +316,6 @@ func behave(delta: float) -> void:
 	if _active.is_empty():
 		_open_next()
 	_update_turrets(delta, tank)
-	var slowing := tank.airborne and _slowed < SLOW_LIMIT and not _exposed().is_empty()
-	_slowed = _slowed + delta if slowing else _slowed * float(tank.airborne)
-	world.slow = SLOW if slowing else 1.0
 
 
 ## Banks into its sway; down low with a bare belly it rears nose-high, its back to the chasing tank.
@@ -524,7 +515,6 @@ func _die_in_the_air(delta: float) -> void:
 
 func on_death(_hit: Hit) -> void:
 	var world := World.current
-	world.slow = 1.0
 	if player() != null:
 		player().ramp_lift = 1.0
 	world.fx.explosion(global_position, 12.0 * TURRET_SCALE)

@@ -37,7 +37,7 @@ func _open(wing: Wing, name: String) -> void:
 ## Drives the tank up ramp 0 and off its lip, drifting across the track every `every` seconds (0: never), until
 ## it lands, firing at `part` when it comes into sight if `fire`. Returns [whether `part` came into sight in the air, slowest time scale seen, peak height over the lip,
 ## whether a main-gun round fired the moment it came into sight struck it rather than the hull, seconds it stayed in
-## sight, seconds that ran slowed].
+## sight].
 func _leap(wing: Wing, every: float, part := "flak", fire := true) -> Array:
 	var world := World.current
 	var tank := world.player
@@ -49,7 +49,6 @@ func _leap(wing: Wing, every: float, part := "flak", fire := true) -> Array:
 	var side := 1.0
 	var wait := 0.0
 	var seen := 0.0
-	var slowed := 0.0
 	for _i in ceili(12.0 / STEP):
 		if every > 0.0 and not tank.airborne:
 			wait -= STEP
@@ -68,13 +67,13 @@ func _leap(wing: Wing, every: float, part := "flak", fire := true) -> Array:
 		if tank.airborne and wing.in_sight(part):
 			seen += STEP
 		world._process(STEP)
-		slow = minf(slow, world.slow)
-		slowed += STEP * float(world.slow < 1.0)
+		if world._hitstop <= 0.0:
+			slow = minf(slow, Engine.time_scale / world.game_speed)
 		if flew and not tank.airborne:
 			break
 	check(flew, "the tank leaves the lip")
 	check(not tank.airborne, "and lands again")
-	return [sight, slow, peak, wing.parts[part] < Wing.TURRET_HP, seen, slowed]
+	return [sight, slow, peak, wing.parts[part] < Wing.TURRET_HP, seen]
 
 
 func _borer() -> Borer:

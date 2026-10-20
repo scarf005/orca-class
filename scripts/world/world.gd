@@ -46,10 +46,6 @@ var game_speed := 1.0:
 	set(value):
 		game_speed = value
 		_apply_time_scale()
-var slow := 1.0: ## Bullet time on top of the game speed (1: none).
-	set(value):
-		slow = value
-		_apply_time_scale()
 var _chain := 0
 var _last_kill := -INF
 var _enemy_container := Node3D.new()
@@ -535,7 +531,7 @@ func hitstop(duration: float) -> void:
 
 func _apply_time_scale() -> void:
 	if current == self:
-		Engine.time_scale = game_speed * slow * (0.05 if _hitstop > 0.0 else 1.0)
+		Engine.time_scale = game_speed * (0.05 if _hitstop > 0.0 else 1.0)
 
 
 func screen_flash(color: Color, amount: float) -> void:
