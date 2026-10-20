@@ -8,7 +8,7 @@ extends Enemy
 enum Phase { ARMORED, STRIPPED }
 enum Attack { NONE, BORE, BURROW, ERUPT, SPORES }
 
-const BODY_HP := 3600.0
+const BODY_HP := 1800.0
 const ROUND_DAMAGE := 40.0 ## Main-gun damage counts in rounds, like the other bosses.
 const SEGMENTS := 15
 const SPACING := 4.2

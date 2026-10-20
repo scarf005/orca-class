@@ -8,7 +8,7 @@ enum Phase { ARMORED, STRIPPED }
 enum Attack { NONE, GUN, CANNON, RAM, MLRS }
 
 const SCALE := 1.3 ## Drawn this much larger than its model-space layout.
-const BODY_HP := 3700.0
+const BODY_HP := 1900.0
 const ROUND_DAMAGE := 40.0 ## Like the colossus, main-gun damage counts in rounds, not the tank's raw thousands.
 const SPEED := 32.0
 const RAM_SPEED := 65.0
