@@ -303,9 +303,9 @@ func ground_color(d: float, u: float, h: float, slope: float) -> Color:
 	if gorge_depth(d, u) > 0.5:
 		return Palette.STONE.lerp(Palette.SLATE, clampf(gorge_depth(d, u) / GORGE_DEPTH, 0.0, 1.0) * 0.6).lerp(Palette.MOSS, growth * 0.25)
 	if au < lateral_limit(d) - 2.0:
-		# The road: cracked asphalt with moss and ferns where the roots have lifted it.
-		var tarmac := Palette.STONE.lerp(Palette.ASH, 0.4 + patch * 0.3)
-		return tarmac.lerp(floor_color, clampf(0.35 + growth * 0.8 + smoothstep(6.0, lateral_limit(d), au) * 0.5, 0.0, 1.0))
+		# The road: pale laterite dust over the old asphalt, moss creeping in only at the verges and where roots lifted it.
+		var dust := Palette.OCHRE.lerp(Palette.CONCRETE, 0.2 + patch * 0.15)
+		return dust.lerp(floor_color, clampf(0.05 + growth * 0.3 + smoothstep(6.0, lateral_limit(d), au) * 0.7, 0.0, 1.0))
 	return floor_color
 
 
