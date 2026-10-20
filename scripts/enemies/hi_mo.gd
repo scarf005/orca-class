@@ -7,7 +7,7 @@ extends Enemy
 enum Phase { SKATER, STRIPPED, DESPERATE }
 enum Attack { NONE, GUN, MISSILES, RAIL, CHARGE, STOMP, SWEEP, HOP }
 
-const BODY_HP := 160000.0 ## Skating limits uptime; bare flanks still take full main-gun damage. About 60 s for perfect aim.
+const BODY_HP := 95000.0 ## Skating limits uptime; bare flanks still take full main-gun damage. About 50 s for perfect aim.
 const PHASE_MARKS := [0.65, 0.30]
 const LEG_HP := 100.0
 const SCALE := 1.7 ## The whole machine is drawn this much larger than its model-space layout.
