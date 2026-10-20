@@ -15,6 +15,7 @@ const FALL_HEIGHT := 6.0 ## Fuel that ends its flight higher than this over the 
 var reach := 30.0
 var life := 1.5
 var thickness := 1.0 ## Scales the cone and the flames: a fortress's jet is a wall of fire.
+var burn := TANK_DAMAGE ## Per tick to the tank inside the cone.
 var _owner: Enemy
 var _muzzle: Node3D
 var _tick := 0.0
@@ -71,7 +72,7 @@ func _process(delta: float) -> void:
 	if tank != null and not tank.dead:
 		var along := along_cone(origin, dir, reach, tank.hit_center(), tank.radius * 0.6, thickness)
 		if along >= 0.0:
-			var burn := Hit.make(Hit.Kind.FIRE, TANK_DAMAGE, tank.hit_center(), dir)
+			var burn := Hit.make(Hit.Kind.FIRE, burn, tank.hit_center(), dir)
 			burn.source = _owner
 			burn.weapon = "flame"
 			tank.take_hit(burn)

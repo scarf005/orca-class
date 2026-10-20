@@ -34,6 +34,7 @@ const LIMP_TURN := 0.18 ## Radians per second it veers toward a shot-out track.
 const RIM_KEEP := 30.0 ## Closest its middle comes to the clearing's rim while it fights.
 const FLAME_REACH := 80.0
 const FLAME_ARC := deg_to_rad(100.0) ## How far either side of the bow a flame gun can swing.
+const FLAME_BURN := 2.0 ## Per tick: the wall of fire is too wide to dodge at once, so it burns lighter than a crew's jet.
 const SHELL_FLIGHT := 1.6
 const WIND := 1.2
 const CRUSH_TIME := 2.4
@@ -516,7 +517,9 @@ func _update_flame(delta: float, tank: Tank, wind: float) -> void:
 			world.fx.tongue(_muzzles[name].global_position, 1.5, 0.8)
 	if burning and _jets.is_empty():
 		for name in _flames_alive():
-			_jets.append(FlameJet.start(self, _muzzles[name], 2.6 + 0.4 * phase, FLAME_REACH, 3.0))
+			var jet := FlameJet.start(self, _muzzles[name], 2.6 + 0.4 * phase, FLAME_REACH, 3.0)
+			jet.burn = FLAME_BURN
+			_jets.append(jet)
 	if burning and _jets.all(func(jet) -> bool: return not is_instance_valid(jet)):
 		_end_attack()
 
