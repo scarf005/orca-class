@@ -224,6 +224,23 @@ func test_the_flame_is_announced_before_it_burns_and_then_burns_the_tank() -> vo
 	check(burned - warned >= Fortress.WIND * 0.95, "the first burn comes at least %.1f s after the warning (%.2f s)" % [Fortress.WIND, burned - warned])
 
 
+func test_a_tank_caught_in_one_whole_flame_attack_keeps_most_of_its_hull() -> void:
+	var fortress := _fight(Fortress.HULL_FRONT + 25.0)
+	fortress.phase = 2
+	fortress._pattern = 1
+	fortress._next_attack = 0.0
+	var tank := world_tank()
+	var full := tank.hp
+	var burns := {"n": 0}
+	tank.damaged.connect(func(_who: Entity, hit: Hit) -> void: burns.n += int(hit.kind == Hit.Kind.FIRE))
+	var at := fortress.global_position
+	for _i in roundi(6.0 / STEP):
+		fortress.global_position = at # Held still so only the flame reaches the tank.
+		_step(fortress, STEP)
+	check(burns.n >= 10, "the jets burn the tank throughout (%d burns)" % burns.n)
+	check(tank.hp >= full * 0.6, "and leave %.0f of %.0f hull: one flame never decides the fight" % [tank.hp, full])
+
+
 func test_the_flame_attack_ends_once_its_jets_burn_out() -> void:
 	var fortress := _fight(Fortress.HULL_FRONT + 25.0)
 	fortress._pattern = 1
