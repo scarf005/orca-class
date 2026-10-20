@@ -239,6 +239,14 @@ func take_hit(hit: Hit) -> void:
 		World.current.hitstop(0.05)
 	if parts[struck] <= 0.0:
 		_break(struck, hit.direction)
+		# Stranded and disarmed, it can neither turn its back nor fight: the fuel left on that back cooks off, so the
+		# fight never hangs on tanks parked where the clearing leaves no line to them.
+		if ["track_l", "track_r", "flame_l", "flame_r", "turret"].all(func(name: String) -> bool: return parts[name] <= 0.0):
+			for name: String in ["fuel_l", "fuel_r"]:
+				if parts[name] > 0.0:
+					parts[name] = 0.0
+					_break(name, hit.direction)
+			hp = 0.0
 	phase = int(hp <= max_hp * 0.66) + int(hp <= max_hp * 0.33)
 	if hp <= 0.0:
 		_state = State.DYING
