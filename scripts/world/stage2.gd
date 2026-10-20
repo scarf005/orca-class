@@ -7,7 +7,7 @@ enum Section { BOULEVARD, VIADUCT, PLAZA, CANYON, BAY }
 const SECTION_STARTS := [0.0, 700.0, 1650.0, 2150.0, 3200.0]
 const LENGTH := 4000.0
 const DECK_TOP := 6.25 ## Side viaducts and rooftops hunters stand on, this high above the drowned road.
-const HORIZON_SHIFT := 120.0 ## Squads spawn this much farther out, in the haze, and walk in instead of popping up mid-street.
+const HORIZON_SHIFT := 50.0 ## Squads spawn this much farther out, in the haze, and walk in instead of popping up mid-street.
 const WATER_LEVEL := 0.3
 const HULL_MARGIN := 3.0
 const PLAZA_D := 1900.0

@@ -10,7 +10,7 @@ enum Section { OUTSKIRTS, AVENUE, PIT, CANYON, RUN }
 
 const SECTION_STARTS := [0.0, 650.0, 1550.0, 2000.0, 3300.0]
 const LENGTH := 7900.0
-const HORIZON_SHIFT := 120.0 ## Squads spawn this much farther out, in the haze, and walk in.
+const HORIZON_SHIFT := 50.0 ## Squads spawn this much farther out, in the haze, and walk in.
 const DRIFT := 9.0 ## How high the sand banks against the towers.
 const HULL_MARGIN := 3.0 ## The floor extends this far past the hull limit so the track samples at the edge never hang.
 const PIT_D := 1800.0

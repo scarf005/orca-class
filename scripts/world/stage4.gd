@@ -9,7 +9,7 @@ enum Section { VERGE, STUMPS, FORD, GORGE, AVENUE, CLEARING }
 
 const SECTION_STARTS := [0.0, 1100.0, 1900.0, 2500.0, 3300.0, 4100.0]
 const LENGTH := 4900.0
-const HORIZON_SHIFT := 120.0 ## Squads spawn this much farther out, in the haze, and walk in.
+const HORIZON_SHIFT := 50.0 ## Squads spawn this much farther out, in the haze, and walk in.
 const HULL_MARGIN := 3.0 ## The floor extends this far past the hull limit so the track samples at the edge never hang.
 const CLEARING_D := 4500.0
 const CLEARING_RADIUS := 160.0

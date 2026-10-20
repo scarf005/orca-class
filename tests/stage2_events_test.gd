@@ -188,7 +188,7 @@ func test_opening_gunboat_spawns_in_the_haze_and_marks_its_lane_before_launching
 	world.camera.snap()
 	world.camera.follow(0.0)
 	var boat := world.director.spawn_wave(event)[0] as TorpedoBoat
-	check(Course.to_course(boat.global_position).x - event.d > 160.0, "the gunboat spawns out in the haze, not mid-street")
+	check(Course.to_course(boat.global_position).x - event.d > 120.0, "the gunboat spawns down the street, past the 90 m slot where it would pop up mid-street")
 	boat._set_state(TorpedoBoat.State.AIM)
 	boat._aim_lane(world.player)
 	var shots := world.projectiles.size()
