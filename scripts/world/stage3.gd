@@ -400,6 +400,12 @@ func camera_u(d: float, u: float) -> float:
 	return clampf(u * 0.75, -reach, reach)
 
 
+## The camera drops under the soffit before the tank reaches the portal and climbs back once it is out behind the tank.
+func camera_height(d: float) -> float:
+	var under := band(d, TUNNEL_D - 70.0, TUNNEL_D - 15.0, TUNNEL_END + ChaseCamera.RAIL_BACK + 5.0, TUNNEL_END + 70.0)
+	return lerpf(ChaseCamera.RAIL_HEIGHT, TUNNEL_CLEAR - 2.5, under)
+
+
 ## Each stretch has its own haze: peach on the outskirts, amber in the avenue, rose over the pit, a dim brown
 ## storm in the canyon and white-gold on the run.
 func fog_tint(d: float) -> Color:

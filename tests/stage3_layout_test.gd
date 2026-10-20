@@ -343,6 +343,18 @@ func test_the_camera_rides_under_the_tunnel_roof() -> void:
 	check(stage.tunnel_share(d) > 0.99, "this is deep inside the tunnel")
 
 
+func test_the_chase_camera_holds_its_spot_through_the_tunnel_portals() -> void:
+	var world := _stage3()
+	world.director._next_event = world.director.events.size()
+	for d in range(int(Stage3.TUNNEL_D) - 80, int(Stage3.TUNNEL_D) + 60, 2) + range(int(Stage3.TUNNEL_END) - 40, int(Stage3.TUNNEL_END) + 80, 2):
+		world.rail.d = d
+		world.player._place(d)
+		world.camera.snap()
+		world.camera.follow(STEP)
+		var pulled := world.camera.global_position.distance_to(world.camera._eye)
+		check(pulled < 0.5, "at d=%d the roof pulls the camera %.1f m in off its chase spot" % [d, pulled])
+
+
 func test_the_tunnel_roof_and_walls_never_fade_for_the_camera() -> void:
 	check("tunnel_roof" in ChaseCamera.SOLID_OVERHEAD and "tunnel_wall" in ChaseCamera.SOLID_OVERHEAD, "the roof and the walls stay solid around the camera")
 

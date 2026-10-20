@@ -137,6 +137,11 @@ func camera_u(_d: float, u: float) -> float:
 	return u * 0.75
 
 
+## How high the chase camera rides over the ground when the rail is at `d`.
+func camera_height(_d: float) -> float:
+	return ChaseCamera.RAIL_HEIGHT
+
+
 ## The height of standing water at course position `c` (d, u), or -INF when there is none.
 func water_surface(_c: Vector2) -> float:
 	return -INF

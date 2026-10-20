@@ -59,7 +59,7 @@ func run() -> int:
 			var target := tank_ground + Vector3.UP
 			var camera_u := Course.stage.camera_u(d, capture_u)
 			var eye := Course.to_world(d - ChaseCamera.RAIL_BACK, camera_u)
-			eye.y = maxf(Course.height(d - ChaseCamera.RAIL_BACK, camera_u), tank_ground.y - 1.0) + ChaseCamera.RAIL_HEIGHT
+			eye.y = maxf(Course.height(d - ChaseCamera.RAIL_BACK, camera_u), tank_ground.y - 1.0) + Course.stage.camera_height(d)
 			var look := Course.to_world(d + ChaseCamera.RAIL_LOOK_AHEAD, capture_u * 0.85, tank_ground.y)
 			world.camera.global_position = scenery.camera_position(target, eye) if scenery else eye
 			world.camera.look_at(look, Vector3.UP)

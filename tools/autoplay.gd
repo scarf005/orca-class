@@ -170,7 +170,7 @@ func run() -> int:
 		if world.rail.mode != Rail.Mode.ARENA and Course.stage is Stage2:
 			var camera_u := Course.stage.camera_u(world.rail.d, world.player.course_u)
 			var expected_eye := Course.to_world(world.rail.d - ChaseCamera.RAIL_BACK, camera_u)
-			expected_eye.y = maxf(Course.height(world.rail.d - ChaseCamera.RAIL_BACK, camera_u), world.player.global_position.y - 1.0) + ChaseCamera.RAIL_HEIGHT
+			expected_eye.y = maxf(Course.height(world.rail.d - ChaseCamera.RAIL_BACK, camera_u), world.player.global_position.y - 1.0) + Course.stage.camera_height(world.rail.d)
 			var safe_eye := world.director.scenery.camera_position(world.player.hit_center(), expected_eye)
 			if safe_eye.distance_to(expected_eye) > 0.05 and not Course.stage.in_arena(world.rail.d):
 				camera_pull_ins += 1

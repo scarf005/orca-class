@@ -93,7 +93,7 @@ func follow(delta: float) -> void:
 		var u := player.course_u
 		var camera_u := Course.stage.camera_u(d, u)
 		eye = Course.to_world(d - RAIL_BACK, camera_u)
-		eye.y = maxf(Course.height(d - RAIL_BACK, camera_u), player.global_position.y - 1.0) + RAIL_HEIGHT
+		eye.y = maxf(Course.height(d - RAIL_BACK, camera_u), player.global_position.y - 1.0) + Course.stage.camera_height(d)
 		look = Course.to_world(d + RAIL_LOOK_AHEAD, u * 0.85, player.global_position.y - 1.0)
 		# A boss fought along the road (the flying wing) asks to be kept in frame while it is ahead.
 		if is_instance_valid(world.boss) and world.boss.has_meta("frame") and Course.to_course(world.boss.global_position).x > d:
