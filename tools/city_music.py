@@ -139,6 +139,15 @@ def drum_bar(song, kit, bar, style, fill):
         put(2, kit.s, 0.75)
         for i in range(4):
             put(i, kit.o, 0.22, 0.3)
+    elif style == "tribal":  # jungle: kick on 1 and 3, backbeat snare, syncopated tom hand-drums and shaker sixteenths
+        for beat in (0, 2, 3.5 if bar % 2 else 2.75):
+            put(beat, kit.k, 0.75)
+        for beat in (1, 3):
+            put(beat, kit.s, 0.55)
+        for i, beat in enumerate((0.5, 0.75, 1.25, 2.5, 3.25, 3.75)):
+            put(beat, kit.toms[1 + i % 3], 0.5, -0.4 if i % 2 else 0.4)
+        for i in range(16):
+            put(i * 0.25, kit.h, 0.3 if i % 4 else 0.42, 0.3)
     elif style == "toms":  # tom ostinato for menacing intros
         for i, beat in enumerate((0, 0.75, 1.5, 2, 2.75, 3.5)):
             put(beat, kit.toms[2 + i % 2], 0.7, -0.3 if i % 2 else 0.3)
@@ -359,6 +368,57 @@ def boss_sections(phase_two):
         {"bars": 8, "chords": A_HERO, "lead": A_ANSWER, "voice": "both", "harmony": True, "drums": "double", "bass": "oct8", "gtr": "gallop", "keys": "pad", "hits": True},
     ]
 
+# Stage 4 road (jungle): G minor, a swaggering brass theme over hand-drum percussion; the ruins half is B minor, steadier.
+J_VERSE = ["Gm", "Eb", "F", "D", "Cm", "Eb", "D", "Gm"]
+J_THEME = "G5:1 -:.5 Bb5:.5 D6:1 C6:1 | Bb5:1.5 A5:.5 G5:2 | F5:1 A5:1 C6:1.5 Bb5:.5 | A5:3 -:1 | G5:1 Bb5:1 D6:1 G6:1 | F6:1.5 Eb6:.5 D6:2 | C6:1 D6:1 C6:1 A5:1 | G5:4"
+J_CHORUS = ["Bb", "F", "Gm", "C", "Bb", "Eb", "D", "Gm"]
+J_HOOK = "D6:1.5 D6:.5 F6:1 G6:1 | F6:1.5 Eb6:.5 D6:2 | Bb5:1 D6:1 F6:2 | E6:2 C6:2 | D6:1.5 D6:.5 F6:1 A6:1 | G6:1.5 F6:.5 Bb6:2 | A6:1 G6:1 F6:1 D6:1 | G6:4"
+J_CLEAR = "D5:2 G5:2 | Bb5:3 A5:1 | G5:2 F5:2 | A5:4 | Bb5:2 D6:2 | C6:3 Bb5:1 | A5:2 F#5:2 | G5:4"
+
+JUNGLE = [
+    {"bars": 4, "chords": ["Gm", "Eb", "F", "D"], "drums": "tribal", "bass": "gallop"},
+    {"bars": 8, "chords": J_VERSE, "lead": J_THEME, "voice": "brass", "drums": "tribal", "bass": "oct8", "gtr": "stab"},
+    {"bars": 8, "chords": J_VERSE, "lead": J_THEME, "voice": "both", "harmony": True, "drums": "tribal", "bass": "oct8", "gtr": "chug", "keys": "pad"},
+    {"bars": 16, "chords": J_CHORUS, "lead": J_HOOK, "voice": "both", "harmony": True, "drums": "double", "bass": "oct8", "gtr": "chug", "keys": "pad", "hits": True},
+    {"bars": 8, "chords": J_VERSE, "lead": J_CLEAR, "voice": "bell", "octave": 12, "keys": "both", "drums": "light", "bass": "long"},
+    {"bars": 8, "chords": J_VERSE, "lead": J_THEME, "voice": "guitar", "octave": 12, "drums": "tribal", "bass": "walk", "gtr": "chug", "keys": "pad"},
+    {"bars": 8, "chords": J_CHORUS, "lead": J_HOOK, "voice": "both", "harmony": True, "drums": "double", "bass": "oct8", "gtr": "gallop", "keys": "pad", "hits": True},
+]
+
+# Stage 4 ruins: A minor played a whole step up, a sparser and darker march.
+R_RIFF = ["Am", "F", "G", "Am", "F", "G", "Dm", "E"]
+R_THEME = "E5:1 A5:1 C6:1.5 B5:.5 | A5:2 E5:2 | G5:1 B5:1 D6:1.5 C6:.5 | B5:3 -:1 | A5:1 C6:1 E6:1 A6:1 | G6:1.5 F6:.5 E6:2 | D6:1 F6:1 E6:1 B5:1 | A5:4"
+R_RISE = ["F", "G", "Am", "Am", "F", "G", "E", "E"]
+R_CLIMB = "C6:1 F6:1 A6:2 | G6:1.5 F6:.5 D6:2 | E6:1 G6:1 C6:2 | B5:3 -:1 | A5:1 C6:1 F6:2 | G6:2 D6:2 | E6:1 G#5:1 B5:1 E6:1 | A5:4"
+
+RUINS = [
+    {"bars": 4, "chords": ["Am", "F", "G", "E"], "drums": "toms", "bass": "long", "gtr": "ring"},
+    {"bars": 8, "chords": R_RIFF, "lead": R_THEME, "voice": "guitar", "drums": "tribal", "bass": "gallop", "gtr": "chug"},
+    {"bars": 8, "chords": R_RIFF, "lead": R_THEME, "voice": "both", "harmony": True, "drums": "gallop", "bass": "oct8", "gtr": "chug", "keys": "pad"},
+    {"bars": 8, "chords": R_RISE, "lead": R_CLIMB, "voice": "both", "harmony": True, "drums": "double", "bass": "oct8", "gtr": "gallop", "keys": "pad", "hits": True},
+    {"bars": 8, "chords": R_RIFF, "lead": R_THEME, "voice": "bell", "octave": 12, "keys": "both", "drums": "light", "bass": "long"},
+    {"bars": 8, "chords": R_RIFF, "lead": R_THEME, "voice": "brass", "drums": "tribal", "bass": "gallop", "gtr": "gallop", "keys": "pad"},
+    {"bars": 8, "chords": R_RISE, "lead": R_CLIMB, "voice": "both", "harmony": True, "drums": "double", "bass": "oct8", "gtr": "chug", "keys": "pad", "hits": True},
+]
+
+# Stage 4 boss: F minor (A minor played down a major third), the fastest and heaviest: double drums and galloping
+# guitar throughout, repeated-note stabs in the theme, orchestra hits on the chorus.
+F_RIFF = ["Am", "Am", "F", "E", "Am", "F", "Dm", "E"]
+F_THEME = "A4:.5 A4:.5 C5:1 E5:.5 A5:1.5 | G5:.5 G5:.5 E5:1 C5:2 | F5:.5 F5:.5 A5:1 C6:.5 F6:1.5 | E6:1 B5:1 G#5:2 | A5:.5 C6:.5 E6:1 D6:.5 C6:.5 B5:1 | A5:.5 C6:.5 E6:1 G6:1 F6:1 | D6:1 F6:1 A6:1 G6:1 | E6:1 G#5:1 B5:1 E6:1"
+F_HERO = ["Dm", "G", "C", "Am", "F", "G", "E", "E"]
+F_ANSWER = "F5:.5 F5:.5 A5:1 D6:2 | G5:.5 G5:.5 B5:1 G6:2 | E6:1.5 D6:.5 C6:1 G5:1 | C6:1 E6:1 A6:2 | A5:.5 A5:.5 C6:1 F6:2 | D6:1 B5:1 G5:2 | G#5:1 B5:1 E6:1 G#6:1 | E6:2 B5:2"
+
+STAGE4_BOSS = [
+    {"bars": 4, "chords": ["Am", "Am", "F", "E"], "drums": "toms", "bass": "oct8", "gtr": "ring", "hits": True},
+    {"bars": 8, "chords": F_RIFF, "drums": "double", "bass": "gallop", "gtr": "gallop"},
+    {"bars": 8, "chords": F_RIFF, "lead": F_THEME, "voice": "guitar", "drums": "double", "bass": "gallop", "gtr": "gallop"},
+    {"bars": 8, "chords": F_RIFF, "lead": F_THEME, "voice": "both", "harmony": True, "drums": "double", "bass": "oct8", "gtr": "gallop", "keys": "pad"},
+    {"bars": 16, "chords": F_HERO, "lead": F_ANSWER, "voice": "both", "harmony": True, "drums": "double", "bass": "oct8", "gtr": "chug", "keys": "pad", "hits": True},
+    {"bars": 8, "chords": F_RIFF, "drums": "gallop", "bass": "gallop", "gtr": "gallop", "hits": True},
+    {"bars": 8, "chords": F_RIFF, "lead": F_THEME, "voice": "both", "octave": 12, "harmony": True, "drums": "double", "bass": "gallop", "gtr": "gallop", "keys": "pad"},
+    {"bars": 16, "chords": F_HERO, "lead": F_ANSWER, "voice": "both", "harmony": True, "drums": "double", "bass": "oct8", "gtr": "gallop", "keys": "pad", "hits": True},
+]
+
 
 TRACKS = {
     "stage2_boulevard": (152, BOULEVARD, 0),
@@ -366,6 +426,9 @@ TRACKS = {
     "stage2_hovercraft": (170, HOVERCRAFT, 0),
     "stage2_boss": (160, boss_sections(False), 0),
     "stage2_boss_phase2": (160, boss_sections(True), 2),
+    "stage4_jungle": (148, JUNGLE, 0),
+    "stage4_ruins": (140, RUINS, 2),
+    "stage4_boss": (176, STAGE4_BOSS, -4),
 }
 
 
