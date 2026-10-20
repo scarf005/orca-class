@@ -507,6 +507,16 @@ func test_city_hunters_walk_in_out_of_reach_until_their_first_attack_is_released
 
 
 
+func test_a_hunter_that_never_attacks_is_hittable_after_five_seconds() -> void:
+	var world := await _setup(2)
+	var hunter := world.director.spawn_wave({"kind": "kain", "u": 0.0, "ahead": 200.0})[0] as Kain
+	check(hunter.arriving, "the kain walks in out of reach")
+	for i in 5 * 60 + 2:
+		hunter._attack_timer = INF
+		hunter.tick(STEP)
+	check(not hunter.arriving and not hunter.invulnerable, "it can be shot just past five seconds without having fired")
+
+
 func test_a_hunter_whose_first_wind_up_is_cancelled_stays_out_of_reach_until_it_fires() -> void:
 	var world := await _setup(3)
 	var hunter := world.director.spawn_wave({"kind": "kain", "u": 0.0, "ahead": 200.0})[0] as Kain
