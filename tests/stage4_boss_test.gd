@@ -130,6 +130,26 @@ func test_a_full_charge_fired_from_behind_reaches_the_rear_fuel_tanks() -> void:
 		check(fortress.parts[name] < Fortress.MODULE_HP[name], "a shell aimed from behind at %s strikes it, not the hull around it" % name)
 
 
+func test_every_module_offered_as_a_lock_target_takes_a_round_aimed_at_it_from_where_the_tank_stands() -> void:
+	for bearing: float in [0.0, 90.0, 180.0, 270.0]:
+		var away := Vector3(-sin(deg_to_rad(bearing)), 0.0, -cos(deg_to_rad(bearing))) * 130.0
+		var offered: Array = _fight_from(away).aim_parts().keys()
+		check(not offered.is_empty(), "something can be locked from %d degrees" % bearing)
+		for name: String in offered:
+			var fortress := _fight_from(away) # A fresh fight per round: the rail would carry the tank off between shots.
+			var muzzle := world_tank().model.muzzle.global_position
+			world_tank().fire_cannon(muzzle, (fortress.module_at(name) - muzzle).normalized(), 1.0)
+			await frames(60)
+			check(fortress.parts[name] < Fortress.MODULE_HP[name], "from %d degrees the lock on %s is a hit, not a spark off the hull" % [bearing, name])
+
+
+func _fight_from(away: Vector3) -> Fortress:
+	var fortress := _fight()
+	var at := fortress.global_position + away
+	world_tank().displace(Vector3(at.x, Course.height_at(at), at.z))
+	return fortress
+
+
 func test_a_full_charge_fired_from_far_ahead_reaches_the_turret_over_the_bow() -> void:
 	var fortress := _fight(Fortress.HULL_FRONT + 100.0)
 	var tank := world_tank()
