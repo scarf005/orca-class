@@ -137,6 +137,18 @@ func test_a_shot_out_track_tears_off_and_slows_and_two_leave_it_stranded() -> vo
 	check(fortress.global_position.distance_to(parked) < 0.01, "it does not move at all")
 
 
+func test_a_fortress_limping_on_one_track_stays_inside_the_clearing() -> void:
+	for dead in ["track_l", "track_r"]:
+		var fortress := _fight()
+		fortress.take_hit(_kill(fortress.module_at(dead), dead))
+		var nearest := INF
+		for _i in 90:
+			_place_tank(fortress, Fortress.HULL_FRONT + 50.0)
+			_step(fortress, 1.0)
+			nearest = minf(nearest, fortress._rim_gap())
+		check(nearest >= Fortress.HULL_FRONT * 0.5, "with %s shot out its middle keeps %.0f m inside the rim" % [dead, nearest])
+
+
 func test_a_flame_gun_destroyed_cannot_burn_and_the_other_still_does() -> void:
 	var fortress := _fight(Fortress.HULL_FRONT + 25.0)
 	fortress._attack = Fortress.Attack.FLAME
