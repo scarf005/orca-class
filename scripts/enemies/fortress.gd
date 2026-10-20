@@ -329,8 +329,8 @@ func _fight(delta: float, tank: Tank) -> void:
 	if _rim_gap() < 70.0 and (global_position - center).dot(Vector3(-sin(_yaw), 0.0, -cos(_yaw))) > 0.0:
 		goal = center - global_position # Swings back from the rim.
 	var turn := TURN * (1.0 + 0.4 * phase) * factor
-	if _attack == Attack.CRUSH and _attack_time >= WIND * Game.telegraph_scale():
-		turn = 0.0
+	if _attack in [Attack.CRUSH, Attack.FLAME] and _attack_time >= WIND * Game.telegraph_scale():
+		turn = 0.0 # Committed: the charge and the lit jets keep the line the telegraph showed.
 	elif _tracks() == 1:
 		_yaw += LIMP_TURN * (1.0 if parts.track_l > 0.0 else -1.0) * delta # The dead side drags: it veers toward it.
 	_yaw = rotate_toward(_yaw, atan2(-goal.x, -goal.z), turn * delta)
@@ -510,8 +510,8 @@ func _update_flame(delta: float, tank: Tank, wind: float) -> void:
 	var burning := _attack_time >= wind
 	for name in _flames_alive():
 		var gun := _guns[name]
-		if _in_arc(name, tank):
-			aim_barrel(gun, tank.hit_center(), 0.3 if burning else 1.0, delta)
+		if _in_arc(name, tank) and not burning:
+			aim_barrel(gun, tank.hit_center(), 1.0, delta)
 		if not burning and randf() < delta * 8.0:
 			world.fx.marker(_muzzles[name].global_position - _muzzles[name].global_basis.z * FLAME_REACH, 10.0, 0.15, Palette.AMBER)
 			world.fx.tongue(_muzzles[name].global_position, 1.5, 0.8)
