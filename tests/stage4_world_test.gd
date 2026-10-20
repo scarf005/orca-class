@@ -127,3 +127,12 @@ func test_the_checkpoint_starts_in_the_clearing_before_the_fortress_event() -> v
 	check_near(world.rail.d, Stage4.CLEARING_D - 260.0, 1.0, "the run starts at the boss checkpoint")
 	var pending := world.director.events.filter(func(e: Dictionary) -> bool: return e.d >= world.rail.d - 1.0)
 	check(pending.any(func(e: Dictionary) -> bool: return e.get("kind", "") == "fortress"), "the fortress is still to come")
+
+
+func test_fodder_packs_bring_the_enemy_count_near_stage_ones() -> void:
+	var count := func(events: Array[Dictionary]) -> int:
+		return events.filter(func(e: Dictionary) -> bool: return e.type == "wave").reduce(func(sum: int, e: Dictionary) -> int:
+			return sum + int(e.get("count", 1)) + e.get("squad", []).reduce(func(inner: int, member: Dictionary) -> int: return inner + int(member.get("count", 1)), 0), 0)
+	var here: int = count.call(Stage4.new().events(false))
+	var farm: int = count.call(Stage1.new().events(false))
+	check(here * 3 >= farm * 2, "stage 4 sends %d enemies against stage 1's %d" % [here, farm])

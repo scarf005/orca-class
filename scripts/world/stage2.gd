@@ -591,8 +591,8 @@ func events(hard: bool) -> Array[Dictionary]:
 		event.merge(extra)
 		e.append(event)
 
-	# Few enemies, each deadly: one hunter and at most one escort (the first duty is two boats) every 230 m (about 10 s at wading speed), never a
-	# crowd. Boulevard builds from a boat to a torpedo gunboat and a depth-charge barge, the viaduct adds deck guns, the canyon repeats
+	# Few hunters, each deadly: one hunter and at most one escort (the first duty is two boats) every 230 m (about 10 s at wading speed), never
+	# an elite crowd. Boulevard builds from a boat to a torpedo gunboat and a depth-charge barge, the viaduct adds deck guns, the canyon repeats
 	# them tighter, and quiet stretches before the plaza and the bay let the tank refit.
 	wave.call(30.0, "drone_boat", {"ahead": 90.0}) # Contact within seconds: a lone boat crosses the horizon before the first hunter.
 	wave.call(240.0, "torpedo_boat", {"u": -17.0, "ahead": 85.0, "drop": "coax", "squad": [
@@ -647,6 +647,12 @@ func events(hard: bool) -> Array[Dictionary]:
 		var rich_left := index % 2 == 0
 		for side in 2:
 			e.append({"d": split.d - 70.0, "ahead": 70.0, "type": "pickup", "u": lanes[side], "id": counters[index % counters.size()] if (side == 0) == rich_left else ("repair" if index % 3 == 0 else "era")})
+
+	# Between the hunters, packs of boats (drones over the viaduct deck) the tank mows down on the move.
+	for pack: Array in [[345.0, "drone_boat", -10.0], [560.0, "drone_boat", 14.0], [800.0, "uav", 0.0],
+			[1010.0, "uav", 0.0], [1240.0, "drone_boat", -12.0], [1430.0, "drone_boat", 10.0], [2170.0, "drone_boat", -10.0],
+			[2400.0, "drone_boat", 12.0], [2630.0, "drone_boat", -12.0], [2860.0, "drone_boat", 10.0]]:
+		wave.call(pack[0], pack[1], {"count": 2 if pack[1] == "uav" else 3, "u": pack[2], "spacing": 7.0, "ahead": 70.0})
 
 	if hard:
 		var pressure := {450.0: {"drone_boat": 1}, 1120.0: {"sea_mine": 1}}

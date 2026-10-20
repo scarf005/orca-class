@@ -150,3 +150,12 @@ func test_the_fallen_tower_clears_the_drivable_street() -> void:
 					break
 	check(lowest < INF, "the tower spans the street")
 	check(lowest >= 12.0, "its underside stays at least 12 m over every drivable spot (lowest %.0f m)" % lowest)
+
+
+func test_fodder_packs_bring_the_enemy_count_near_stage_ones() -> void:
+	var count := func(events: Array[Dictionary]) -> int:
+		return events.filter(func(e: Dictionary) -> bool: return e.type == "wave").reduce(func(sum: int, e: Dictionary) -> int:
+			return sum + int(e.get("count", 1)) + e.get("squad", []).reduce(func(inner: int, member: Dictionary) -> int: return inner + int(member.get("count", 1)), 0), 0)
+	var here: int = count.call(Stage3.new().events(false))
+	var farm: int = count.call(Stage1.new().events(false))
+	check(here * 3 >= farm * 2, "stage 3 sends %d enemies against stage 1's %d" % [here, farm])

@@ -48,7 +48,7 @@ func test_events_are_ordered_and_kinds_are_available() -> void:
 					check(ResourceLoader.exists(Director.ENEMY_SCRIPTS[event.kind]), "%s script exists" % event.kind)
 
 
-func test_quiet_opening_and_release_keep_the_elite_count_low() -> void:
+func test_quiet_opening_and_release_keep_the_hunter_count_low_among_fodder_packs() -> void:
 	var city := Stage2.new().events(false)
 	var waves := city.filter(func(e: Dictionary) -> bool: return e.type == "wave")
 	check(not waves.is_empty(), "city has hunters")
@@ -56,15 +56,21 @@ func test_quiet_opening_and_release_keep_the_elite_count_low() -> void:
 		return
 	check(waves[0].d <= 60.0 and waves[0].kind == "drone_boat" and waves[0].get("count", 1) == 1, "the first contact is a lone boat within seconds of the start")
 	check(waves[1].d >= 180.0 and waves[1].kind == "torpedo_boat" and waves[1].get("count", 1) == 1, "the first hunter teaches the torpedo lane alone")
-	var city_count := 0
+	var hunter_count := 0
+	var fodder_count := 0
 	var farm_count := 0
 	for event in waves:
-		city_count += int(event.get("count", 1))
+		var units: int = int(event.get("count", 1)) + event.get("squad", []).reduce(func(sum: int, member: Dictionary) -> int: return sum + int(member.get("count", 1)), 0)
+		if event.kind in ["drone_boat", "uav"] and not event.has("squad"):
+			fodder_count += units
+		else:
+			hunter_count += units
 		check(event.d < 3290.0, "final bay squad leaves a long supply-only boss approach")
 	for event in Stage1.new().events(false):
 		if event.type == "wave":
 			farm_count += int(event.get("count", 1))
-	check(city_count < farm_count / 2, "elite city sends less than half the scripted stage-one enemies")
+	check(hunter_count < farm_count / 2, "elite city sends less than half the scripted stage-one enemies as hunters")
+	check(hunter_count + fodder_count >= farm_count / 2, "and packs of fodder bring the total to at least half")
 
 
 func test_supplies_offer_stage_one_special_rounds_before_plaza() -> void:

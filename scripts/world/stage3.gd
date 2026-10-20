@@ -473,7 +473,7 @@ func events(hard: bool) -> Array[Dictionary]:
 		event.merge(extra)
 		e.append(event)
 
-	# Few enemies, each deadly: one hunter and at most one escort every 230 m, never a crowd. Outskirts build from a
+	# Few hunters, each deadly: one hunter and at most one escort every 230 m, never an elite crowd. Outskirts build from a
 	# skimmer to burrowers and snipers, the avenue adds mortar crews, the canyon repeats them tighter inside the
 	# storm, and quiet stretches before the pit and the run let the tank refit.
 	wave.call(30.0, "skimmer", {})
@@ -523,6 +523,11 @@ func events(hard: bool) -> Array[Dictionary]:
 	e.append({"d": hill_d(0) - 62.0, "type": "boss", "kind": "wing", "rail": true})
 	# Past the last ramp the rail stops short of the road's end and the wing comes down to finish the tank.
 	e.append({"d": ramps_end(), "type": "hold", "at": ramps_end() + 170.0, "timeout": 600.0})
+
+	# Between the hunters, skimmer packs the tank mows down on the move.
+	for pack: Vector2 in [Vector2(135.0, 10.0), Vector2(345.0, -12.0), Vector2(575.0, 8.0), Vector2(815.0, -10.0), Vector2(1040.0, 12.0),
+			Vector2(1260.0, -8.0), Vector2(1450.0, 10.0), Vector2(2275.0, -12.0), Vector2(2505.0, 10.0), Vector2(2735.0, -8.0), Vector2(2950.0, 12.0)]:
+		wave.call(pack.x, "skimmer", {"count": 3, "u": pack.y, "spacing": 7.0, "ahead": 70.0})
 
 	if hard:
 		var pressure := {450.0: {"mortar": 1}, 700.0: {"skimmer": 1}}
