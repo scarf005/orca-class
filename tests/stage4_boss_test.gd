@@ -118,6 +118,18 @@ func test_the_hull_only_sparks_and_a_module_takes_main_gun_rounds_at_forty_each(
 	check(fortress.parts.turret > 0.0 and fortress.parts.turret >= Fortress.MODULE_HP.turret - Fortress.ROUND_DAMAGE, "fire does not hurt it")
 
 
+func test_a_full_charge_fired_from_behind_reaches_the_rear_fuel_tanks() -> void:
+	for name in ["fuel_l", "fuel_r"]:
+		var fortress := _fight()
+		_place_tank(fortress, -(Fortress.HULL_REAR + 80.0))
+		var tank := world_tank()
+		tank.look_at(fortress.global_position * Vector3(1, 0, 1) + Vector3.UP * tank.global_position.y)
+		var muzzle := tank.model.muzzle.global_position
+		tank.fire_cannon(muzzle, (fortress.module_at(name) - muzzle).normalized(), 1.0)
+		await frames(60)
+		check(fortress.parts[name] < Fortress.MODULE_HP[name], "a shell aimed from behind at %s strikes it, not the hull around it" % name)
+
+
 func test_a_shot_out_track_tears_off_and_slows_and_two_leave_it_stranded() -> void:
 	var fortress := _fight(400.0)
 	var node := fortress._nodes.track_l
