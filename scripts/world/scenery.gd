@@ -652,7 +652,8 @@ func _jungle() -> void:
 		var wet := stage.ford_weight(float(d)) > 0.0 or stage.gorge_depth(float(d), 0.0) > 1.0
 		for side in [-1.0, 1.0]:
 			if rng.randf() < tree_density[section] and not wet:
-				add("jungle_tree", float(d) + rng.randf_range(-4.0, 4.0), side * (limit + rng.randf_range(-1.0, 22.0)), rng.randf() * TAU, rng.randi_range(0, 5))
+				# Trunks stand a crown's width past the kerb, so no canopy hangs over the road at the chase camera's height.
+				add("jungle_tree", float(d) + rng.randf_range(-4.0, 4.0), side * (limit + rng.randf_range(7.0, 26.0)), rng.randf() * TAU, rng.randi_range(0, 5))
 		for i in 0 if wet else int(brush_density[section] * 2.0):
 			if rng.randf() < minf(brush_density[section], 0.9):
 				var reach := limit * (1.0 if section == Stage4.Section.STUMPS else 0.6) + (6.0 if section == Stage4.Section.STUMPS else 2.0)
