@@ -13,6 +13,7 @@ extends Node
 ## Every leap off a launch ramp prints a LEAP line and its landing a LAND line.
 
 const PART_PATIENCE := 6.0 ## Seconds a boss module may go unharmed before the bot aims at another.
+const ARENA_RANGE := Vector2(90.0, 150.0) ## Metres the bot backs off inside of and closes in beyond, from an arena boss.
 
 var screen: GameScreen
 var bot := "hold"
@@ -425,8 +426,19 @@ func _drive(world: World, t: float) -> void:
 	else:
 		Input.action_release("move_left")
 		Input.action_release("move_right")
+	# In an arena, keep a boss at a range the gun can elevate to and its shots can be seen coming from.
+	var gap := tank.global_position.distance_to(world.boss.global_position) if world.rail.mode == Rail.Mode.ARENA and is_instance_valid(world.boss) else INF
+	_hold_action("move_back", gap < ARENA_RANGE.x)
+	_hold_action("move_forward", gap > ARENA_RANGE.y and gap < INF)
 	if bot not in ["idle", "hold"]:
 		_dodge(world)
+
+
+func _hold_action(action: String, held: bool) -> void:
+	if held:
+		Input.action_press(action)
+	else:
+		Input.action_release(action)
 
 
 ## Lines up on a launch ramp a little ahead and drifts across its track all the way up. Returns whether it is on one.
