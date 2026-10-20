@@ -158,6 +158,19 @@ func test_a_shot_out_track_tears_off_and_slows_and_two_leave_it_stranded() -> vo
 	check(fortress.global_position.distance_to(parked) < 0.01, "it does not move at all")
 
 
+func test_a_stranded_fortress_drags_its_bow_round_onto_the_tank_so_its_guns_stay_in_reach() -> void:
+	var fortress := _fight(Fortress.HULL_FRONT + 80.0)
+	for name: String in ["track_l", "track_r"]:
+		fortress.take_hit(_kill(fortress.module_at(name), name))
+	_place_tank(fortress, -(Fortress.HULL_REAR + 80.0)) # Behind it, where its turret cannot be reached.
+	var parked := fortress.global_position
+	_step(fortress, 30.0)
+	var bow := Vector3(-sin(fortress._yaw), 0.0, -cos(fortress._yaw))
+	var toward := (world_tank().global_position - fortress.global_position) * Vector3(1, 0, 1)
+	check(rad_to_deg(bow.angle_to(toward)) < 20.0, "it has turned its bow onto the tank (%.0f degrees off)" % rad_to_deg(bow.angle_to(toward)))
+	check(fortress.global_position.distance_to(parked) < 0.01, "on the spot, without driving")
+
+
 func test_a_fortress_limping_on_one_track_stays_inside_the_clearing() -> void:
 	for dead in ["track_l", "track_r"]:
 		var fortress := _fight()
