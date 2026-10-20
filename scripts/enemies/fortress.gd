@@ -42,6 +42,7 @@ const HULL_FRONT := 33.0 * SCALE
 const HULL_REAR := 31.5 * SCALE
 const HULL_HALF := 19.5 * SCALE
 const HULL_DAMAGE := 20.0
+const RAM_CLEAR := 4.0 ## Metres past the flank a ram throws the tank, out from under the hull.
 const HULL_SHOVE := 14.0 ## Metres per second the hull throws the tank off its flank at.
 const CRUSH_KINDS: Array[String] = ["jungle_tree", "palm", "fern", "jungle_building", "car", "bus_wreck", "barricade", "city_rubble", "streetlamp", "traffic_light", "road_sign", "truck"]
 const CRUSH_REACH := 30.0
@@ -63,7 +64,7 @@ var _shots := 0
 var _shot_timer := 0.0
 var _lane := Vector3.ZERO
 var _dying := 0.0
-var _bump := 0.0
+var _ram_ready := false ## Set by each charge; spent by the one ram it may land.
 var _crush_from := Vector3.ZERO
 var _crush_timer := 0.0
 var _smoke := 0.0
@@ -293,7 +294,7 @@ func behave(delta: float) -> void:
 		State.DYING:
 			_die(delta)
 	if _state != State.DYING:
-		_collide(tank, delta)
+		_collide(tank)
 	_pose(delta)
 	_crush_timer -= delta
 	if _crush_timer <= 0.0 and _speed > 1.0:
@@ -399,9 +400,10 @@ func _exhaust(delta: float) -> void:
 			fx.dust(model.to_global(Vector3(side * TRACK_AT, 1.0, 30.0 * SCALE)), 3, 9.0, Palette.STRAW)
 
 
-## The hull is solid: a tank on it is thrown off the nearest flank and hurt.
-func _collide(tank: Tank, delta: float) -> void:
-	_bump = maxf(0.0, _bump - delta)
+## The hull is solid: a tank on it slides off the nearest side. Only a charge hurts, once: it throws the tank off the
+## flank, out of the lane its markers showed; any other contact is a shove.
+func _collide(tank: Tank) -> void:
+	_ram_ready = _ram_ready and (_attack == Attack.CRUSH or _speed > DRIVE_SPEED * 1.5) # A missed charge spends it as it slows.
 	var yaw := Basis(Vector3.UP, _yaw)
 	var local := yaw.inverse() * (tank.global_position - global_position)
 	var inner := Vector3(HULL_HALF + tank.radius, 0.0, 0.0)
@@ -412,15 +414,18 @@ func _collide(tank: Tank, delta: float) -> void:
 	for i in 3:
 		if gaps[i].x < gaps[nearest].x:
 			nearest = i
-	if nearest == 0:
+	var side := 1.0 if local.x >= 0.0 else -1.0
+	if _ram_ready:
+		local = Vector3(side * (inner.x + RAM_CLEAR), 0.0, local.z)
+	elif nearest == 0:
 		local.x = gaps[0].y * inner.x
 	else:
 		local.z = -HULL_FRONT - tank.radius if nearest == 1 else HULL_REAR + tank.radius
 	var pushed := global_position + yaw * local
 	tank.displace(Vector3(pushed.x, Course.height_at(pushed), pushed.z))
-	if _bump <= 0.0:
-		_bump = 1.0
-		var away := Vector3(tank.global_position.x - global_position.x, 0.0, tank.global_position.z - global_position.z).normalized()
+	if _ram_ready:
+		_ram_ready = false
+		var away := yaw * Vector3(side, 0.0, 0.0)
 		var hit := Hit.make(Hit.Kind.RAM, HULL_DAMAGE, tank.hit_center(), away)
 		hit.source = self
 		tank.take_hit(hit)
@@ -493,6 +498,7 @@ func _begin_attack(tank: Tank) -> void:
 		var wind := WIND * Game.telegraph_scale()
 		match kind:
 			Attack.CRUSH:
+				_ram_ready = true
 				_lane = Vector3(-sin(_yaw), 0.0, -cos(_yaw))
 				for step in 6:
 					world.fx.marker(global_position + _lane * (HULL_FRONT + 12.0 + step * 20.0), HULL_HALF * 0.6, wind, Palette.RED)

@@ -341,8 +341,8 @@ func test_a_tank_left_in_the_charges_lane_is_rammed_once_and_thrown_out_of_it() 
 	var tank := world_tank()
 	var rams := {"n": 0}
 	tank.damaged.connect(func(_who: Entity, hit: Hit) -> void: rams.n += int(hit.kind == Hit.Kind.RAM))
-	fortress._attack = Fortress.Attack.CRUSH
-	fortress._attack_time = 0.0
+	fortress._pattern = 2 # The charge comes up next.
+	fortress._next_attack = 0.0
 	for _i in roundi(6.0 / STEP):
 		tank.invuln = 0.0
 		fortress.behave(STEP)
@@ -350,19 +350,24 @@ func test_a_tank_left_in_the_charges_lane_is_rammed_once_and_thrown_out_of_it() 
 	check_eq(rams.n, 1, "and rams it once, not again every second it stays pinned to the bow")
 
 
-func test_the_hull_is_solid_and_throws_a_tank_off_it_for_a_hull_hit() -> void:
+func test_the_hull_is_solid_and_only_a_charge_hurts_the_tank_it_throws_off() -> void:
 	var fortress := _fight()
 	var tank := world_tank()
 	_place_tank(fortress, -5.0, 10.0) # Inside the hull's footprint.
 	var hp := tank.hp
-	fortress._collide(tank, STEP)
+	fortress._collide(tank)
 	var local := Basis(Vector3.UP, fortress._yaw).inverse() * (tank.global_position - fortress.global_position)
 	check(absf(local.x) >= Fortress.HULL_HALF + tank.radius - 0.01, "the tank is pushed out through the nearest flank (%.1f)" % local.x)
-	check(tank.hp < hp, "and loses armor (%.0f)" % (hp - tank.hp))
+	check_eq(tank.hp, hp, "a hull that is not charging only shoves")
+	fortress._attack = Fortress.Attack.CRUSH
+	fortress._ram_ready = true
+	_place_tank(fortress, -5.0, 10.0)
+	fortress._collide(tank)
+	check(tank.hp < hp, "a charging hull rams it for armor (%.0f)" % (hp - tank.hp))
 	var again := tank.hp
 	_place_tank(fortress, -5.0, 10.0)
-	fortress._collide(tank, STEP)
-	check_eq(tank.hp, again, "the next shove inside a second costs nothing more")
+	fortress._collide(tank)
+	check_eq(tank.hp, again, "and the same charge never rams it twice")
 
 
 func test_the_fortress_goes_down_with_its_last_module_after_a_burning_death_throe() -> void:
@@ -382,7 +387,7 @@ func test_a_hull_shove_is_not_read_as_driving_speed() -> void:
 	World.current.rail.mode = Rail.Mode.ARENA
 	tank.tick(STEP)
 	_place_tank(fortress, -5.0, 10.0)
-	fortress._collide(tank, STEP)
+	fortress._collide(tank)
 	var thrown := tank.global_position.distance_to(fortress.global_position)
 	check(thrown > Fortress.HULL_HALF, "the shove moved the tank clear of the hull (%.1f m)" % thrown)
 	tank.tick(STEP)
