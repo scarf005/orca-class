@@ -43,7 +43,8 @@ const BARE_ALTITUDE := 70.0 ## Lower once the belly is bare, its wingtips still 
 const LOW_ALTITUDE := 30.0 ## Past the last ramp: low enough for the road to reach.
 const LOW_BARE_ALTITUDE := 42.0 ## High enough for its tail to clear the sand while it rears.
 const SKIRT_ANGLE := deg_to_rad(10.0) ## Steepest climb a shot can take into the belly's turret bays.
-const SLOW := 0.4 ## Time scale while the tank has a turret in sight in the air.
+const SLOW := 0.6 ## Time scale while the tank has a turret in sight in the air.
+const SLOW_LIMIT := 1.0 ## Seconds of each leap that run slowed; the rest of the shot plays at full speed.
 const REAR := 0.55 ## Radians it pitches nose-up past the last ramp once its belly is bare.
 const LIFT := 1.9 ## How much harder the ramps throw the tank up while the wing is in the air: a drifted leap reaches its belly.
 const BARE_LIFT := 2.65 ## And once the belly is bare: over its back.
@@ -56,6 +57,7 @@ var _active := "" ## The open belly turret, or the spine once the belly is bare.
 var _next := 0
 var _open: Dictionary[String, float] = {}
 var _armed: Dictionary[String, bool] = {} ## Turrets that have fired their first volley.
+var _slowed := 0.0 ## Slowed seconds spent on the current leap.
 var _pods: Dictionary[String, Node3D] = {}
 var _hatches: Dictionary[String, Array] = {}
 var _muzzles: Dictionary[String, Node3D] = {}
@@ -320,7 +322,9 @@ func behave(delta: float) -> void:
 	if _active.is_empty():
 		_open_next()
 	_update_turrets(delta, tank)
-	world.slow = SLOW if tank.airborne and not _exposed().is_empty() else 1.0
+	var slowing := tank.airborne and _slowed < SLOW_LIMIT and not _exposed().is_empty()
+	_slowed = _slowed + delta if slowing else _slowed * float(tank.airborne)
+	world.slow = SLOW if slowing else 1.0
 
 
 ## Banks into its sway; down low with a bare belly it rears nose-high, its back to the chasing tank.

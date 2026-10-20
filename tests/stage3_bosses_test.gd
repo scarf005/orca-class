@@ -2,7 +2,7 @@ extends TestCase
 ## The flying wing and the borer centipede: turrets sniped from a drifted ramp leap, burrow and telegraphs.
 
 const STEP := 1.0 / 60.0
-const SHOT_WINDOW := 0.75 ## Seconds a drifted leap must keep a part in sight: near two seconds of slowed time to lock and fire.
+const SHOT_WINDOW := 0.75 ## Seconds a drifted leap must keep a part in sight to lock and fire.
 
 
 func _stage3() -> World:
@@ -35,10 +35,10 @@ func _open(wing: Wing, name: String) -> void:
 
 
 ## Drives the tank up ramp 0 and off its lip, drifting across the track every `every` seconds (0: never), until
-## it lands. Returns [whether `part` came into sight in the air, slowest time scale seen, peak height over the lip,
+## it lands, firing at `part` when it comes into sight if `fire`. Returns [whether `part` came into sight in the air, slowest time scale seen, peak height over the lip,
 ## whether a main-gun round fired the moment it came into sight struck it rather than the hull, seconds it stayed in
-## sight].
-func _leap(wing: Wing, every: float, part := "flak") -> Array:
+## sight, seconds that ran slowed].
+func _leap(wing: Wing, every: float, part := "flak", fire := true) -> Array:
 	var world := World.current
 	var tank := world.player
 	var lip := (Course.stage as Stage3).hill_point(0, 1.0)
@@ -49,6 +49,7 @@ func _leap(wing: Wing, every: float, part := "flak") -> Array:
 	var side := 1.0
 	var wait := 0.0
 	var seen := 0.0
+	var slowed := 0.0
 	for _i in ceili(12.0 / STEP):
 		if every > 0.0 and not tank.airborne:
 			wait -= STEP
@@ -60,7 +61,7 @@ func _leap(wing: Wing, every: float, part := "flak") -> Array:
 		wing.behave(STEP)
 		flew = flew or tank.airborne
 		peak = maxf(peak, tank.global_position.y - lip.y)
-		if tank.airborne and wing.in_sight(part) and not sight:
+		if fire and tank.airborne and wing.in_sight(part) and not sight:
 			# A main-gun round fired down the line of sight the moment it opens.
 			tank.fire_cannon(tank.hit_center(), wing._turret_world(part) - tank.hit_center(), 1.0)
 		sight = sight or (tank.airborne and wing.in_sight(part))
@@ -68,11 +69,12 @@ func _leap(wing: Wing, every: float, part := "flak") -> Array:
 			seen += STEP
 		world._process(STEP)
 		slow = minf(slow, world.slow)
+		slowed += STEP * float(world.slow < 1.0)
 		if flew and not tank.airborne:
 			break
 	check(flew, "the tank leaves the lip")
 	check(not tank.airborne, "and lands again")
-	return [sight, slow, peak, wing.parts[part] < Wing.TURRET_HP, seen]
+	return [sight, slow, peak, wing.parts[part] < Wing.TURRET_HP, seen, slowed]
 
 
 func _borer() -> Borer:
@@ -124,11 +126,24 @@ func test_a_tank_drifting_up_a_ramp_leaps_into_the_open_turrets_sight_in_slowed_
 	_open(wing, "flak")
 	var result := _leap(wing, Tank.ANCHOR_COOLDOWN)
 	check(result[0], "the drifted leap rises into the open turret's sight (peak %.1f m over the lip)" % result[2])
-	# Long enough to lock and fire by hand: 0.75 s is near two seconds of slowed time.
+	# Long enough to lock and fire by hand: 0.75 s, felt longer while it runs slowed.
 	check(result[4] >= SHOT_WINDOW, "it holds the turret in sight for %.2f s" % result[4])
 	check(result[3], "a round fired then reaches the turret, not the hull around its bay")
 	check_near(result[1], Wing.SLOW, 0.001, "time slows while the tank has the shot")
 	check_eq(World.current.slow, 1.0, "and runs on again once it lands")
+
+
+func test_bullet_time_ends_after_its_limit_while_the_turret_stays_in_sight() -> void:
+	for belly in [true, false]:
+		var wing := _wing()
+		if not belly:
+			_strip_belly(wing)
+		_run(wing, 3.0)
+		if belly:
+			_open(wing, "flak")
+		var result := _leap(wing, Tank.ANCHOR_COOLDOWN, "flak" if belly else "spine", false)
+		check(result[5] > 0.0 and result[5] <= result[4] - 0.5, "time runs at full speed again %.2f s before the part leaves sight" % (result[4] - result[5]))
+		check_near(result[5], Wing.SLOW_LIMIT, STEP * 1.5, "after slowing for the limit")
 
 
 func test_a_tank_driving_straight_up_a_ramp_leaps_short_of_the_turrets_sight() -> void:
