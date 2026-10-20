@@ -120,30 +120,16 @@ func test_the_open_turret_is_out_of_the_roads_sight_over_the_ramps() -> void:
 	check(wing.aim_parts().is_empty(), "nothing to lock from the road")
 
 
-func test_a_tank_drifting_up_a_ramp_leaps_into_the_open_turrets_sight_in_slowed_time() -> void:
+func test_a_tank_drifting_up_a_ramp_leaps_into_the_open_turrets_sight_at_full_speed() -> void:
 	var wing := _wing()
 	_run(wing, 3.0)
 	_open(wing, "flak")
 	var result := _leap(wing, Tank.ANCHOR_COOLDOWN)
 	check(result[0], "the drifted leap rises into the open turret's sight (peak %.1f m over the lip)" % result[2])
-	# Long enough to lock and fire by hand: 0.75 s, felt longer while it runs slowed.
+	# Long enough to lock and fire by hand at full speed.
 	check(result[4] >= SHOT_WINDOW, "it holds the turret in sight for %.2f s" % result[4])
 	check(result[3], "a round fired then reaches the turret, not the hull around its bay")
-	check_near(result[1], Wing.SLOW, 0.001, "time slows while the tank has the shot")
-	check_eq(World.current.slow, 1.0, "and runs on again once it lands")
-
-
-func test_bullet_time_ends_after_its_limit_while_the_turret_stays_in_sight() -> void:
-	for belly in [true, false]:
-		var wing := _wing()
-		if not belly:
-			_strip_belly(wing)
-		_run(wing, 3.0)
-		if belly:
-			_open(wing, "flak")
-		var result := _leap(wing, Tank.ANCHOR_COOLDOWN, "flak" if belly else "spine", false)
-		check(result[5] > 0.0 and result[5] <= result[4] - 0.5, "time runs at full speed again %.2f s before the part leaves sight" % (result[4] - result[5]))
-		check_near(result[5], Wing.SLOW_LIMIT, STEP * 1.5, "after slowing for the limit")
+	check_eq(result[1], 1.0, "time never slows while the tank has the shot")
 
 
 func test_a_tank_driving_straight_up_a_ramp_leaps_short_of_the_turrets_sight() -> void:
@@ -254,7 +240,7 @@ func test_a_bare_belly_keeps_the_wing_up_and_makes_the_ramps_throw_higher() -> v
 	check(wing.aim_parts().is_empty(), "nothing to lock from the road")
 
 
-func test_after_the_belly_a_drifted_leap_tops_out_over_the_wings_back_in_slowed_time() -> void:
+func test_after_the_belly_a_drifted_leap_tops_out_over_the_wings_back_at_full_speed() -> void:
 	var wing := _wing()
 	_strip_belly(wing)
 	_run(wing, 3.0)
@@ -262,7 +248,7 @@ func test_after_the_belly_a_drifted_leap_tops_out_over_the_wings_back_in_slowed_
 	check(result[0], "the higher leap rises over the wing's back (peak %.1f m over the lip)" % result[2])
 	check(result[4] >= SHOT_WINDOW, "it holds the rack in sight for %.2f s" % result[4])
 	check(result[3], "a round fired then reaches the rack, not the hull around it")
-	check_near(result[1], Wing.SLOW, 0.001, "time slows while the tank has the shot")
+	check_eq(result[1], 1.0, "time never slows while the tank has the shot")
 
 
 func test_with_the_belly_intact_a_drifted_leap_stays_under_the_wings_back() -> void:
