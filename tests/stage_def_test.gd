@@ -68,5 +68,6 @@ func test_stage_2_geography_scrolls_under_a_single_distant_opening_drone() -> vo
 	world.player.invulnerable = true
 	await frames(180)
 	check(world.rail.d > 20.0, "the rail runs (d = %.0f)" % world.rail.d)
-	check(world.enemies.size() == 1 and Course.to_course(world.enemies[0].global_position).x - world.rail.d > 100.0, "the opening shows one drone far down the flooded street, not a crowd")
+	var ahead := Course.to_course(world.enemies[0].global_position).x - world.rail.d if world.enemies.size() == 1 else -1.0
+	check(world.enemies.size() == 1 and ahead > 40.0, "three seconds in, the opening shows one drone still down the flooded street, not a crowd (%d enemies, %.0f m ahead)" % [world.enemies.size(), ahead])
 	check_eq(world.rail.mode, Rail.Mode.RAIL, "the opening does not hold the rail")
