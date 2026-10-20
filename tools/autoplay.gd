@@ -12,6 +12,8 @@ extends Node
 ##        [--trace-damage] # one line per hit on the tank: where, by what, and the hull left after it
 ## Every leap off a launch ramp prints a LEAP line and its landing a LAND line.
 
+const PART_PATIENCE := 6.0 ## Seconds a boss module may go unharmed before the bot aims at another.
+
 var screen: GameScreen
 var bot := "hold"
 var cleared := false
@@ -41,6 +43,9 @@ var _compare_kills := 0
 var _lane := 0.0 ## -1 or 1 pins the tank against that kerb.
 var _compare_spawned := 0
 var _fired := {}
+var _part := "" ## The boss module the bot is wearing down.
+var _part_health := 1.0
+var _part_since := 0.0
 
 
 func run() -> int:
@@ -66,6 +71,7 @@ func run() -> int:
 	for s: String in String(args.get("shots", "")).split(",", false):
 		shots.append(float(s))
 	Engine.time_scale = float(args.get("scale", "1"))
+	GameTuning.new().load_values(GameTuning.DEFAULT_PATH) # The shipped constants, without the developer's own overrides.
 	screen = GameScreen.new()
 	screen.checkpoint = args.get("checkpoint", "")
 	screen.stage = int(args.get("stage", "1"))
@@ -125,7 +131,8 @@ func run() -> int:
 		for enemy in world.enemies:
 			if not enemy.dead and not world.camera.is_position_behind(enemy.hit_center()):
 				front_total += 1.0
-			_check_enemy(world, enemy)
+			if enemy is Enemy:
+				_check_enemy(world, enemy)
 			if enemy.dead or not (enemy is BipedMech or enemy is Hind):
 				continue
 			_elite_time += delta
@@ -331,6 +338,16 @@ func _killed(_victim: Entity, hit: Hit) -> void:
 	kill_sources[source] += 1
 
 
+## The share of health left in the boss module labelled `label`, or 1.0 when the boss does not report it.
+func _module_health(boss: Entity, label: String) -> float:
+	if not boss.has_method("module_states"):
+		return 1.0
+	for state: Array in boss.module_states():
+		if state[0] == label:
+			return state[1]
+	return 1.0
+
+
 ## A bot that aims at the nearest enemy, fires everything and weaves.
 func _drive(world: World, t: float) -> void:
 	var tank := world.player
@@ -347,10 +364,23 @@ func _drive(world: World, t: float) -> void:
 			best = distance
 			target = enemy
 	if target != null and target.has_method("aim_parts") and not target.aim_parts().is_empty():
-		# Bosses with modules: the nearest one, which is the least likely to hide behind the hull.
-		var parts: Array = target.aim_parts().values().map(func(part: Array) -> Vector3: return part[0])
-		parts.sort_custom(func(a: Vector3, b: Vector3) -> bool: return a.distance_squared_to(tank.global_position) < b.distance_squared_to(tank.global_position))
-		tank.aim_screen = world.camera.unproject_position(parts[0])
+		# Bosses with modules: keep wearing one down; move to the next nearest when it stops losing health.
+		var aim: Dictionary = target.aim_parts()
+		var names: Array = aim.keys()
+		names.sort_custom(func(a: String, b: String) -> bool: return aim[a][0].distance_squared_to(tank.global_position) < aim[b][0].distance_squared_to(tank.global_position))
+		var health := _module_health(target, aim.get(_part, [Vector3.ZERO, 0.0, ""])[2])
+		if _part not in aim:
+			_part = names[0]
+			_part_health = _module_health(target, aim[_part][2])
+			_part_since = t
+		elif health < _part_health:
+			_part_health = health
+			_part_since = t
+		elif t - _part_since > PART_PATIENCE:
+			_part = names[(names.find(_part) + 1) % names.size()]
+			_part_health = _module_health(target, aim[_part][2])
+			_part_since = t
+		tank.aim_screen = world.camera.unproject_position(aim[_part][0])
 	elif target:
 		tank.aim_screen = world.camera.unproject_position(target.hit_center())
 	else:
