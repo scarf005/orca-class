@@ -241,6 +241,26 @@ func test_a_tank_caught_in_one_whole_flame_attack_keeps_most_of_its_hull() -> vo
 	check(tank.hp >= full * 0.6, "and leave %.0f of %.0f hull: one flame never decides the fight" % [tank.hp, full])
 
 
+func test_once_lit_the_jets_hold_the_bearing_they_were_aimed_on_so_driving_aside_escapes_them() -> void:
+	var fortress := _fight(Fortress.HULL_FRONT + 25.0)
+	fortress._pattern = 1
+	fortress._next_attack = 0.0
+	var burns := {"n": 0}
+	world_tank().damaged.connect(func(_who: Entity, hit: Hit) -> void: burns.n += int(hit.kind == Hit.Kind.FIRE and hit.source == fortress))
+	var at := fortress.global_position
+	while burns.n == 0 and fortress._attack_time < 3.0:
+		fortress.global_position = at
+		_step(fortress, STEP)
+	check(burns.n > 0, "the jets first burn the tank where they were aimed")
+	# The tank swerves 45 m aside, beyond the cone's half width there, and keeps going.
+	_place_tank(fortress, Fortress.HULL_FRONT + 25.0, 45.0)
+	var before: int = burns.n
+	for _i in roundi(3.0 / STEP):
+		fortress.global_position = at
+		_step(fortress, STEP)
+	check_eq(burns.n - before, 0, "the jets do not swing after it")
+
+
 func test_the_flame_attack_ends_once_its_jets_burn_out() -> void:
 	var fortress := _fight(Fortress.HULL_FRONT + 25.0)
 	fortress._pattern = 1
