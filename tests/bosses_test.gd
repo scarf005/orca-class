@@ -1196,6 +1196,27 @@ func test_flares_catch_shells() -> void:
 	check_eq(boss.hp, boss_hp, "the intercepted shell does not reach the boss")
 
 
+class AlertHud extends Hud:
+	var alerts_drawn := false
+
+	func _draw() -> void:
+		_draw_enemy_alerts()
+		alerts_drawn = true
+
+
+func test_hud_draws_enemy_alerts_past_the_gunships_flares() -> void:
+	var world := stage("boss")
+	var boss := _gunship(world)
+	boss._pop_flares()
+	check(world.enemies.any(func(e: Entity) -> bool: return e is Flare), "flares share the enemy list")
+	var hud := AlertHud.new()
+	hud.world = world
+	add_child(hud)
+	await frames(2)
+	check(hud.alerts_drawn, "the alert pass finishes with flares in the air")
+	hud.free()
+
+
 func test_gunship_machine_guns_and_fragments_glance_off_its_body() -> void:
 	var world := stage("boss")
 	var boss := _gunship(world)
