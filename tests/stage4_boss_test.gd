@@ -370,6 +370,16 @@ func test_the_hull_is_solid_and_only_a_charge_hurts_the_tank_it_throws_off() -> 
 	check_eq(tank.hp, again, "and the same charge never rams it twice")
 
 
+func test_stranded_and_disarmed_the_fortress_cooks_off_its_fuel_wherever_its_back_is_turned() -> void:
+	var fortress := _fight(150.0)
+	for name: String in ["track_l", "track_r", "flame_l", "flame_r"]:
+		fortress.take_hit(_kill(fortress.module_at(name), name))
+	check_eq(fortress._state, Fortress.State.FIGHT, "with its turret left it fights on")
+	fortress.take_hit(_kill(fortress.module_at("turret"), "turret"))
+	check(fortress.parts.fuel_l <= 0.0 and fortress.parts.fuel_r <= 0.0, "with nothing left to drive or fire, its fuel tanks burst")
+	check_eq(fortress._state, Fortress.State.DYING, "and it goes down")
+
+
 func test_the_fortress_goes_down_with_its_last_module_after_a_burning_death_throe() -> void:
 	var fortress := _fight(150.0)
 	for name: String in Fortress.MODULES:
