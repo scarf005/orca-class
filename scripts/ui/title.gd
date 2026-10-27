@@ -4,6 +4,7 @@ extends Control
 signal start(checkpoint: String)
 signal debug_room
 signal tutorial
+signal bestiary
 signal quit_requested
 
 const SCENE_D := 575.0
@@ -50,6 +51,7 @@ func _show_main() -> void:
 	_menu.add_item(tr("MENU_START_EASY"), _show_stage_select.bind(Game.Difficulty.EASY))
 	_menu.add_item(tr("MENU_START_NORMAL"), _show_stage_select.bind(Game.Difficulty.NORMAL))
 	_menu.add_item(tr("MENU_START_HARD"), _show_stage_select.bind(Game.Difficulty.HARD))
+	_menu.add_item(tr("MENU_BESTIARY"), func() -> void: bestiary.emit())
 	_menu.add_item(tr("MENU_DEBUG_ROOM"), func() -> void: debug_room.emit())
 	_menu.add_item(tr("MENU_SETTINGS"), _show_settings)
 	if not OS.has_feature("web"):

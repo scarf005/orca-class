@@ -22,6 +22,8 @@ func _ready() -> void:
 		_open_map_editor()
 	elif OS.get_cmdline_user_args().has("--duel"):
 		start_game("duel")
+	elif OS.get_cmdline_user_args().has("--bestiary"):
+		_open_bestiary()
 	elif OS.get_cmdline_user_args().has("--debug-room"):
 		_open_debug_room()
 	else:
@@ -33,6 +35,7 @@ func show_title() -> void:
 	_swap(load("res://scripts/ui/title.gd").new())
 	_screen.start.connect(start_game)
 	_screen.debug_room.connect(_open_debug_room)
+	_screen.bestiary.connect(_open_bestiary)
 	_screen.tutorial.connect(_open_tutorial)
 	_screen.quit_requested.connect(_quit)
 
@@ -54,6 +57,12 @@ func _open_map_editor() -> void:
 	editor.play.connect(start_game.bind(""))
 	editor.exit.connect(_quit)
 	_swap(editor)
+
+
+func _open_bestiary() -> void:
+	var bestiary := Bestiary.new()
+	bestiary.back.connect(show_title)
+	_swap(bestiary)
 
 
 func _open_debug_room() -> void:
