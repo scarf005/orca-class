@@ -1,7 +1,8 @@
 class_name HiMo
 extends Enemy
-## Dark predatory hull on four spider legs that skate on wheels under the water. It sheds its white armor,
-## then fights on exposed rails and broken legs. Above-water actuators are the leg weak points.
+## A long, low shark-mouthed hull on four thick legs that skate on big wheels, after the Project Landsword crawler
+## and the HAL-X10. It sheds its white armor, then fights on exposed rails and broken legs. Above-water actuators
+## are the leg weak points.
 ## Stable redraw anchors: Model/Body, Rail, Rack, PlateL/R; Hip0..3/Knee/Wheel on Body.
 
 enum Phase { SKATER, STRIPPED, DESPERATE }
@@ -11,7 +12,10 @@ const BODY_HP := 95000.0 ## Skating limits uptime; bare flanks still take full m
 const PHASE_MARKS := [0.65, 0.30]
 const LEG_HP := 100.0
 const SCALE := 1.7 ## The whole machine is drawn this much larger than its model-space layout.
-const WHEEL_RADIUS := 0.85 * SCALE
+const WHEEL_RADIUS := 1.3 * SCALE
+const HIP := Vector3(2.2, -0.2, 3.2) ## Model-space leg rig for the right rear corner; other corners mirror it.
+const KNEE := Vector3(2.5, 2.7, 0.9) ## From the hip.
+const AXLE := Vector3(2.3, -5.6, 1.3) ## From the knee: the wheel's centre, its radius above the foot.
 const SPEED := [46.0, 42.0, 34.0]
 const CIRCLE := [46.0, 40.0, 34.0] ## Metres it keeps from the tank while skating round it, closing in by phase.
 const WIND := [0.0, 0.7, 1.0, 1.5, 1.2, 1.1, 0.9, 0.8]
@@ -81,108 +85,53 @@ func build() -> void:
 	_rack.name = "Rack"
 	_body.position.y = 4.4
 	model.add_child(_body)
-	var b := LowPoly.new()
-	# A dark predatory hull: a long frame tapering to a pointed prow, a dorsal spine that carries the rail, a red
-	# sensor slit across the nose and thruster bells aft. White armor panels hang over the frame and come off.
-	b.frustum(Transform3D(Basis(), Vector3(0, -1.1, 0.6)), Vector2(2.2, 7.0), Vector2(3.4, 8.0), 1.8, Palette.DUSK, Palette.SLATE)
-	b.frustum(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0, -0.05, -3.4)), Vector2(3.4, 1.5), Vector2(0.5, 0.3), 3.6, Palette.DUSK, Palette.INK, Vector2(0, 0.35))
-	b.frustum(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0, 0.5, -3.0)), Vector2(2.6, 0.5), Vector2(0.4, 0.1), 3.4, Palette.WHITE, Palette.WHITE, Vector2(0, 0.25))
-	b.frustum(Transform3D(Basis(), Vector3(0, 0.7, 1.0)), Vector2(1.8, 6.0), Vector2(1.2, 5.2), 0.6, Palette.SLATE, Palette.ASH)
-	b.box(Transform3D(Basis(), Vector3(0, -0.95, 0.4)), Vector3(1.8, 0.4, 6.4), Palette.INK)
-	for side in [-1.0, 1.0]:
-		b.frustum(Transform3D(Basis(Vector3.BACK, side * 0.5), Vector3(side * 0.8, 1.0, 4.2)), Vector2(0.14, 1.8), Vector2(0.1, 0.8), 1.6, Palette.WHITE, Palette.WHITE, Vector2(0, 0.6))
-		b.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(side * 0.85, 0.1, 4.5)), 0.45, 0.5, 10, Palette.INK, 0.6)
-		b.box(Transform3D(Basis(), Vector3(side * 1.7, 0.45, 0.6)), Vector3(0.05, 0.16, 7.6), Palette.CORAL)
-	b.glow = true
-	b.box(Transform3D(Basis(Vector3.RIGHT, 0.12), Vector3(0, 0.32, -5.0)), Vector3(1.5, 0.1, 0.05), Palette.HOT)
-	for x in [-0.5, 0.0, 0.5]:
-		b.box(Transform3D(Basis(), Vector3(x, 0.05, -5.6)), Vector3(0.14, 0.14, 0.05), Palette.HOT)
-	for side in [-1.0, 1.0]:
-		b.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(side * 0.85, 0.1, 5.0)), 0.36, 0.05, 10, Palette.CYAN)
-	b.glow = false
-	_add_mesh(_body, b.mesh())
+	# A long, low armoured hull with a shark-mouthed nose; white side armour comes off.
+	_add_mesh(_body, ActorMeshes.mesh("hi_mo", "hull"))
 	for side in [-1.0, 1.0]:
 		var plate := Node3D.new()
 		plate.name = "PlateL" if side < 0.0 else "PlateR"
-		plate.position = Vector3(side * 1.95, 0.2, 0.4)
+		plate.position = Vector3(side * 2.5, 0.1, 0.4)
 		_body.add_child(plate)
-		var p := LowPoly.new()
-		# Three overlapping white skirts angled out from the frame, each with a red stripe and a black seam.
-		for z in [-2.4, 0.0, 2.4]:
-			p.frustum(Transform3D(Basis(Vector3.BACK, side * -0.35), Vector3(0, -0.7, z)), Vector2(0.18, 2.5), Vector2(0.14, 2.1), 1.5, Palette.WHITE, Palette.MIST)
-			p.box(Transform3D(Basis(Vector3.BACK, side * -0.35), Vector3(side * 0.12, 0.1, z)), Vector3(0.04, 0.22, 2.0), Palette.CORAL)
-			p.box(Transform3D(Basis(Vector3.BACK, side * -0.35), Vector3(side * 0.1, -0.1, z + 1.2)), Vector3(0.04, 1.3, 0.06), Palette.INK)
-		_add_mesh(plate, p.mesh())
+		_add_mesh(plate, ActorMeshes.mesh("hi_mo", "plate_l" if side < 0.0 else "plate_r"))
 		_plates.append(plate)
 		# Chin gun pods under the prow.
 		var gun := Node3D.new()
-		gun.position = Vector3(side * 1.25, -0.1, -3.9)
+		gun.position = Vector3(side * 1.7, -1.1, -4.6)
 		_body.add_child(gun)
-		var g := LowPoly.new()
-		g.frustum(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0, 0, 0.6)), Vector2(0.7, 0.6), Vector2(0.5, 0.45), 1.4, Palette.SLATE)
-		for off in [-0.12, 0.12]:
-			g.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(off, 0, -0.7)), 0.08, 1.6, 8, Palette.INK)
-		_add_mesh(gun, g.mesh())
+		_add_mesh(gun, ActorMeshes.mesh("hi_mo", "gun"))
 		var muzzle := Node3D.new()
 		muzzle.position.z = -2.3
 		gun.add_child(muzzle)
 		_guns.append(muzzle)
-	# Rail cannon along the spine: a breech block, two long rails bound by cyan coils, and a muzzle shroud.
+	# Rail cannon on a flat turret along the spine.
 	_rail.position = Vector3(0, 1.4, -0.4)
 	_body.add_child(_rail)
-	var r := LowPoly.new()
-	r.frustum(Transform3D(Basis(), Vector3(0, -0.5, 0.4)), Vector2(1.6, 2.6), Vector2(1.2, 2.0), 1.0, Palette.WHITE, Palette.MIST)
-	r.box(Transform3D(Basis(), Vector3(0, 0.52, 0.6)), Vector3(0.9, 0.06, 1.4), Palette.CORAL)
-	for x in [-0.32, 0.32]:
-		r.box(Transform3D(Basis(), Vector3(x, 0, -3.6)), Vector3(0.22, 0.42, 6.4), Palette.INK)
-	r.glow = true
-	for i in 5:
-		r.box(Transform3D(Basis(), Vector3(0, 0.0, -1.4 - i * 1.15)), Vector3(1.0, 0.56, 0.16), Palette.CYAN)
-	r.glow = false
-	r.box(Transform3D(Basis(), Vector3(0, 0, -6.9)), Vector3(1.1, 0.7, 0.5), Palette.SLATE)
-	_add_mesh(_rail, r.mesh())
+	_add_mesh(_rail, ActorMeshes.mesh("hi_mo", "rail"))
 	_muzzle.position.z = -7.2
 	_rail.add_child(_muzzle)
-	# Missile box aft of the rail: six cells with red caps.
+	# Missile block aft.
 	_rack.position = Vector3(0, 1.5, 3.1)
 	_body.add_child(_rack)
-	var rack := LowPoly.new()
-	rack.frustum(Transform3D(Basis(), Vector3(0, -0.5, 0)), Vector2(2.6, 1.8), Vector2(2.2, 1.5), 1.1, Palette.SLATE, Palette.ASH)
-	for x in [-0.7, 0.0, 0.7]:
-		for y in [-0.05, 0.38]:
-			rack.box(Transform3D(Basis(), Vector3(x, y, -0.78)), Vector3(0.5, 0.32, 0.06), Palette.CORAL)
-	_add_mesh(_rack, rack.mesh())
-	# Four spider legs: the thigh climbs from the hip to a knee raised above the hull, where a glowing actuator is
-	# the weak point, then the shin plunges into the water. The wheel at the foot stays under the surface.
+	_add_mesh(_rack, ActorMeshes.mesh("hi_mo", "rack"))
+	# Four armoured legs: the thigh climbs from a round hip housing to a knee above the hull, where the glowing
+	# actuator is the weak point, then the shin drops to a big wheel at the foot.
 	for corner in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
+		var tag: String = ("f" if corner.y < 0.0 else "r") + ("l" if corner.x < 0.0 else "r")
 		var hip := Node3D.new()
 		hip.name = "Hip%d" % _legs.size()
-		hip.position = Vector3(corner.x * 1.7, -0.2, corner.y * 2.6)
+		hip.position = Vector3(corner.x * HIP.x, HIP.y, corner.y * HIP.z)
 		_body.add_child(hip)
-		var knee_at := Vector3(corner.x * 3.0, 2.7, corner.y * 1.5)
-		var thigh := LowPoly.new()
-		thigh.prism(Transform3D(Basis(Vector3.BACK, PI * 0.5), Vector3(-corner.x * 0.3, 0, 0)), 0.55, 0.6, 8, Palette.INK)
-		BipedMech.limb(thigh, knee_at, Vector3.ZERO, Vector2(0.75, 0.9), Vector2(0.9, 1.1), Palette.WHITE)
-		thigh.prism(Transform3D(Basis(), Vector3(corner.x * 0.5, 0.1, -corner.y * 0.2)), 0.12, 1.9, 6, Palette.BUTTER)
-		_add_mesh(hip, thigh.mesh())
+		_add_mesh(hip, ActorMeshes.mesh("hi_mo", "thigh_" + tag))
 		var knee := Node3D.new()
 		knee.name = "Knee"
-		knee.position = knee_at
+		knee.position = Vector3(corner.x * KNEE.x, KNEE.y, corner.y * KNEE.z)
 		hip.add_child(knee)
-		var shin := LowPoly.new()
-		var foot := Vector3(corner.x * 2.3, -6.9, corner.y * 1.3)
-		shin.blob(Transform3D(), 0.55, Palette.INK)
-		shin.glow = true
-		shin.prism(Transform3D(Basis(Vector3.BACK, PI * 0.5), Vector3(-corner.x * 0.36, 0, 0)), 0.5, 0.72, 10, Palette.AMBER)
-		shin.glow = false
-		BipedMech.limb(shin, Vector3.ZERO, foot + Vector3(0, 1.4, 0), Vector2(0.7, 0.85), Vector2(0.5, 0.6), Palette.SLATE)
-		BipedMech.limb(shin, Vector3(0, -0.3, -corner.y * 0.35), foot + Vector3(0, 2.4, -corner.y * 0.3), Vector2(0.5, 0.12), Vector2(0.4, 0.1), Palette.WHITE)
-		shin.frustum(Transform3D(Basis(), foot), Vector2(0.9, 1.5), Vector2(0.55, 0.8), 1.4, Palette.INK)
-		_add_mesh(knee, shin.mesh())
+		_add_mesh(knee, ActorMeshes.mesh("hi_mo", "shin_" + tag))
 		var wheel := Node3D.new()
 		wheel.name = "Wheel"
-		wheel.position = foot
+		wheel.position = Vector3(corner.x * AXLE.x, AXLE.y, corner.y * AXLE.z)
 		knee.add_child(wheel)
+		_add_mesh(wheel, ActorMeshes.mesh("hi_mo", "wheel"))
 		_legs.append({"hip": hip, "knee": knee, "wheel": wheel, "hp": LEG_HP, "corner": corner})
 	pop_parts = [_rail, _rack]
 	call_deferred("_play_music") # After the director's boss-start call.

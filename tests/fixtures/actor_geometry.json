@@ -733,6 +733,68 @@
         "sha256": "ddf92eb6f1db6bf37ebe0007bfe1c14a89e4726749fff0273b685cacb661e735",
         "triangles": 128.0
       }
+    },
+    "hi_mo": {
+      "gun": {
+        "sha256": "041ed71cc1171b1ecf683a7f4c143819e4047b6acb01f9567ed72af47f6ca7ed",
+        "triangles": 44.0
+      },
+      "hull": {
+        "sha256": "46afcaa2eecbf811e5fb87f60d41bb385b2d1e81cd7065cfe1d27ca2a726a9b9",
+        "triangles": 628.0
+      },
+      "plate_l": {
+        "sha256": "fa7eb4593515ad2471d540b8fb43efd8ed0b3dedbc78de5fa2987b7b9cb47194",
+        "triangles": 60.0
+      },
+      "plate_r": {
+        "sha256": "f6b825010d1a1bd6439614cc618487b4a7e12e90cab625a682379fbb773fd04f",
+        "triangles": 60.0
+      },
+      "rack": {
+        "sha256": "9c9c87ca64b080461bc4af70fe0d05e6c66c371710190886269bd5921f11ae16",
+        "triangles": 84.0
+      },
+      "rail": {
+        "sha256": "b68a29c5804da60f64ae01acb1e9a4345080f85143e97b5cc729e6f06ddbfa67",
+        "triangles": 124.0
+      },
+      "shin_fl": {
+        "sha256": "54409b89d686082f6c45709dd47f8f1dd89d24e3e4c68b2a765ec25755e37f39",
+        "triangles": 204.0
+      },
+      "shin_fr": {
+        "sha256": "0a32b5819b86e4480a17384a75e259b6dd03c62266289ac26a7d1dbaa85abb9d",
+        "triangles": 204.0
+      },
+      "shin_rl": {
+        "sha256": "78aa4bbf874722a6f23e5272d58ba0a7ab722aee54d06c3181fac9d345e70b71",
+        "triangles": 204.0
+      },
+      "shin_rr": {
+        "sha256": "149604af9592f83cfc27db3e61314136ce24fd9392ef9841ac542c5c45731743",
+        "triangles": 204.0
+      },
+      "thigh_fl": {
+        "sha256": "e04d4c3544574fb504f9ddcc3c255d1ae8a45e1b45b231cda0586dd06393e43a",
+        "triangles": 44.0
+      },
+      "thigh_fr": {
+        "sha256": "d183fb0214cfdaee9b9e23385a24a969c6ea5233bdf237992c818c62085f188e",
+        "triangles": 44.0
+      },
+      "thigh_rl": {
+        "sha256": "7c53ce8138855282449604d392668e90d35ca3ccb318c5512dccd03544b3c11e",
+        "triangles": 44.0
+      },
+      "thigh_rr": {
+        "sha256": "c8bb1b68b97196db62ff932ffefeedc2a4b5da579c36fd91eab42b53530c3dbf",
+        "triangles": 44.0
+      },
+      "wheel": {
+        "sha256": "238d4578958288393572b98d96a367d266c2270e9ab9981028542d2b2f5a9893",
+        "triangles": 340.0
+      }
     }
   },
   "samples": {

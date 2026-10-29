@@ -7,7 +7,7 @@ const VARIANTS := {
 	"walker": ["gun", "missile"], "quad_mech": ["flak", "mortar"],
 	"fpv_drone": [""], "uav": ["bomb", "strafe"], "helicopter": [""],
 	"tiltrotor": ["", "drones", "crawlers"], "colossus": [""], "gunship": [""], "flare": [""], "wing": [""],
-	"husk": [""], "sporefly": [""], "torpedo_boat": [""], "mortar": ["", "naval"], "glinter": [""], "burrower": [""], "skimmer": [""], "crocodile": [""], "fortress": [""], "hovercraft": [""], "borer": [""],
+	"husk": [""], "sporefly": [""], "torpedo_boat": [""], "mortar": ["", "naval"], "glinter": [""], "burrower": [""], "skimmer": [""], "crocodile": [""], "fortress": [""], "hovercraft": [""], "borer": [""], "hi_mo": [""],
 }
 
 
@@ -79,6 +79,11 @@ static func names(actor: String, variant: String) -> Array:
 					result.append("tail")
 				if i in Borer.POD_AT:
 					result.append("pod")
+			return result
+		"hi_mo":
+			var result := ["hull", "plate_l", "gun", "plate_r", "gun", "rail", "rack"]
+			for tag in ["fl", "fr", "rl", "rr"]:
+				result.append_array(["thigh_" + tag, "shin_" + tag, "wheel"])
 			return result
 	return []
 

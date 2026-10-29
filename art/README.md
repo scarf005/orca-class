@@ -65,6 +65,7 @@ from Godot's importer and release builds. Commit both the edited `.blend` and it
 | fortress | Stage 4 boss: hull with dozer blade and casemate, track units with road wheels, turret ring, twin-gun barrel, hull-fixed flame sponsons with aiming guns, rear fuel tanks |
 | hovercraft | Stage 2 mid-boss, a Zubr-class air-cushion craft: hull with skirt, side blocks, wheelhouse and radome tower; propeller duct and rotor (three each), left/right armour plates, gun mounts, roof gun, rocket rack, laser emitters |
 | borer | Stage 3 pit mid-boss, a tunnel-boring machine grown into a giant centipede: shield head with capsule, forcipules and antennae; spoked cutterhead; machine-ring segment, tergite plate, left/right legs, spore pod, fungus growth, caudal legs |
+| hi_mo | Stage 2 bay boss, a wheeled quadruped after the Project Landsword crawler and the HAL-X10: shark-mouthed hull with sensor dome and hip housings; left/right armour plates, chin gun, rail cannon turret, missile block; thigh and shin per corner (fl, fr, rl, rr), wheel |
 
 Only Crawler bodies and Gunship fungus need per-spawn mesh deformation. `ActorDeform`
 uses the authored unit surfaces and the original random displacement, radii and

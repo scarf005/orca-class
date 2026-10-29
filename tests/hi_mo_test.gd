@@ -74,6 +74,17 @@ func test_above_water_actuator_hits_disable_a_leg() -> void:
 	check_eq(boss.legs_lost(), 1, "actuator hit tears off its leg rather than requiring submerged wheels")
 
 
+func test_its_wheels_ride_above_the_flooded_bay_and_touch_its_floor() -> void:
+	var boss := _boss()
+	for i in 30:
+		boss._animate(1.0 / 60.0)
+	for leg in boss._legs:
+		var wheel: Node3D = leg.wheel
+		var floor := Course.height_at(wheel.global_position)
+		check(wheel.global_position.y + HiMo.WHEEL_RADIUS > Stage2.WATER_LEVEL + 1.5, "the wheel shows above the water")
+		check_near(wheel.global_position.y - HiMo.WHEEL_RADIUS, boss.global_position.y, 0.3, "and stands on the ground under the hull (floor %.1f m)" % floor)
+
+
 func test_stripping_starts_a_cover_crushing_hop() -> void:
 	var boss := _boss()
 	_shell(boss, boss.hit_center(), boss.max_hp * 0.35)
