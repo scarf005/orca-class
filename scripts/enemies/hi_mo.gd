@@ -514,6 +514,7 @@ func on_damaged(hit: Hit, amount: float) -> void:
 		_end_attack()
 		_pattern = 0
 		stagger = 0.0
+		spun = 0.0 # The phase change's move takes over from a spin-out.
 		if phase == Phase.STRIPPED:
 			_transition = HOP_TIME
 			_start_hop(_perch())
