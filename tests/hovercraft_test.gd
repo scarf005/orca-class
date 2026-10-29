@@ -150,12 +150,14 @@ func test_fans_can_be_destroyed_independently_and_slow_the_hull() -> void:
 	check(not boss.aim_parts().has("fan_l") and not boss.aim_parts().has("fan_r"), "lost fans leave the lock list")
 
 
-func test_charged_shot_staggers_and_cancels_a_ram() -> void:
+func test_a_full_charge_during_the_ram_warning_staggers_and_cancels_it() -> void:
 	var boss := _boss()
+	var tank := boss.player()
 	boss._begin_attack(Hovercraft.Attack.RAM)
-	var hit := _shell(boss, Vector3.ZERO)
-	hit.power = 1.0
-	boss.take_hit(hit)
+	tank.charge_lock = boss
+	var from := tank.global_position + Vector3.UP * 2.0
+	tank.fire_cannon(from, (boss.hit_center() - from).normalized(), 1.0)
+	check(boss.aground <= 0.0, "the warning is not yet the charge, so it is not run aground")
 	check(boss.is_staggered(), "one charged shot knocks the hunter back")
 	check_eq(boss._attack, Hovercraft.Attack.NONE, "its warned dash is cancelled")
 	check(boss._next_attack >= Hovercraft.WINDOW, "another charge fits before the next attack")
@@ -221,6 +223,7 @@ func test_a_full_charge_from_behind_mid_ram_only_staggers_it() -> void:
 	hit.power = 1.0
 	boss.take_hit(hit)
 	check(boss.aground <= 0.0, "only a hit that meets the charge head-on grounds it")
+	check(boss.is_staggered(), "a full charge from behind staggers it")
 
 
 func test_a_dodged_ram_runs_aground_at_the_plaza_edge_stern_to_the_tank() -> void:
@@ -230,9 +233,11 @@ func test_a_dodged_ram_runs_aground_at_the_plaza_edge_stern_to_the_tank() -> voi
 	for i in 240:
 		if boss._attack == Hovercraft.Attack.NONE:
 			break
-		boss._update_attack(1.0 / 60.0, tank)
+		boss.behave(1.0 / 60.0)
 	check(boss.global_position.distance_to(boss.arena_center()) >= Stage2.PLAZA_RADIUS - boss.radius - 1.5, "the ram carries it to the edge")
 	check(boss.aground > 0.0, "a ram that misses runs the craft aground at the edge")
+	var toward := ((tank.global_position - boss.global_position) * Vector3(1, 0, 1)).normalized()
+	check(boss.model.global_basis.z.dot(toward) > 0.5, "with its stern to the tank (%.2f)" % boss.model.global_basis.z.dot(toward))
 	var at := boss.global_position
 	boss._next_attack = 0.0
 	boss.behave(Hovercraft.STALL * 0.5)
@@ -254,6 +259,22 @@ func test_a_ram_launched_inward_from_the_rim_does_not_run_aground() -> void:
 	boss._update_attack(1.0 / 60.0, tank)
 	check(boss.aground <= 0.0, "leaving the rim is not crashing into it")
 	check_eq(boss._attack, Hovercraft.Attack.RAM, "the ram carries on across the plaza")
+
+
+func test_a_ram_launched_outward_at_the_rim_before_passing_the_tank_does_not_run_aground() -> void:
+	var boss := _boss()
+	var center := boss.arena_center()
+	boss.global_position = center + Vector3.RIGHT * (Stage2.PLAZA_RADIUS - boss.radius - 1.0)
+	boss._bound()
+	var tank := boss.player()
+	tank.global_position = center + (Vector3.RIGHT * (Stage2.PLAZA_RADIUS - 6.0)).rotated(Vector3.UP, deg_to_rad(15.0)) # Along the rim at the tank's drive limit.
+	boss._begin_attack(Hovercraft.Attack.RAM)
+	boss._attack_time = Hovercraft.WIND * Game.telegraph_scale()
+	for i in 120:
+		if boss._attack == Hovercraft.Attack.NONE:
+			break
+		boss._update_attack(1.0 / 60.0, tank)
+	check(boss.aground <= 0.0, "a ram that never got past the tank has nothing to miss")
 
 
 func test_a_ram_that_connects_does_not_run_aground() -> void:
