@@ -296,12 +296,14 @@ func behave(delta: float) -> void:
 ## Segments trail the head along its recent path, undulating as they go; under the sand only their spines show.
 func _follow(delta: float) -> void:
 	var head := Vector3(global_position.x, _sink, global_position.z)
-	var moved := Vector2(head.x - _trail[0].x, head.z - _trail[0].z).length() if not _trail.is_empty() else INF
-	if moved > STEP:
-		_gait += moved * 0.9 if not _trail.is_empty() else 0.0
-		_trail.push_front(head)
-		if _trail.size() > TRAIL:
-			_trail.resize(TRAIL)
+	var last := _trail[0]
+	var moved := Vector2(head.x - last.x, head.z - last.z).length()
+	# A point every STEP metres along the way, however far the head ran this frame, so a charge keeps the body closed up.
+	var steps := mini(floori(moved / STEP), TRAIL)
+	for k in steps:
+		_trail.push_front(last.lerp(head, (k + 1) * STEP / moved))
+	_trail.resize(mini(_trail.size(), TRAIL))
+	_gait += steps * STEP * 0.9
 	_gait += delta * 1.5
 	for i in SEGMENTS:
 		var seg := _segments[i]
