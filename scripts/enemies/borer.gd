@@ -288,7 +288,7 @@ func behave(delta: float) -> void:
 		_follow(delta)
 		return
 	if _attack not in [Attack.BORE, Attack.BURROW, Attack.ERUPT]:
-		var goal := circling(global_position, tank.global_position, CIRCLE, move_speed() / CIRCLE * delta)
+		var goal := circling_goal(tank.global_position, CIRCLE, move_speed() / CIRCLE * delta, arena_center(), Stage3.PIT_RADIUS - radius - 1.0)
 		var before := global_position
 		global_position = global_position.move_toward(goal, move_speed() * delta)
 		var step := global_position - before

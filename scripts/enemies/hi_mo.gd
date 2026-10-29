@@ -252,7 +252,7 @@ func behave(delta: float) -> void:
 	if is_staggered() and _transition <= 0.0:
 		_drift = _drift.move_toward(Vector3.ZERO, delta * 80.0)
 	elif _hop <= 0.0 and _attack not in [Attack.RAIL, Attack.CHARGE, Attack.STOMP, Attack.SWEEP]:
-		var goal := circling(global_position, tank.global_position, CIRCLE[phase], 0.6) # Leads the turn so the lagging drift holds the ring.
+		var goal := circling_goal(tank.global_position, CIRCLE[phase], 0.6, Course.to_world(Stage2.BAY_D, 0.0), Stage2.BAY_RADIUS - radius - 1.0) # Leads the turn so the lagging drift holds the ring.
 		var desired := (goal - global_position).normalized() * skate_speed()
 		if _attack == Attack.MISSILES:
 			desired = Vector3.ZERO # The high-perch volley is an exposed charge opening.

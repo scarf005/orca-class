@@ -20,6 +20,7 @@ var death_radius := 2.0 ## Size of the death blast: half the model's longest sid
 var debris: Array = [Fx.Debris.ARMOR, Fx.Debris.METAL] ## Fx.Debris materials it breaks into.
 var drop := ""
 var boss := false
+var circle_sign := 1.0 ## Which way round an arena boss circles the tank (see `circling_goal`).
 var heavy := false ## A boss's hide: canister balls and airbursts barely scratch it.
 var stagger := 0.0
 var burning := 0.0
@@ -427,13 +428,30 @@ static func wading_at(d: float, u: float) -> Vector3:
 
 
 ## Where a body at `at` circling `tank` heads next on the ground: `radius` out from the tank, `turn` radians further
-## round than where it stands, so an arena boss hunts the tank wherever it waits instead of a fixed ring.
-static func circling(at: Vector3, tank: Vector3, radius: float, turn: float) -> Vector3:
+## round than where it stands, cut short where that ray leaves the arena (`center`, `bound`), so an arena boss hunts the
+## tank wherever it waits and runs along the edge where its ring would leave the arena.
+static func circling(at: Vector3, tank: Vector3, radius: float, turn: float, center: Vector3, bound: float) -> Vector3:
 	var out := Vector3(at.x - tank.x, 0.0, at.z - tank.z)
 	if out.length_squared() < 0.01:
 		out = Vector3.FORWARD
-	var goal := tank + out.normalized().rotated(Vector3.UP, turn) * radius
+	var way := out.normalized().rotated(Vector3.UP, turn)
+	var from := Vector2(tank.x - center.x, tank.z - center.z)
+	var along := from.dot(Vector2(way.x, way.z))
+	var room := along * along - from.length_squared() + bound * bound
+	var exit := -along + sqrt(room) if room >= 0.0 else -1.0
+	var goal := tank + way * (minf(radius, exit) if exit > 0.0 else radius)
 	return Vector3(goal.x, at.y, goal.z)
+
+
+## The next goal for an arena boss circling the tank its own way round (`circle_sign`). Where the arena's edge would
+## bring it within 0.6 `radius` of the tank it turns back, so by the rim it sweeps to and fro across the tank's front
+## instead of parking there.
+func circling_goal(tank: Vector3, radius: float, turn: float, center: Vector3, bound: float) -> Vector3:
+	var goal := circling(global_position, tank, radius, circle_sign * turn, center, bound)
+	if Vector2(goal.x - tank.x, goal.z - tank.z).length() < radius * 0.6:
+		circle_sign = -circle_sign
+		goal = circling(global_position, tank, radius, circle_sign * turn, center, bound)
+	return goal
 
 
 func despawn() -> void:

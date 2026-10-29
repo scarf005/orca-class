@@ -290,7 +290,7 @@ func behave(delta: float) -> void:
 		return
 	var before := global_position
 	if _attack not in [Attack.CANNON, Attack.RAM]:
-		var goal := circling(global_position, tank.global_position, CIRCLE, move_speed() / CIRCLE * delta)
+		var goal := circling_goal(tank.global_position, CIRCLE, move_speed() / CIRCLE * delta, arena_center(), Stage2.PLAZA_RADIUS - radius - 1.0)
 		global_position = global_position.move_toward(goal, move_speed() * delta)
 	var toward := tank.global_position - global_position
 	model.rotation.y = lerp_angle(model.rotation.y, atan2(-toward.x, -toward.z), minf(delta * 3.0, 1.0))
