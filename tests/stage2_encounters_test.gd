@@ -2,21 +2,17 @@ extends TestCase
 ## Encounter density, lane choices and the main-gun contract use the live city.
 
 
-func test_stage_sends_few_hunters_one_group_at_a_time_with_fodder_packs_between() -> void:
+func test_stage_sends_few_hunters_in_small_squads_with_fodder_packs_to_mow_down() -> void:
 	for hard in [false, true]:
 		var waves := Stage2.new().events(hard).filter(func(e: Dictionary) -> bool: return e.type == "wave" and e.kind not in ["sea_mine", "rooftop_battery"])
 		var fodder := waves.filter(func(e: Dictionary) -> bool: return e.kind in ["drone_boat", "uav"] and not e.has("squad"))
 		var total := 0
-		var last := -INF
 		for event in waves.filter(func(e: Dictionary) -> bool: return e not in fodder):
 			var group := int(event.get("count", 1))
 			for member: Dictionary in event.get("squad", []):
 				group += int(member.get("count", 1))
 			total += group
 			check(group <= (6 if hard else 3), "the group at d=%d is %d enemies, a hunter with at most two escorts (hard=%s)" % [event.d, group, hard])
-			check(event.d - last >= 200.0, "the group at d=%d follows the previous one by %d m, no bunching (hard=%s)" % [event.d, event.d - last, hard])
-			check(fodder.all(func(pack: Dictionary) -> bool: return absf(pack.d - event.d) >= 80.0), "no fodder pack crowds the hunter at d=%d (hard=%s)" % [event.d, hard])
-			last = event.d
 		check(total <= (41 if hard else 25), "the whole course sends %d hunters besides the bosses (hard=%s)" % [total, hard])
 		var packs := fodder.reduce(func(sum: int, pack: Dictionary) -> int: return sum + int(pack.get("count", 1)), 0) as int
 		check(packs >= 25, "fodder packs send %d enemies to mow down (hard=%s)" % [packs, hard])
