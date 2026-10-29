@@ -704,3 +704,17 @@ func test_the_borers_body_stays_closed_up_at_a_full_charge() -> void:
 	for i in 4:
 		var gap := borer._segments[i].global_position.distance_to(borer._segments[i + 1].global_position)
 		check_near(gap, Borer.SPACING * (Borer._size(i) + Borer._size(i + 1)) * 0.5, 0.5, "segments %d and %d keep their spacing at %.0f m/s" % [i, i + 1, Borer.BORE_SPEED])
+
+
+func test_a_borer_diving_beside_the_tank_draws_its_whole_body_under_the_sand() -> void:
+	var borer := _borer()
+	var tank := borer.player()
+	tank.global_position = borer.global_position + Vector3(0, 0, -5)
+	borer._begin_attack(Borer.Attack.BURROW)
+	borer._attack_time = Borer.WIND * Game.telegraph_scale()
+	for i in ceili((Borer.BURROW_TIME - 0.1) * 60.0):
+		borer.behave(STEP)
+	check(borer._burrowed, "still under the sand")
+	for i in Borer.SEGMENTS:
+		var seg := borer._segments[i]
+		check(seg.global_position.y < Course.height_at(seg.global_position) - Borer.SEG_SINK * Borer._size(i) * 0.9, "segment %d has followed the head down the hole" % i)
