@@ -325,7 +325,7 @@ func _generate_concourse() -> void:
 ## sides at d=1120.
 func _to_horizon(event: Dictionary, d: float) -> void:
 	event.ahead = event.get("ahead", 90.0) # 90 m is the director's default slot, which would pop the unit up mid-street.
-	var shift := 0.0 if event.get("close", false) or event.get("formation", "") in ["behind", "flank"] else HORIZON_SHIFT
+	var shift := 0.0 if beside_tank(event) else HORIZON_SHIFT
 	if is_equal_approx(float(event.get("height", 0.0)), DECK_TOP):
 		shift = clampf(1060.0 - d - float(event.ahead), 0.0, shift)
 	event.ahead += shift
@@ -599,7 +599,7 @@ func events(hard: bool) -> Array[Dictionary]:
 	wave.call(30.0, "drone_boat", {"ahead": 120.0}) # Contact within seconds: a lone boat crosses the horizon before the first hunter.
 	wave.call(240.0, "torpedo_boat", {"u": -17.0, "ahead": 70.0, "drop": "coax", "squad": [
 		{"kind": "sea_mine", "u": 6.0, "ahead": 50.0}]})
-	wave.call(330.0, "drone_boat", {"count": 3, "formation": "behind", "spacing": 8.0})
+	wave.call(345.0, "drone_boat", {"count": 3, "formation": "behind", "spacing": 8.0}) # Past the split tower.
 	wave.call(400.0, "drone_boat", {"count": 3, "formation": "v", "u": 12.0, "spacing": 6.0, "ahead": 70.0})
 	wave.call(440.0, "abel", {"u": 20.0, "ahead": 70.0, "peak": true, "squad": [
 		{"kind": "drone_boat", "u": -6.0, "ahead": 55.0}]})
@@ -618,9 +618,8 @@ func events(hard: bool) -> Array[Dictionary]:
 	wave.call(1040.0, "hind", {"u": 8.0, "height": 5.0, "ahead": 70.0, "peak": true})
 	e.append({"d": 1070.0, "type": "pickup", "id": "atgm"})
 	wave.call(1090.0, "abel", {"u": -26.0, "ahead": 70.0, "drop": "micro"})
-	wave.call(1430.0, "adam", {"u": 17.0, "ahead": 60.0, "squad": [
-		{"kind": "drone_boat", "u": 10.0, "ahead": 60.0}]})
-	wave.call(1480.0, "drone_boat", {"count": 3, "formation": "behind", "spacing": 8.0})
+	wave.call(1430.0, "adam", {"u": 17.0, "ahead": 60.0})
+	wave.call(1600.0, "drone_boat", {"count": 3, "formation": "behind", "spacing": 8.0}) # The flood starts at 1550 m.
 	e.append({"d": 1490.0, "type": "pickup", "id": "micro", "u": -4.0})
 
 	e.append({"d": 1660.0, "type": "checkpoint", "name": "midboss"})
@@ -640,7 +639,7 @@ func events(hard: bool) -> Array[Dictionary]:
 	wave.call(2470.0, "adam", {"u": -15.0, "ahead": 60.0, "peak": true, "squad": [
 		{"kind": "drone_boat", "u": 6.0, "ahead": 70.0}]})
 	wave.call(2520.0, "kain", {"u": 14.5, "ahead": 75.0, "squad": [
-		{"kind": "sea_mine", "ahead": 70.0}]})
+		{"kind": "sea_mine", "u": -6.0, "ahead": 70.0}]})
 	wave.call(2550.0, "hind", {"u": -6.0, "height": 5.0, "ahead": 70.0})
 	wave.call(2600.0, "drone_boat", {"count": 3, "formation": "behind", "spacing": 8.0})
 	wave.call(2760.0, "sea_mine", {"count": 2, "u": -6.0, "spacing": 10.0, "ahead": 35.0, "close": true})
@@ -678,7 +677,8 @@ func events(hard: bool) -> Array[Dictionary]:
 			for member: Dictionary in event.squad:
 				member.count = int(member.get("count", 1)) * 2 + int(pressure.get(event.d, {}).get(member.kind, 0))
 				member.u = -float(member.get("u", 0.0))
-				member.ahead = 50.0 if member.kind == "drone_boat" else 65.0
+				if not beside_tank(member):
+					member.ahead = 50.0 if member.kind == "drone_boat" else 65.0
 		wave.call(720.0, "rooftop_battery", {"u": -40.0, "ahead": 180.0, "height": DECK_TOP})
 	for event in e:
 		if event.type == "wave":

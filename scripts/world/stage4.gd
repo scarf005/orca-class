@@ -360,7 +360,7 @@ func boss_music(_phase := 0) -> String:
 func _to_horizon(event: Dictionary) -> void:
 	if event.kind == "fpv" and not event.has("ahead"):
 		event.ahead = 90.0 # The director's default slot, which would pop the drone up mid-street.
-	if event.has("ahead") and not event.get("close", false) and event.get("formation", "") not in ["behind", "flank"]:
+	if event.has("ahead") and not beside_tank(event):
 		event.ahead += HORIZON_SHIFT
 	for member: Dictionary in event.get("squad", []):
 		_to_horizon(member)
@@ -457,7 +457,8 @@ func events(hard: bool) -> Array[Dictionary]:
 			for member: Dictionary in event.squad:
 				member.count = int(member.get("count", 1)) * 2
 				member.u = -float(member.get("u", 0.0))
-				member.ahead = 65.0
+				if not beside_tank(member):
+					member.ahead = 65.0
 	for event in e:
 		if event.type == "wave":
 			_to_horizon(event)

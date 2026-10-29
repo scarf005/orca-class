@@ -156,6 +156,11 @@ func events(_hard: bool) -> Array[Dictionary]:
 	return []
 
 
+## Whether a wave or escort keeps its slot by the tank: close by, or coming up behind or from the flanks.
+static func beside_tank(event: Dictionary) -> bool:
+	return event.get("close", false) or event.get("formation", "") in ["behind", "flank"]
+
+
 ## The events a run plays: the editor's playtest or the saved data file for that difficulty when there is one, else the coded list.
 func run_events(hard: bool) -> Array[Dictionary]:
 	var edited: Variant = StageEvents.edited(number, hard)

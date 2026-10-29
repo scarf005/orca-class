@@ -468,7 +468,7 @@ func boss_music(_phase := 0) -> String:
 ## Pushes a wave and its squad from ahead out to the haze; pursuers from behind and flankers keep their slot.
 func _to_horizon(event: Dictionary) -> void:
 	event.ahead = event.get("ahead", 90.0) # 90 m is the director's default slot, which would pop the unit up mid-street.
-	if not event.get("close", false) and event.get("formation", "") not in ["behind", "flank"]:
+	if not beside_tank(event):
 		event.ahead += HORIZON_SHIFT
 	for member: Dictionary in event.get("squad", []):
 		_to_horizon(member)
@@ -521,13 +521,13 @@ func events(hard: bool) -> Array[Dictionary]:
 	# The canyon: a mortar walks its shells over the first quicksand, skimmers charge up the tunnel behind the tank
 	# and down it ahead, and where the storm meets the second quicksand a Hind, a sniper, a burrower coming up
 	# behind and a mortar crew close in together.
-	wave.call(2060.0, "mortar", {"u": -8.0, "ahead": 80.0})
+	wave.call(2060.0, "mortar", {"u": 8.0, "ahead": 80.0})
 	wave.call(2140.0, "skimmer", {"count": 3, "formation": "v", "spacing": 7.0, "ahead": 70.0})
 	wave.call(2330.0, "skimmer", {"count": 2, "formation": "behind", "spacing": 6.0})
 	wave.call(2420.0, "skimmer", {"count": 3, "formation": "column", "spacing": 10.0, "ahead": 70.0})
 	e.append({"d": STORM_D, "type": "storm", "duration": 22.0})
 	wave.call(2660.0, "hind", {"u": -10.0, "height": 5.0, "ahead": 70.0, "peak": true})
-	wave.call(2700.0, "glinter", {"u": 14.5, "ahead": 80.0})
+	wave.call(2700.0, "glinter", {"u": -14.5, "ahead": 80.0})
 	wave.call(2720.0, "burrower", {"formation": "behind"})
 	wave.call(2760.0, "mortar", {"u": 15.0, "ahead": 70.0, "squad": [
 		{"kind": "skimmer", "count": 2, "u": -6.0, "spacing": 8.0, "ahead": 60.0}]})
@@ -554,7 +554,8 @@ func events(hard: bool) -> Array[Dictionary]:
 			for member: Dictionary in event.squad:
 				member.count = int(member.get("count", 1)) * 2 + int(pressure.get(event.d, {}).get(member.kind, 0))
 				member.u = -float(member.get("u", 0.0))
-				member.ahead = 65.0
+				if not beside_tank(member):
+					member.ahead = 65.0
 				if member.kind == "ugv":
 					member.props = {"weapon": "atgm"}
 	for event in e:
