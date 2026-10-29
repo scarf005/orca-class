@@ -164,6 +164,95 @@ func test_charged_shot_staggers_and_cancels_a_ram() -> void:
 	check_near(boss.global_position.distance_to(at), 0.0, 0.01, "the staggered hull stops moving")
 
 
+## Puts the tank `ahead` metres in front of the boss and starts a ram at it, run on past the warning.
+func _charging(boss: Hovercraft, ahead: float) -> Tank:
+	var tank := boss.player()
+	tank.global_position = boss.global_position + Vector3(0, 0, -ahead)
+	boss._begin_attack(Hovercraft.Attack.RAM)
+	boss._attack_time = Hovercraft.WIND * Game.telegraph_scale()
+	return tank
+
+
+## Hull damage of one 10-round shell at the craft's centre.
+func _shell_damage(boss: Hovercraft) -> float:
+	var before := boss.hp
+	boss.take_hit(_shell(boss, Vector3.ZERO, 10.0))
+	return before - boss.hp
+
+
+func _check_aground(boss: Hovercraft, how: String) -> void:
+	check(boss.aground > 0.0, "%s knocks the charging craft off its cushion" % how)
+	check_eq(boss._attack, Hovercraft.Attack.NONE, "%s ends the ram" % how)
+	var at := boss.global_position
+	boss.behave(1.0)
+	check_near(boss.global_position.distance_to(at), 0.0, 0.01, "aground after %s it cannot move" % how)
+	var grounded := _shell_damage(boss)
+	for i in ceili(Hovercraft.AGROUND * 60.0):
+		boss.behave(1.0 / 60.0)
+	check(boss.aground <= 0.0, "it gets back up on its cushion after %s" % how)
+	check(grounded >= _shell_damage(boss) * 1.9, "while aground after %s every round does double damage" % how)
+
+
+func test_a_full_charge_into_its_bow_mid_ram_runs_it_aground() -> void:
+	var boss := _boss()
+	var tank := _charging(boss, 40.0)
+	tank.charge_lock = boss
+	var from := tank.global_position + Vector3.UP * 2.0
+	tank.fire_cannon(from, (boss.hit_center() - from).normalized(), 1.0)
+	_check_aground(boss, "a full charge into its bow")
+
+
+func test_ramming_its_bow_head_on_mid_ram_runs_it_aground() -> void:
+	var boss := _boss()
+	var tank := _charging(boss, Tank.HULL_RADIUS + boss.radius - 1.0)
+	World.current.rail.mode = Rail.Mode.ARENA
+	var toward := (boss.global_position - tank.global_position) * Vector3(1, 0, 1)
+	tank.velocity = toward.normalized() * Tank.ARENA_SPEED
+	tank.local_velocity = Vector2(tank.velocity.x, tank.velocity.z)
+	tank._ram_enemies(1.0 / 60.0)
+	_check_aground(boss, "the tank ramming its bow")
+
+
+func test_a_full_charge_from_behind_mid_ram_only_staggers_it() -> void:
+	var boss := _boss()
+	_charging(boss, 40.0)
+	var hit := _shell(boss, Vector3.ZERO)
+	hit.direction = boss._ram_direction
+	hit.power = 1.0
+	boss.take_hit(hit)
+	check(boss.aground <= 0.0, "only a hit that meets the charge head-on grounds it")
+
+
+func test_a_dodged_ram_runs_aground_at_the_plaza_edge_stern_to_the_tank() -> void:
+	var boss := _boss()
+	var tank := _charging(boss, 30.0)
+	tank.global_position += Vector3.RIGHT * 25.0 # Out of the lane once it is committed.
+	for i in 240:
+		if boss._attack == Hovercraft.Attack.NONE:
+			break
+		boss._update_attack(1.0 / 60.0, tank)
+	check(boss.global_position.distance_to(boss.arena_center()) >= Stage2.PLAZA_RADIUS - boss.radius - 1.5, "the ram carries it to the edge")
+	check(boss.aground > 0.0, "a ram that misses runs the craft aground at the edge")
+	var at := boss.global_position
+	boss._next_attack = 0.0
+	boss.behave(Hovercraft.STALL * 0.5)
+	check_near(boss.global_position.distance_to(at), 0.0, 0.01, "stuck there, it cannot move")
+	check_eq(boss._attack, Hovercraft.Attack.NONE, "or attack")
+
+
+func test_a_ram_that_connects_does_not_run_aground() -> void:
+	var boss := _boss()
+	var tank := _charging(boss, 25.0)
+	tank.invuln = 0.0
+	for i in 240:
+		if boss._attack == Hovercraft.Attack.NONE:
+			break
+		tank.invuln = 0.0
+		boss._update_attack(1.0 / 60.0, tank)
+	check(tank.hp < tank.max_hp, "the ram hits the tank that stayed")
+	check(boss.aground <= 0.0, "and the craft stays on its cushion")
+
+
 func test_circle_and_ram_stay_inside_plaza_even_after_displacement() -> void:
 	var boss := _boss()
 	boss._next_attack = 1000.0
