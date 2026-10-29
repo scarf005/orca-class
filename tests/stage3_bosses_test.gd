@@ -456,6 +456,29 @@ func test_borer_strips_its_plates_at_half_hull() -> void:
 	check(borer.move_speed() > Borer.SPEED, "the stripped borer is faster")
 
 
+func test_a_burrowed_borer_runs_under_the_sand_its_crest_showing_and_its_body_follows_it_out() -> void:
+	var borer := _borer()
+	var tank := borer.player()
+	tank.global_position = borer.arena_center() + Vector3(-30, 0, 0)
+	borer._begin_attack(Borer.Attack.BURROW)
+	for i in ceili((Borer.WIND * Game.telegraph_scale() + 0.8) * 60.0):
+		borer.behave(STEP)
+	var ground := Course.height_at(borer.global_position)
+	var crest := borer.global_position.y + ActorMeshes.mesh("borer", "head").get_aabb().end.y
+	check(borer._burrowed and borer.is_visible_in_tree(), "under the sand it is still drawn")
+	check(crest > ground + 0.5 and crest < ground + 3.0, "only the crest of its capsule shows (%.1f m)" % (crest - ground))
+	while borer._burrowed:
+		borer.behave(STEP)
+	var middle := borer._segments[3]
+	check(middle.global_position.y < Course.height_at(middle.global_position) - 1.0, "erupting, the body behind the head is still on its path under the sand")
+	for i in 8 * 60:
+		if borer._attack == Borer.Attack.NONE:
+			borer._next_attack = 1000.0
+		borer.behave(STEP)
+	var out := borer._segments.all(func(seg: Node3D) -> bool: return seg.global_position.y > Course.height_at(seg.global_position) - 0.5)
+	check(out, "crawling on, its whole body follows it out of the hole")
+
+
 func test_bore_charge_is_telegraphed_before_it_moves() -> void:
 	var borer := _borer()
 	borer.global_position = Course.to_world(Stage3.PIT_D, -50.0)

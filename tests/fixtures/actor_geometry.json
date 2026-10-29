@@ -695,6 +695,44 @@
         "sha256": "455fabfd80ddae06a85a92a5468d0e561bcb0478161c464a8f1c24acc34a574c",
         "triangles": 58.0
       }
+    },
+    "borer": {
+      "cutter": {
+        "sha256": "d2d7aff62c9523bd7a59064d3b1035cff3de7bb6dc51ae2e08f7cc7fdd748a74",
+        "triangles": 738.0
+      },
+      "growth": {
+        "sha256": "81ae33707e9bef7e59c965ff6f2bccc55c1fa30bbe597c46c5d1d106cd1295d6",
+        "triangles": 48.0
+      },
+      "head": {
+        "sha256": "f60e8d21222098db9bb2e95f3c08b8bd8e83b0e2d675a2b7bd5de7f3995085d4",
+        "triangles": 862.0
+      },
+      "leg_l": {
+        "sha256": "1bcec43fb6584e9715ec59f87eaf8d08109098df8324cdd08ef289bb9a1c9731",
+        "triangles": 80.0
+      },
+      "leg_r": {
+        "sha256": "2bcef87df0c62636024f0dd3d27d4c6bfcb081732762f35393ddd73667d45949",
+        "triangles": 80.0
+      },
+      "plate": {
+        "sha256": "d7a7131b957eb099eb82c4fe4145f679feb39f1a47b9c9d0516587ef390be16b",
+        "triangles": 180.0
+      },
+      "pod": {
+        "sha256": "518335921ad3c186176d357030749a8eb1ee7ab077dd12ce5005ec3f28972141",
+        "triangles": 116.0
+      },
+      "segment": {
+        "sha256": "5e8928f84b3d8a155274b0ccc886a4662c9e9bf9756017dc596a1aadba05ce1b",
+        "triangles": 140.0
+      },
+      "tail": {
+        "sha256": "ddf92eb6f1db6bf37ebe0007bfe1c14a89e4726749fff0273b685cacb661e735",
+        "triangles": 128.0
+      }
     }
   },
   "samples": {

@@ -7,7 +7,7 @@ const VARIANTS := {
 	"walker": ["gun", "missile"], "quad_mech": ["flak", "mortar"],
 	"fpv_drone": [""], "uav": ["bomb", "strafe"], "helicopter": [""],
 	"tiltrotor": ["", "drones", "crawlers"], "colossus": [""], "gunship": [""], "flare": [""], "wing": [""],
-	"husk": [""], "sporefly": [""], "torpedo_boat": [""], "mortar": ["", "naval"], "glinter": [""], "burrower": [""], "skimmer": [""], "crocodile": [""], "fortress": [""], "hovercraft": [""],
+	"husk": [""], "sporefly": [""], "torpedo_boat": [""], "mortar": ["", "naval"], "glinter": [""], "burrower": [""], "skimmer": [""], "crocodile": [""], "fortress": [""], "hovercraft": [""], "borer": [""],
 }
 
 
@@ -71,6 +71,15 @@ static func names(actor: String, variant: String) -> Array:
 			for _fan in Hovercraft.FANS:
 				result.append_array(["duct", "rotor"])
 			return result + ["plate_l", "gun", "plate_r", "gun", "emitter", "emitter", "bow", "rack"]
+		"borer":
+			var result := ["head", "cutter"]
+			for i in Borer.SEGMENTS:
+				result.append_array(["segment", "plate"] + (["growth"] if i % 3 == 1 else []) + ["leg_l", "leg_r"])
+				if i == Borer.SEGMENTS - 1:
+					result.append("tail")
+				if i in Borer.POD_AT:
+					result.append("pod")
+			return result
 	return []
 
 

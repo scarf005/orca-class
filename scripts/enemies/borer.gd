@@ -11,7 +11,10 @@ enum Attack { NONE, BORE, BURROW, ERUPT, SPORES }
 const BODY_HP := 1800.0
 const ROUND_DAMAGE := 40.0 ## Main-gun damage counts in rounds, like the other bosses.
 const SEGMENTS := 15
-const SPACING := 4.2
+const SPACING := 4.8 ## Trail metres per full-size segment; smaller segments sit closer.
+const NECK := 6.0 ## Trail metres from the head to the first segment.
+const STEP := SPACING / 8.0 ## Trail metres between recorded points.
+const TRAIL := SEGMENTS * 8 + 8
 const SPEED := 15.0
 const CIRCLE := 30.0 ## Metres it keeps from the tank while circling between attacks.
 const BORE_SPEED := 52.0
@@ -22,7 +25,12 @@ const POD_HP := 110.0
 const CUTTER_HP := 160.0
 const BURROW_TIME := 1.6
 const EXPOSED := 3.0 ## Seconds the head stays out after an eruption.
-const HEAD_RADIUS := 5.0
+const HEAD_RADIUS := 7.5
+const CUTTER_AT := Vector3(0, 3.8, -3.0)
+const POD_HEIGHT := 6.2 ## On a full-size segment, riding its tergite.
+const HIP := Vector3(2.3, 3.0, 0)
+const SINK := 7.2 ## Metres the head runs under the sand while burrowed, the crest of its capsule showing.
+const SEG_SINK := 4.9 ## The same for a full-size segment, its tergite's spine showing.
 
 var phase := Phase.ARMORED
 var parts := {"cutter": CUTTER_HP, "pod_1": POD_HP, "pod_2": POD_HP, "pod_3": POD_HP, "pod_4": POD_HP}
@@ -31,7 +39,9 @@ var _segments: Array[Node3D] = []
 var _plates: Array[Node3D] = []
 var _legs: Array[Node3D] = [] ## Two per segment, left then right.
 var _pods := {}
-var _trail: Array[Vector3] = []
+var _trail: Array[Vector3] = [] ## Recent head positions on the ground; y holds how far it was sunk (0-1).
+var _slots: Array[int] = [] ## Trail index of each segment.
+var _sink := 0.0
 var _attack := Attack.NONE
 var _attack_time := 0.0
 var _next_attack := 2.5
@@ -58,7 +68,7 @@ func _init() -> void:
 	hp = max_hp
 	armor = 30.0
 	radius = HEAD_RADIUS
-	center_height = 2.0
+	center_height = 4.0
 	score = 12000
 	despawn_behind = 0.0
 	set_meta("title", "BOSS_BORER")
@@ -66,96 +76,60 @@ func _init() -> void:
 
 
 func build() -> void:
-	var b := LowPoly.new()
-	# Head: the borer's drive housing, grown over by the centipede's head capsule. Hooked forcipules flank the
-	# cutterhead, antennae sweep back over a fungus crest, and two hot sensor eyes look out above the drill.
-	b.frustum(Transform3D(Basis(), Vector3(0, 0.9, 0.6)), Vector2(5.4, 5.6), Vector2(4.2, 4.4), 2.8, Palette.DUSK, Palette.SLATE)
-	b.box(Transform3D(Basis(), Vector3(0, 2.4, -1.5)), Vector3(4.6, 2.6, 0.6), Palette.CORAL)
-	b.frustum(Transform3D(Basis(), Vector3(0, 3.7, 1.0)), Vector2(4.0, 3.8), Vector2(2.4, 2.4), 0.8, Palette.STONE, Palette.ASH)
-	b.blob(Transform3D(Basis(), Vector3(-0.8, 4.6, 1.8)), 1.1, Palette.FUNGUS, 0, 0.3, 3)
-	b.blob(Transform3D(Basis(), Vector3(0.7, 4.4, 2.6)), 0.8, Palette.BLUSH, 0, 0.3, 5)
-	for side in [-1.0, 1.0]:
-		# Forcipule: a thick root at the jaw and a hooked tip curling inward ahead of the cutter.
-		var root := Vector3(side * 2.4, 1.2, -1.2)
-		var knee := Vector3(side * 3.4, 1.0, -3.4)
-		var tip := Vector3(side * 1.6, 0.9, -5.2)
-		_strut(b, root, knee, 0.55, Palette.OCHRE)
-		_strut(b, knee, tip, 0.35, Palette.INK, 0.08)
-		b.blob(Transform3D(Basis(), knee), 0.6, Palette.OCHRE)
-		_strut(b, Vector3(side * 1.2, 4.0, -1.0), Vector3(side * 3.0, 6.4, 3.0), 0.12, Palette.INK)
-		_strut(b, Vector3(side * 3.0, 6.4, 3.0), Vector3(side * 3.8, 6.0, 6.0), 0.09, Palette.INK)
-		b.glow = true
-		b.box(Transform3D(Basis(), Vector3(side * 1.2, 3.2, -1.85)), Vector3(0.9, 0.5, 0.12), Palette.HOT)
-		b.glow = false
-	_add_mesh(model, b.mesh())
-	_cutter.position = Vector3(0, 2.3, -2.0)
+	# A TBM shield under the centipede's head capsule, forcipules and antennae; the spoked cutterhead spins in front.
+	_add_mesh(model, ActorMeshes.mesh("borer", "head"))
+	_cutter.position = CUTTER_AT
 	model.add_child(_cutter)
-	var c := LowPoly.new()
-	c.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5)), 2.6, 0.8, 12, Palette.STONE, 2.1)
-	for i in 8:
-		var a := i * TAU / 8.0
-		c.frustum(Transform3D(Basis(Vector3.BACK, a), Vector3(0, 0, -0.8)) * Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3.ZERO), Vector2(0.5, 4.8), Vector2(0.1, 4.2), 0.7, Palette.ASH)
-		c.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(cos(a), sin(a), 0) * 2.3 + Vector3(0, 0, -0.8)), 0.28, 0.9, 4, Palette.CREAM, 0.0)
-	c.glow = true
-	c.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0, 0, -0.9)), 0.7, 0.4, 8, Palette.AMBER, 0.0)
-	_add_mesh(_cutter, c.mesh())
+	_add_mesh(_cutter, ActorMeshes.mesh("borer", "cutter"))
 	for i in SEGMENTS:
+		# Each segment: a machine ring under a wide tergite (even ones tear off at half hull) and a pair of long legs.
 		var seg := Node3D.new()
 		seg.top_level = true
+		seg.scale = Vector3.ONE * _size(i)
 		add_child(seg)
-		var size := lerpf(1.0, 0.55, float(i) / (SEGMENTS - 1))
-		# Each segment rides high on its legs: a dark belly, an arched carapace with a hazard-striped trailing edge
-		# left over from the machine, and a pair of jointed legs.
-		var s := LowPoly.new()
-		s.frustum(Transform3D(Basis(), Vector3(0, 1.3, 0) * size), Vector2(3.4, 3.2) * size, Vector2(4.4, 3.6) * size, 1.0 * size, Palette.INK)
-		s.box(Transform3D(Basis(), Vector3(0, 2.35, 1.75) * size), Vector3(4.2, 0.9, 0.3) * size, Palette.CORAL if i % 2 == 0 else Palette.BUTTER)
-		if i == SEGMENTS - 1:
-			for side in [-1.0, 1.0]:
-				_strut(s, Vector3(side * 1.2, 2.2, 1.6) * size, Vector3(side * 2.6, 3.6, 6.0) * size, 0.18, Palette.INK)
-		_add_mesh(seg, s.mesh())
+		_add_mesh(seg, ActorMeshes.mesh("borer", "segment"))
 		var plate := Node3D.new()
 		seg.add_child(plate)
-		var p := LowPoly.new()
-		p.frustum(Transform3D(Basis(), Vector3(0, 2.3, 0) * size), Vector2(4.8, 3.8) * size, Vector2(2.6, 2.4) * size, 1.3 * size, Palette.DUSK if i % 2 == 0 else Palette.SLATE, Palette.STONE)
+		_add_mesh(plate, ActorMeshes.mesh("borer", "plate"))
 		if i % 3 == 1:
-			p.blob(Transform3D(Basis(), Vector3(1.0, 3.7, 0.4) * size), 0.7 * size, Palette.FUNGUS, 0, 0.3, i)
-		_add_mesh(plate, p.mesh())
+			_add_mesh(plate, ActorMeshes.mesh("borer", "growth")).position = Vector3(1.4, POD_HEIGHT - 0.4, 0)
 		_plates.append(plate)
 		for side in [-1.0, 1.0]:
 			var leg := Node3D.new()
-			leg.position = Vector3(side * 1.9, 1.8, 0) * size
+			leg.position = Vector3(side * HIP.x, HIP.y, HIP.z)
 			seg.add_child(leg)
-			var l := LowPoly.new()
-			var knee := Vector3(side * 2.4, 1.0, -0.4) * size
-			var foot := Vector3(side * 3.4, -1.8, -0.8) * size
-			_strut(l, Vector3.ZERO, knee, 0.34 * size, Palette.OCHRE)
-			l.blob(Transform3D(Basis(), knee), 0.38 * size, Palette.OCHRE)
-			_strut(l, knee, foot, 0.24 * size, Palette.INK, 0.06)
-			_add_mesh(leg, l.mesh())
+			_add_mesh(leg, ActorMeshes.mesh("borer", "leg_l" if side < 0.0 else "leg_r"))
 			_legs.append(leg)
+		if i == SEGMENTS - 1:
+			_add_mesh(seg, ActorMeshes.mesh("borer", "tail"))
 		_segments.append(seg)
+		_slots.append(roundi(_along(i) / STEP))
 	for n in POD_AT.size():
 		var pod := Node3D.new()
-		pod.position = Vector3(0, 3.9, 0) * lerpf(1.0, 0.55, float(POD_AT[n]) / (SEGMENTS - 1))
+		pod.position = Vector3(0, POD_HEIGHT, 0)
 		_segments[POD_AT[n]].add_child(pod)
 		_pods["pod_%d" % (n + 1)] = pod
-		var g := LowPoly.new()
-		g.blob(Transform3D(Basis(), Vector3(0, -0.4, 0)), 1.3, Palette.MAUVE, 0, 0.2, n)
-		g.glow = true
-		g.blob(Transform3D(), 1.3, Palette.FUNGUS, 0, 0.25, n + 7)
-		_add_mesh(pod, g.mesh())
+		_add_mesh(pod, ActorMeshes.mesh("borer", "pod"))
 
 
-## A limb piece from `a` to `b`: a prism along the segment, tapering to `end_radius` when given.
-func _strut(b: LowPoly, from: Vector3, to: Vector3, radius: float, color: Color, end_radius := -1.0) -> void:
-	var axis := (to - from).normalized()
-	b.prism(Transform3D(Basis(Quaternion(Vector3.UP, axis)), from), radius, from.distance_to(to), 5, color, end_radius)
+## Segments shrink toward the tail.
+static func _size(i: int) -> float:
+	return lerpf(1.0, 0.55, float(i) / (SEGMENTS - 1))
 
 
-func _add_mesh(parent: Node3D, mesh: Mesh) -> void:
+## Metres along the trail from the head to segment i, each gap matching the two segments' lengths.
+static func _along(i: int) -> float:
+	var result := NECK
+	for k in i:
+		result += SPACING * (_size(k) + _size(k + 1)) * 0.5
+	return result
+
+
+func _add_mesh(parent: Node3D, mesh: Mesh) -> MeshInstance3D:
 	var node := MeshInstance3D.new()
 	node.mesh = mesh
 	parent.add_child(node)
+	return node
 
 
 func _ready() -> void:
@@ -163,8 +137,8 @@ func _ready() -> void:
 	for seg in _segments:
 		track_meshes(seg) # Top-level, so outside the model: hit flashes and camera fades reach the whole body.
 	_trail.clear()
-	for i in SEGMENTS * 8:
-		_trail.append(global_position + Vector3.BACK * i * SPACING / 8.0)
+	for i in TRAIL:
+		_trail.append(Vector3(global_position.x, 0.0, global_position.z) + Vector3.BACK * i * STEP)
 
 
 func arena_center() -> Vector3:
@@ -188,10 +162,10 @@ func aim_parts() -> Dictionary:
 	if _dying > 0.0 or _burrowed:
 		return result
 	if parts.cutter > 0.0:
-		result["cutter"] = [_cutter.global_position, 2.9, tr("BORER_CUTTER")]
+		result["cutter"] = [_cutter.global_position, 4.2, tr("BORER_CUTTER")]
 	for name: String in _pods:
 		if parts[name] > 0.0:
-			result[name] = [_pod_world(name), 1.8, tr("BORER_" + name.to_upper())]
+			result[name] = [_pod_world(name), 2.4, tr("BORER_" + name.to_upper())]
 	return result
 
 
@@ -207,8 +181,8 @@ func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 		var distance := Entity.segment_sphere(from, to, spec[0], spec[1] + extra_radius)
 		if distance >= 0.0 and (best < 0.0 or distance < best):
 			best = distance
-	for seg in _segments:
-		var distance := Entity.segment_sphere(from, to, seg.global_position + Vector3.UP * 1.5, 2.6 + extra_radius)
+	for i in SEGMENTS:
+		var distance := Entity.segment_sphere(from, to, _segments[i].global_position + Vector3.UP * 4.0 * _size(i), 4.2 * _size(i) + extra_radius)
 		if distance >= 0.0 and (best < 0.0 or distance < best):
 			best = distance
 	return best
@@ -223,13 +197,13 @@ func take_hit(hit: Hit) -> void:
 	if (hit.kind == Hit.Kind.SHELL and (hit.caliber >= 100 or hit.weapon == "cannon")) or (hit.kind == Hit.Kind.BLAST and hit.weapon == "cannon"):
 		amount *= ROUND_DAMAGE / Armament.SHELL_DAMAGE
 	if hit.kind == Hit.Kind.SHELL:
-		if parts.cutter > 0.0 and hit.position.distance_to(_cutter.global_position) <= 3.4:
+		if parts.cutter > 0.0 and hit.position.distance_to(_cutter.global_position) <= 4.6:
 			parts.cutter -= amount
 			if parts.cutter <= 0.0:
 				_break_part("cutter", _cutter, hit.direction)
 		else:
 			for name: String in _pods:
-				if parts[name] > 0.0 and hit.position.distance_to(_pod_world(name)) <= 2.2:
+				if parts[name] > 0.0 and hit.position.distance_to(_pod_world(name)) <= 2.8:
 					parts[name] -= amount
 					if parts[name] <= 0.0:
 						_break_part(name, _pods[name], hit.direction)
@@ -298,34 +272,37 @@ func behave(delta: float) -> void:
 	model.global_basis = Basis.looking_at(_heading, Vector3.UP)
 	_update_attack(delta, tank)
 	_bound()
+	_sink = move_toward(_sink, 1.0 if _burrowed else 0.0, delta * 2.5)
+	if _burrowed:
+		global_position.y = Course.height_at(global_position) - SINK * _sink
 	_follow(delta)
 
 
-## Segments trail the head along its recent path, undulating as they go.
+## Segments trail the head along its recent path, undulating as they go; under the sand only their spines show.
 func _follow(delta: float) -> void:
-	if _trail.is_empty() or _trail[0].distance_to(global_position) > SPACING / 8.0:
-		_gait += _trail[0].distance_to(global_position) * 0.9 if not _trail.is_empty() else 0.0
-		_trail.push_front(global_position)
-		if _trail.size() > SEGMENTS * 8 + 8:
-			_trail.resize(SEGMENTS * 8 + 8)
+	var head := Vector3(global_position.x, _sink, global_position.z)
+	var moved := Vector2(head.x - _trail[0].x, head.z - _trail[0].z).length() if not _trail.is_empty() else INF
+	if moved > STEP:
+		_gait += moved * 0.9 if not _trail.is_empty() else 0.0
+		_trail.push_front(head)
+		if _trail.size() > TRAIL:
+			_trail.resize(TRAIL)
 	_gait += delta * 1.5
 	for i in SEGMENTS:
 		var seg := _segments[i]
-		var at := _trail[mini((i + 1) * 8, _trail.size() - 1)]
-		var ahead := _trail[mini((i + 1) * 8 - 4, _trail.size() - 1)]
+		var at := _trail[mini(_slots[i], _trail.size() - 1)]
+		var ahead := _trail[mini(_slots[i] - 4, _trail.size() - 1)]
 		var toward := ahead - at
 		toward.y = 0.0
-		seg.global_position = Vector3(at.x, Course.height_at(at) + 0.15 * sin(_gait - i * 0.7), at.z)
+		seg.global_position = Vector3(at.x, Course.height_at(at) - SEG_SINK * _size(i) * at.y + 0.15 * sin(_gait - i * 0.7), at.z)
 		if toward.length() > 0.01:
-			seg.global_basis = Basis.looking_at(toward.normalized(), Vector3.UP)
+			seg.global_basis = Basis.looking_at(toward.normalized(), Vector3.UP).scaled(Vector3.ONE * _size(i))
 		# A wave of steps runs back along the body; each pair alternates.
 		for side in 2:
 			var phase := _gait - i * 0.7 + side * PI
 			var leg := _legs[i * 2 + side]
 			var sign_value := -1.0 if side == 0 else 1.0
 			leg.rotation = Vector3(0.0, sin(phase) * 0.45, sign_value * maxf(0.0, cos(phase)) * 0.35)
-		seg.visible = not _burrowed
-	visible = not _burrowed
 
 
 func _begin_attack(kind: Attack) -> void:
@@ -392,7 +369,7 @@ func _update_attack(delta: float, tank: Tank) -> void:
 				_attack_time = WIND * Game.telegraph_scale()
 				_aim = tank.global_position + tank.velocity * 1.2
 				_aim.y = Course.height_at(_aim)
-				world.fx.marker(_aim, 7.0, BURROW_TIME, Palette.RED)
+				world.fx.marker(_aim, 10.0, BURROW_TIME, Palette.RED)
 				Sfx.play("warn", _aim, 0.0, 0.6)
 			world.fx.dust(global_position, 2, 3.0, Palette.STRAW)
 			var target := Vector3(_aim.x, global_position.y, _aim.z)
@@ -416,22 +393,20 @@ func _erupt(tank: Tank) -> void:
 	var world := World.current
 	_burrowed = false
 	invulnerable = false
+	_sink = 0.0
 	global_position.y = Course.height_at(global_position)
 	_attack = Attack.ERUPT
 	_attack_time = 0.0
 	_exposed = EXPOSED
-	world.fx.explosion(global_position, 7.0)
-	world.fx.shockwave(global_position, 14.0, Palette.STRAW)
-	world.fx.dust(global_position, 24, 7.0, Palette.STRAW)
+	world.fx.explosion(global_position, 9.0)
+	world.fx.shockwave(global_position, 18.0, Palette.STRAW)
+	world.fx.dust(global_position, 30, 10.0, Palette.STRAW)
 	world.shake(0.5, global_position)
 	Sfx.play("blast", global_position)
-	if tank.global_position.distance_to(global_position) <= 8.0:
+	if tank.global_position.distance_to(global_position) <= 10.0:
 		var hit := Hit.make(Hit.Kind.BLAST, 24.0, global_position, Vector3.UP)
 		hit.source = self
 		tank.take_hit(hit)
-	_trail.clear()
-	for i in SEGMENTS * 8 + 8:
-		_trail.append(global_position)
 
 
 func _lob(tank: Tank) -> void:
