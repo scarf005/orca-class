@@ -437,3 +437,44 @@ func test_death_clears_boss_and_bar() -> void:
 	check(_world.boss == null, "death clears active boss reference")
 	check(not boss.boss, "death clears the boss flag")
 	check(hidden.has(true), "death hides the boss bar")
+
+
+func _charging_boss() -> HiMo:
+	var boss := _boss()
+	boss._begin_attack(HiMo.Attack.CHARGE)
+	boss._attack_time = boss._wind() + 0.1
+	return boss
+
+
+func _hull_damage(boss: HiMo) -> float:
+	var before := boss.hp
+	_shell(boss, boss.hit_center(), 100.0)
+	return before - boss.hp
+
+
+func test_a_full_charge_into_its_face_mid_charge_spins_it_out() -> void:
+	var boss := _charging_boss()
+	_shell(boss, boss.hit_center(), 100.0, true)
+	check(boss.spun > 0.0, "meeting the charge head-on spins it out")
+	check_eq(boss._attack, HiMo.Attack.NONE, "and ends the charge")
+	var at := boss.global_position
+	boss._next_attack = 0.0
+	boss.behave(HiMo.SPUN * 0.5)
+	check_near(boss.global_position.distance_to(at), 0.0, 0.01, "spun out, it cannot skate")
+	check_eq(boss._attack, HiMo.Attack.NONE, "or attack")
+	var spun := _hull_damage(boss)
+	for i in ceili(HiMo.SPUN * 60.0):
+		boss.behave(1.0 / 60.0)
+	check(boss.spun <= 0.0, "it recovers")
+	check(spun >= _hull_damage(boss) * 1.9, "while spun out every round does double damage")
+
+
+func test_a_full_charge_into_its_back_mid_charge_does_not_spin_it_out() -> void:
+	var boss := _charging_boss()
+	var hit := Hit.make(Hit.Kind.SHELL, 100.0, boss.hit_center(), Vector3.FORWARD)
+	hit.caliber = 100
+	hit.pierce = true
+	hit.power = 1.0
+	hit.source = _world.player
+	boss.take_hit(hit)
+	check(boss.spun <= 0.0, "only a hit that meets the charge head-on spins it out")

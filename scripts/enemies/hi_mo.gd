@@ -29,6 +29,7 @@ const STOMP_REACH := 20.0 ## Both reaches grow with the machine: 12 and 15 m at 
 const SWEEP_REACH := 25.0
 const CHARGE_SPEED := 68.0
 const HOP_TIME := 1.0
+const SPUN := 0.0
 
 var phase := Phase.SKATER
 var _body := Node3D.new()
@@ -58,6 +59,7 @@ var _transition_to := Vector3.ZERO
 var _wake := 0.0
 var _overcharge := false
 var _final_rail := false
+var spun := 0.0
 
 
 func _init() -> void:
