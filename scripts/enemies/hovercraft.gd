@@ -173,7 +173,7 @@ func take_hit(hit: Hit) -> void:
 	hp = maxf(0.0, hp - amount)
 	impact_feedback(hit, amount, hp <= 0.0)
 	# The tank meets the charge head-on: a full charge or its own ram into the bow knocks the craft off its cushion.
-	var met := _attack == Attack.RAM and hit.direction.dot(_ram_direction) < 0.0 and (hit.power >= 1.0 or hit.kind == Hit.Kind.RAM)
+	var met := _attack == Attack.RAM and not telegraphing() and hit.direction.dot(_ram_direction) < 0.0 and (hit.power >= 1.0 or hit.kind == Hit.Kind.RAM)
 	if met and hp > 0.0:
 		_run_aground(AGROUND)
 		World.current.style_event("KNOCKDOWN", 150.0)
@@ -249,8 +249,9 @@ func behave(delta: float) -> void:
 	if _attack not in [Attack.CANNON, Attack.RAM]:
 		var goal := circling_goal(tank.global_position, CIRCLE, move_speed() / CIRCLE * delta, arena_center(), Stage2.PLAZA_RADIUS - radius - 1.0)
 		global_position = global_position.move_toward(goal, move_speed() * delta)
-	var toward := tank.global_position - global_position
-	model.rotation.y = lerp_angle(model.rotation.y, atan2(-toward.x, -toward.z), minf(delta * 3.0, 1.0))
+	# Bow down its ram lane, so a dodged ram runs aground stern to the tank.
+	var facing := _ram_direction if _attack == Attack.RAM else tank.global_position - global_position
+	model.rotation.y = lerp_angle(model.rotation.y, atan2(-facing.x, -facing.z), minf(delta * 3.0, 1.0))
 	for gun in _guns:
 		aim_barrel(gun, _aim if _attack == Attack.GUN else tank.hit_center(), 5.0, delta)
 	aim_barrel(_bow, _aim if _attack == Attack.CANNON else tank.hit_center(), 5.0, delta)
@@ -406,7 +407,8 @@ func _update_attack(delta: float, tank: Tank) -> void:
 				hit.source = self
 				tank.take_hit(hit)
 			var outward := _ram_direction.dot(global_position - arena_center()) > 0.0
-			if outward and global_position.distance_to(arena_center()) >= Stage2.PLAZA_RADIUS - radius - 1.0 and not _ram_hit:
+			var dodged := not _ram_hit and _ram_direction.dot(tank.global_position - global_position) < 0.0
+			if outward and global_position.distance_to(arena_center()) >= Stage2.PLAZA_RADIUS - radius - 1.0 and dodged:
 				_run_aground(STALL)
 			elif _attack_time >= WIND * Game.telegraph_scale() + 1.6 or global_position.distance_to(arena_center()) >= Stage2.PLAZA_RADIUS - radius:
 				_end_attack()
