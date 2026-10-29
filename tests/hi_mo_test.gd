@@ -452,9 +452,17 @@ func _hull_damage(boss: HiMo) -> float:
 	return before - boss.hp
 
 
+## The tank's own full charge at the hull.
+func _full_charge(boss: HiMo) -> void:
+	var tank := _world.player
+	tank.charge_lock = boss
+	var from := tank.global_position + Vector3.UP * 2.0
+	tank.fire_cannon(from, (boss.hit_center() - from).normalized(), 1.0)
+
+
 func test_a_full_charge_into_its_face_mid_charge_spins_it_out() -> void:
 	var boss := _charging_boss()
-	_shell(boss, boss.hit_center(), 100.0, true)
+	_full_charge(boss)
 	check(boss.spun > 0.0, "meeting the charge head-on spins it out")
 	check_eq(boss._attack, HiMo.Attack.NONE, "and ends the charge")
 	var at := boss.global_position
@@ -467,6 +475,15 @@ func test_a_full_charge_into_its_face_mid_charge_spins_it_out() -> void:
 		boss.behave(1.0 / 60.0)
 	check(boss.spun <= 0.0, "it recovers")
 	check(spun >= _hull_damage(boss) * 1.9, "while spun out every round does double damage")
+
+
+func test_a_spin_out_that_drops_it_into_its_last_phase_gives_way_to_the_phase_change() -> void:
+	var boss := _charging_boss()
+	boss.phase = HiMo.Phase.STRIPPED
+	boss.hp = boss.max_hp * HiMo.PHASE_MARKS[1] + 1.0
+	_full_charge(boss)
+	check_eq(boss.phase, HiMo.Phase.DESPERATE, "the full charge drops it into its last phase")
+	check(boss.spun <= 0.0, "whose move takes over from the spin-out")
 
 
 func test_a_full_charge_into_its_back_mid_charge_does_not_spin_it_out() -> void:
