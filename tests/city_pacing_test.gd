@@ -51,7 +51,7 @@ func test_each_stretch_opens_light_builds_to_a_peak_of_hunters_then_releases() -
 			check(longest >= RELEASE, "%s lets the tank breathe: its longest quiet stretch is %d m" % [label, longest])
 
 
-func test_every_stage_sends_threats_from_behind_and_the_flanks_as_well_as_ahead() -> void:
+func test_every_stage_sends_threats_from_behind_and_from_the_flanks_or_close_cover() -> void:
 	for number in [2, 3, 4]:
 		var entries: Array[Dictionary] = []
 		for event in _waves(number):
@@ -69,7 +69,7 @@ func test_the_hind_hunts_the_viaduct_and_the_canyon() -> void:
 	check(hinds.any(func(e: Dictionary) -> bool: return e.d >= Stage2.SECTION_STARTS[Stage2.Section.CANYON] and e.d < Stage2.SECTION_STARTS[Stage2.Section.BAY]), "and another hunts it through the canyon")
 
 
-func test_scripted_enemies_appear_within_reading_range_of_the_tank() -> void:
+func test_scripted_enemies_appear_a_median_of_at_most_95_m_ahead_of_the_tank() -> void:
 	for number in [2, 3, 4]:
 		var world := stage("", false, number)
 		world.process_mode = Node.PROCESS_MODE_DISABLED
