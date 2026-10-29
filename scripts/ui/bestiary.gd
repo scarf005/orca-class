@@ -72,10 +72,14 @@ func _show(index: int) -> void:
 	_first = clampi(selected - VISIBLE_ROWS / 2, 0, KINDS.size() - VISIBLE_ROWS)
 	if is_instance_valid(_enemy):
 		_enemy.queue_free()
+	# Posed at Normal, so the page shows the same stats whichever difficulty the last run used.
+	var difficulty := Game.difficulty
+	Game.difficulty = Game.Difficulty.NORMAL
 	_enemy = load(Director.ENEMY_SCRIPTS[KINDS[selected]]).new()
 	var at := Course.ground_at(FLOOR_D + 40.0, 0.0)
 	_enemy.position = at
 	world.add_enemy(_enemy)
+	Game.difficulty = difficulty
 	_enemy.set_process(false) # Posed, not run: no AI, movement or attacks.
 	if _enemy.flying:
 		at += Vector3.UP * 4.0
@@ -137,12 +141,11 @@ func _enemy_name(kind: String) -> String:
 	return tr(NAME_KEYS.get(kind, "ENEMY_" + kind.to_upper()))
 
 
-## Stats are read from the posed enemy; Easy's reductions are undone so the page shows the same numbers on every difficulty.
+## Stats are read from the posed enemy.
 func _stats() -> Array[String]:
-	var easy := Game.difficulty == Game.Difficulty.EASY
 	var lines: Array[String] = []
-	lines.append("%s  %d" % [tr("DEX_HP"), roundi(_enemy.max_hp / Game.enemy_hp_scale(_enemy.boss))])
-	lines.append("%s  %d mm" % [tr("DEX_ARMOR"), roundi(_enemy.armor * (4.0 if easy else 1.0))])
+	lines.append("%s  %d" % [tr("DEX_HP"), roundi(_enemy.max_hp)])
+	lines.append("%s  %d mm" % [tr("DEX_ARMOR"), roundi(_enemy.armor)])
 	lines.append("%s  %d" % [tr("DEX_SCORE"), _enemy.score])
 	lines.append("%s  %s" % [tr("DEX_MOVE"), tr("DEX_AIR") if _enemy.flying else tr("DEX_GROUND")])
 	return lines
