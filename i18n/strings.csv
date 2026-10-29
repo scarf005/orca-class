@@ -267,6 +267,6 @@ DEX_COLOSSUS,행동: 운동장에 고정. 노드 셋을 모두 부수면 코어�
 DEX_HOVERCRAFT,"무기: 쌍 기관포, 선수포, 레이저, 후방 로켓. 행동: 광장을 돌며 싸운다. 선체 절반에서 장갑이 뜯긴다.","Weapon: twin autocannons, bow gun, laser, rear rockets. Behavior: fights around the plaza; armor tears off at half hull."
 DEX_BORER,"무기: 커터헤드 돌진, 포자. 행동: 구덩이를 돌다 모래에 잠겨 표시 위치에서 솟는다.","Weapon: cutterhead charge, spores. Behavior: circles the pit, dives, bursts out at a marker."
 DEX_GUNSHIP,"무기: 개틀링, 미사일. 행동: 앞·옆 장갑판을 먼저 열어야 선체가 뚫린다.","Weapon: gatlings, missiles. Behavior: nose and flank plates must be opened first."
-DEX_HI_MO,행동: 네 다리로 물 밑을 미끄러진다. 흰 장갑이 벗겨지면 노출된다.,Behavior: skates under the water on four legs; exposed once its white armor is shed.
+DEX_HI_MO,행동: 네 다리 끝 바퀴로 물 찬 만 위를 달린다. 흰 장갑이 벗겨지면 노출된다.,Behavior: races over the flooded bay on wheels at the ends of its four legs; exposed once its white armor is shed.
 DEX_WING,"무기: 대공포, 로켓, 광선포, 폭탄. 행동: 복부 포탑 다섯이 하나씩 열려 쏜다.","Weapon: flak, rockets, beam, bombs. Behavior: five belly turrets open one at a time."
 DEX_FORTRESS,"무기: 화염포 둘, 소이탄 주포. 행동: 궤도로 움직이며 모듈 단위로 공격한다.","Weapon: two flame guns, incendiary main gun. Behavior: drives on tracks, attacks by module."
