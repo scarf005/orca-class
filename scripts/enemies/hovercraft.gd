@@ -168,9 +168,16 @@ func take_hit(hit: Hit) -> void:
 				break
 	if model.to_local(hit.position).z > STERN:
 		amount *= 1.5
+	if aground > 0.0:
+		amount *= 2.0
 	hp = maxf(0.0, hp - amount)
 	impact_feedback(hit, amount, hp <= 0.0)
-	if hit.power >= 1.0 or hit.stagger >= 1.0:
+	# The tank meets the charge head-on: a full charge or its own ram into the bow knocks the craft off its cushion.
+	var met := _attack == Attack.RAM and hit.direction.dot(_ram_direction) < 0.0 and (hit.power >= 1.0 or hit.kind == Hit.Kind.RAM)
+	if met and hp > 0.0:
+		_run_aground(AGROUND)
+		World.current.style_event("KNOCKDOWN", 150.0)
+	elif hit.power >= 1.0 or hit.stagger >= 1.0:
 		stagger = maxf(stagger, 0.2)
 		if _attack == Attack.RAM and _attack_time < 0.25:
 			_end_attack()
@@ -214,7 +221,7 @@ func _bound() -> void:
 	var offset := global_position - center
 	offset.y = 0.0
 	global_position = center + offset.limit_length(Stage2.PLAZA_RADIUS - radius)
-	global_position.y = maxf(Course.height_at(global_position), Water.surface_at(global_position)) + 0.15
+	global_position.y = maxf(Course.height_at(global_position), Water.surface_at(global_position)) + (0.15 if aground <= 0.0 else -0.9)
 
 
 func behave(delta: float) -> void:
@@ -225,15 +232,18 @@ func behave(delta: float) -> void:
 		if _dying <= 0.0:
 			die(killing_hit)
 		return
+	aground = maxf(0.0, aground - delta)
 	_bound()
-	_update_laser(delta)
+	if aground <= 0.0:
+		_update_laser(delta)
 	for name: String in _fans:
 		if parts.get(name, 1.0) > 0.0:
-			_fans[name].rotation.z += delta * 30.0
+			_fans[name].rotation.z += delta * (30.0 if aground <= 0.0 else 4.0)
 	var listing := 0.22 if parts.fan_l <= 0.0 and parts.fan_r > 0.0 else -0.22 if parts.fan_r <= 0.0 and parts.fan_l > 0.0 else 0.0
 	model.rotation.z = lerpf(model.rotation.z, listing, minf(delta * 4.0, 1.0))
+	model.rotation.x = lerpf(model.rotation.x, -0.07 if aground > 0.0 else 0.0, minf(delta * 6.0, 1.0)) # Aground the bow digs in.
 	var tank := player()
-	if tank == null or is_staggered():
+	if tank == null or is_staggered() or aground > 0.0:
 		return
 	var before := global_position
 	if _attack not in [Attack.CANNON, Attack.RAM]:
@@ -330,7 +340,7 @@ func _update_attack(delta: float, tank: Tank) -> void:
 	if _attack == Attack.NONE:
 		_next_attack -= delta
 		if _next_attack <= 0.0:
-			var options := [Attack.GUN, Attack.CANNON, Attack.RAM]
+			var options := [Attack.GUN, Attack.RAM, Attack.CANNON] # The ram, its signature, comes second.
 			if phase == Phase.STRIPPED:
 				options.append(Attack.MLRS)
 			_begin_attack(options[_pattern % options.size()])
@@ -395,8 +405,24 @@ func _update_attack(delta: float, tank: Tank) -> void:
 				var hit := Hit.make(Hit.Kind.RAM, 25.0, hit_center(), _ram_direction)
 				hit.source = self
 				tank.take_hit(hit)
-			if _attack_time >= WIND * Game.telegraph_scale() + 1.6 or global_position.distance_to(arena_center()) >= Stage2.PLAZA_RADIUS - radius:
+			var outward := _ram_direction.dot(global_position - arena_center()) > 0.0
+			if outward and global_position.distance_to(arena_center()) >= Stage2.PLAZA_RADIUS - radius - 1.0 and not _ram_hit:
+				_run_aground(STALL)
+			elif _attack_time >= WIND * Game.telegraph_scale() + 1.6 or global_position.distance_to(arena_center()) >= Stage2.PLAZA_RADIUS - radius:
 				_end_attack()
+
+
+## Ends any attack and leaves the craft lying on the plaza, skirt slack, for `seconds`.
+func _run_aground(seconds: float) -> void:
+	_end_attack()
+	aground = seconds
+	_bound()
+	var world := World.current
+	world.hitstop(0.12)
+	world.shake(0.6, global_position)
+	world.fx.splash(global_position - model.global_basis.z * 14.0, 6.0, maxf(Course.height_at(global_position), Water.surface_at(global_position)))
+	world.fx.dust(global_position, 16, radius * 0.8, Palette.ASH)
+	Sfx.play("blast", global_position, 0.0, 0.7)
 
 
 func _rocket_target() -> Vector3:

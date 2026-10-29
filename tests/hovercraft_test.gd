@@ -240,6 +240,22 @@ func test_a_dodged_ram_runs_aground_at_the_plaza_edge_stern_to_the_tank() -> voi
 	check_eq(boss._attack, Hovercraft.Attack.NONE, "or attack")
 
 
+func test_a_ram_launched_inward_from_the_rim_does_not_run_aground() -> void:
+	var boss := _boss()
+	var center := boss.arena_center()
+	boss.global_position = center + Vector3.RIGHT * (Stage2.PLAZA_RADIUS - boss.radius)
+	boss._bound()
+	var tank := boss.player()
+	tank.global_position = center + Vector3.LEFT * 30.0
+	boss.parts.fan_l = 0.0 # Crippled, it crawls off the rim slower than a frame's worth of the margin.
+	boss.parts.fan_r = 0.0
+	boss._begin_attack(Hovercraft.Attack.RAM)
+	boss._attack_time = Hovercraft.WIND * Game.telegraph_scale()
+	boss._update_attack(1.0 / 60.0, tank)
+	check(boss.aground <= 0.0, "leaving the rim is not crashing into it")
+	check_eq(boss._attack, Hovercraft.Attack.RAM, "the ram carries on across the plaza")
+
+
 func test_a_ram_that_connects_does_not_run_aground() -> void:
 	var boss := _boss()
 	var tank := _charging(boss, 25.0)
@@ -251,6 +267,17 @@ func test_a_ram_that_connects_does_not_run_aground() -> void:
 		boss._update_attack(1.0 / 60.0, tank)
 	check(tank.hp < tank.max_hp, "the ram hits the tank that stayed")
 	check(boss.aground <= 0.0, "and the craft stays on its cushion")
+
+
+func test_the_ram_is_its_second_attack() -> void:
+	var boss := _boss()
+	var kinds: Array[Hovercraft.Attack] = []
+	for i in 2:
+		boss._end_attack()
+		boss._next_attack = 0.0
+		boss._update_attack(1.0 / 60.0, boss.player())
+		kinds.append(boss._attack)
+	check_eq(kinds, [Hovercraft.Attack.GUN, Hovercraft.Attack.RAM] as Array[Hovercraft.Attack], "the signature ram follows the opening burst")
 
 
 func test_circle_and_ram_stay_inside_plaza_even_after_displacement() -> void:

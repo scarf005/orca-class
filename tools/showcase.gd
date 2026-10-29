@@ -2,6 +2,7 @@ extends Node
 ## Stages a fixed scene and saves screenshots, for checking effects and art without playing.
 ## Usage: xvfb-run -a godot --path . --resolution 960x540 -- --run=res://tools/showcase.gd \
 ##        --scene=vfx|fungus|boss --d=620 --shots=0.5,1,2 --out=builds/showcase
+##        [--phase=2] [--aground] # hovercraft: stripped, or knocked off its cushion
 
 var screen: GameScreen
 var _next_shot := 0.0
@@ -49,7 +50,7 @@ func run() -> int:
 		"abel", "kain", "adam", "mechs":
 			_stage_mechs(world, scene)
 		"hovercraft":
-			_stage_hovercraft(world, args.get("phase", "1") == "2")
+			_stage_hovercraft(world, args.get("phase", "1") == "2", args.has("aground"))
 		"hi_mo":
 			_stage_hi_mo(world, int(args.get("phase", "0")))
 		"hind", "rooftop_battery", "sea_mine":
@@ -139,7 +140,7 @@ func _stage_city_hunter(world: World, kind: String) -> void:
 	camera.look_at(enemy.hit_center(), Vector3.UP)
 
 
-func _stage_hovercraft(world: World, stripped: bool) -> void:
+func _stage_hovercraft(world: World, stripped: bool, aground: bool) -> void:
 	var center := Course.to_world(Stage2.PLAZA_D, 0.0)
 	world.rail.d = Stage2.PLAZA_D
 	world.rail.mode = Rail.Mode.ARENA
@@ -154,6 +155,8 @@ func _stage_hovercraft(world: World, stripped: bool) -> void:
 		var hit := Hit.make(Hit.Kind.SHELL, enemy.max_hp * 0.5, enemy.hit_center())
 		enemy.take_hit(hit)
 	enemy._begin_attack(Hovercraft.Attack.MLRS if stripped else Hovercraft.Attack.CANNON)
+	if aground:
+		enemy._run_aground(Hovercraft.AGROUND)
 	var camera := world.camera
 	camera.set_process(false)
 	camera.global_position = enemy.global_position + Vector3(22, 13, -26)
