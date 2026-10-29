@@ -29,7 +29,7 @@ const STOMP_REACH := 20.0 ## Both reaches grow with the machine: 12 and 15 m at 
 const SWEEP_REACH := 25.0
 const CHARGE_SPEED := 68.0
 const HOP_TIME := 1.0
-const SPUN := 0.0
+const SPUN := 3.0 ## Seconds a full charge into its face mid-charge leaves it spun out, taking double damage.
 
 var phase := Phase.SKATER
 var _body := Node3D.new()
@@ -200,6 +200,12 @@ func behave(delta: float) -> void:
 			World.current.fx.splash(global_position, 2.0, Stage2.WATER_LEVEL)
 		_animate(delta)
 		return
+	if spun > 0.0:
+		spun = maxf(0.0, spun - delta)
+		model.rotation.y += delta * 6.0 * spun / SPUN # Spinning out on its wheels, slowing to a stop.
+		_drift = Vector3.ZERO
+		_animate(delta)
+		return
 	if is_staggered() and _transition <= 0.0:
 		_drift = _drift.move_toward(Vector3.ZERO, delta * 80.0)
 	elif _hop <= 0.0 and _attack not in [Attack.RAIL, Attack.CHARGE, Attack.STOMP, Attack.SWEEP]:
@@ -243,7 +249,7 @@ func behave(delta: float) -> void:
 
 func _animate(delta: float) -> void:
 	_body.position.y = lerpf(_body.position.y, 1.8 if legs_lost() >= 2 else 4.4, minf(1.0, delta * 6.0))
-	_body.rotation.z = lerpf(_body.rotation.z, clampf(-_drift.dot(model.global_basis.x) * 0.009, -0.3, 0.3), minf(1.0, delta * 4.0))
+	_body.rotation.z = lerpf(_body.rotation.z, 0.25 if spun > 0.0 else clampf(-_drift.dot(model.global_basis.x) * 0.009, -0.3, 0.3), minf(1.0, delta * 4.0))
 	for leg in _legs:
 		if leg.hp > 0.0:
 			var knee: Node3D = leg.knee
@@ -456,7 +462,7 @@ func _actuator_hit(at: Vector3) -> bool:
 
 
 func damage_multiplier(hit: Hit) -> float:
-	var multiplier := super.damage_multiplier(hit)
+	var multiplier := super.damage_multiplier(hit) * (2.0 if spun > 0.0 else 1.0)
 	if hit.kind == Hit.Kind.BULLET:
 		return multiplier * frontal_armor(hit, 0.1)
 	if hit.kind == Hit.Kind.SHELL and not hit.pierce and phase == Phase.SKATER and not _actuator_hit(hit.position):
@@ -487,6 +493,16 @@ func on_damaged(hit: Hit, amount: float) -> void:
 	if hit.power >= 1.0:
 		if _attack == Attack.RAIL and not _overcharge and _attack_time < 0.25:
 			interrupt()
+		# The tank meets the charge head-on: a full charge into its face mid-charge spins it out.
+		if _attack == Attack.CHARGE and _attack_time >= _wind() and hit.direction.dot(_aim - _from) < 0.0 and hp > 0.0:
+			_end_attack()
+			spun = SPUN
+			var world := World.current
+			world.style_event("KNOCKDOWN", 150.0)
+			world.hitstop(0.12)
+			world.shake(0.6, global_position)
+			world.fx.splash(global_position, 8.0, Stage2.WATER_LEVEL)
+			Sfx.play("blast", global_position, 0.0, 0.7)
 		_shed_plate(hit.direction)
 	stagger = minf(stagger, 0.15) # Hull recoil cannot starve every attack under sustained fire.
 	if phase == Phase.DESPERATE and hp <= max_hp * 0.13 and not _final_rail and _attack != Attack.RAIL:
