@@ -657,6 +657,44 @@
         "sha256": "2f34c5ffe8f7cc3f7da6b68dab242b8e3d657d5132bc80d093a6e623f091f426",
         "triangles": 152.0
       }
+    },
+    "hovercraft": {
+      "bow": {
+        "sha256": "b35fa2b2f3cf47a89ff16f4b6db94bb78a5ec4f958ae6cabab8d5499892eb65d",
+        "triangles": 64.0
+      },
+      "duct": {
+        "sha256": "40dc138ea1c44adeae6be1252bd93e03ff2a0b20b7478b4be2c16a716ccc939f",
+        "triangles": 528.0
+      },
+      "emitter": {
+        "sha256": "ebb7acfb867ad42e5a8c12a0207e2f17d805de68dac099a1e88f2081c09f1b05",
+        "triangles": 24.0
+      },
+      "gun": {
+        "sha256": "f4fe3e71d5bd0050bc4333c5d26bd84822ba3d53ad46f0b368468b04f402b6c5",
+        "triangles": 148.0
+      },
+      "hull": {
+        "sha256": "4ee1cabc5ca2eeda472f4a3a7b2de7a3ff092ec2471b0ca92764013faae3ab12",
+        "triangles": 1951.0
+      },
+      "plate_l": {
+        "sha256": "7e3ae40d517ac3ba236ed300b1e134f0158d3745bdef599560a26dc66ddadb2d",
+        "triangles": 72.0
+      },
+      "plate_r": {
+        "sha256": "dc3971e0012b98b88727d8310b25ea315a377d2125dc60514bcad603c8304b94",
+        "triangles": 72.0
+      },
+      "rack": {
+        "sha256": "f890ce9d08930df700ca23ea2bca3a110c3f8ee858e7cd80c68024ad0edb5428",
+        "triangles": 96.0
+      },
+      "rotor": {
+        "sha256": "455fabfd80ddae06a85a92a5468d0e561bcb0478161c464a8f1c24acc34a574c",
+        "triangles": 58.0
+      }
     }
   },
   "samples": {

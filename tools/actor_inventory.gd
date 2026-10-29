@@ -7,7 +7,7 @@ const VARIANTS := {
 	"walker": ["gun", "missile"], "quad_mech": ["flak", "mortar"],
 	"fpv_drone": [""], "uav": ["bomb", "strafe"], "helicopter": [""],
 	"tiltrotor": ["", "drones", "crawlers"], "colossus": [""], "gunship": [""], "flare": [""], "wing": [""],
-	"husk": [""], "sporefly": [""], "torpedo_boat": [""], "mortar": ["", "naval"], "glinter": [""], "burrower": [""], "skimmer": [""], "crocodile": [""], "fortress": [""],
+	"husk": [""], "sporefly": [""], "torpedo_boat": [""], "mortar": ["", "naval"], "glinter": [""], "burrower": [""], "skimmer": [""], "crocodile": [""], "fortress": [""], "hovercraft": [""],
 }
 
 
@@ -66,6 +66,11 @@ static func names(actor: String, variant: String) -> Array:
 					result.append("wheel")
 				result.append_array(["flame_base", "flame_gun", "fuel"])
 			return result + ["turret", "barrel"]
+		"hovercraft":
+			var result := ["hull"]
+			for _fan in Hovercraft.FANS:
+				result.append_array(["duct", "rotor"])
+			return result + ["plate_l", "gun", "plate_r", "gun", "emitter", "emitter", "bow", "rack"]
 	return []
 
 

@@ -7,19 +7,20 @@ extends Enemy
 enum Phase { ARMORED, STRIPPED }
 enum Attack { NONE, GUN, CANNON, RAM, MLRS }
 
-const SCALE := 1.3 ## Drawn this much larger than its model-space layout.
 const BODY_HP := 1900.0
 const ROUND_DAMAGE := 40.0 ## Like the colossus, main-gun damage counts in rounds, not the tank's raw thousands.
 const SPEED := 32.0
-const CIRCLE := 36.0 ## Metres it keeps from the tank while circling between attacks.
+const CIRCLE := 48.0 ## Metres it keeps from the tank while circling between attacks.
 const RAM_SPEED := 65.0
-const LASER_RANGE := 30.0
+const LASER_RANGE := 36.0
 const LASER_DPS := 6.0
 const LASER_HEAT := 0.24 ## Heat per interception: four missiles fit, an overlapping salvo gets through.
 const LASER_COOL := 0.3
 const WIND := 1.0
 const WINDOW := 1.6 ## A full charge and its aim fit between attacks.
-const PARTS := {"fan_l": Vector3(-4.0, 3.4, 5.0), "fan_r": Vector3(4.0, 3.4, 5.0), "laser": Vector3(0, 3.5, -1.0)}
+const PARTS := {"fan_l": Vector3(-6.0, 9.6, 15.2), "fan_r": Vector3(6.0, 9.6, 15.2), "laser": Vector3(0, 13.0, 6.2)}
+const FANS := {"fan_l": PARTS.fan_l, "fan_c": Vector3(0.0, 9.6, 15.2), "fan_r": PARTS.fan_r} ## The centre one sits armoured between the breakable pair.
+const STERN := 11.0 ## Hits this far aft (model space) land on the stern block and the propellers.
 const LABELS := {"fan_l": "HOVER_FAN_L", "fan_r": "HOVER_FAN_R", "laser": "HOVER_LASER"}
 
 var phase := Phase.ARMORED
@@ -27,7 +28,7 @@ var parts := {"fan_l": 100.0, "fan_r": 100.0, "laser": 70.0}
 var laser_heat := 0.0
 var laser_overheated := false
 var _part_nodes: Dictionary[String, Node3D] = {}
-var _fans: Array[Node3D] = []
+var _fans: Dictionary[String, Node3D] = {} ## Rotor of each propeller.
 var _plates: Array[Node3D] = []
 var _guns: Array[Node3D] = []
 var _muzzles: Array[Node3D] = []
@@ -56,8 +57,8 @@ func _init() -> void:
 	max_hp = BODY_HP
 	hp = max_hp
 	armor = 25.0
-	radius = 7.0 * SCALE
-	center_height = 2.0 * SCALE
+	radius = 13.0
+	center_height = 5.0
 	score = 20000
 	despawn_behind = 0.0
 	set_meta("title", "BOSS_HOVERCRAFT")
@@ -65,72 +66,27 @@ func _init() -> void:
 
 
 func build() -> void:
-	model.scale = Vector3.ONE * SCALE
-	var b := LowPoly.new()
-	# An air-cushion landing craft: a black skirt bulging out over the water, a flat grey deck with an open cargo well,
-	# long deckhouses down both sides, a hazard-striped bow ramp, and the hull number on the bridge.
-	b.frustum(Transform3D(Basis(), Vector3(0, 0.0, 0)), Vector2(9.0, 13.4), Vector2(10.8, 15.0), 1.0, Palette.INK)
-	b.frustum(Transform3D(Basis(), Vector3(0, 1.0, 0)), Vector2(10.8, 15.0), Vector2(10.0, 14.2), 0.6, Palette.DUSK)
-	b.box(Transform3D(Basis(), Vector3(0, 1.85, 0.4)), Vector3(9.8, 0.5, 13.0), Palette.ASH, Palette.STONE)
-	b.box(Transform3D(Basis(), Vector3(0, 2.12, 0.0)), Vector3(4.6, 0.06, 10.0), Palette.SLATE)
-	for i in 5:
-		b.box(Transform3D(Basis(), Vector3(0, 2.16, -4.0 + i * 2.0)), Vector3(4.4, 0.03, 0.1), Palette.BUTTER)
-	b.frustum(Transform3D(Basis(Vector3.RIGHT, 0.5), Vector3(0, 1.6, -6.6)), Vector2(4.6, 0.25), Vector2(4.6, 0.25), 2.2, Palette.STONE)
-	for i in 5:
-		b.box(Transform3D(Basis(Vector3.RIGHT, 0.5), Vector3(-1.8 + i * 0.9, 2.1, -6.95)), Vector3(0.45, 0.04, 0.9), Palette.CORAL if i % 2 == 0 else Palette.INK)
-	for side in [-1.0, 1.0]:
-		# Deckhouse: a long low cabin with a raked front, windows at the bow end and lift fan grilles on its roof.
-		b.frustum(Transform3D(Basis(), Vector3(side * 3.6, 2.1, 0.4)), Vector2(2.2, 11.0), Vector2(1.9, 10.2), 1.5, Palette.HULL_LIGHT, Palette.ASH, Vector2(0, 0.4))
-		b.glow = true
-		b.box(Transform3D(Basis(Vector3.RIGHT, 0.3), Vector3(side * 3.6, 3.15, -4.6)), Vector3(1.6, 0.32, 0.05), Palette.CYAN)
-		b.glow = false
-		for z in [-1.0, 2.6]:
-			b.prism(Transform3D(Basis(), Vector3(side * 3.6, 3.6, z)), 0.75, 0.12, 12, Palette.INK)
-			b.prism(Transform3D(Basis(), Vector3(side * 3.6, 3.7, z)), 0.6, 0.04, 12, Palette.SLATE)
-		b.box(Transform3D(Basis(), Vector3(side * 4.65, 2.8, 0.4)), Vector3(0.06, 0.24, 10.0), Palette.CORAL)
-	# Bridge on the starboard deckhouse: a raised cab with wrap-around glazing, a mast and a radar.
-	b.frustum(Transform3D(Basis(), Vector3(3.6, 3.6, -2.6)), Vector2(1.8, 2.2), Vector2(1.6, 1.8), 1.0, Palette.HULL_LIGHT, Palette.WHITE)
-	b.glow = true
-	b.box(Transform3D(Basis(), Vector3(3.6, 4.2, -3.55)), Vector3(1.5, 0.3, 0.05), Palette.CYAN)
-	b.box(Transform3D(Basis(), Vector3(3.6, 6.25, -2.6)), Vector3(0.25, 0.25, 0.25), Palette.HOT)
-	b.glow = false
-	b.box(Transform3D(Basis(), Vector3(3.6, 5.3, -2.6)), Vector3(0.12, 1.8, 0.12), Palette.ASH)
-	b.box(Transform3D(Basis(), Vector3(3.6, 5.6, -2.6)), Vector3(1.6, 0.12, 0.35), Palette.INK)
-	b.box(Transform3D(Basis(), Vector3(4.71, 3.0, -1.2)), Vector3(0.04, 0.5, 1.1), Palette.WHITE)
-	for x in [4.72]:
-		for i in 3:
-			b.box(Transform3D(Basis(), Vector3(x, 3.0, -1.55 + i * 0.35)), Vector3(0.05, 0.36, 0.22), Palette.INK)
-	_add_mesh(model, b.mesh())
-	for side in [-1.0, 1.0]:
-		var name := "fan_l" if side < 0.0 else "fan_r"
+	# A Zubr-class air-cushion landing craft (art/actors/hovercraft.blend): a deep black skirt, side blocks around the
+	# open bow well, a wheelhouse and radome tower, and three ducted propellers on pylons across the stern.
+	_add_mesh(model, ActorMeshes.mesh("hovercraft", "hull"))
+	for name: String in FANS:
 		var fan := Node3D.new()
-		fan.position = PARTS[name]
+		fan.position = FANS[name]
 		model.add_child(fan)
-		_part_nodes[name] = fan
-		# Propulsion: a deep ducted shroud on a pylon with twin rudders behind it.
-		var duct := LowPoly.new()
-		for i in 16:
-			var a := TAU * i / 16.0
-			duct.box(Transform3D(Basis(Vector3.FORWARD, a), Vector3(sin(a), cos(a), 0) * 2.1), Vector3(0.9, 0.3, 1.8), Palette.SLATE)
-		duct.box(Transform3D(Basis(), Vector3(0, -2.25, 0)), Vector3(0.5, 0.6, 1.2), Palette.DUSK)
-		for x in [-0.8, 0.8]:
-			duct.box(Transform3D(Basis(), Vector3(x, 0, 1.6)), Vector3(0.12, 3.6, 1.0), Palette.HULL_LIGHT)
-		duct.box(Transform3D(Basis(), Vector3(0, 2.0, 0)), Vector3(0.3, 0.06, 1.7), Palette.CORAL)
-		_add_mesh(fan, duct.mesh())
+		_add_mesh(fan, ActorMeshes.mesh("hovercraft", "duct"))
 		var rotor := Node3D.new()
 		fan.add_child(rotor)
-		var blades := LowPoly.new()
-		blades.tube(Transform3D(Basis(), Vector3(0, 0, -0.4)), 0.35, 0.8, 8, Palette.INK)
-		for i in 4:
-			blades.box(Transform3D(Basis(Vector3.FORWARD, i * PI * 0.5) * Basis(Vector3.UP, 0.35), Vector3.ZERO), Vector3(0.3, 3.7, 0.08), Palette.ASH)
-		_add_mesh(rotor, blades.mesh())
-		_fans.append(rotor)
+		_add_mesh(rotor, ActorMeshes.mesh("hovercraft", "rotor"))
+		_fans[name] = rotor
+		if parts.has(name):
+			_part_nodes[name] = fan
+	for side in [-1.0, 1.0]:
 		var plate := Node3D.new()
-		plate.position = Vector3(side * 4.75, 2.6, 0.4)
+		plate.position = Vector3(side * 7.3, 5.8, 0.5)
 		model.add_child(plate)
-		_add_mesh(plate, LowPoly.new().frustum(Transform3D(Basis(Vector3.BACK, side * -0.2), Vector3(0, -0.8, 0)), Vector2(0.3, 9.4), Vector2(0.24, 8.8), 1.4, Palette.STONE).mesh())
+		_add_mesh(plate, ActorMeshes.mesh("hovercraft", "plate_l" if side < 0.0 else "plate_r"))
 		_plates.append(plate)
-		var gun := _weapon(Vector3(side * 3.6, 3.6, -0.2 if side < 0.0 else 0.6), 1, 2.5)
+		var gun := _weapon(Vector3(side * 4.6, 8.7, -9.5), "gun", 3.5)
 		_guns.append(gun)
 		_muzzles.append(gun.get_node("Muzzle"))
 	var laser := Node3D.new()
@@ -139,17 +95,13 @@ func build() -> void:
 	_part_nodes.laser = laser
 	for side in [-1.0, 1.0]:
 		var emitter := Node3D.new()
-		emitter.position.x = side * 0.7
+		emitter.position.x = side * 1.75
 		laser.add_child(emitter)
-		var lens := LowPoly.new()
-		lens.box(Transform3D(), Vector3(0.8, 0.6, 1.0), Palette.SLATE)
-		lens.glow = true
-		lens.box(Transform3D(Basis(), Vector3(0, 0, -0.55)), Vector3(0.5, 0.35, 0.1), Palette.HOT)
-		_add_mesh(emitter, lens.mesh())
+		_add_mesh(emitter, ActorMeshes.mesh("hovercraft", "emitter"))
 		_emitters.append(emitter)
-	_bow = _weapon(Vector3(0, 2.3, -5.6), 1, 4.0)
+	_bow = _weapon(Vector3(0, 11.15, -2.6), "bow", 5.9)
 	_bow_muzzle = _bow.get_node("Muzzle")
-	_rack = _weapon(Vector3(0, 3.1, 4.2), 6, 1.6)
+	_rack = _weapon(Vector3(0, 8.6, 10.4), "rack", 1.2)
 	_rack_muzzle = _rack.get_node("Muzzle")
 
 
@@ -159,22 +111,14 @@ func _add_mesh(parent: Node3D, mesh: Mesh) -> void:
 	parent.add_child(node)
 
 
-func _weapon(at: Vector3, barrels: int, length: float) -> Node3D:
+func _weapon(at: Vector3, part: String, muzzle_ahead: float) -> Node3D:
 	var node := Node3D.new()
 	node.position = at
 	model.add_child(node)
-	var b := LowPoly.new()
-	b.prism(Transform3D(Basis(), Vector3(0, -0.55, 0)), 0.75, 0.3, 10, Palette.DUSK)
-	b.frustum(Transform3D(Basis(), Vector3(0, -0.4, 0.1)), Vector2(1.6, 1.8), Vector2(1.2, 1.1), 0.85, Palette.WHITE, Palette.MIST, Vector2(0, 0.2))
-	b.box(Transform3D(Basis(), Vector3(0, 0.47, 0.3)), Vector3(0.8, 0.06, 0.7), Palette.CORAL)
-	for i in barrels:
-		var x := (i - (barrels - 1) * 0.5) * 0.4
-		b.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(x, 0, -0.8)), 0.15, length, 6, Palette.INK)
-		b.tube(Transform3D(Basis(Vector3.UP, PI), Vector3(x, 0, -0.8 - length * 0.9)), 0.2, length * 0.14, 6, Palette.ASH)
-	_add_mesh(node, b.mesh())
+	_add_mesh(node, ActorMeshes.mesh("hovercraft", part))
 	var muzzle := Node3D.new()
 	muzzle.name = "Muzzle"
-	muzzle.position.z = -0.8 - length
+	muzzle.position.z = -muzzle_ahead
 	node.add_child(muzzle)
 	return node
 
@@ -185,8 +129,8 @@ func aim_parts() -> Dictionary:
 		return result
 	for name: String in parts:
 		if parts[name] > 0.0:
-			result[name] = [model.global_transform * PARTS[name], (2.2 if name != "laser" else 1.2) * SCALE, tr(LABELS[name])]
-	result["rear"] = [model.global_transform * Vector3(0, 2, 6), 2.0, tr("HOVER_REAR")]
+			result[name] = [model.global_transform * PARTS[name], 3.0 if name != "laser" else 1.6, tr(LABELS[name])]
+	result["rear"] = [model.global_transform * Vector3(0, 5.5, 14.5), 3.0, tr("HOVER_REAR")]
 	return result
 
 
@@ -214,12 +158,12 @@ func take_hit(hit: Hit) -> void:
 	if hit.kind == Hit.Kind.SHELL:
 		var local := model.to_local(hit.position)
 		for name: String in parts:
-			if parts[name] > 0.0 and local.distance_to(PARTS[name]) <= (2.6 if name != "laser" else 1.6):
+			if parts[name] > 0.0 and local.distance_to(PARTS[name]) <= (3.4 if name != "laser" else 2.2):
 				parts[name] -= amount
 				if parts[name] <= 0.0:
 					_break_part(name, hit.direction)
 				break
-	if model.to_local(hit.position).z > 4.0:
+	if model.to_local(hit.position).z > STERN:
 		amount *= 1.5
 	hp = maxf(0.0, hp - amount)
 	impact_feedback(hit, amount, hp <= 0.0)
@@ -280,9 +224,9 @@ func behave(delta: float) -> void:
 		return
 	_bound()
 	_update_laser(delta)
-	for i in _fans.size():
-		if parts["fan_l" if i == 0 else "fan_r"] > 0.0:
-			_fans[i].rotation.z += delta * 30.0
+	for name: String in _fans:
+		if parts.get(name, 1.0) > 0.0:
+			_fans[name].rotation.z += delta * 30.0
 	var listing := 0.22 if parts.fan_l <= 0.0 and parts.fan_r > 0.0 else -0.22 if parts.fan_r <= 0.0 and parts.fan_l > 0.0 else 0.0
 	model.rotation.z = lerpf(model.rotation.z, listing, minf(delta * 4.0, 1.0))
 	var tank := player()
@@ -306,7 +250,7 @@ func behave(delta: float) -> void:
 		_wake = 0.12
 		var surface := maxf(Course.height_at(global_position), Water.surface_at(global_position))
 		world.fx.wake(global_position, (global_position - before) / maxf(delta, 0.001), 5.0, surface)
-		world.fx.splash(global_position + model.global_basis.z * 5.0, 2.0, surface)
+		world.fx.splash(global_position + model.global_basis.z * 16.0, 3.0, surface)
 	_update_attack(delta, tank)
 	_bound()
 

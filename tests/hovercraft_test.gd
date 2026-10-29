@@ -250,7 +250,7 @@ func test_rear_is_weak_and_ignored_hits_spare_modules() -> void:
 	boss.take_hit(_shell(boss, Vector3.ZERO, 10.0))
 	var front := boss.max_hp - boss.hp
 	var before := boss.hp
-	boss.take_hit(_shell(boss, Vector3(0, 2, 6), 10.0))
+	boss.take_hit(_shell(boss, Vector3(0, 5.5, Hovercraft.STERN + 3.5), 10.0))
 	check(boss.hp < before - front, "a rear hit hurts more than a front hit")
 	before = boss.hp
 	var hit := _shell(boss, Hovercraft.PARTS.laser, 0.0)
