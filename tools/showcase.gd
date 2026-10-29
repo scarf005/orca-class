@@ -179,14 +179,11 @@ func _stage_borer(world: World, down: String) -> void:
 	# Crawl round the tank for a while so the body lies out along its path.
 	for i in 150:
 		enemy.behave(1.0 / 60.0)
-	match down:
-		"knocked":
-			enemy._knock_down(Borer.KNOCKED, 0.35)
-		"jammed":
-			enemy._knock_down(Borer.JAMMED, -0.15)
-		"burrowed":
-			enemy._begin_attack(Borer.Attack.BURROW)
-			enemy._attack_time = Borer.WIND * Game.telegraph_scale()
+	if down == "burrowed":
+		enemy._begin_attack(Borer.Attack.BURROW)
+		enemy._attack_time = Borer.WIND * Game.telegraph_scale()
+	elif down in ["knocked", "jammed"]:
+		enemy._knock_down(down == "jammed")
 	world.camera.set_process(false)
 
 

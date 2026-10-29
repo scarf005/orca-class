@@ -224,7 +224,7 @@ func take_hit(hit: Hit) -> void:
 	impact_feedback(hit, amount, hp <= 0.0)
 	# The tank meets the charge head-on: a full charge into its face mid-bore rears it up, stunned.
 	if _attack == Attack.BORE and not telegraphing() and hit.power >= 1.0 and hit.direction.dot(_direction) < 0.0 and hp > 0.0:
-		_knock_down(KNOCKED, 0.35)
+		_knock_down(false)
 		World.current.style_event("KNOCKDOWN", 150.0)
 	elif hit.power >= 1.0 or hit.stagger >= 1.0:
 		stagger = maxf(stagger, 0.2)
@@ -387,7 +387,7 @@ func _update_attack(delta: float, tank: Tank) -> void:
 			var outward := _direction.dot(global_position - arena_center()) > 0.0
 			var at_wall := outward and global_position.distance_to(arena_center()) >= Stage3.PIT_RADIUS - radius - 1.0
 			if at_wall and not _hit_done and _direction.dot(tank.global_position - global_position) < 0.0:
-				_knock_down(JAMMED, -0.15)
+				_knock_down(true)
 			elif at_wall or _attack_time >= WIND * Game.telegraph_scale() + BORE_TIME:
 				world.shake(0.3, global_position)
 				_end_attack()
@@ -418,11 +418,11 @@ func _update_attack(delta: float, tank: Tank) -> void:
 					_end_attack()
 
 
-## Stops it where it is for `seconds`, the head pitched up (reared) or down (jammed).
-func _knock_down(seconds: float, pitch: float) -> void:
+## Stops it where it is: reared up by a met bore (KNOCKED), or nose down with its cutterhead in the wall (JAMMED).
+func _knock_down(jammed: bool) -> void:
 	_end_attack()
-	downed = seconds
-	_down_pitch = pitch
+	downed = JAMMED if jammed else KNOCKED
+	_down_pitch = -0.15 if jammed else 0.35
 	var world := World.current
 	world.hitstop(0.12)
 	world.shake(0.6, global_position)
