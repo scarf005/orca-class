@@ -138,7 +138,6 @@ func test_fans_can_be_destroyed_independently_and_slow_the_hull() -> void:
 	boss.behave(0.1)
 	var travel := origin.distance_to(boss.global_position)
 	boss.global_position = origin
-	boss._angle = 0.0
 	boss.take_hit(_shell(boss, Hovercraft.PARTS.fan_l))
 	check_eq(boss.parts.fan_l, 0.0, "shell knocks out the left fan")
 	check(boss.parts.fan_r > 0.0, "the other fan keeps working")

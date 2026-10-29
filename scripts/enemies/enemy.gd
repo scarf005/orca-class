@@ -426,6 +426,16 @@ static func wading_at(d: float, u: float) -> Vector3:
 	return p
 
 
+## Where a body at `at` circling `tank` heads next on the ground: `radius` out from the tank, `turn` radians further
+## round than where it stands, so an arena boss hunts the tank wherever it waits instead of a fixed ring.
+static func circling(at: Vector3, tank: Vector3, radius: float, turn: float) -> Vector3:
+	var out := Vector3(at.x - tank.x, 0.0, at.z - tank.z)
+	if out.length_squared() < 0.01:
+		out = Vector3.FORWARD
+	var goal := tank + out.normalized().rotated(Vector3.UP, turn) * radius
+	return Vector3(goal.x, at.y, goal.z)
+
+
 func despawn() -> void:
 	dead = true
 	World.current.unregister(self)

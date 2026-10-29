@@ -11,6 +11,7 @@ const SCALE := 1.3 ## Drawn this much larger than its model-space layout.
 const BODY_HP := 1900.0
 const ROUND_DAMAGE := 40.0 ## Like the colossus, main-gun damage counts in rounds, not the tank's raw thousands.
 const SPEED := 32.0
+const CIRCLE := 36.0 ## Metres it keeps from the tank while circling between attacks.
 const RAM_SPEED := 65.0
 const LASER_RANGE := 30.0
 const LASER_DPS := 6.0
@@ -40,7 +41,6 @@ var _attack_time := 0.0
 var _next_attack := 2.0
 var _shots := 0
 var _shot_timer := 0.0
-var _angle := 0.0
 var _pattern := 0
 var _aim := Vector3.ZERO
 var _ram_direction := Vector3.ZERO
@@ -290,9 +290,8 @@ func behave(delta: float) -> void:
 		return
 	var before := global_position
 	if _attack not in [Attack.CANNON, Attack.RAM]:
-		_angle += move_speed() / 46.0 * delta
-		var goal := arena_center() + Vector3(cos(_angle), 0, sin(_angle)) * 46.0
-		global_position = global_position.move_toward(Vector3(goal.x, global_position.y, goal.z), move_speed() * delta)
+		var goal := circling(global_position, tank.global_position, CIRCLE, move_speed() / CIRCLE * delta)
+		global_position = global_position.move_toward(goal, move_speed() * delta)
 	var toward := tank.global_position - global_position
 	model.rotation.y = lerp_angle(model.rotation.y, atan2(-toward.x, -toward.z), minf(delta * 3.0, 1.0))
 	for gun in _guns:

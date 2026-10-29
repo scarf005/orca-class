@@ -13,6 +13,7 @@ const ROUND_DAMAGE := 40.0 ## Main-gun damage counts in rounds, like the other b
 const SEGMENTS := 15
 const SPACING := 4.2
 const SPEED := 15.0
+const CIRCLE := 30.0 ## Metres it keeps from the tank while circling between attacks.
 const BORE_SPEED := 52.0
 const WIND := 1.0
 const WINDOW := 2.4 ## Rest between attacks: room to reposition and return fire.
@@ -37,7 +38,6 @@ var _next_attack := 2.5
 var _pattern := 0
 var _aim := Vector3.ZERO
 var _direction := Vector3.FORWARD
-var _angle := 0.0
 var _shots := 0
 var _shot_timer := 0.0
 var _exposed := 0.0
@@ -288,10 +288,9 @@ func behave(delta: float) -> void:
 		_follow(delta)
 		return
 	if _attack not in [Attack.BORE, Attack.BURROW, Attack.ERUPT]:
-		_angle += move_speed() / 40.0 * delta
-		var goal := arena_center() + Vector3(cos(_angle), 0, sin(_angle)) * 40.0
+		var goal := circling(global_position, tank.global_position, CIRCLE, move_speed() / CIRCLE * delta)
 		var before := global_position
-		global_position = global_position.move_toward(Vector3(goal.x, global_position.y, goal.z), move_speed() * delta)
+		global_position = global_position.move_toward(goal, move_speed() * delta)
 		var step := global_position - before
 		step.y = 0.0
 		if step.length() > 0.001:

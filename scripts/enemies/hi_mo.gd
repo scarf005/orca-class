@@ -13,6 +13,7 @@ const LEG_HP := 100.0
 const SCALE := 1.7 ## The whole machine is drawn this much larger than its model-space layout.
 const WHEEL_RADIUS := 0.85 * SCALE
 const SPEED := [46.0, 42.0, 34.0]
+const CIRCLE := [46.0, 40.0, 34.0] ## Metres it keeps from the tank while skating round it, closing in by phase.
 const WIND := [0.0, 0.7, 1.0, 1.5, 1.2, 1.1, 0.9, 0.8]
 const PATTERNS := [
 	[Attack.GUN, Attack.RAIL, Attack.CHARGE, Attack.HOP, Attack.STOMP],
@@ -42,7 +43,6 @@ var _shot_timer := 0.0
 var _aim := Vector3.ZERO
 var _from := Vector3.ZERO
 var _drift := Vector3.ZERO
-var _orbit := 0.0
 var _hop := 0.0
 var _hop_from := Vector3.ZERO
 var _hop_to := Vector3.ZERO
@@ -252,9 +252,7 @@ func behave(delta: float) -> void:
 	if is_staggered() and _transition <= 0.0:
 		_drift = _drift.move_toward(Vector3.ZERO, delta * 80.0)
 	elif _hop <= 0.0 and _attack not in [Attack.RAIL, Attack.CHARGE, Attack.STOMP, Attack.SWEEP]:
-		var center := Course.to_world(Stage2.BAY_D, 0.0)
-		_orbit += delta * skate_speed() / 72.0
-		var goal := center + Vector3(cos(_orbit), 0, sin(_orbit)) * 72.0
+		var goal := circling(global_position, tank.global_position, CIRCLE[phase], 0.6) # Leads the turn so the lagging drift holds the ring.
 		var desired := (goal - global_position).normalized() * skate_speed()
 		if _attack == Attack.MISSILES:
 			desired = Vector3.ZERO # The high-perch volley is an exposed charge opening.
