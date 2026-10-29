@@ -589,10 +589,26 @@ func test_a_borer_crawling_between_the_chase_camera_and_the_tank_turns_see_throu
 func test_the_borer_is_fought_all_range_in_the_pit() -> void:
 	var event: Dictionary = Stage3.new().events(false).filter(func(e: Dictionary) -> bool: return e.type == "midboss")[0]
 	var world := _stage3()
-	world.director.set_process(false)
+	world.player.invulnerable = true
 	world.rail.d = event.d
+	world.player._place(event.d)
 	world.director._fire(event)
-	check_eq(world.rail.mode, Rail.Mode.ARENA, "the tank drives freely round the pit, the camera on the borer")
+	world.boss._next_attack = 1000.0
+	var last := world.player.global_position
+	var longest := 0.0
+	var settled := 0
+	for i in 900:
+		await frames(1)
+		longest = maxf(longest, world.player.global_position.distance_to(last))
+		last = world.player.global_position
+		settled += int(world.rail.mode == Rail.Mode.ARENA)
+		if settled >= 60:
+			break
+	check_eq(world.rail.mode, Rail.Mode.ARENA, "the tank drives freely round the pit")
+	# A drive step at 60 m/s over a 0.15 s frame stays under 10 m; snapping into the drive circle jumped 32 m.
+	check(longest < 10.0, "it rolls into the pit without a jump (longest step %.1f m)" % longest)
+	var toward := (world.boss.global_position - world.camera.global_position).normalized()
+	check(-world.camera.global_basis.z.dot(toward) > cos(deg_to_rad(30.0)), "the camera on the borer (%.0f deg off)" % rad_to_deg(acos(clampf(-world.camera.global_basis.z.dot(toward), -1.0, 1.0))))
 	world.boss.died.emit(world.boss)
 	await frames(100)
 	check_eq(world.rail.mode, Rail.Mode.RAIL, "its death resumes the course")
@@ -646,6 +662,7 @@ func test_a_full_charge_into_the_cutterhead_mid_bore_knocks_the_borer_down() -> 
 	tank.charge_lock = borer
 	var from := tank.global_position + Vector3.UP * 2.0
 	tank.fire_cannon(from, (borer._cutter.global_position - from).normalized(), 1.0)
+	check(borer._down_pitch > 0.0, "the full charge rears its head up")
 	_check_downed(borer, "a full charge into its cutterhead", Borer.KNOCKED)
 
 
@@ -667,7 +684,24 @@ func test_a_dodged_bore_jams_its_cutterhead_in_the_pit_wall() -> void:
 			break
 		borer._update_attack(STEP, tank)
 	check(borer.global_position.distance_to(borer.arena_center()) >= Stage3.PIT_RADIUS - borer.radius - 1.5, "the charge carries it into the pit wall")
+	check(borer._down_pitch < 0.0, "its cutterhead noses into the wall")
 	_check_downed(borer, "a bore that misses", Borer.JAMMED)
+
+
+func test_a_bore_launched_outward_at_the_pit_wall_before_passing_the_tank_does_not_jam() -> void:
+	var borer := _borer()
+	var tank := borer.player()
+	var center := borer.arena_center()
+	borer.global_position = center + Vector3.RIGHT * (Stage3.PIT_RADIUS - borer.radius - 1.0)
+	borer._bound()
+	tank.global_position = center + (Vector3.RIGHT * (Stage3.PIT_RADIUS - 6.0)).rotated(Vector3.UP, deg_to_rad(12.0)) # Along the wall at the tank's drive limit.
+	borer._begin_attack(Borer.Attack.BORE)
+	borer._attack_time = Borer.WIND * Game.telegraph_scale()
+	for i in 120:
+		if borer._attack == Borer.Attack.NONE:
+			break
+		borer._update_attack(STEP, tank)
+	check(borer.downed <= 0.0, "a bore that never got past the tank has nothing to miss")
 
 
 func test_a_bore_that_connects_does_not_jam() -> void:
