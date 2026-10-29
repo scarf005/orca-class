@@ -14,6 +14,7 @@ const FORWARD_LIMIT := Vector2(-3.0, 16.0)
 ## Arwing-like handling: it crosses the corridor in about a second and stops on a dime.
 const MOVE_SPEED := Vector2(34.0, 20.0) ## Lateral, forward (m/s) in the rail frame.
 const ARENA_SPEED := 32.0
+const ARENA_MARGIN := 6.0 ## How far inside the arena's edge the drive circle ends.
 const ACCEL := 220.0
 const HULL_RADIUS := 2.3
 const CIWS_RANGE := 16.0
@@ -570,8 +571,8 @@ func _move_arena(delta: float, input: Vector2) -> void:
 	var rail := World.current.rail
 	var center := Course.to_world(rail.arena_d, 0.0)
 	var flat := Vector2(p.x - center.x, p.z - center.z)
-	if flat.length() > rail.arena_radius - 6.0:
-		flat = flat.normalized() * (rail.arena_radius - 6.0)
+	if flat.length() > rail.arena_radius - ARENA_MARGIN:
+		flat = flat.normalized() * (rail.arena_radius - ARENA_MARGIN)
 		p.x = center.x + flat.x
 		p.z = center.z + flat.y
 	var c := Course.to_course(p)

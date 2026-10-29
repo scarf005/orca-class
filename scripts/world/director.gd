@@ -92,6 +92,7 @@ var _duel := false
 var _duel_wait := 0.0
 var _pursuit_wait := 0.0
 var _pursuit_groups := 0 ## Groups sent in the current spell of slowness.
+var _all_range_pending := false ## A mid-boss met in an arena: the drive turns all-range once the rail has rolled the tank inside the circle.
 
 
 func begin(checkpoint: String) -> void:
@@ -164,6 +165,12 @@ func _process(delta: float) -> void:
 					event.merge({"d": d, "kind": kind, "count": duel_counts[kind]})
 					spawn_wave(event)
 	_update_pursuit(delta)
+	if _all_range_pending:
+		var center := Course.to_world(world.rail.arena_d, 0.0)
+		var at := world.player.global_position
+		if Vector2(at.x - center.x, at.z - center.z).length() <= world.rail.arena_radius - Tank.ARENA_MARGIN:
+			_all_range_pending = false
+			world.rail.mode = Rail.Mode.ARENA
 	if _hold_left > 0.0:
 		_hold_left -= delta
 		var alive := false
@@ -401,8 +408,9 @@ func _start_midboss(event: Dictionary) -> void:
 		var arena := stage.arena_at(world.rail.d)
 		stage.arena_center_d = arena.d
 		stage.arena_radius = arena.radius
-	world.rail.mode = Rail.Mode.ARENA if all_range else Rail.Mode.HOLD
+	world.rail.mode = Rail.Mode.HOLD
 	world.rail.hold_at = event.hold
+	_all_range_pending = all_range
 	var boss: Enemy = load(ENEMY_SCRIPTS[event.kind]).new()
 	boss.position = Course.ground_at(Course.stage.midboss_d + float(event.get("ahead", 0.0)), 0.0)
 	world.add_enemy(boss)
@@ -413,6 +421,7 @@ func _start_midboss(event: Dictionary) -> void:
 	boss.died.connect(func(_e: Entity) -> void:
 		world.boss = null
 		world.boss_changed.emit(null)
+		_all_range_pending = false
 		if event.has("music") and section + 1 < Course.stage.section_starts.size():
 			Sfx.play_music(Course.stage.music(section + 1)) # Its theme sinks with it; the road ahead takes over.
 		get_tree().create_timer(MIDBOSS_RESUME).timeout.connect(func() -> void:

@@ -213,7 +213,8 @@ func test_boss_deaths_resume_then_clear() -> void:
 		var clears := [0]
 		world.stage_cleared.connect(func() -> void: clears[0] += 1)
 		world.director._fire(event)
-		check_eq(world.rail.mode, Rail.Mode.ARENA, "both city bosses permit all-range dodging")
+		# The mid-boss's drive turns all-range once the rail has rolled the tank into the plaza.
+		check(world.rail.mode == Rail.Mode.ARENA or world.director._all_range_pending, "both city bosses permit all-range dodging")
 		check(world.boss != null, "boss is announced to the HUD")
 		world.boss.died.emit(world.boss)
 		await frames(100)
