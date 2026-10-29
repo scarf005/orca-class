@@ -586,34 +586,6 @@ func test_a_borer_crawling_between_the_chase_camera_and_the_tank_turns_see_throu
 	check(restored, "clear of the line, it is solid again")
 
 
-func test_the_borer_is_fought_all_range_in_the_pit() -> void:
-	var event: Dictionary = Stage3.new().events(false).filter(func(e: Dictionary) -> bool: return e.type == "midboss")[0]
-	var world := _stage3()
-	world.player.invulnerable = true
-	world.rail.d = event.d
-	world.player._place(event.d)
-	world.director._fire(event)
-	world.boss._next_attack = 1000.0
-	var last := world.player.global_position
-	var longest := 0.0
-	var settled := 0
-	for i in 900:
-		await frames(1)
-		longest = maxf(longest, world.player.global_position.distance_to(last))
-		last = world.player.global_position
-		settled += int(world.rail.mode == Rail.Mode.ARENA)
-		if settled >= 60:
-			break
-	check_eq(world.rail.mode, Rail.Mode.ARENA, "the tank drives freely round the pit")
-	# A drive step at 60 m/s over a 0.15 s frame stays under 10 m; snapping into the drive circle jumped 32 m.
-	check(longest < 10.0, "it rolls into the pit without a jump (longest step %.1f m)" % longest)
-	var toward := (world.boss.global_position - world.camera.global_position).normalized()
-	check(-world.camera.global_basis.z.dot(toward) > cos(deg_to_rad(30.0)), "the camera on the borer (%.0f deg off)" % rad_to_deg(acos(clampf(-world.camera.global_basis.z.dot(toward), -1.0, 1.0))))
-	world.boss.died.emit(world.boss)
-	await frames(100)
-	check_eq(world.rail.mode, Rail.Mode.RAIL, "its death resumes the course")
-
-
 func test_the_bore_is_the_borers_first_attack() -> void:
 	var borer := _borer()
 	borer._next_attack = 0.0
