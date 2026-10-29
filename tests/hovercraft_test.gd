@@ -183,20 +183,26 @@ func test_circle_and_ram_stay_inside_plaza_even_after_displacement() -> void:
 func test_circles_the_tank_wherever_it_waits_in_the_plaza() -> void:
 	var boss := _boss()
 	var tank := boss.player()
-	for corner: Vector2 in [Vector2(45.0, 0.0), Vector2(-30.0, -40.0)]:
+	for corner: Vector2 in [Vector2(0.0, 0.0), Vector2(45.0, 0.0), Vector2(-30.0, -40.0)]:
 		tank.global_position = Course.to_world(Stage2.PLAZA_D + corner.x, corner.y)
 		boss.global_position = boss.arena_center() - (tank.global_position - boss.arena_center()).normalized() * 40.0
 		for _i in 480:
 			boss.behave(1.0 / 60.0)
 		var nearest := INF
 		var farthest := 0.0
+		var swept := 0.0
+		var bearing := Vector2(boss.position.x - tank.position.x, boss.position.z - tank.position.z).angle()
 		for _i in 240:
 			boss.behave(1.0 / 60.0)
 			var gap := Vector2(boss.position.x - tank.position.x, boss.position.z - tank.position.z).length()
 			nearest = minf(nearest, gap)
 			farthest = maxf(farthest, gap)
+			var now := Vector2(boss.position.x - tank.position.x, boss.position.z - tank.position.z).angle()
+			swept += absf(angle_difference(bearing, now))
+			bearing = now
 		check(farthest <= 50.0, "it closes on a tank waiting at %s instead of circling the plaza's middle (%.0f m out)" % [corner, farthest])
 		check(nearest >= 15.0, "and circles clear of a ram's run-up (%.0f m)" % nearest)
+		check(swept >= 1.5, "and keeps sweeping round it instead of parking on the rim (%.1f rad in 4 s)" % swept)
 
 
 func test_every_weapon_warns_and_cannon_fires_only_after_aim_is_fixed() -> void:
