@@ -38,12 +38,15 @@ func test_each_entry_shows_a_posed_enemy_with_its_own_stats() -> void:
 
 func test_stats_match_the_enemy_on_every_difficulty() -> void:
 	var difficulty := Game.difficulty
-	var shown: Array[String] = []
-	for level in [Game.Difficulty.NORMAL, Game.Difficulty.EASY]:
+	var shown := {}
+	for level in [Game.Difficulty.NORMAL, Game.Difficulty.EASY, Game.Difficulty.HARD]:
 		Game.difficulty = level
 		var page := _page()
-		page._show(Bestiary.KINDS.find("ugv"))
-		shown.append(" ".join(page._stats()))
+		for i in Bestiary.KINDS.size():
+			page._show(i)
+			shown[[level, i]] = " ".join(page._stats())
 		page.queue_free()
 	Game.difficulty = difficulty
-	check_eq(shown[1], shown[0], "Easy's reduced health and armor do not change the page")
+	for i in Bestiary.KINDS.size():
+		check_eq(shown[[Game.Difficulty.EASY, i]], shown[[Game.Difficulty.NORMAL, i]], "Easy's reduced health and armor do not change %s's page" % Bestiary.KINDS[i])
+		check_eq(shown[[Game.Difficulty.HARD, i]], shown[[Game.Difficulty.NORMAL, i]], "nor does Hard's tougher health change %s's page" % Bestiary.KINDS[i])
