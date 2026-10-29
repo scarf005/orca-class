@@ -695,3 +695,12 @@ func test_a_bore_launched_inward_from_the_pit_wall_crosses_the_pit() -> void:
 	check_eq(borer._attack, Borer.Attack.BORE, "leaving the wall is not crashing into it")
 	check(borer.global_position.distance_to(start) > 30.0, "the charge carries on across the pit")
 	check(borer.downed <= 0.0, "and nothing stops it")
+
+
+func test_the_borers_body_stays_closed_up_at_a_full_charge() -> void:
+	var borer := _boring(200.0)
+	for i in 60:
+		borer.behave(STEP)
+	for i in 4:
+		var gap := borer._segments[i].global_position.distance_to(borer._segments[i + 1].global_position)
+		check_near(gap, Borer.SPACING * (Borer._size(i) + Borer._size(i + 1)) * 0.5, 0.5, "segments %d and %d keep their spacing at %.0f m/s" % [i, i + 1, Borer.BORE_SPEED])
