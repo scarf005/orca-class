@@ -26,8 +26,9 @@ const CUTTER_HP := 160.0
 const BURROW_TIME := 1.6
 const EXPOSED := 3.0 ## Seconds the head stays out after an eruption.
 const HEAD_RADIUS := 7.5
-const KNOCKED := 0.0
-const JAMMED := 0.0
+const KNOCKED := 3.5 ## Seconds a full charge into its face mid-bore leaves it reared up and stunned.
+const JAMMED := 2.5 ## Seconds a bore that misses leaves its cutterhead stuck in the pit wall.
+const BORE_TIME := 3.2 ## Longest a bore runs after the wind-up: one crossing of the pit.
 const CUTTER_AT := Vector3(0, 3.8, -3.0)
 const POD_HEIGHT := 6.2 ## On a full-size segment, riding its tergite.
 const HIP := Vector3(2.3, 3.0, 0)
@@ -44,7 +45,9 @@ var _pods := {}
 var _trail: Array[Vector3] = [] ## Recent head positions on the ground; y holds how far it was sunk (0-1).
 var _slots: Array[int] = [] ## Trail index of each segment.
 var _sink := 0.0
-var downed := 0.0
+var downed := 0.0 ## Seconds left knocked down or jammed: it cannot move or attack, and every round does double damage.
+var _pitch := 0.0
+var _down_pitch := 0.0
 var _attack := Attack.NONE
 var _attack_time := 0.0
 var _next_attack := 2.5
@@ -213,9 +216,15 @@ func take_hit(hit: Hit) -> void:
 					break
 	if _exposed > 0.0 or parts.cutter <= 0.0:
 		amount *= 1.5
+	if downed > 0.0:
+		amount *= 2.0
 	hp = maxf(0.0, hp - amount)
 	impact_feedback(hit, amount, hp <= 0.0)
-	if hit.power >= 1.0 or hit.stagger >= 1.0:
+	# The tank meets the charge head-on: a full charge into its face mid-bore rears it up, stunned.
+	if _attack == Attack.BORE and not telegraphing() and hit.power >= 1.0 and hit.direction.dot(_direction) < 0.0 and hp > 0.0:
+		_knock_down(KNOCKED, 0.35)
+		World.current.style_event("KNOCKDOWN", 150.0)
+	elif hit.power >= 1.0 or hit.stagger >= 1.0:
 		stagger = maxf(stagger, 0.2)
 	if hp <= 0.0:
 		killing_hit = hit.copy()
@@ -257,14 +266,13 @@ func behave(delta: float) -> void:
 		_follow(delta)
 		return
 	var tank := player()
-	_cutter.rotation.z += delta * (3.0 if _attack == Attack.BORE else 12.0) * (0.0 if parts.cutter <= 0.0 else 1.0)
+	downed = maxf(0.0, downed - delta)
+	_cutter.rotation.z += delta * (3.0 if _attack == Attack.BORE else 12.0) * (0.0 if parts.cutter <= 0.0 or downed > 0.0 else 1.0)
 	_exposed = maxf(0.0, _exposed - delta)
 	if tank == null:
 		return
-	if is_staggered():
-		_follow(delta)
-		return
-	if _attack not in [Attack.BORE, Attack.BURROW, Attack.ERUPT]:
+	var still := is_staggered() or downed > 0.0
+	if not still and _attack not in [Attack.BORE, Attack.BURROW, Attack.ERUPT]:
 		var goal := circling_goal(tank.global_position, CIRCLE, move_speed() / CIRCLE * delta, arena_center(), Stage3.PIT_RADIUS - radius - 1.0)
 		var before := global_position
 		global_position = global_position.move_toward(goal, move_speed() * delta)
@@ -272,7 +280,11 @@ func behave(delta: float) -> void:
 		step.y = 0.0
 		if step.length() > 0.001:
 			_heading = _heading.lerp(step.normalized(), minf(delta * 4.0, 1.0)).normalized()
-	model.global_basis = Basis.looking_at(_heading, Vector3.UP)
+	_pitch = lerpf(_pitch, _down_pitch if downed > 0.0 else 0.0, minf(delta * 8.0, 1.0))
+	model.global_basis = Basis.looking_at(_heading, Vector3.UP) * Basis(Vector3.RIGHT, _pitch)
+	if still:
+		_follow(delta)
+		return
 	_update_attack(delta, tank)
 	_bound()
 	_sink = move_toward(_sink, 1.0 if _burrowed else 0.0, delta * 2.5)
@@ -344,7 +356,7 @@ func _update_attack(delta: float, tank: Tank) -> void:
 	if _attack == Attack.NONE:
 		_next_attack -= delta
 		if _next_attack <= 0.0:
-			var options := [Attack.SPORES, Attack.BORE, Attack.BURROW]
+			var options := [Attack.BORE, Attack.SPORES, Attack.BURROW] # The bore, its signature, opens.
 			_begin_attack(options[_pattern % options.size()])
 			_pattern += 1
 		return
@@ -362,7 +374,12 @@ func _update_attack(delta: float, tank: Tank) -> void:
 				var hit := Hit.make(Hit.Kind.RAM, 22.0, hit_center(), _direction)
 				hit.source = self
 				tank.take_hit(hit)
-			if _attack_time >= WIND * Game.telegraph_scale() + 1.7 or global_position.distance_to(arena_center()) >= Stage3.PIT_RADIUS - radius - 1.0:
+			# It bores on across the pit; if the tank got out of the way, the cutterhead buries itself in the wall.
+			var outward := _direction.dot(global_position - arena_center()) > 0.0
+			var at_wall := outward and global_position.distance_to(arena_center()) >= Stage3.PIT_RADIUS - radius - 1.0
+			if at_wall and not _hit_done:
+				_knock_down(JAMMED, -0.15)
+			elif at_wall or _attack_time >= WIND * Game.telegraph_scale() + BORE_TIME:
 				world.shake(0.3, global_position)
 				_end_attack()
 		Attack.BURROW:
@@ -390,6 +407,19 @@ func _update_attack(delta: float, tank: Tank) -> void:
 				_shot_timer = 0.25
 				if _shots >= 4:
 					_end_attack()
+
+
+## Stops it where it is for `seconds`, the head pitched up (reared) or down (jammed).
+func _knock_down(seconds: float, pitch: float) -> void:
+	_end_attack()
+	downed = seconds
+	_down_pitch = pitch
+	var world := World.current
+	world.hitstop(0.12)
+	world.shake(0.6, global_position)
+	world.fx.explosion(_cutter.global_position, 4.0)
+	world.fx.dust(_cutter.global_position, 24, 8.0, Palette.STRAW)
+	Sfx.play("blast", global_position, 0.0, 0.7)
 
 
 func _erupt(tank: Tank) -> void:

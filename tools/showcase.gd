@@ -3,6 +3,7 @@ extends Node
 ## Usage: xvfb-run -a godot --path . --resolution 960x540 -- --run=res://tools/showcase.gd \
 ##        --scene=vfx|fungus|boss --d=620 --shots=0.5,1,2 --out=builds/showcase
 ##        [--phase=2] [--aground] # hovercraft: stripped, or knocked off its cushion
+##        [--down=knocked|jammed|burrowed] # borer: reared up, cutterhead in the pit wall, or under the sand
 
 var screen: GameScreen
 var _next_shot := 0.0
@@ -17,13 +18,13 @@ func run() -> int:
 	for s: String in String(args.get("shots", "0.5,1,1.5,2.5")).split(",", false):
 		shots.append(float(s))
 	screen = GameScreen.new()
-	screen.stage = int(args.get("stage", "2" if scene == "hovercraft" else "1"))
+	screen.stage = int(args.get("stage", {"hovercraft": "2", "borer": "3"}.get(scene, "1")))
 	screen.checkpoint = "boss" if scene == "boss" else ""
 	add_child(screen)
 	var world := screen.world
 	world.player.invulnerable = true
 	world.player.input_enabled = false
-	var d := float(args.get("d", "1900" if scene == "hovercraft" else "620"))
+	var d := float(args.get("d", {"hovercraft": "1900", "borer": str(Stage3.PIT_D)}.get(scene, "620")))
 	if scene != "boss":
 		world.rail.d = d
 		world.rail.mode = Rail.Mode.HOLD
@@ -53,6 +54,8 @@ func run() -> int:
 			_stage_hovercraft(world, args.get("phase", "1") == "2", args.has("aground"))
 		"hi_mo":
 			_stage_hi_mo(world, int(args.get("phase", "0")))
+		"borer":
+			_stage_borer(world, args.get("down", ""))
 		"hind", "rooftop_battery", "sea_mine":
 			_stage_city_hunter(world, scene)
 		"fungus":
@@ -71,8 +74,8 @@ func run() -> int:
 			_drive(world, elapsed)
 		elif scene == "tail":
 			world.player.auto_tail()
-		elif scene == "hovercraft":
-			world.camera.global_position = world.boss.global_position + Vector3(22, 13, -26)
+		elif scene in ["hovercraft", "borer"]:
+			world.camera.global_position = world.boss.global_position + Vector3(22, 13, -26) * (1.2 if scene == "borer" else 1.0)
 			world.camera.look_at(world.boss.hit_center(), Vector3.UP)
 		if elapsed >= shots[0]:
 			shots.pop_front()
@@ -161,6 +164,30 @@ func _stage_hovercraft(world: World, stripped: bool, aground: bool) -> void:
 	camera.set_process(false)
 	camera.global_position = enemy.global_position + Vector3(22, 13, -26)
 	camera.look_at(enemy.hit_center(), Vector3.UP)
+
+
+func _stage_borer(world: World, down: String) -> void:
+	var center := Course.to_world(Stage3.PIT_D, 0.0)
+	world.rail.mode = Rail.Mode.ARENA
+	world.player.global_position = center + Vector3(-30, 0, 0)
+	var enemy := Borer.new()
+	enemy.position = center + Vector3(20, 0, 30)
+	world.add_enemy(enemy)
+	world.boss = enemy
+	world.boss_changed.emit(enemy)
+	enemy._next_attack = 1000.0
+	# Crawl round the tank for a while so the body lies out along its path.
+	for i in 150:
+		enemy.behave(1.0 / 60.0)
+	match down:
+		"knocked":
+			enemy._knock_down(Borer.KNOCKED, 0.35)
+		"jammed":
+			enemy._knock_down(Borer.JAMMED, -0.15)
+		"burrowed":
+			enemy._begin_attack(Borer.Attack.BURROW)
+			enemy._attack_time = Borer.WIND * Game.telegraph_scale()
+	world.camera.set_process(false)
 
 
 func _stage_vfx(world: World) -> void:

@@ -394,11 +394,14 @@ func _formation(kind: String, i: int, count: int, event: Dictionary) -> Vector3:
 
 func _start_midboss(event: Dictionary) -> void:
 	var world := World.current
-	if event.kind == "hovercraft":
-		var arena := Course.stage.arena_at(world.rail.d)
-		Course.stage.arena_center_d = arena.d
-		Course.stage.arena_radius = arena.radius
-	world.rail.mode = Rail.Mode.ARENA if event.kind == "hovercraft" else Rail.Mode.HOLD
+	var stage := Course.stage
+	# A mid-boss met in one of the stage's arenas is fought all-range there, the camera on it.
+	var all_range := stage.arenas.any(func(arena: Dictionary) -> bool: return absf(arena.d - stage.midboss_d) < arena.radius)
+	if all_range:
+		var arena := stage.arena_at(world.rail.d)
+		stage.arena_center_d = arena.d
+		stage.arena_radius = arena.radius
+	world.rail.mode = Rail.Mode.ARENA if all_range else Rail.Mode.HOLD
 	world.rail.hold_at = event.hold
 	var boss: Enemy = load(ENEMY_SCRIPTS[event.kind]).new()
 	boss.position = Course.ground_at(Course.stage.midboss_d + float(event.get("ahead", 0.0)), 0.0)
@@ -413,7 +416,7 @@ func _start_midboss(event: Dictionary) -> void:
 		if event.has("music") and section + 1 < Course.stage.section_starts.size():
 			Sfx.play_music(Course.stage.music(section + 1)) # Its theme sinks with it; the road ahead takes over.
 		get_tree().create_timer(MIDBOSS_RESUME).timeout.connect(func() -> void:
-			if event.kind == "hovercraft":
+			if all_range:
 				world.rail.d = maxf(world.rail.d, Course.to_course(world.player.global_position).x - world.player.course_offset)
 				world.player.local_velocity = Vector2.ZERO
 			world.rail.mode = Rail.Mode.RAIL))
