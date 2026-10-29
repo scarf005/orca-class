@@ -386,7 +386,7 @@ func _update_attack(delta: float, tank: Tank) -> void:
 			# It bores on across the pit; if the tank got out of the way, the cutterhead buries itself in the wall.
 			var outward := _direction.dot(global_position - arena_center()) > 0.0
 			var at_wall := outward and global_position.distance_to(arena_center()) >= Stage3.PIT_RADIUS - radius - 1.0
-			if at_wall and not _hit_done:
+			if at_wall and not _hit_done and _direction.dot(tank.global_position - global_position) < 0.0:
 				_knock_down(JAMMED, -0.15)
 			elif at_wall or _attack_time >= WIND * Game.telegraph_scale() + BORE_TIME:
 				world.shake(0.3, global_position)
