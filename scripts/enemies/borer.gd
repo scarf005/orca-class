@@ -34,6 +34,7 @@ const POD_HEIGHT := 6.2 ## On a full-size segment, riding its tergite.
 const HIP := Vector3(2.3, 3.0, 0)
 const SINK := 7.2 ## Metres the head runs under the sand while burrowed, the crest of its capsule showing.
 const SEG_SINK := 4.9 ## The same for a full-size segment, its tergite's spine showing.
+const POUR := 60.0 ## Metres per second the body flows down the hole behind a burrowed head that has stopped.
 
 var phase := Phase.ARMORED
 var parts := {"cutter": CUTTER_HP, "pod_1": POD_HP, "pod_2": POD_HP, "pod_3": POD_HP, "pod_4": POD_HP}
@@ -45,6 +46,7 @@ var _pods := {}
 var _trail: Array[Vector3] = [] ## Recent head positions on the ground; y holds how far it was sunk (0-1).
 var _slots: Array[int] = [] ## Trail index of each segment.
 var _sink := 0.0
+var _pour := 0.0
 var downed := 0.0 ## Seconds left knocked down or jammed: it cannot move or attack, and every round does double damage.
 var _pitch := 0.0
 var _down_pitch := 0.0
@@ -302,6 +304,11 @@ func _follow(delta: float) -> void:
 	var steps := mini(floori(moved / STEP), TRAIL)
 	for k in steps:
 		_trail.push_front(last.lerp(head, (k + 1) * STEP / moved))
+	# Under the sand the body keeps flowing down the hole after a head that waits.
+	_pour = _pour + maxf(0.0, POUR * delta - moved) if _burrowed else 0.0
+	while _pour >= STEP:
+		_pour -= STEP
+		_trail.push_front(head)
 	_trail.resize(mini(_trail.size(), TRAIL))
 	_gait += steps * STEP * 0.9
 	_gait += delta * 1.5
