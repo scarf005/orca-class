@@ -64,7 +64,7 @@ func test_losat_names_its_shot_over_the_abel_from_the_aim_to_a_moment_after_laun
 	for number in [1, 2]:
 		var world := await _setup(number)
 		var abel := Abel.new()
-		_spawn(world, abel, 100.0 if number == 2 else 65.0) # Inside the city hunters' legal firing window.
+		_spawn(world, abel, 100.0 * Course.stage.standoff if number == 2 else 65.0) # Inside the city hunters' legal firing window.
 		check_eq(abel.alert_text(), "", "an idle Abel shows no warning")
 		abel._losat = true
 		abel._attack_timer = 0.0

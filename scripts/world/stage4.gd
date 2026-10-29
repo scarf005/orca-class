@@ -9,7 +9,7 @@ enum Section { VERGE, STUMPS, FORD, GORGE, AVENUE, CLEARING }
 
 const SECTION_STARTS := [0.0, 1100.0, 1900.0, 2500.0, 3300.0, 4100.0]
 const LENGTH := 4900.0
-const HORIZON_SHIFT := 50.0 ## Squads spawn this much farther out, in the haze, and walk in.
+const HORIZON_SHIFT := 20.0 ## Squads from ahead spawn this much farther out and walk in.
 const HULL_MARGIN := 3.0 ## The floor extends this far past the hull limit so the track samples at the edge never hang.
 const CLEARING_D := 4500.0
 const CLEARING_RADIUS := 160.0
@@ -355,11 +355,12 @@ func boss_music(_phase := 0) -> String:
 	return "res://assets/music/stage4_boss.ogg"
 
 
-## Pushes a wave and its squad out to the haze.
+## Pushes a wave and its squad from ahead out to the haze; pursuers from behind and crews breaking cover close by
+## keep their slot.
 func _to_horizon(event: Dictionary) -> void:
 	if event.kind == "fpv" and not event.has("ahead"):
 		event.ahead = 90.0 # The director's default slot, which would pop the drone up mid-street.
-	if event.has("ahead") and not event.get("close", false):
+	if event.has("ahead") and not event.get("close", false) and event.get("formation", "") not in ["behind", "flank"]:
 		event.ahead += HORIZON_SHIFT
 	for member: Dictionary in event.get("squad", []):
 		_to_horizon(member)
@@ -373,55 +374,73 @@ func events(hard: bool) -> Array[Dictionary]:
 		e.append(event)
 	var napalm := {"napalm": true}
 
-	# The verge teaches the flame: one tank, then the walkers, each alone, and bug drones that scatter fire where they fall.
+	# Every stretch opens light, builds to a peak where flame crews overlap, and releases before the next. Plain
+	# drone swarms the tank mows down on the move run between the crews and dive in from behind under the canopy;
+	# napalm stays with the crews, or the fodder would carpet the road in fire.
+	var swarm := func(d: float, extra: Dictionary) -> void:
+		var event := {"count": 3, "spacing": 6.0, "ahead": 70.0, "height": 5.0}
+		event.merge(extra, true)
+		wave.call(d, "fpv", event)
+
+	# The verge teaches the flame: one tank, then a walker, then where the switchbacks begin a tank with its ATGM
+	# carrier, a walker breaking out of the trees and a second tank.
 	wave.call(40.0, "fpv", {"height": 5.0, "props": napalm})
-	wave.call(230.0, "crocodile", {"u": -10.0, "ahead": 80.0, "drop": "coax"})
-	wave.call(430.0, "burner", {"u": 12.0, "ahead": 75.0, "squad": [
+	swarm.call(135.0, {"formation": "v", "u": 10.0})
+	wave.call(230.0, "crocodile", {"u": -10.0, "ahead": 70.0, "drop": "coax"})
+	swarm.call(330.0, {"formation": "behind"})
+	wave.call(430.0, "burner", {"u": 12.0, "ahead": 65.0, "squad": [
 		{"kind": "fpv", "height": 5.0, "props": napalm}]})
+	swarm.call(600.0, {"u": -10.0})
 	e.append({"d": 640.0, "type": "pickup", "id": "atgm"})
+	wave.call(700.0, "crocodile", {"u": 10.0, "ahead": 70.0, "peak": true, "squad": [
+		{"kind": "ugv", "u": -8.0, "ahead": 75.0, "props": {"weapon": "atgm"}}]})
+	wave.call(760.0, "burner", {"u": -10.0, "ahead": 35.0, "close": true})
+	wave.call(800.0, "crocodile", {"u": -12.0, "ahead": 60.0})
+	swarm.call(870.0, {"u": 10.0})
 
 	# The meadow: flame crews work in pairs between the stumps and the brush they light carries the fire along the road.
-	wave.call(760.0, "crocodile", {"u": 10.0, "ahead": 80.0, "squad": [
-		{"kind": "ugv", "u": -8.0, "ahead": 75.0, "props": {"weapon": "atgm"}}]})
-	wave.call(980.0, "burner", {"u": -12.0, "ahead": 70.0, "peak": true, "drop": "micro", "squad": [
-		{"kind": "burner", "u": 12.0, "ahead": 90.0}]})
-	wave.call(1220.0, "crocodile", {"u": 0.0, "ahead": 85.0, "squad": [
+	swarm.call(1100.0, {"u": 10.0})
+	wave.call(1220.0, "crocodile", {"u": 0.0, "ahead": 70.0, "squad": [
 		{"kind": "fpv", "count": 2, "height": 5.0, "props": napalm}]})
+	swarm.call(1335.0, {"formation": "behind"})
 	e.append({"d": 1400.0, "type": "pickup", "id": "micro", "u": -4.0})
-	wave.call(1450.0, "burner", {"u": 8.0, "ahead": 70.0, "squad": [
-		{"kind": "crocodile", "u": -12.0, "ahead": 95.0}]})
+	wave.call(1420.0, "burner", {"u": 8.0, "ahead": 60.0, "peak": true, "drop": "micro", "squad": [
+		{"kind": "burner", "u": -12.0, "ahead": 75.0}]})
+	wave.call(1480.0, "crocodile", {"u": -12.0, "ahead": 70.0})
+	wave.call(1520.0, "crocodile", {"u": 12.0, "ahead": 80.0, "squad": [
+		{"kind": "ugv", "u": 0.0, "ahead": 90.0, "props": {"weapon": "atgm"}}]})
 	e.append({"d": 1620.0, "type": "pickup", "id": "repair", "u": 4.0})
 
-	# A monsoon thickens the haze over the meadow's end and the ford.
+	# A monsoon thickens the haze over the meadow's end and the ford. A crocodile waits in the reeds on each bank
+	# and breaks cover at close range while a walker wades in and drones chase the tank over the water.
 	e.append({"d": STORM_D, "type": "storm", "duration": 35.0})
-	wave.call(1830.0, "crocodile", {"u": -12.0, "ahead": 85.0, "squad": [
-		{"kind": "crocodile", "u": 12.0, "ahead": 100.0}]})
-	wave.call(2060.0, "burner", {"u": 12.0, "ahead": 70.0, "peak": true, "squad": [
-		{"kind": "fpv", "count": 2, "height": 5.0, "props": napalm}]})
-	# The ford: a crocodile waits in the reeds and breaks cover at close range.
+	swarm.call(1940.0, {"u": 10.0})
+	wave.call(2000.0, "crocodile", {"u": -12.0, "ahead": 75.0})
 	wave.call(2130.0, "crocodile", {"u": 14.0, "ahead": 42.0, "close": true, "squad": [
 		{"kind": "crocodile", "u": -14.0, "ahead": 60.0, "close": true}]})
-	wave.call(2340.0, "crocodile", {"u": 0.0, "ahead": 85.0, "squad": [
-		{"kind": "burner", "u": -10.0, "ahead": 95.0}]})
+	wave.call(2180.0, "burner", {"u": 12.0, "ahead": 60.0, "peak": true, "squad": [
+		{"kind": "fpv", "count": 2, "height": 5.0, "props": napalm}]})
+	swarm.call(2240.0, {"formation": "behind"})
 	e.append({"d": 2450.0, "type": "pickup", "id": "era", "u": -4.0})
+	swarm.call(2470.0, {"u": -10.0})
 	wave.call(2600.0, "burner", {"u": -10.0, "ahead": 70.0, "squad": [
 		{"kind": "burner", "u": 10.0, "ahead": 85.0},
 		{"kind": "ugv", "u": 0.0, "ahead": 100.0, "props": {"weapon": "atgm"}}]})
 	e.append({"d": 2780.0, "type": "hold", "at": 2795.0, "timeout": 25.0, "reward": "repair"})
 
 	# The gorge is left alone to be crossed; the avenue after it holds the densest fire of the stage.
-	wave.call(3110.0, "crocodile", {"u": 10.0, "ahead": 85.0, "peak": true, "squad": [
-		{"kind": "burner", "u": -12.0, "ahead": 95.0},
-		{"kind": "fpv", "count": 2, "height": 5.0, "props": napalm}]})
-	wave.call(3250.0, "burner", {"u": 0.0, "ahead": 70.0, "squad": [
-		{"kind": "crocodile", "u": -12.0, "ahead": 100.0},
-		{"kind": "crocodile", "u": 12.0, "ahead": 115.0}]})
+	swarm.call(3180.0, {"u": 10.0})
+	wave.call(3330.0, "crocodile", {"u": 10.0, "ahead": 75.0})
 	e.append({"d": 3400.0, "type": "pickup", "id": "atgm", "u": 4.0})
-	wave.call(3500.0, "crocodile", {"u": -8.0, "ahead": 85.0, "squad": [
-		{"kind": "burner", "count": 2, "u": 10.0, "ahead": 90.0}]})
-	wave.call(3780.0, "burner", {"u": 12.0, "ahead": 70.0, "peak": true, "squad": [
-		{"kind": "crocodile", "u": -12.0, "ahead": 95.0},
+	swarm.call(3450.0, {"formation": "behind"})
+	wave.call(3560.0, "burner", {"u": 0.0, "ahead": 60.0, "peak": true, "squad": [
+		{"kind": "crocodile", "u": -12.0, "ahead": 80.0},
+		{"kind": "crocodile", "u": 12.0, "ahead": 95.0}]})
+	wave.call(3620.0, "burner", {"u": 12.0, "ahead": 55.0, "squad": [
 		{"kind": "fpv", "count": 2, "height": 5.0, "props": napalm}]})
+	wave.call(3680.0, "crocodile", {"u": -8.0, "ahead": 70.0, "squad": [
+		{"kind": "ugv", "u": 8.0, "ahead": 85.0, "props": {"weapon": "atgm"}}]})
+	swarm.call(3780.0, {"u": -10.0})
 	e.append({"d": 3950.0, "type": "hold", "at": 3965.0, "timeout": 25.0, "reward": "repair"})
 
 	# The clearing: refit, then the trees go down.
@@ -430,12 +449,6 @@ func events(hard: bool) -> Array[Dictionary]:
 	e.append({"d": CLEARING_D - 200.0, "type": "pickup", "id": "micro", "u": 4.0, "ahead": 15.0})
 	e.append({"d": CLEARING_D - 170.0, "type": "pickup", "id": "dragon", "ahead": 15.0})
 	e.append({"d": CLEARING_D - 130.0, "type": "boss", "kind": "fortress"})
-
-	# Between the flame crews, plain drone swarms the tank mows down on the move: napalm stays with the crews, or the
-	# fodder would carpet the road in fire.
-	var swarms := [135.0, 330.0, 600.0, 870.0, 1100.0, 1335.0, 1940.0, 2470.0, 3180.0, 3640.0]
-	for index in swarms.size():
-		wave.call(swarms[index], "fpv", {"count": 3, "u": 10.0 * (1 - index % 2 * 2), "spacing": 6.0, "ahead": 70.0, "height": 5.0})
 
 	if hard:
 		for event in e:

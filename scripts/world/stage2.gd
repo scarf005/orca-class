@@ -7,7 +7,7 @@ enum Section { BOULEVARD, VIADUCT, PLAZA, CANYON, BAY }
 const SECTION_STARTS := [0.0, 700.0, 1650.0, 2150.0, 3200.0]
 const LENGTH := 4000.0
 const DECK_TOP := 6.25 ## Side viaducts and rooftops hunters stand on, this high above the drowned road.
-const HORIZON_SHIFT := 50.0 ## Squads spawn this much farther out, in the haze, and walk in instead of popping up mid-street.
+const HORIZON_SHIFT := 20.0 ## Squads from ahead spawn this much farther out and walk in instead of popping up mid-street.
 const WATER_LEVEL := 0.3
 const HULL_MARGIN := 3.0
 const PLAZA_D := 1900.0
@@ -112,7 +112,7 @@ func _init() -> void:
 	number = 2
 	city = true
 	street_level = WATER_LEVEL
-	standoff = 1.0
+	standoff = 0.6
 	wade_scale = 0.8
 	plan = PLAN
 	section_starts.assign(SECTION_STARTS)
@@ -320,10 +320,12 @@ func _generate_concourse() -> void:
 		d += 24.0
 
 
-## Pushes a wave and its squad out to the haze. A unit on the expressway deck stays short of the last span on its side, before the deck changes sides at d=1120.
+## Pushes a wave and its squad from ahead out to the haze; pursuers from behind and units breaking cover close by
+## keep their slot. A unit on the expressway deck stays short of the last span on its side, before the deck changes
+## sides at d=1120.
 func _to_horizon(event: Dictionary, d: float) -> void:
 	event.ahead = event.get("ahead", 90.0) # 90 m is the director's default slot, which would pop the unit up mid-street.
-	var shift := HORIZON_SHIFT
+	var shift := 0.0 if event.get("close", false) or event.get("formation", "") in ["behind", "flank"] else HORIZON_SHIFT
 	if is_equal_approx(float(event.get("height", 0.0)), DECK_TOP):
 		shift = clampf(1060.0 - d - float(event.ahead), 0.0, shift)
 	event.ahead += shift
@@ -591,41 +593,60 @@ func events(hard: bool) -> Array[Dictionary]:
 		event.merge(extra)
 		e.append(event)
 
-	# Few hunters, each deadly: one hunter and at most one escort (the first duty is two boats) every 230 m (about 10 s at wading speed), never
-	# an elite crowd. Boulevard builds from a boat to a torpedo gunboat and a depth-charge barge, the viaduct adds deck guns, the canyon repeats
-	# them tighter, and quiet stretches before the plaza and the bay let the tank refit.
-	wave.call(30.0, "drone_boat", {"ahead": 90.0}) # Contact within seconds: a lone boat crosses the horizon before the first hunter.
-	wave.call(240.0, "torpedo_boat", {"u": -17.0, "ahead": 85.0, "drop": "coax", "squad": [
-		{"kind": "sea_mine", "u": 6.0, "ahead": 60.0}]})
-	wave.call(450.0, "mortar", {"u": 21.0, "ahead": 85.0, "peak": true, "props": {"naval": true}, "squad": [
-		{"kind": "drone_boat", "u": -8.0, "ahead": 70.0}]})
-	wave.call(670.0, "drone_boat", {"count": 2, "u": -14.0, "spacing": 8.0, "ahead": 60.0})
+	# Few hunters, each deadly, in beats: every stretch opens light, builds to a peak where hunters overlap, and
+	# releases before the next. Boats run up behind the tank through the flood and mines surface close by.
+	# Boulevard: a lone boat, then the torpedo gunboat alone, then Abel, a mortar barge and a second gunboat at once.
+	wave.call(30.0, "drone_boat", {"ahead": 120.0}) # Contact within seconds: a lone boat crosses the horizon before the first hunter.
+	wave.call(240.0, "torpedo_boat", {"u": -17.0, "ahead": 70.0, "drop": "coax", "squad": [
+		{"kind": "sea_mine", "u": 6.0, "ahead": 50.0}]})
+	wave.call(330.0, "drone_boat", {"count": 3, "formation": "behind", "spacing": 8.0})
+	wave.call(400.0, "drone_boat", {"count": 3, "formation": "v", "u": 12.0, "spacing": 6.0, "ahead": 70.0})
+	wave.call(440.0, "abel", {"u": 20.0, "ahead": 70.0, "peak": true, "squad": [
+		{"kind": "drone_boat", "u": -6.0, "ahead": 55.0}]})
+	wave.call(480.0, "mortar", {"u": -22.0, "ahead": 80.0, "props": {"naval": true}})
+	wave.call(520.0, "torpedo_boat", {"u": 14.0, "ahead": 75.0, "squad": [
+		{"kind": "sea_mine", "u": -4.0, "ahead": 35.0, "close": true}]})
 
-	# The viaduct is a ground war: rooftop batteries and a hunter on the side viaduct shoot at the tank on its deck, and a
-	# second hunter wades the flood below it. Boats and mines keep to the open water, off the road.
-	wave.call(700.0, "rooftop_battery", {"u": -40.0, "ahead": 150.0, "height": DECK_TOP})
+	# The viaduct is a ground war: rooftop batteries and a hunter on the side viaduct shoot at the tank on its deck,
+	# UAVs pass over it, and the first Hind rises beside it with Abel just before the leap. Adam waits at the foot
+	# of the off-ramp and boats chase the tank back down into the flood.
+	wave.call(700.0, "rooftop_battery", {"u": -40.0, "ahead": 180.0, "height": DECK_TOP}) # On the side deck past the 886-899 m gap between its spans.
+	wave.call(800.0, "uav", {"count": 2, "formation": "v", "spacing": 7.0, "ahead": 70.0})
 	wave.call(890.0, "kain", {"u": -38.5, "ahead": 65.0, "height": DECK_TOP})
+	wave.call(960.0, "uav", {"count": 2, "spacing": 9.0, "ahead": 80.0})
 	wave.call(1000.0, "rooftop_battery", {"u": -40.0, "ahead": 45.0, "height": DECK_TOP})
+	wave.call(1040.0, "hind", {"u": 8.0, "height": 5.0, "ahead": 70.0, "peak": true})
 	e.append({"d": 1070.0, "type": "pickup", "id": "atgm"})
-	wave.call(1120.0, "abel", {"u": -26.0, "ahead": 90.0, "drop": "micro"})
-	wave.call(1350.0, "adam", {"u": 17.0, "ahead": 65.0, "peak": true, "squad": [
-		{"kind": "drone_boat", "u": 10.0, "ahead": 70.0}]})
-	e.append({"d": 1480.0, "type": "pickup", "id": "micro", "u": -4.0})
+	wave.call(1090.0, "abel", {"u": -26.0, "ahead": 70.0, "drop": "micro"})
+	wave.call(1430.0, "adam", {"u": 17.0, "ahead": 60.0, "squad": [
+		{"kind": "drone_boat", "u": 10.0, "ahead": 60.0}]})
+	wave.call(1480.0, "drone_boat", {"count": 3, "formation": "behind", "spacing": 8.0})
+	e.append({"d": 1490.0, "type": "pickup", "id": "micro", "u": -4.0})
 
 	e.append({"d": 1660.0, "type": "checkpoint", "name": "midboss"})
 	e.append({"d": 1750.0, "type": "pickup", "id": "micro", "ahead": 15.0}) # Overlapping salvos are what exhaust the hovercraft's laser.
 	e.append({"d": PLAZA_D - 110.0, "type": "midboss", "kind": "hovercraft", "ahead": 60.0, "peak": true, "hold": PLAZA_D - 56.0, "music": "res://assets/music/stage2_hovercraft.ogg"})
 	wave.call(2060.0, "mortar", {"u": 19.0, "ahead": 45.0, "props": {"naval": true}, "squad": [
-		{"kind": "drone_boat", "u": 10.0, "ahead": 75.0}]})
+		{"kind": "drone_boat", "u": 10.0, "ahead": 60.0}]})
 
-	wave.call(2290.0, "torpedo_boat", {"u": -8.0, "ahead": 85.0, "squad": [
-		{"kind": "sea_mine", "u": 8.0, "ahead": 75.0}]})
-	wave.call(2520.0, "adam", {"u": -15.0, "ahead": 65.0, "squad": [
-		{"kind": "drone_boat", "u": 6.0, "ahead": 90.0}]})
-	wave.call(2750.0, "kain", {"u": 14.5, "ahead": 85.0, "squad": [
-		{"kind": "sea_mine", "ahead": 90.0}]})
-	wave.call(2980.0, "mortar", {"u": -10.0, "ahead": 100.0, "peak": true, "props": {"naval": true}, "squad": [
-		{"kind": "drone_boat", "count": 2, "spacing": 5.0, "ahead": 65.0}]})
+	# The canyon is the heaviest beat: a gunboat opens it, boats chase the tank round the first bend as the tower
+	# comes down, mines surface by the fallen slab, and past the second bend Adam, Kain and the second Hind fight
+	# together. Mines bob up in the dark concourse and a mortar barge waits at its mouth.
+	wave.call(2180.0, "torpedo_boat", {"u": -8.0, "ahead": 70.0, "squad": [
+		{"kind": "sea_mine", "u": 8.0, "ahead": 60.0}]})
+	wave.call(2260.0, "drone_boat", {"count": 3, "formation": "v", "spacing": 6.0, "ahead": 70.0})
+	wave.call(2340.0, "drone_boat", {"count": 3, "formation": "behind", "spacing": 8.0})
+	wave.call(2380.0, "sea_mine", {"count": 2, "u": 8.0, "spacing": 8.0, "ahead": 35.0, "close": true})
+	wave.call(2470.0, "adam", {"u": -15.0, "ahead": 60.0, "peak": true, "squad": [
+		{"kind": "drone_boat", "u": 6.0, "ahead": 70.0}]})
+	wave.call(2520.0, "kain", {"u": 14.5, "ahead": 75.0, "squad": [
+		{"kind": "sea_mine", "ahead": 70.0}]})
+	wave.call(2550.0, "hind", {"u": -6.0, "height": 5.0, "ahead": 70.0})
+	wave.call(2600.0, "drone_boat", {"count": 3, "formation": "behind", "spacing": 8.0})
+	wave.call(2760.0, "sea_mine", {"count": 2, "u": -6.0, "spacing": 10.0, "ahead": 35.0, "close": true})
+	wave.call(2860.0, "drone_boat", {"count": 3, "spacing": 6.0, "ahead": 60.0})
+	wave.call(2990.0, "mortar", {"u": -10.0, "ahead": 80.0, "props": {"naval": true}, "squad": [
+		{"kind": "drone_boat", "count": 2, "spacing": 5.0, "ahead": 60.0}]})
 	e.append({"d": 3100.0, "type": "hold", "at": 3115.0, "timeout": 25.0, "reward": "repair"})
 	# The tower across the canyon comes down as the tank rounds the first bend, and has landed before a cruising tank
 	# reaches the slab; the surge crosses the bay approach.
@@ -648,14 +669,8 @@ func events(hard: bool) -> Array[Dictionary]:
 		for side in 2:
 			e.append({"d": split.d - 70.0, "ahead": 70.0, "type": "pickup", "u": lanes[side], "id": counters[index % counters.size()] if (side == 0) == rich_left else ("repair" if index % 3 == 0 else "era")})
 
-	# Between the hunters, packs of boats (drones over the viaduct deck) the tank mows down on the move.
-	for pack: Array in [[345.0, "drone_boat", -10.0], [560.0, "drone_boat", 14.0], [800.0, "uav", 0.0],
-			[1010.0, "uav", 0.0], [1240.0, "drone_boat", -12.0], [1430.0, "drone_boat", 10.0], [2170.0, "drone_boat", -10.0],
-			[2400.0, "drone_boat", 12.0], [2630.0, "drone_boat", -12.0], [2860.0, "drone_boat", 10.0]]:
-		wave.call(pack[0], pack[1], {"count": 2 if pack[1] == "uav" else 3, "u": pack[2], "spacing": 7.0, "ahead": 70.0})
-
 	if hard:
-		var pressure := {450.0: {"drone_boat": 1}, 1120.0: {"sea_mine": 1}}
+		var pressure := {440.0: {"drone_boat": 1}, 2180.0: {"sea_mine": 1}}
 		# Remixed firing lanes and earlier escorts compress the build, not the releases or elite health.
 		for event in e:
 			if event.type != "wave" or not event.has("squad"):
@@ -664,7 +679,7 @@ func events(hard: bool) -> Array[Dictionary]:
 				member.count = int(member.get("count", 1)) * 2 + int(pressure.get(event.d, {}).get(member.kind, 0))
 				member.u = -float(member.get("u", 0.0))
 				member.ahead = 50.0 if member.kind == "drone_boat" else 65.0
-		wave.call(720.0, "rooftop_battery", {"u": -40.0, "ahead": 150.0, "height": DECK_TOP})
+		wave.call(720.0, "rooftop_battery", {"u": -40.0, "ahead": 180.0, "height": DECK_TOP})
 	for event in e:
 		if event.type == "wave":
 			_to_horizon(event, event.d)

@@ -185,7 +185,7 @@ func test_city_results_store_only_city_bests_and_offer_retry_and_title() -> void
 	check_eq(actions, ["retry", "title"], "both final-stage menu actions reach their flow signals")
 
 
-func test_opening_gunboat_spawns_in_the_haze_and_marks_its_lane_before_launching() -> void:
+func test_opening_gunboat_spawns_down_the_street_and_marks_its_lane_before_launching() -> void:
 	var world := stage("", false, 2)
 	world.director.set_process(false)
 	var event: Dictionary = Stage2.new().events(false).filter(func(e: Dictionary) -> bool: return e.type == "wave" and e.kind == "torpedo_boat")[0]
@@ -194,7 +194,8 @@ func test_opening_gunboat_spawns_in_the_haze_and_marks_its_lane_before_launching
 	world.camera.snap()
 	world.camera.follow(0.0)
 	var boat := world.director.spawn_wave(event)[0] as TorpedoBoat
-	check(Course.to_course(boat.global_position).x - event.d > 120.0, "the gunboat spawns down the street, past the 90 m slot where it would pop up mid-street")
+	var ahead: float = Course.to_course(boat.global_position).x - event.d
+	check(ahead >= 80.0 and ahead <= 100.0, "the gunboat spawns %.0f m down the street: clear of the tank, close enough to read" % ahead)
 	boat._set_state(TorpedoBoat.State.AIM)
 	boat._aim_lane(world.player)
 	var shots := world.projectiles.size()

@@ -77,7 +77,7 @@ func test_roof_battery_uses_actual_rectangle_and_unstreamed_deck() -> void:
 func test_hunter_reaches_rectangular_city_cover_then_peeks_into_line_of_sight() -> void:
 	var world := stage("", false, 2)
 	world.process_mode = Node.PROCESS_MODE_DISABLED
-	world.player.global_position = Course.ground_at(200.0, 0.0)
+	world.player.global_position = Course.ground_at(313.0 - 113.0 * Course.stage.standoff, 0.0)
 	var hunter := Abel.new()
 	hunter.position = Course.ground_at(313.0, 9.0)
 	world.director.scenery.stream(280.0, 100000)
@@ -123,7 +123,7 @@ func test_surviving_deck_hunter_crosses_the_gap_with_a_street_fallback() -> void
 		check_eq(slot.y, 0.0, "the 806-814 m gap sends the hunter to a street firing lane")
 		check(absf(Course.to_course(hunter.global_position).y) <= Stage2.new().lateral_limit(world.rail.d), "fallback returns to the street instead of stranding the hunter below the deck")
 		var ahead := Course.to_course(hunter.global_position).x - Course.to_course(world.player.global_position).x
-		check(ahead >= 40.0 and ahead <= 120.0, "a relocating hunter keeps its firing range at %.0f FPS (%.1f m)" % [rate, ahead])
+		check(ahead >= 40.0 * Course.stage.standoff and ahead <= 120.0 * Course.stage.standoff, "a relocating hunter keeps its firing range at %.0f FPS (%.1f m)" % [rate, ahead])
 
 
 func test_city_relocation_consumes_the_full_low_fps_step() -> void:

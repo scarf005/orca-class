@@ -10,7 +10,7 @@ enum Section { OUTSKIRTS, AVENUE, PIT, CANYON, RUN }
 
 const SECTION_STARTS := [0.0, 650.0, 1550.0, 2000.0, 3300.0]
 const LENGTH := 7100.0
-const HORIZON_SHIFT := 50.0 ## Squads spawn this much farther out, in the haze, and walk in.
+const HORIZON_SHIFT := 20.0 ## Squads from ahead spawn this much farther out and walk in.
 const DRIFT := 9.0 ## How high the sand banks against the towers.
 const HULL_MARGIN := 3.0 ## The floor extends this far past the hull limit so the track samples at the edge never hang.
 const PIT_D := 1800.0
@@ -70,7 +70,7 @@ var mounds: Array[Dictionary] = [] ## {d, u, swell, crater}: the live bulges, wh
 func _init() -> void:
 	number = 3
 	city = true
-	standoff = 1.0
+	standoff = 0.6
 	plan = PLAN
 	section_starts.assign(SECTION_STARTS)
 	checkpoints = {"": 0.0, "midboss": PIT_D - 270.0, "boss": SECTION_STARTS[Section.RUN] + 20.0}
@@ -465,9 +465,11 @@ func boss_music(_phase := 0) -> String:
 	return "res://assets/music/stage3_boss.ogg"
 
 
-## Pushes a wave and its squad out to the haze.
+## Pushes a wave and its squad from ahead out to the haze; pursuers from behind and flankers keep their slot.
 func _to_horizon(event: Dictionary) -> void:
-	event.ahead = event.get("ahead", 90.0) + HORIZON_SHIFT # 90 m is the director's default slot, which would pop the unit up mid-street.
+	event.ahead = event.get("ahead", 90.0) # 90 m is the director's default slot, which would pop the unit up mid-street.
+	if not event.get("close", false) and event.get("formation", "") not in ["behind", "flank"]:
+		event.ahead += HORIZON_SHIFT
 	for member: Dictionary in event.get("squad", []):
 		_to_horizon(member)
 
@@ -479,24 +481,33 @@ func events(hard: bool) -> Array[Dictionary]:
 		event.merge(extra)
 		e.append(event)
 
-	# Few hunters, each deadly: one hunter and at most one escort every 230 m, never an elite crowd. Outskirts build from a
-	# skimmer to burrowers and snipers, the avenue adds mortar crews, the canyon repeats them tighter inside the
-	# storm, and quiet stretches before the pit and the run let the tank refit.
-	wave.call(30.0, "skimmer", {})
-	wave.call(240.0, "burrower", {"u": -17.0, "ahead": 85.0, "drop": "coax", "squad": [
-		{"kind": "skimmer"}]})
-	wave.call(450.0, "glinter", {"u": 21.0, "ahead": 85.0, "peak": true, "squad": [
-		{"kind": "mortar", "u": -8.0, "ahead": 80.0}]})
+	# Few hunters, each deadly, in beats: every stretch opens light, builds to a peak where hunters overlap, and
+	# releases before the next. The outskirts are open dunes, so skimmers sweep in from the flanks: a lone skimmer,
+	# a burrower to read, then a sniper, a mortar crew and a second burrower with its flankers at once.
+	wave.call(30.0, "skimmer", {"ahead": 70.0})
+	wave.call(135.0, "skimmer", {"count": 3, "formation": "v", "u": 10.0, "spacing": 7.0, "ahead": 70.0})
+	wave.call(240.0, "burrower", {"u": -17.0, "ahead": 70.0, "drop": "coax", "squad": [
+		{"kind": "skimmer", "u": 6.0, "ahead": 60.0}]})
+	wave.call(330.0, "skimmer", {"count": 2, "formation": "flank", "u": 1.0, "spacing": 10.0, "ahead": 20.0})
+	wave.call(420.0, "glinter", {"u": 21.0, "ahead": 80.0, "peak": true})
+	wave.call(450.0, "mortar", {"u": -20.0, "ahead": 85.0})
+	wave.call(480.0, "burrower", {"u": 8.0, "ahead": 60.0, "squad": [
+		{"kind": "skimmer", "count": 2, "formation": "flank", "u": -1.0, "spacing": 10.0, "ahead": 15.0}]})
 	e.append({"d": 640.0, "type": "pickup", "id": "atgm"})
 
-	wave.call(700.0, "mortar", {"u": 8.0, "ahead": 90.0, "drop": "micro", "squad": [
-		{"kind": "skimmer"}]})
-	wave.call(930.0, "burrower", {"u": 17.0, "ahead": 65.0, "squad": [
-		{"kind": "glinter", "u": -10.0, "ahead": 90.0}]})
-	wave.call(1150.0, "glinter", {"u": -14.5, "ahead": 85.0, "peak": true, "squad": [
-		{"kind": "skimmer"}]})
-	wave.call(1370.0, "burrower", {"u": 19.0, "ahead": 80.0, "squad": [
-		{"kind": "mortar", "u": 8.0, "ahead": 75.0}]})
+	# The avenue: a mortar crew among the towers, a Hind low over the street, then a sniper, a burrower and a
+	# mortar crew with its own sniper before the bend.
+	wave.call(700.0, "mortar", {"u": 8.0, "ahead": 80.0, "drop": "micro", "squad": [
+		{"kind": "skimmer", "u": 6.0, "ahead": 60.0}]})
+	wave.call(800.0, "skimmer", {"count": 4, "u": -10.0, "spacing": 7.0, "ahead": 70.0})
+	wave.call(900.0, "hind", {"u": 10.0, "height": 5.0, "ahead": 70.0})
+	wave.call(990.0, "skimmer", {"count": 3, "formation": "v", "spacing": 7.0, "ahead": 70.0})
+	wave.call(1040.0, "glinter", {"u": -14.5, "ahead": 80.0, "peak": true})
+	wave.call(1080.0, "burrower", {"u": 17.0, "ahead": 60.0, "squad": [
+		{"kind": "skimmer", "u": 6.0, "ahead": 60.0}]})
+	wave.call(1120.0, "mortar", {"u": 12.0, "ahead": 85.0, "squad": [
+		{"kind": "glinter", "u": -8.0, "ahead": 90.0}]})
+	wave.call(1260.0, "skimmer", {"count": 4, "formation": "v", "u": -8.0, "spacing": 7.0, "ahead": 70.0})
 	e.append({"d": 1470.0, "type": "pickup", "id": "micro", "u": -4.0})
 
 	e.append({"d": PIT_D - 270.0, "type": "checkpoint", "name": "midboss"})
@@ -507,17 +518,22 @@ func events(hard: bool) -> Array[Dictionary]:
 	e.append({"d": PIT_D - 160.0, "type": "pickup", "id": "repair", "u": -4.0, "ahead": 28.0})
 	e.append({"d": PIT_D - 110.0, "type": "midboss", "kind": "borer", "ahead": 60.0, "peak": true, "hold": PIT_D - 56.0})
 
+	# The canyon: a mortar walks its shells over the first quicksand, skimmers charge up the tunnel behind the tank
+	# and down it ahead, and where the storm meets the second quicksand a Hind, a sniper, a burrower coming up
+	# behind and a mortar crew close in together.
+	wave.call(2060.0, "mortar", {"u": -8.0, "ahead": 80.0})
+	wave.call(2140.0, "skimmer", {"count": 3, "formation": "v", "spacing": 7.0, "ahead": 70.0})
+	wave.call(2330.0, "skimmer", {"count": 2, "formation": "behind", "spacing": 6.0})
+	wave.call(2420.0, "skimmer", {"count": 3, "formation": "column", "spacing": 10.0, "ahead": 70.0})
 	e.append({"d": STORM_D, "type": "storm", "duration": 22.0})
-	wave.call(2160.0, "mortar", {"u": -8.0, "ahead": 85.0, "squad": [
-		{"kind": "glinter", "u": 8.0, "ahead": 75.0}]})
-	wave.call(2390.0, "glinter", {"u": 14.5, "ahead": 85.0, "squad": [
-		{"kind": "burrower", "u": -6.0, "ahead": 90.0}]})
-	wave.call(2620.0, "burrower", {"u": -10.0, "ahead": 100.0, "peak": true, "squad": [
-		{"kind": "skimmer", "count": 2}]})
-	wave.call(2850.0, "mortar", {"u": 15.0, "ahead": 65.0, "squad": [
-		{"kind": "glinter", "u": -8.0, "ahead": 75.0}]})
+	wave.call(2660.0, "hind", {"u": -10.0, "height": 5.0, "ahead": 70.0, "peak": true})
+	wave.call(2700.0, "glinter", {"u": 14.5, "ahead": 80.0})
+	wave.call(2720.0, "burrower", {"formation": "behind"})
+	wave.call(2760.0, "mortar", {"u": 15.0, "ahead": 70.0, "squad": [
+		{"kind": "skimmer", "count": 2, "u": -6.0, "spacing": 8.0, "ahead": 60.0}]})
+	wave.call(2900.0, "skimmer", {"count": 4, "formation": "v", "spacing": 7.0, "ahead": 70.0})
 	e.append({"d": 3000.0, "type": "hold", "at": 3015.0, "timeout": 25.0, "reward": "repair"})
-	wave.call(3100.0, "burrower", {"u": 8.0, "ahead": 85.0, "peak": true})
+	wave.call(3100.0, "burrower", {"u": 8.0, "ahead": 70.0})
 	e.append({"d": 3160.0, "type": "pickup", "id": "era", "u": -4.0})
 	e.append({"d": 3220.0, "type": "pickup", "id": "atgm", "u": 4.0})
 
@@ -530,13 +546,8 @@ func events(hard: bool) -> Array[Dictionary]:
 	# Past the last ramp the rail stops short of the road's end and the wing comes down to finish the tank.
 	e.append({"d": ramps_end(), "type": "hold", "at": ramps_end() + 170.0, "timeout": 600.0})
 
-	# Between the hunters, skimmer packs the tank mows down on the move.
-	for pack: Vector2 in [Vector2(135.0, 10.0), Vector2(345.0, -12.0), Vector2(575.0, 8.0), Vector2(815.0, -10.0), Vector2(1040.0, 12.0),
-			Vector2(1260.0, -8.0), Vector2(1450.0, 10.0), Vector2(2275.0, -12.0), Vector2(2505.0, 10.0), Vector2(2735.0, -8.0), Vector2(2950.0, 12.0)]:
-		wave.call(pack.x, "skimmer", {"count": 3, "u": pack.y, "spacing": 7.0, "ahead": 70.0})
-
 	if hard:
-		var pressure := {450.0: {"mortar": 1}, 700.0: {"skimmer": 1}}
+		var pressure := {1120.0: {"glinter": 1}, 700.0: {"skimmer": 1}}
 		for event in e:
 			if event.type != "wave" or not event.has("squad"):
 				continue
