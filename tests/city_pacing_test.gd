@@ -111,3 +111,59 @@ func test_street_hunters_close_to_fire_from_inside_80_m_of_a_driving_tank() -> v
 		var label := "stage %d %s" % [spec[0], (spec[1] as GDScript).get_global_name()]
 		check(farthest > 0.0, "%s fires while the tank drives" % label)
 		check(farthest <= 80.0, "%s fires from at most 80 m ahead (farthest %.0f m)" % [label, farthest])
+
+
+## Where a structure box stands at the enemy's x and z: its top, or -INF.
+func _deck_under(at: Vector3) -> float:
+	var top := -INF
+	for box: Dictionary in Course.structure_boxes:
+		var local: Vector3 = box.pose.affine_inverse() * at
+		if absf(local.x) < box.size.x * 0.5 and absf(local.z) < box.size.z * 0.5:
+			top = maxf(top, box.pose.origin.y + box.size.y)
+	return top
+
+
+func _inside_structure(at: Vector3) -> bool:
+	for box: Dictionary in Course.structure_boxes:
+		var local: Vector3 = box.pose.affine_inverse() * at
+		if absf(local.x) < box.size.x * 0.5 - 0.5 and absf(local.z) < box.size.z * 0.5 - 0.5 and local.y > 0.5 and local.y < box.size.y - 0.5:
+			return true
+	return false
+
+
+func test_every_scripted_enemy_appears_where_it_can_stand_or_float() -> void:
+	for number in [2, 3, 4]:
+		var world := stage("", false, number)
+		world.process_mode = Node.PROCESS_MODE_DISABLED
+		var stage_def: StageDef = [Stage2, Stage3, Stage4][number - 2].new()
+		for hard in [false, true]:
+			for event in stage_def.events(hard).filter(func(e: Dictionary) -> bool: return e.type == "wave"):
+				world.rail.d = event.d
+				world.player._place(event.d)
+				for enemy in world.director.spawn_wave(event):
+					var at := enemy.global_position
+					var course := Course.to_course(at)
+					var where := "stage %d%s wave %s at d=%.0f: %s at d=%.0f u=%.1f" % [number, " hard" if hard else "", event.kind, event.d, enemy.get_script().get_global_name(), course.x, course.y]
+					if not enemy.flying:
+						check(not _inside_structure(at), where + " is not inside a structure")
+					if enemy is DroneBoat or enemy is TorpedoBoat or enemy is SeaMine or (enemy is Mortar and enemy.naval):
+						check(Water.surface_at(at) > Course.height_at(at), where + " floats on water")
+					elif not enemy.flying:
+						# A burrower swims through the sand, quicksand included.
+						check(enemy is Burrower or Course.stage.quicksand_at(course.x, course.y).z <= 0.0, where + " is not in quicksand")
+						if at.y > Course.height_at(at) + 1.5:
+							check(absf(_deck_under(at) - at.y) < 1.5, where + " stands on a deck")
+					enemy.despawn()
+
+
+func test_hard_mode_keeps_close_and_flanking_escorts_where_normal_mode_puts_them() -> void:
+	for number in [2, 3, 4]:
+		var stage_def: StageDef = [Stage2, Stage3, Stage4][number - 2].new()
+		var squads := func(hard: bool) -> Array: return stage_def.events(hard).filter(func(e: Dictionary) -> bool: return e.type == "wave" and e.has("squad"))
+		var hard_squads: Array = squads.call(true)
+		for event: Dictionary in squads.call(false):
+			var twin: Dictionary = hard_squads.filter(func(h: Dictionary) -> bool: return h.d == event.d and h.kind == event.kind)[0]
+			for i in event.squad.size():
+				var member: Dictionary = event.squad[i]
+				if member.get("close", false) or member.get("formation", "") in ["behind", "flank"]:
+					check_eq(twin.squad[i].ahead, member.ahead, "stage %d %s at %.0f m: hard mode keeps its %s escort's slot" % [number, event.kind, event.d, member.kind])
