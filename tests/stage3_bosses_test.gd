@@ -400,6 +400,25 @@ func test_wing_volleys_called_mid_leap_meet_the_tank_in_the_air_or_on_its_landin
 				break
 
 
+func test_borer_circles_the_tank_wherever_it_waits_in_the_pit() -> void:
+	var borer := _borer()
+	var tank := borer.player()
+	for corner: Vector2 in [Vector2(50.0, 0.0), Vector2(-30.0, 40.0)]:
+		tank.global_position = Course.to_world(Stage3.PIT_D + corner.x, corner.y)
+		borer.global_position = borer.arena_center() - (tank.global_position - borer.arena_center()).normalized() * 30.0
+		for _i in 600:
+			borer.behave(1.0 / 60.0)
+		var nearest := INF
+		var farthest := 0.0
+		for _i in 240:
+			borer.behave(1.0 / 60.0)
+			var gap := Vector2(borer.position.x - tank.position.x, borer.position.z - tank.position.z).length()
+			nearest = minf(nearest, gap)
+			farthest = maxf(farthest, gap)
+		check(farthest <= 42.0, "it crawls in on a tank waiting at %s instead of circling the pit's middle (%.0f m out)" % [corner, farthest])
+		check(nearest >= 14.0, "and keeps its length clear of the tank while it circles (%.0f m)" % nearest)
+
+
 func test_borer_burrowed_is_untouchable() -> void:
 	var borer := _borer()
 	borer._burrowed = true
