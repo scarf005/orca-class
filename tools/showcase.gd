@@ -4,9 +4,11 @@ extends Node
 ##        --scene=vfx|fungus|boss --d=620 --shots=0.5,1,2 --out=builds/showcase
 ##        [--phase=2] [--aground] # hovercraft: stripped, or knocked off its cushion
 ##        [--down=knocked|jammed|burrowed] # borer: reared up, cutterhead in the pit wall, or under the sand
+## --scene=walker|quad|hi_mo follows the actor with the camera. [--attack=hop] # hi_mo: start that attack
 
 var screen: GameScreen
 var _next_shot := 0.0
+var _subject: Entity ## The actor a moving camera follows.
 
 
 func run() -> int:
@@ -53,10 +55,10 @@ func run() -> int:
 		"hovercraft":
 			_stage_hovercraft(world, args.get("phase", "1") == "2", args.has("aground"))
 		"hi_mo":
-			_stage_hi_mo(world, int(args.get("phase", "0")))
+			_stage_hi_mo(world, int(args.get("phase", "0")), String(args.get("attack", "")))
 		"borer":
 			_stage_borer(world, args.get("down", ""))
-		"hind", "rooftop_battery", "sea_mine":
+		"hind", "rooftop_battery", "sea_mine", "walker", "quad":
 			_stage_city_hunter(world, scene)
 		"fungus":
 			world.player.model.visible = true
@@ -77,6 +79,10 @@ func run() -> int:
 		elif scene in ["hovercraft", "borer"]:
 			world.camera.global_position = world.boss.global_position + Vector3(22, 13, -26) * (1.2 if scene == "borer" else 1.0)
 			world.camera.look_at(world.boss.hit_center(), Vector3.UP)
+		elif scene in ["walker", "quad", "hi_mo"] and is_instance_valid(_subject):
+			world.camera.fov = 30.0
+			world.camera.global_position = _subject.global_position + (Vector3(22, 13, -27) if scene == "hi_mo" else Vector3(10, 6, 14))
+			world.camera.look_at(_subject.hit_center(), Vector3.UP)
 		if elapsed >= shots[0]:
 			shots.pop_front()
 			get_viewport().get_texture().get_image().save_png("%s/%s_%d.png" % [out, scene, index])
@@ -84,11 +90,12 @@ func run() -> int:
 	return 0
 
 
-func _stage_hi_mo(world: World, phase: int) -> void:
+func _stage_hi_mo(world: World, phase: int, attack: String) -> void:
 	world.rail.d = Stage2.BAY_D
 	world.rail.mode = Rail.Mode.ARENA
 	world.director.scenery.stream(Stage2.BAY_D, 100000)
 	var boss := HiMo.new()
+	_subject = boss
 	boss.position = Course.ground_at(Stage2.BAY_D, 0.0)
 	world.add_enemy(boss)
 	world.boss = boss
@@ -99,7 +106,7 @@ func _stage_hi_mo(world: World, phase: int) -> void:
 		hit.caliber = 100
 		boss.take_hit(hit)
 	boss.stagger = 0.0
-	boss._begin_attack(HiMo.Attack.STOMP if phase == 2 else HiMo.Attack.MISSILES if phase == 1 else HiMo.Attack.GUN)
+	boss._begin_attack(HiMo.Attack[attack.to_upper()] if not attack.is_empty() else HiMo.Attack.STOMP if phase == 2 else HiMo.Attack.MISSILES if phase == 1 else HiMo.Attack.GUN)
 	var camera := world.camera
 	camera.set_process(false)
 	camera.global_position = boss.global_position + (Vector3(42, 24, -10) if phase == 2 else Vector3(22, 13, -27))
@@ -124,6 +131,7 @@ func _stage_mechs(world: World, kind: String) -> void:
 func _stage_city_hunter(world: World, kind: String) -> void:
 	var base := world.rail.d + world.player.course_offset
 	var enemy: Enemy = load(Director.ENEMY_SCRIPTS[kind]).new()
+	_subject = enemy
 	enemy.position = Course.ground_at(base + 30.0, -30.0 if kind == "sea_mine" else 0.0) + Vector3.UP * (7.0 if kind == "hind" else 0.0)
 	if kind == "sea_mine":
 		enemy.position.y = maxf(enemy.position.y, Water.surface_at(enemy.position))
