@@ -1,6 +1,7 @@
 extends Node
 ## Neutral and angled production-model renders, without scenery or AI.
-## just capture --resolution 960x720 -- --run=res://tools/actor_showcase.gd
+## just capture --resolution 960x720 -- --run=res://tools/actor_showcase.gd [--actor=kain] [--walk=48]
+## --walk saves that many side frames of a biped stepping in place at walking pace.
 
 const Inventory = preload("res://tools/actor_inventory.gd")
 
@@ -29,6 +30,8 @@ func run() -> int:
 	actors.merge(Inventory.VARIANTS)
 	actors.gunship = ["hunter", "stripped", "infected"]
 	actors.colossus = ["capped", "core"]
+	if args.has("actor") and not actors.has(args.actor):
+		actors[args.actor] = [""] # Code-built actors outside the inventory, such as the city bipeds.
 	for actor: String in actors:
 		if args.has("actor") and actor != args.actor:
 			continue
@@ -66,6 +69,11 @@ func run() -> int:
 			var center := bounds.get_center()
 			var extent := maxf(bounds.size.x, maxf(bounds.size.y, bounds.size.z))
 			camera.size = extent * 1.4
+			if args.has("walk") and entity is BipedMech:
+				camera.size = extent * 1.15
+				await _walk(entity, camera, center + Vector3(1, 0.3, -0.4).normalized() * (extent * 2.0 + 10.0), center, int(args.walk), "%s/%s_walk" % [out, actor])
+				entity.free()
+				continue
 			for pose: String in ["neutral", "angled"]:
 				var direction := Vector3(0, 0.18, -1) if pose == "neutral" else Vector3(1, 0.55, -1)
 				if actor == "colossus":
@@ -81,3 +89,17 @@ func run() -> int:
 			entity.free()
 	world.free()
 	return 0
+
+
+## Steps `mech` in place at 4 m/s, saving `count` frames at 30 frames per second.
+func _walk(mech: BipedMech, camera: Camera3D, from: Vector3, center: Vector3, count: int, prefix: String) -> void:
+	camera.position = from
+	camera.look_at(center)
+	for frame in count:
+		for _i in 2:
+			mech._moved = -mech.model.global_basis.z * 4.0 / 60.0
+			mech.stride(1.0 / 60.0)
+		await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png("%s_%03d.png" % [prefix, frame])
+	print("Rendered ", prefix)
