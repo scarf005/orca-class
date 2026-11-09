@@ -19,3 +19,9 @@
   models) and the reported death path.
 - Articulated models: keep hull-fixed mounts separate from aiming pivots, and verify mesh continuity across each joint,
   muzzle tracking, and whole-module detachment in neutral and angled renders; parenting and clearance prove neither.
+
+# Model art
+
+- Remodelling an actor means a new design from references, built from scratch. The user rejected surface greebles
+  ("모델 texture detail을 올리는게 목적이 아니라 모델 생김새를 개선하는게 목적") and the old shapes with more polygons
+  and rounded edges ("기존 모델을 폴리곤만 더한거잖아요. 게다가 찰흙같아서 못생겼어요").
