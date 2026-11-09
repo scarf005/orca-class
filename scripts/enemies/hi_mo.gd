@@ -16,6 +16,8 @@ const WHEEL_RADIUS := 1.3 * SCALE
 const HIP := Vector3(2.2, -0.2, 3.2) ## Model-space leg rig for the right rear corner; other corners mirror it.
 const KNEE := Vector3(2.5, 2.7, 0.9) ## From the hip.
 const AXLE := Vector3(2.3, -5.6, 1.3) ## From the knee: the wheel's centre, its radius above the foot.
+const LEG_DROOP := 2.0 ## Metres a wheel hangs below its rest pose over a drop or in the air.
+const LEG_LIFT := 4.0 ## Metres a wheel folds up over a bump before the leg stops giving.
 const SPEED := [46.0, 42.0, 34.0]
 const CIRCLE := [46.0, 40.0, 34.0] ## Metres it keeps from the tank while skating round it, closing in by phase.
 const WIND := [0.0, 0.7, 1.0, 1.5, 1.2, 1.1, 0.9, 0.8]
@@ -37,7 +39,7 @@ var _rail := Node3D.new()
 var _rack := Node3D.new()
 var _muzzle := Node3D.new()
 var _guns: Array[Node3D] = []
-var _legs: Array[Dictionary] = [] ## {hip, knee, wheel, hp, corner}.
+var _legs: Array[Dictionary] = [] ## {hip, knee, wheel, hp, corner, lift, spin}; lift is the smoothed ground under the wheel.
 var _plates: Array[Node3D] = []
 var _attack := Attack.NONE
 var _attack_time := 0.0
@@ -57,6 +59,7 @@ var _transition := 0.0
 var _transition_from := Vector3.ZERO
 var _transition_to := Vector3.ZERO
 var _wake := 0.0
+var _sag := 0.0 ## Model units the hull dips on landing.
 var _overcharge := false
 var _final_rail := false
 var spun := 0.0
@@ -134,7 +137,7 @@ func build() -> void:
 		wheel.position = Vector3(corner.x * AXLE.x, AXLE.y, corner.y * AXLE.z)
 		knee.add_child(wheel)
 		_add_mesh(wheel, ActorMeshes.mesh("hi_mo", "wheel"))
-		_legs.append({"hip": hip, "knee": knee, "wheel": wheel, "hp": LEG_HP, "corner": corner})
+		_legs.append({"hip": hip, "knee": knee, "wheel": wheel, "hp": LEG_HP, "corner": corner, "lift": 0.0, "spin": 0.0})
 	pop_parts = [_rail, _rack]
 	call_deferred("_play_music") # After the director's boss-start call.
 
@@ -166,14 +169,14 @@ func _bounded(at: Vector3) -> Vector3:
 	return World.current.director.scenery.arena_position(at, Stage2.BAY_D, radius)
 
 
-func _floor(at: Vector3) -> float:
+func _floor(at: Vector3, reach := radius) -> float:
 	var height := Course.height_at(at)
 	for structure in Course.structure_boxes:
 		var local: Vector3 = structure.pose.affine_inverse() * at
-		if absf(local.x) < structure.size.x * 0.5 + radius and absf(local.z) < structure.size.z * 0.5 + radius:
+		if absf(local.x) < structure.size.x * 0.5 + reach and absf(local.z) < structure.size.z * 0.5 + reach:
 			height = maxf(height, structure.pose.origin.y + structure.size.y)
-	for prop: Prop in World.current.props.near(at, at, radius + 8.0):
-		if prop.hard and not prop.dead and Vector2(at.x - prop.position.x, at.z - prop.position.z).length() < prop.footprint + radius:
+	for prop: Prop in World.current.props.near(at, at, reach + 8.0):
+		if prop.hard and not prop.dead and Vector2(at.x - prop.position.x, at.z - prop.position.z).length() < prop.footprint + reach:
 			height = maxf(height, prop.global_position.y + prop.height)
 	return height
 
@@ -229,6 +232,8 @@ func behave(delta: float) -> void:
 		_hop = maxf(0.0, _hop - delta)
 		var k := 1.0 - _hop / HOP_TIME
 		global_position = _hop_from.lerp(_hop_to, k) + Vector3.UP * sin(k * PI) * _hop_height
+		if _hop <= 0.0:
+			_sag = 0.8
 		if _hop <= 0.0 and (_transition > 0.0 or phase >= Phase.STRIPPED and _attack in [Attack.HOP, Attack.STOMP]):
 			World.current.director.scenery.crush_cover(global_position, global_position, radius, ["container", "city_deck"])
 			global_position.y = _floor(global_position)
@@ -247,14 +252,53 @@ func behave(delta: float) -> void:
 		_update_attack(delta, tank)
 
 
+## Each wheel follows the ground under it: the hull pitches, rolls and rises to the four contacts, and each
+## leg bends at hip and knee to reach the rest of the difference, hanging out over drops and in the air.
 func _animate(delta: float) -> void:
-	_body.position.y = lerpf(_body.position.y, 1.8 if legs_lost() >= 2 else 4.4, minf(1.0, delta * 6.0))
-	_body.rotation.z = lerpf(_body.rotation.z, 0.25 if spun > 0.0 else clampf(-_drift.dot(model.global_basis.x) * 0.009, -0.3, 0.3), minf(1.0, delta * 4.0))
+	var foot := HIP + KNEE + AXLE
 	for leg in _legs:
-		if leg.hp > 0.0:
-			var knee: Node3D = leg.knee
-			knee.rotation.x = lerpf(knee.rotation.x, -0.35 if _hop > 0.0 else 0.0, minf(1.0, delta * 6.0))
-			(leg.wheel as Node3D).rotation.x -= _drift.length() * delta / WHEEL_RADIUS
+		var corner: Vector2 = leg.corner
+		var contact := model.global_transform * Vector3(corner.x * foot.x, 0.0, corner.y * foot.z)
+		var step := _floor(contact, WHEEL_RADIUS * 0.5) - global_position.y
+		var ground := 0.0 if leg.hp <= 0.0 else clampf(step if step <= LEG_LIFT else 0.0, -LEG_DROOP, LEG_LIFT) # A wall taller than a leg can lift is not climbed; a lost wheel feels nothing.
+		leg.lift = lerpf(leg.lift, ground, 1.0 - exp(-(30.0 if ground > leg.lift else 10.0) * delta)) # Bumps push up at once; drops let go gently.
+	var front: float = (_legs[0].lift + _legs[1].lift) * 0.5
+	var rear: float = (_legs[2].lift + _legs[3].lift) * 0.5
+	var left: float = (_legs[0].lift + _legs[2].lift) * 0.5
+	var right: float = (_legs[1].lift + _legs[3].lift) * 0.5
+	var pitch := clampf(atan2(front - rear, 2.0 * foot.z * SCALE), -0.3, 0.3)
+	var roll := clampf(atan2(right - left, 2.0 * foot.x * SCALE), -0.3, 0.3)
+	var lean := 0.25 if spun > 0.0 else clampf(-_drift.dot(model.global_basis.x) * 0.009, -0.3, 0.3)
+	var rise := maxf(0.0, (front + rear) * 0.5) * 0.5 / SCALE
+	_sag = move_toward(_sag, 0.0, delta * 2.5)
+	var smooth := 1.0 - exp(-8.0 * delta)
+	_body.position.y = lerpf(_body.position.y, (1.8 if legs_lost() >= 2 else 4.4) + rise - _sag, smooth)
+	_body.rotation.x = lerpf(_body.rotation.x, pitch, smooth)
+	_body.rotation.z = lerpf(_body.rotation.z, roll + lean, smooth)
+	for leg in _legs:
+		var corner: Vector2 = leg.corner
+		var hip: Node3D = leg.hip
+		var knee: Node3D = leg.knee
+		leg.spin -= _drift.length() * delta / WHEEL_RADIUS
+		if leg.hp <= 0.0:
+			continue
+		var thigh := Vector3(corner.x * KNEE.x, KNEE.y, corner.y * KNEE.z)
+		var shin := Vector3(corner.x * AXLE.x, AXLE.y, corner.y * AXLE.z)
+		var wheel := _body.global_transform * (hip.position + thigh + shin)
+		wheel.y = global_position.y + leg.lift + WHEEL_RADIUS
+		_bend(hip, knee, thigh, shin, _body.global_transform.affine_inverse() * wheel - hip.position)
+		(leg.wheel as Node3D).basis = (hip.basis * knee.basis).inverse() * Basis(Vector3.RIGHT, leg.spin) # The axle stays level with the hull.
+
+
+## Two-bone IK in the hip's frame: the knee folds about the leg's own plane, then the hip swings the leg onto the target.
+static func _bend(hip: Node3D, knee: Node3D, thigh: Vector3, shin: Vector3, target: Vector3) -> void:
+	var a := thigh.length()
+	var b := shin.length()
+	var reach := clampf(target.length(), (a + b) * 0.45, a + b - 0.01)
+	var rest := acos(clampf((a * a + b * b - (thigh + shin).length_squared()) / (2.0 * a * b), -1.0, 1.0))
+	var angle := acos(clampf((a * a + b * b - reach * reach) / (2.0 * a * b), -1.0, 1.0))
+	knee.basis = Basis(thigh.cross(shin).normalized(), rest - angle)
+	hip.basis = Basis(Quaternion((thigh + knee.basis * shin).normalized(), target.normalized()))
 
 
 func _choose_attack() -> void:

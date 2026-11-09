@@ -82,7 +82,35 @@ func test_its_wheels_ride_above_the_flooded_bay_and_touch_its_floor() -> void:
 		var wheel: Node3D = leg.wheel
 		var floor := Course.height_at(wheel.global_position)
 		check(wheel.global_position.y + HiMo.WHEEL_RADIUS > Stage2.WATER_LEVEL + 1.5, "the wheel shows above the water")
-		check_near(wheel.global_position.y - HiMo.WHEEL_RADIUS, boss.global_position.y, 0.3, "and stands on the ground under the hull (floor %.1f m)" % floor)
+		check_near(wheel.global_position.y - HiMo.WHEEL_RADIUS, floor, 0.3, "and stands on the ground under it (floor %.1f m)" % floor)
+
+
+func test_each_wheel_climbs_onto_a_bump_under_it_and_the_hull_rolls_toward_it() -> void:
+	var boss := _boss()
+	var under := (boss._legs[1].wheel as Node3D).global_position
+	var top := boss.global_position.y + 2.5
+	Course.structure_boxes.append({"pose": Transform3D(Basis(), Vector3(under.x, boss.global_position.y, under.z)), "size": Vector3(6, 2.5, 6)})
+	for i in 60:
+		boss._animate(1.0 / 60.0)
+	Course.structure_boxes.pop_back()
+	for i in boss._legs.size():
+		var wheel: Node3D = boss._legs[i].wheel
+		var floor := top if i == 1 else Course.height_at(wheel.global_position)
+		check_near(wheel.global_position.y - HiMo.WHEEL_RADIUS, floor, 0.3, "wheel %d rests on the ground under it" % i)
+	check(boss._body.rotation.z > 0.02, "the hull rolls toward the raised right side")
+	check(boss._body.rotation.x > 0.02, "and pitches toward the raised front")
+
+
+func test_a_wheel_beside_a_wall_taller_than_its_leg_stays_on_the_street() -> void:
+	var boss := _boss()
+	var under := (boss._legs[1].wheel as Node3D).global_position
+	Course.structure_boxes.append({"pose": Transform3D(Basis(), Vector3(under.x, boss.global_position.y, under.z)), "size": Vector3(6, HiMo.LEG_LIFT + 4.0, 6)})
+	for i in 60:
+		boss._animate(1.0 / 60.0)
+	Course.structure_boxes.pop_back()
+	var wheel: Node3D = boss._legs[1].wheel
+	check_near(wheel.global_position.y - HiMo.WHEEL_RADIUS, Course.height_at(wheel.global_position), 0.3, "the wheel keeps to the street instead of climbing the wall")
+	check(absf(boss._body.rotation.z) < 0.02, "and the hull stays level (%.3f)" % boss._body.rotation.z)
 
 
 func test_stripping_starts_a_cover_crushing_hop() -> void:
@@ -495,3 +523,15 @@ func test_a_full_charge_into_its_back_mid_charge_does_not_spin_it_out() -> void:
 	hit.source = _world.player
 	boss.take_hit(hit)
 	check(boss.spun <= 0.0, "only a hit that meets the charge head-on spins it out")
+
+
+func test_the_hull_does_not_tilt_to_a_bump_under_a_lost_wheel() -> void:
+	var boss := _boss()
+	var under := (boss._legs[1].wheel as Node3D).global_position
+	_shell(boss, (boss._legs[1].knee as Node3D).global_position, HiMo.LEG_HP)
+	check_eq(boss.legs_lost(), 1, "the front right leg is torn off")
+	Course.structure_boxes.append({"pose": Transform3D(Basis(), Vector3(under.x, boss.global_position.y, under.z)), "size": Vector3(6, 2.5, 6)})
+	for i in 60:
+		boss._animate(1.0 / 60.0)
+	Course.structure_boxes.pop_back()
+	check(boss._body.rotation.z < 0.02, "the hull ignores the ground under the missing wheel (%.3f rad)" % boss._body.rotation.z)
