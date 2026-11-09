@@ -1,7 +1,7 @@
 extends Node
 ## Poses enemies beside the tank on the flat checkered floor (10 m squares) and saves four views of each, for
 ## judging silhouettes and size against the hull.
-## Usage: xvfb-run -a godot --path . --resolution 960x540 -- --run=res://tools/model_sheet.gd --kind=abel,kain \
+## Usage: just capture --resolution 960x540 -- --run=res://tools/model_sheet.gd --kind=abel,kain \
 ##        [--dist=16] [--h=4] [--far=60] [--solo] [--naval] [--out=builds/model_sheet] # --far adds a view from the chase
 ##        distance; --solo frames the enemy alone
 

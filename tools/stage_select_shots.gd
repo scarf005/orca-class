@@ -1,6 +1,6 @@
 extends Node
 ## Captures the real title -> stage-select screen in both locales.
-## Usage: xvfb-run -a godot --path . -- --run=res://tools/stage_select_shots.gd --out=/home/scarf/repo/etc/orca-class/screenshots/stage-select [--verify]
+## Usage: just capture -- --run=res://tools/stage_select_shots.gd --out=/home/scarf/repo/etc/orca-class/screenshots/stage-select [--verify]
 ## For --verify, capture each stage map with capture_course's --reference=<out>/stageN-reference.png.
 ## The map and reference must come from the same native frame; no resizing is permitted.
 

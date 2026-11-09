@@ -1,6 +1,6 @@
 extends Node
 ## Stages a fixed scene and saves screenshots, for checking effects and art without playing.
-## Usage: xvfb-run -a godot --path . --resolution 960x540 -- --run=res://tools/showcase.gd \
+## Usage: just capture --resolution 960x540 -- --run=res://tools/showcase.gd \
 ##        --scene=vfx|fungus|boss --d=620 --shots=0.5,1,2 --out=builds/showcase
 ##        [--phase=2] [--aground] # hovercraft: stripped, or knocked off its cushion
 ##        [--down=knocked|jammed|burrowed] # borer: reared up, cutterhead in the pit wall, or under the sand

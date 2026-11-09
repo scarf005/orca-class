@@ -1,6 +1,6 @@
 extends Node
 ## Stands the tank still against each listed hunter for a while and prints how much damage it took.
-## Usage: xvfb-run -a godot --path . -- --run=res://tools/duel_damage.gd --kind=abel,kain [--seconds=30] [--stage=2]
+## Usage: just capture -- --run=res://tools/duel_damage.gd --kind=abel,kain [--seconds=30] [--stage=2]
 
 func run() -> int:
 	var args: Dictionary = preload("res://scripts/main.gd").args()

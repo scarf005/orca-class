@@ -2,7 +2,7 @@ extends Node
 ## Plays the stage 1 tiltrotor encounter for the promo clip: the tank drifts clear of the door gun's
 ## sweep, then charges the main gun to the third lock box and tears the aircraft apart. Run it through
 ## `just promo`, which records it with Godot's movie writer.
-## Usage: xvfb-run -a godot --path . --resolution 1920x1080 --fixed-fps 60 --write-movie builds/promo/promo.avi \
+## Usage: just capture --resolution 1920x1080 --fixed-fps 60 --write-movie builds/promo/promo.avi \
 ##        -- --run=res://tools/promo.gd --sound [--start=1030] [--tail=3.5]
 
 var _tiltrotor: Tiltrotor

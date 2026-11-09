@@ -82,14 +82,14 @@ godot --headless --path . -- --run=res://tools/benchmark.gd
 # Particle and fire CPU work at a 400 Hz simulation step; still not rendered FPS.
 godot --headless --path . -- --run=res://tools/benchmark.gd --fps=400
 # Bot playthrough with screenshots and frame timing. A small window keeps xvfb's software presentation cheap.
-xvfb-run -a godot --path . --resolution 960x540 -- --run=res://tools/autoplay.gd \
+just capture --resolution 960x540 -- --run=res://tools/autoplay.gd \
   --seconds=420 --scale=3 --god --shots=30,60 --out=builds/auto [--checkpoint=boss] [--profile]
 # Deterministic particle snapshots for shader regression comparisons.
-xvfb-run -a godot --path . -- --run=res://tools/capture_particles.gd --out=builds/particles
+just capture -- --run=res://tools/capture_particles.gd --out=builds/particles
 # Screenshots of every debug room row.
-xvfb-run -a godot --path . --resolution 960x540 -- --run=res://tools/debug_room_shots.gd --out=builds/debug_room
+just capture --resolution 960x540 -- --run=res://tools/debug_room_shots.gd --out=builds/debug_room
 # Course fly-through screenshots.
-xvfb-run -a godot --path . -- --run=res://tools/capture_course.gd --d=100,700,1620 --out=builds/shots
+just capture -- --run=res://tools/capture_course.gd --d=100,700,1620 --out=builds/shots
 ```
 
 Generated content:

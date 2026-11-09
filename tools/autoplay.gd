@@ -1,6 +1,6 @@
 extends Node
 ## Plays the stage with a simple bot and saves screenshots, for smoke tests and visual checks.
-## Usage: xvfb-run -a godot --path . -- --run=res://tools/autoplay.gd --seconds=30 --shots=5,10 \
+## Usage: just capture -- --run=res://tools/autoplay.gd --seconds=30 --shots=5,10 \
 ##        [--checkpoint=boss] [--stage=2] [--out=builds/auto] [--god] [--scale=1] [--seed=1]
 ##        [--range=3000,3300] # print frame times within a course-distance interval
 ##        [--milestones] [--verify] # capture sections, authored peaks, boss phases and results; fail unless results arrive

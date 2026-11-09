@@ -1,6 +1,6 @@
 extends Node
 ## Neutral and angled production-model renders, without scenery or AI.
-## xvfb-run -a godot --path . --resolution 960x720 -- --run=res://tools/actor_showcase.gd
+## just capture --resolution 960x720 -- --run=res://tools/actor_showcase.gd
 
 const Inventory = preload("res://tools/actor_inventory.gd")
 

@@ -1,6 +1,6 @@
 extends Node
 ## Parks one enemy on a stage street (stage 2 unless --stage) and shoots it from several angles.
-## Usage: xvfb-run -a godot --path . --resolution 960x540 -- --run=res://tools/portrait.gd \
+## Usage: just capture --resolution 960x540 -- --run=res://tools/portrait.gd \
 ##        --kind=abel[,kain] [--dist=14] [--h=4] [--out=builds/portrait] [--d=300] [--beside] # --beside parks it next to the tank for scale
 
 func run() -> int:

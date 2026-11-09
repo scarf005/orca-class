@@ -1,6 +1,6 @@
 extends Node
 ## Plays a stage 2 duel against the listed hunters with the tank holding still and shoots the real game view.
-## Usage: xvfb-run -a godot --path . --resolution 960x540 -- --run=res://tools/duel_shots.gd \
+## Usage: just capture --resolution 960x540 -- --run=res://tools/duel_shots.gd \
 ##        --kind=abel[,kain] [--seconds=14] [--every=0.7] [--out=builds/duel]
 
 func run() -> int:

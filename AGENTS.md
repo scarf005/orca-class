@@ -3,8 +3,9 @@
 - Commands are in the README and `just --list`. Iterate with `just test <file-filter>[,<filter>...]` (about 10 s);
   the full `just test` takes about 4–5 min, so run it once on final bytes as a tracked background task.
 - Many worktrees run Godot at once: never wait on `pgrep godot` or sleep loops; wait for the task notification.
-- Visual checks: capture with the `tools/*.gd` scripts under `xvfb-run` and inspect the image; save shots in the main
-  checkout's `screenshots/<topic>/` (gitignored, has `.gdignore`).
+- Visual checks: capture with the `tools/*.gd` scripts through `just capture` and inspect the image; save shots in the
+  main checkout's `screenshots/<topic>/` (gitignored, has `.gdignore`). A bare `godot` or `xvfb-run` falls back to the
+  desktop's Wayland when Xvfb fails and opens a window over the user's work.
 - Commit the `.gd.uid` file Godot creates beside each new script; delete temporary probe scripts before committing.
 
 # Testing policy
