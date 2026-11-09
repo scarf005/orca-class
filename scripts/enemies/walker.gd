@@ -15,6 +15,12 @@ const RIPPLE := 4 ## Missiles in a salvo.
 const RIPPLE_GAP := 0.16
 const LID_OPEN := 1.7
 const WHEEL_RADIUS := 0.2
+const THIGH := Vector2(-1.2, -0.3) ## Hip to knee as (y, z) in the hip's frame.
+const SHIN := Vector2(-1.15, 0.35) ## Knee to ankle as (y, z).
+const FOOT_REACH := 0.6 ## Metres a foot rises or drops to meet the ground under it.
+const HIP_X := 0.55 ## Hip joints sit this far either side of the body centre
+const HIP_Y := -0.1 ## and this far below it.
+const ANKLE_HEIGHT := 0.12 + WHEEL_RADIUS ## Ankle above the ground when the wheel under it touches.
 const ROUND_SPEED := MG_SPEED
 const KICK_RANGE := 7.0 ## A tank this close in front is kicked.
 const KICK_REACH := 8.0 ## It must still be this close when the kick lands.
@@ -39,8 +45,9 @@ var _kick := 0.0 ## Seconds of the kick's wind-up left.
 var _kick_cooldown := 0.0
 var _aim := Vector3.ZERO ## Where the arm gun burst goes: fixed when the telegraph ends.
 var _crouch := 0.25 ## How far it sits into its knees: 0.25 rolling, 0.55 planted.
+var _stand := 2.7 ## Smoothed body height over flat ground; the feet's ground moves it at once.
 var _body := Node3D.new()
-var _legs: Array[Dictionary] = [] ## {hip, knee, ankle, wheel}
+var _legs: Array[Dictionary] = [] ## {hip, knee, ankle, wheel, side, lift, ground, foot}; lift is the ground under the foot above the root.
 var _arm := Node3D.new()
 var _muzzle := Node3D.new()
 var _pod := Node3D.new()
@@ -95,22 +102,23 @@ func build() -> void:
 	# Reverse-jointed legs ending in wheeled feet.
 	for side in [-1.0, 1.0]:
 		var hip := Node3D.new()
-		hip.position = Vector3(0.55 * side, -0.1, 0)
+		hip.position = Vector3(HIP_X * side, HIP_Y, 0)
 		_body.add_child(hip)
 		_add_mesh(hip, ActorMeshes.mesh("walker", "thigh"))
 		var knee := Node3D.new()
-		knee.position = Vector3(0, -1.2, -0.3)
+		knee.position = Vector3(0, THIGH.x, THIGH.y)
 		hip.add_child(knee)
 		_add_mesh(knee, ActorMeshes.mesh("walker", "shin"))
 		var ankle := Node3D.new()
-		ankle.position = Vector3(0, -1.15, 0.35)
+		ankle.position = Vector3(0, SHIN.x, SHIN.y)
 		knee.add_child(ankle)
 		_add_mesh(ankle, ActorMeshes.mesh("walker", "foot"))
 		var wheel := Node3D.new()
-		wheel.position = Vector3(0.28 * side, -0.12, 0)
+		wheel.position = Vector3(0.28 * side, WHEEL_RADIUS - ANKLE_HEIGHT, 0)
 		ankle.add_child(wheel)
 		_add_mesh(wheel, ActorMeshes.mesh("walker", "wheels"))
-		_legs.append({"hip": hip, "knee": knee, "ankle": ankle, "wheel": wheel, "side": side})
+		var rolling := (THIGH + SHIN.rotated(0.7 + 0.25 * 1.6)).rotated(-0.35 - 0.25) # The ankle in the rolling crouch.
+		_legs.append({"hip": hip, "knee": knee, "ankle": ankle, "wheel": wheel, "side": side, "lift": 0.0, "ground": NAN, "foot": Vector3((HIP_X + 0.28) * side, 0.0, rolling.y)})
 	_lane = Course.to_course(global_position).y
 	_attack_timer = randf_range(1.2, 2.2)
 
@@ -270,33 +278,57 @@ func _arm_aim(tank: Tank) -> Vector3:
 ## Settles into the planted crouch without running any AI (debug room).
 func pose_idle() -> void:
 	for _i in 30:
-		_animate(0.05, true)
+		_animate(0.05, true, false)
 
 
 ## Rolling stance: the legs hold one pose, crouched when planted, with a small suspension bob over
-## the ground and a lean into acceleration; the wheels on the feet spin at the ground speed.
-func _animate(delta: float, planted: bool) -> void:
+## the ground and a lean into acceleration; each foot reaches up or down to the ground under it, the
+## body rolls toward the higher foot, and the wheels on the feet spin at the ground speed.
+func _animate(delta: float, planted: bool, feel_ground := true) -> void:
 	var lean := sway(delta)
 	var bob := clampf(lean.y * 0.02, -1.0, 1.0)
+	for leg in _legs:
+		leg.lift = 0.0 if crippled or not feel_ground else clampf(foot_ground(leg, delta) - global_position.y, -FOOT_REACH, FOOT_REACH)
+	var step: float = _legs[1].lift - _legs[0].lift
 	_crouch = lerpf(_crouch, 0.55 if planted and not crippled else 0.25, 10.0 * delta)
-	_body.position.y = lerpf(_body.position.y, 2.7 - _crouch * 0.8 - bob * 0.05, 8.0 * delta)
+	var stand := 2.7 - _crouch * 0.8 - bob * 0.05
+	_stand = lerpf(_stand, 1.2 if crippled else stand, (3.0 if crippled else 8.0) * delta)
+	_body.position.y = _stand + minf(_legs[0].lift, _legs[1].lift) # Straight legs cannot reach down; the body follows the lower foot.
 	_body.position.z = move_toward(_body.position.z, 0.0, delta)
 	_body.rotation.x = lerpf(_body.rotation.x, clampf(lean.z * 0.01, -0.12, 0.12), 5.0 * delta)
-	_body.rotation.z = lerpf(_body.rotation.z, clampf(-lean.x * 0.01, -0.12, 0.12), 5.0 * delta)
+	_body.rotation.z = lerpf(_body.rotation.z, clampf(-lean.x * 0.01 + step * 0.25, -0.2, 0.2), 5.0 * delta)
 	var hip := -0.35 - _crouch - bob * 0.05
 	var knee := 0.7 + _crouch * 1.6 + bob * 0.06
 	var spin := rolled() / WHEEL_RADIUS
 	for leg in _legs:
-		(leg.hip as Node3D).rotation.x = hip
-		(leg.knee as Node3D).rotation.x = knee
-		(leg.ankle as Node3D).rotation.x = -0.35 - _crouch * 0.8
+		# The ankle stands one wheel above the ground under its foot: the leg reaches there from the pose.
+		var ankle := _body.position.y + HIP_Y + (leg.side as float) * HIP_X * sin(_body.rotation.z) + (THIGH + SHIN.rotated(knee)).rotated(hip).x
+		var pose := _reach(hip, knee, 0.0 if crippled else leg.lift + ANKLE_HEIGHT - ankle)
+		(leg.hip as Node3D).rotation.x = pose.x
+		(leg.knee as Node3D).rotation.x = pose.y
+		(leg.ankle as Node3D).rotation.x = -0.35 - _crouch * 0.8 + hip + knee - pose.x - pose.y # The foot keeps its pitch.
 		(leg.wheel as Node3D).rotation.x -= spin
 	if crippled:
 		# Broken legs: slumped to one side, sparking.
 		model.rotation.z = lerpf(model.rotation.z, 0.8, 3.0 * delta)
-		_body.position.y = lerpf(_body.position.y, 1.2, 3.0 * delta)
 		if randf() < delta * 6.0:
 			World.current.fx.sparks(_body.global_position, Vector3.UP, 4, Palette.BUTTER)
+
+
+## The hip and knee angles that carry the ankle `lift` higher than the pose (hip, knee) puts it, in the
+## leg's own plane: two-bone IK keeping the knee bent the way it already bends.
+static func _reach(hip: float, knee: float, lift: float) -> Vector2:
+	if absf(lift) < 0.001:
+		return Vector2(hip, knee)
+	var ankle := (THIGH + SHIN.rotated(knee)).rotated(hip) + Vector2(lift, 0.0)
+	var a := THIGH.length()
+	var b := SHIN.length()
+	var d := clampf(ankle.length(), absf(a - b) + 0.05, a + b - 0.05)
+	var fold := acos(clampf((d * d - a * a - b * b) / (2.0 * a * b), -1.0, 1.0))
+	var rest := SHIN.angle() - THIGH.angle()
+	var bent := fold - rest if absf(angle_difference(fold - rest, knee)) < absf(angle_difference(-fold - rest, knee)) else -fold - rest
+	var swing := ankle.angle() - (THIGH + SHIN.rotated(bent)).angle()
+	return Vector2(hip + angle_difference(hip, swing), knee + angle_difference(knee, bent))
 
 
 func damage_multiplier(hit: Hit) -> float:
