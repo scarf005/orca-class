@@ -3,6 +3,13 @@ extends TestCase
 ## move faster than a stride can carry them.
 
 const STEP := 1.0 / 60.0
+const BUMP := 0.4 ## Metres the ground is raised under the right foot.
+
+
+## A Kain whose right foot always finds ground BUMP higher than the street.
+class BumpKain extends Kain:
+	func ground_under(at: Vector3) -> float:
+		return super(at) + (BUMP if model.to_local(at).x > 0.0 else 0.0)
 
 
 func _setup() -> World:
@@ -27,8 +34,8 @@ func _spawn(world: World, enemy: BipedMech, ahead := 60.0) -> BipedMech:
 
 func _feet(mech: BipedMech) -> Array[Vector3]:
 	var feet: Array[Vector3] = []
-	for leg in mech._legs:
-		feet.append(leg.to_global(Vector3(0, -mech._hip, 0)))
+	for i in mech._legs.size():
+		feet.append(mech.sole(i))
 	return feet
 
 
@@ -82,3 +89,14 @@ func test_a_biped_pacing_the_rail_braces_its_legs_instead_of_flickering_them() -
 	for k in 2:
 		check(rad_to_deg(high[k] - low[k]) < 5.0, "leg %d holds its skating stance at rail speed (%.1f deg)" % [k, rad_to_deg(high[k] - low[k])])
 	check(absf(mech._legs[0].rotation.x - mech._legs[1].rotation.x) > 0.3, "one leg braced ahead of the other")
+
+
+func test_each_foot_stands_on_the_ground_under_it() -> void:
+	var world := await _setup()
+	var mech := _spawn(world, BumpKain.new())
+	for _i in 30:
+		mech.stride(STEP)
+	for i in 2:
+		var sole := mech.sole(i)
+		check_near(sole.y, mech.ground_under(sole), 0.05, "foot %d rests on the ground under it (%.2f m)" % [i, sole.y - mech.ground_under(sole)])
+	check(mech._knees[1].rotation.x - mech._knees[0].rotation.x > 0.15, "the knee on the raised ground folds further (%.2f rad)" % (mech._knees[1].rotation.x - mech._knees[0].rotation.x))

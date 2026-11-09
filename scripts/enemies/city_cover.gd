@@ -47,9 +47,8 @@ static func outside_point(prop: Prop, direction: Vector3, clearance: float) -> V
 static func surface_at(at: Vector3, ceiling := INF) -> float:
 	var c := Course.to_course(at)
 	var height := Course.surface_height(c.x, c.y, ceiling)
-	for node in World.current.props.get_children():
-		var prop := node as Prop
-		if prop == null or prop.dead:
+	for prop: Prop in World.current.props.near(at, at, PropField.BUCKET): # Boxes sit in every bucket they cover; one bucket of pad covers round footprints.
+		if prop.dead:
 			continue
 		if prop.kind not in Prop.BUILDINGS and not prop.hard:
 			continue

@@ -255,7 +255,7 @@ func test_leg_hits_topple_all_three_and_cancel_attacks() -> void:
 		mech.set("_attack_timer", 0.0)
 		mech.behave(STEP)
 		check(mech.telegraphing(), "%s has a pending attack" % kind)
-		var point := mech._legs[0].to_global(Vector3(0, -2.0, -0.25))
+		var point := mech.model.to_global(Vector3(mech._legs[0].position.x, 0.5, 0.0)) # Half a metre off the street, below the shin.
 		check(mech.hit_test(point + Vector3(0, 0, 3), point - Vector3(0, 0, 3)) >= 0.0, "%s low legs can actually be shot" % kind)
 		mech.take_hit(Hit.make(Hit.Kind.SHELL, 40.0, point))
 		check(mech.toppled, "%s collapses on a leg hit" % kind)

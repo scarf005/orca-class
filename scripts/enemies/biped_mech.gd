@@ -11,6 +11,8 @@ const WADE_LIMIT := 2.5 ## Deepest water it strides through: a sinkhole across t
 const STRIDE := 0.42 ## Radians a leg swings either side of upright while it walks.
 const BOOST_SPEED := 12.0 ## Metres per second past which it stops stepping and skates.
 const BRACE: Array[float] = [0.3, -0.25] ## Skating stance: one leg reached ahead, the other pushed back.
+const FOOT_REACH := 0.8 ## Metres a foot steps up or down to the ground under it.
+const STEP_LIFT := 0.18 ## Share of the hip height a swinging foot rises.
 const BAND_FAR := 125.0 ## Metres ahead of the tank (at stage 1's standoff) past which a street hunter will not fire.
 const BAND_INSET := 0.05 ## Metres inside that edge a pacing hunter holds: float positions round its step far finer.
 
@@ -19,7 +21,13 @@ var legs_hp := 30.0
 var toppled := false
 var _hard := false
 var _body := Node3D.new()
-var _legs: Array[Node3D] = []
+var _legs: Array[Node3D] = [] ## Hip joints; each carries a knee, which carries the ankle and foot.
+var _knees: Array[Node3D] = []
+var _ankles: Array[Node3D] = []
+var _thigh := Vector2.ZERO ## Hip to knee as (y, z) in the hip's frame.
+var _shin := Vector2.ZERO ## Knee to ankle as (y, z).
+var _heel := Vector2.ZERO ## Ankle above the sole's contact point as (y, z).
+var _ground: Array[float] = [NAN, NAN] ## Eased ground height under each foot.
 var _cover: Prop
 var _cover_goal := Vector3.INF
 var _cover_wait := 0.0
@@ -75,39 +83,74 @@ func build_legs(hip: float, style: String, armor: Color, frame := Palette.DUSK, 
 		var leg := Node3D.new()
 		leg.position = Vector3(side * spread, 0, 0)
 		_body.add_child(leg)
+		# Three parts in leg space; each hangs from its own joint so the knee and ankle bend.
 		var b := LowPoly.new()
+		var shin := LowPoly.new()
+		var foot := LowPoly.new()
+		var knee: Vector3
+		var ankle: Vector3
 		b.blob(Transform3D(), 0.3 * w, Palette.INK)
+		b.prism(Transform3D(Basis(Vector3.BACK, PI * 0.5), Vector3(side * 0.34 * w, 0, 0)), 0.24 * w, 0.12, 8, Palette.ASH) # Hip actuator cap.
 		if style == "bird":
 			# Thigh forward to the knee, shin back to the hock, then a long foot bone down to splayed toes.
-			var knee := Vector3(0, -hip * 0.36, -0.55)
-			var hock := Vector3(0, -hip * 0.78, 0.45)
+			knee = Vector3(0, -hip * 0.36, -0.55)
+			ankle = Vector3(0, -hip * 0.78, 0.45)
 			var ball := Vector3(0, -hip + 0.22, -0.15)
 			limb(b, Vector3.ZERO, knee, Vector2(0.75, 0.85), Vector2(0.48, 0.55), armor)
-			b.blob(Transform3D(Basis(), knee), 0.3, Palette.INK)
-			limb(b, knee, hock, Vector2(0.4, 0.45), Vector2(0.3, 0.36), frame)
-			b.prism(Transform3D(Basis(), knee + Vector3(side * 0.28, 0.0, 0.1)), 0.07, 1.0, 6, Palette.ASH) # Shin ram.
-			b.blob(Transform3D(Basis(), hock), 0.22, Palette.INK)
-			limb(b, hock, ball, Vector2(0.28, 0.32), Vector2(0.24, 0.26), armor.darkened(0.15))
+			b.frustum(Transform3D(Basis(Vector3.RIGHT, 0.9), knee * 0.45 + Vector3(0, 0, -0.35)), Vector2(0.62, 0.5), Vector2(0.5, 0.1), 0.18, armor.lightened(0.12)) # Thigh plate.
+			shin.blob(Transform3D(Basis(), knee), 0.3, Palette.INK)
+			shin.prism(Transform3D(Basis(Vector3.BACK, PI * 0.5), knee + Vector3(side * 0.3, 0, 0)), 0.2, 0.1, 8, Palette.ASH) # Knee actuator cap.
+			limb(shin, knee, ankle, Vector2(0.4, 0.45), Vector2(0.3, 0.36), frame)
+			shin.prism(Transform3D(Basis(), knee + Vector3(side * 0.28, 0.0, 0.1)), 0.07, 1.0, 6, Palette.ASH) # Shin ram.
+			limb(shin, knee.lerp(ankle, 0.2) + Vector3(0, 0, 0.18), knee.lerp(ankle, 0.85) + Vector3(0, 0, 0.16), Vector2(0.12, 0.1), Vector2(0.1, 0.08), Palette.INK) # Hose down the back.
+			foot.blob(Transform3D(Basis(), ankle), 0.22, Palette.INK)
+			limb(foot, ankle, ball, Vector2(0.28, 0.32), Vector2(0.24, 0.26), armor.darkened(0.15))
 			for toe in [-0.45, 0.0, 0.45]:
-				b.frustum(Transform3D(Basis(Vector3.UP, toe), ball + Vector3(0, -0.22, 0)), Vector2(0.24, 1.0), Vector2(0.14, 0.7), 0.22, Palette.INK, Color(0, 0, 0, 0), Vector2(0, -0.1))
-			b.frustum(Transform3D(Basis(), ball + Vector3(0, -0.22, 0.45)), Vector2(0.18, 0.5), Vector2(0.1, 0.3), 0.18, Palette.INK)
+				foot.frustum(Transform3D(Basis(Vector3.UP, toe), ball + Vector3(0, -0.22, 0)), Vector2(0.24, 1.0), Vector2(0.14, 0.7), 0.22, Palette.INK, Color(0, 0, 0, 0), Vector2(0, -0.1))
+			foot.frustum(Transform3D(Basis(), ball + Vector3(0, -0.22, 0.45)), Vector2(0.18, 0.5), Vector2(0.1, 0.3), 0.18, Palette.INK)
 		else:
-			var knee := Vector3(0, -hip * 0.5, -0.22 if heavy else -0.18)
-			var ankle := Vector3(0, -hip + 0.32, 0.02)
+			knee = Vector3(0, -hip * 0.5, -0.22 if heavy else -0.18)
+			ankle = Vector3(0, -hip + 0.32, 0.02)
 			limb(b, Vector3.ZERO, knee, Vector2(0.5, 0.58) * w, Vector2(0.4, 0.46) * w, frame)
-			b.blob(Transform3D(Basis(), knee), 0.27 * w, Palette.INK)
-			limb(b, knee, ankle, Vector2(0.44, 0.5) * w, Vector2(0.52, 0.56) * w, armor)
+			b.frustum(Transform3D(Basis(), knee * 0.5 + Vector3(0, -0.25, -0.26 * w)), Vector2(0.44, 0.1) * w, Vector2(0.36, 0.08) * w, hip * 0.26, armor.darkened(0.08)) # Thigh plate.
+			shin.blob(Transform3D(Basis(), knee), 0.27 * w, Palette.INK)
+			shin.prism(Transform3D(Basis(Vector3.BACK, PI * 0.5), knee + Vector3(side * 0.26 * w, 0, 0)), 0.2 * w, 0.1, 8, Palette.ASH) # Knee actuator cap.
+			limb(shin, knee, ankle, Vector2(0.44, 0.5) * w, Vector2(0.52, 0.56) * w, armor)
 			# Knee cap and a shin plate that flares out toward the ankle.
-			b.frustum(Transform3D(Basis(Vector3.RIGHT, -0.25), knee + Vector3(0, -0.2, -0.22 * w)), Vector2(0.46, 0.2) * w, Vector2(0.34, 0.08) * w, 0.55, armor.lightened(0.1))
-			b.frustum(Transform3D(Basis(Vector3.RIGHT, 0.08), ankle + Vector3(0, 0.15, -0.27 * w)), Vector2(0.56, 0.12) * w, Vector2(0.46, 0.1) * w, hip * 0.36, armor.lightened(0.05))
+			shin.frustum(Transform3D(Basis(Vector3.RIGHT, -0.25), knee + Vector3(0, -0.2, -0.22 * w)), Vector2(0.46, 0.2) * w, Vector2(0.34, 0.08) * w, 0.55, armor.lightened(0.1))
+			shin.frustum(Transform3D(Basis(Vector3.RIGHT, 0.08), ankle + Vector3(0, 0.15, -0.27 * w)), Vector2(0.56, 0.12) * w, Vector2(0.46, 0.1) * w, hip * 0.36, armor.lightened(0.05))
+			for bolt in [0.3, 0.55, 0.8]:
+				shin.prism(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), knee.lerp(ankle, bolt) + Vector3(0, 0, -0.3 * w)), 0.04, 0.06, 6, Palette.ASH) # Plate bolts.
 			if heavy:
-				b.prism(Transform3D(Basis(), knee + Vector3(side * 0.42, -0.1, 0.25)), 0.09, hip * 0.4, 6, Palette.ASH) # Ankle ram.
-			b.blob(Transform3D(Basis(), ankle), 0.22 * w, Palette.INK)
+				shin.prism(Transform3D(Basis(), knee + Vector3(side * 0.42, -0.1, 0.25)), 0.09, hip * 0.4, 6, Palette.ASH) # Ankle ram.
+			foot.blob(Transform3D(Basis(), ankle), 0.22 * w, Palette.INK)
 			# Foot: a sloped boot with a toe cap and a heel block.
-			b.frustum(Transform3D(Basis(), Vector3(0, -hip, -0.15)), Vector2(0.62, 1.25) * w, Vector2(0.5, 0.8) * w, 0.34, frame, Color(0, 0, 0, 0), Vector2(0, 0.12))
-			b.frustum(Transform3D(Basis(), Vector3(0, -hip, -0.62 * w)), Vector2(0.64, 0.42) * w, Vector2(0.52, 0.1) * w, 0.24, armor)
+			foot.frustum(Transform3D(Basis(), Vector3(0, -hip, -0.15)), Vector2(0.62, 1.25) * w, Vector2(0.5, 0.8) * w, 0.34, frame, Color(0, 0, 0, 0), Vector2(0, 0.12))
+			foot.frustum(Transform3D(Basis(), Vector3(0, -hip, -0.62 * w)), Vector2(0.64, 0.42) * w, Vector2(0.52, 0.1) * w, 0.24, armor)
+			foot.frustum(Transform3D(Basis(), Vector3(0, -hip, 0.42 * w)), Vector2(0.5, 0.3) * w, Vector2(0.44, 0.2) * w, 0.3, Palette.INK) # Heel spur.
 		add_mesh(leg, b.mesh())
+		var knee_joint := Node3D.new()
+		knee_joint.position = knee
+		leg.add_child(knee_joint)
+		_add_part(knee_joint, shin.mesh(), knee)
+		var ankle_joint := Node3D.new()
+		ankle_joint.position = ankle - knee
+		knee_joint.add_child(ankle_joint)
+		_add_part(ankle_joint, foot.mesh(), ankle)
 		_legs.append(leg)
+		_knees.append(knee_joint)
+		_ankles.append(ankle_joint)
+		_thigh = Vector2(knee.y, knee.z)
+		_shin = Vector2(ankle.y - knee.y, ankle.z - knee.z)
+		_heel = Vector2(ankle.y + hip, ankle.z)
+
+
+## A part built in leg space hung from the joint at `pivot`.
+func _add_part(joint: Node3D, mesh: Mesh, pivot: Vector3) -> void:
+	var instance := MeshInstance3D.new()
+	instance.mesh = mesh
+	instance.position = -pivot
+	joint.add_child(instance)
 
 
 ## A tapered limb from `a` to `b`, `top` size at `a` and `bottom` size at `b`.
@@ -362,7 +405,8 @@ func walk_to(goal: Vector3, speed: float, delta: float) -> void:
 
 ## Steps with the walk since the last call. The standing foot sweeps back exactly as far as the body moves
 ## (forward or backing off), so it stays planted while the other swings through lifted; faster than a stride
-## can carry it, the mech braces one leg ahead of the other and skates on its heel thrusters.
+## can carry it, the mech braces one leg ahead of the other and skates on its heel thrusters. Each foot reaches
+## the ground under it, the knee and ankle bending to carry it there.
 func stride(delta: float) -> void:
 	var facing := -model.global_basis.z
 	var along := _moved.length() * signf(_moved.dot(facing) + 0.0001)
@@ -372,6 +416,8 @@ func stride(delta: float) -> void:
 	var reach := sin(STRIDE)
 	_walk += along / (4.0 * _hip * reach) # One cycle: each foot stands for half of it, sweeping 2 * hip * reach.
 	var stance_angle := 0.0
+	var feet: Array[Vector2] = []
+	var drops: Array[float] = []
 	for i in _legs.size():
 		var s := fposmod(_walk + i * 0.5, 1.0) * 2.0
 		var standing := s < 1.0
@@ -379,9 +425,18 @@ func stride(delta: float) -> void:
 		var angle := asin(reach * (1.0 - 2.0 * s)) if standing else asin(reach * (2.0 * swing - 1.0))
 		if standing:
 			stance_angle = angle
-		_legs[i].rotation.x = lerpf(angle, BRACE[i], _boost)
-		_legs[i].position.y = 0.0 if standing else sin(PI * swing) * _hip * 0.15 * (1.0 - _boost)
-	_body.position.y = lerpf(_hip * cos(stance_angle), _hip * 0.92, _boost)
+		var z := -_hip * sin(lerpf(angle, BRACE[i], _boost))
+		var ground := ground_under(model.global_transform * Vector3(_legs[i].position.x, 0.0, z))
+		_ground[i] = ground if is_nan(_ground[i]) else lerpf(_ground[i], ground, 1.0 - exp(-20.0 * delta))
+		drops.append(clampf(_ground[i] - global_position.y, -FOOT_REACH, FOOT_REACH))
+		feet.append(Vector2(0.0 if standing else sin(PI * swing) * _hip * STEP_LIFT * (1.0 - _boost), z))
+	# Hips a little below full reach, so the knees always bend; the body sinks to the lower foot.
+	_body.position.y = lerpf(_hip * cos(stance_angle) * 0.95, _hip * 0.9, _boost) + minf(drops[0], drops[1])
+	for i in _legs.size():
+		var bend := _reach(Vector2(drops[i] + feet[i].x - _body.position.y, feet[i].y) + _heel)
+		_legs[i].rotation.x = bend.x
+		_knees[i].rotation.x = bend.y
+		_ankles[i].rotation.x = -bend.x - bend.y # The foot stays level.
 	if _boost < 0.5 or _wet or heading == Vector3.ZERO:
 		return
 	_thrust -= delta
@@ -389,10 +444,31 @@ func stride(delta: float) -> void:
 		return
 	_thrust = 0.05
 	var back := -heading.normalized()
-	for leg in _legs:
-		var heel := leg.to_global(Vector3(0, -_hip + 0.3, 0.5))
+	for ankle in _ankles:
+		var heel := ankle.to_global(Vector3(0, 0.3 - _heel.x, 0.5 - _heel.y))
 		World.current.fx.spawn(Fx.Kind.FLAME, heel, back * 6.0 + Vector3.UP * 1.5, 0.16, 0.35, [Palette.BUTTER, Palette.AMBER][randi() % 2], {"drag": 2.0})
 		World.current.fx.dust(heel - Vector3.UP * 0.3, 1, 0.6)
+
+
+## Hip and knee angles that put the ankle at `target` (y, z) from the hip, the knee bending the way it rests.
+func _reach(target: Vector2) -> Vector2:
+	var thigh_length := _thigh.length()
+	var shin_length := _shin.length()
+	var span := clampf(target.length(), absf(thigh_length - shin_length) + 0.001, thigh_length + shin_length - 0.001)
+	var open := acos(clampf((thigh_length * thigh_length + span * span - shin_length * shin_length) / (2.0 * thigh_length * span), -1.0, 1.0))
+	var thigh := target.normalized().rotated(-signf(_thigh.cross(_shin)) * open) * thigh_length
+	var hip := _thigh.angle_to(thigh)
+	return Vector2(hip, _shin.rotated(hip).angle_to(target.normalized() * span - thigh))
+
+
+## The point under foot `i` that stands on the ground.
+func sole(i: int) -> Vector3:
+	return _ankles[i].to_global(Vector3(0, -_heel.x, -_heel.y))
+
+
+## City hunters stand on rooftops and decks as well as the street.
+func ground_under(at: Vector3) -> float:
+	return CityCover.surface_at(at, global_position.y + 1.0)
 
 
 func move_hunter(tank: Tank, delta: float, planted: bool, keep := 52.0) -> void:
@@ -492,9 +568,9 @@ func hit_test(from: Vector3, to: Vector3, extra_radius := 0.0) -> float:
 	if hidden or arriving:
 		return -1.0
 	var best := super(from, to, extra_radius)
-	for leg in _legs:
-		for along in [0.3, 0.75]: # Thigh and shin.
-			var t := Entity.segment_sphere(from, to, leg.to_global(Vector3(0, -_hip * along, 0)), 0.7 + extra_radius)
+	for i in _legs.size():
+		for joint in [_legs[i].global_position.lerp(_knees[i].global_position, 0.5), _knees[i].global_position.lerp(_ankles[i].global_position, 0.5), _ankles[i].global_position]: # Thigh, shin and ankle.
+			var t := Entity.segment_sphere(from, to, joint, 0.7 + extra_radius)
 			if t >= 0.0 and (best < 0.0 or t < best):
 				best = t
 	return best
