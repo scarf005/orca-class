@@ -13,6 +13,11 @@ const BOOST_SPEED := 12.0 ## Metres per second past which it stops stepping and 
 const BRACE: Array[float] = [0.3, -0.25] ## Skating stance: one leg reached ahead, the other pushed back.
 const FOOT_REACH := 0.8 ## Metres a foot steps up or down to the ground under it.
 const STEP_LIFT := 0.18 ## Share of the hip height a swinging foot rises.
+const STEP_DIP := 0.07 ## Share of the hip height the body sinks as a foot takes its weight.
+const STEP_ROLL := 0.09 ## Radians the body rolls over the standing leg at mid-stance.
+const STEP_LEAN := 0.1 ## Radians the body pitches forward at full walking pace.
+const TOE_SWING := 0.4 ## Radians a swinging foot points its toe down after lift-off and up before it lands.
+const STEPS: Array[String] = ["mech_step", "mech_step_2", "mech_step_3"]
 const BAND_FAR := 125.0 ## Metres ahead of the tank (at stage 1's standoff) past which a street hunter will not fire.
 const BAND_INSET := 0.05 ## Metres inside that edge a pacing hunter holds: float positions round its step far finer.
 
@@ -43,6 +48,8 @@ var _search := 0.0
 var _walk := 0.0 ## Gait cycles stepped so far.
 var _moved := Vector3.ZERO ## Ground covered since the last stride.
 var _boost := 0.0 ## 0 stepping, 1 braced and skating.
+var _pace := 0.0 ## Eased walking speed as a share of a brisk walk; sets the forward lean.
+var _planted: Array[bool] = [true, true] ## Whether each foot stood on the last stride, to hear it land.
 var _thrust := 0.0
 var _hip := 3.0
 var _firing_goal := Vector3.INF
@@ -416,8 +423,13 @@ func stride(delta: float) -> void:
 	var reach := sin(STRIDE)
 	_walk += along / (4.0 * _hip * reach) # One cycle: each foot stands for half of it, sweeping 2 * hip * reach.
 	var stance_angle := 0.0
+	var walking := 1.0 - _boost
+	_pace = move_toward(_pace, clampf(along / maxf(delta, 0.0001) / 4.0, -1.0, 1.0), delta * 3.0)
+	var dip := 0.0
+	var roll := 0.0
 	var feet: Array[Vector2] = []
 	var drops: Array[float] = []
+	var toes: Array[float] = []
 	for i in _legs.size():
 		var s := fposmod(_walk + i * 0.5, 1.0) * 2.0
 		var standing := s < 1.0
@@ -425,18 +437,31 @@ func stride(delta: float) -> void:
 		var angle := asin(reach * (1.0 - 2.0 * s)) if standing else asin(reach * (2.0 * swing - 1.0))
 		if standing:
 			stance_angle = angle
+			# The body settles onto the foot just after it lands and rides over it toward mid-stance.
+			dip = sin(PI * clampf(s / 0.35, 0.0, 1.0))
+			roll = -signf(_legs[i].position.x) * sin(PI * s)
 		var z := -_hip * sin(lerpf(angle, BRACE[i], _boost))
 		var ground := ground_under(model.global_transform * Vector3(_legs[i].position.x, 0.0, z))
 		_ground[i] = ground if is_nan(_ground[i]) else lerpf(_ground[i], ground, 1.0 - exp(-20.0 * delta))
 		drops.append(clampf(_ground[i] - global_position.y, -FOOT_REACH, FOOT_REACH))
-		feet.append(Vector2(0.0 if standing else sin(PI * swing) * _hip * STEP_LIFT * (1.0 - _boost), z))
+		feet.append(Vector2(0.0 if standing else sin(PI * swing) * _hip * STEP_LIFT * walking, z))
+		toes.append(0.0 if standing else -sin(TAU * swing) * TOE_SWING * walking)
+		if standing and not _planted[i] and walking > 0.5 and along != 0.0:
+			_footfall(i)
+		_planted[i] = standing
 	# Hips a little below full reach, so the knees always bend; the body sinks to the lower foot.
-	_body.position.y = lerpf(_hip * cos(stance_angle) * 0.95, _hip * 0.9, _boost) + minf(drops[0], drops[1])
+	_body.position.y = lerpf(_hip * cos(stance_angle) * 0.95, _hip * 0.9, _boost) + minf(drops[0], drops[1]) - dip * _hip * STEP_DIP * walking
+	_body.rotation = Vector3(-_pace * STEP_LEAN * walking, 0.0, roll * STEP_ROLL * walking)
+	var pitch := Basis(Vector3.RIGHT, _body.rotation.x)
 	for i in _legs.size():
-		var bend := _reach(Vector2(drops[i] + feet[i].x - _body.position.y, feet[i].y) + _heel)
-		_legs[i].rotation.x = bend.x
+		# Each hip cancels the body's roll so its leg swings upright; the ankle targets are taken in the pitched hip.
+		var hip := _body.position + _body.basis * _legs[i].position
+		var ankle := Vector3(hip.x, drops[i] + feet[i].x + _heel.x, feet[i].y + _heel.y)
+		var local := pitch.inverse() * (ankle - hip)
+		var bend := _reach(Vector2(local.y, local.z))
+		_legs[i].basis = Basis(Vector3.BACK, -_body.rotation.z) * Basis(Vector3.RIGHT, bend.x)
 		_knees[i].rotation.x = bend.y
-		_ankles[i].rotation.x = -bend.x - bend.y # The foot stays level.
+		_ankles[i].rotation.x = -bend.x - bend.y - _body.rotation.x + toes[i] # The foot stays level, or tips through its swing.
 	if _boost < 0.5 or _wet or heading == Vector3.ZERO:
 		return
 	_thrust -= delta
@@ -459,6 +484,13 @@ func _reach(target: Vector2) -> Vector2:
 	var thigh := target.normalized().rotated(-signf(_thigh.cross(_shin)) * open) * thigh_length
 	var hip := _thigh.angle_to(thigh)
 	return Vector2(hip, _shin.rotated(hip).angle_to(target.normalized() * span - thigh))
+
+
+## A foot landing thumps and kicks up dust; the bigger the mech, the deeper the thump.
+func _footfall(i: int) -> void:
+	var at := sole(i)
+	Sfx.play(STEPS[randi() % STEPS.size()], at, -4.0, clampf(1.3 - _hip * 0.1, 0.8, 1.2) * randf_range(0.95, 1.05))
+	World.current.fx.dust(at, 2, _hip * 0.35)
 
 
 ## The point under foot `i` that stands on the ground.
