@@ -1,8 +1,8 @@
 extends Node
 ## Renders the course from a camera at given distances and saves dithered screenshots.
-## Usage: xvfb-run -a godot --path . -- --run=res://tools/capture_course.gd --d=600 --out=assets/ui/stage1.png [--stage=1] [--square] [--size=256] [--props] [--reference=frame.png]
-## Regenerate stage maps: xvfb-run -a godot --path . -- --run=res://tools/capture_course.gd --stage=1 --d=700 --u=8 --h=5 --props --square --size=256 --out=assets/ui/stage1.png and
-## xvfb-run -a godot --path . -- --run=res://tools/capture_course.gd --stage=2 --d=700 --u=0 --h=5 --props --square --size=256 --out=assets/ui/stage2.png (run `just stage-thumbnails`).
+## Usage: just capture -- --run=res://tools/capture_course.gd --d=600 --out=assets/ui/stage1.png [--stage=1] [--square] [--size=256] [--props] [--reference=frame.png]
+## Regenerate stage maps: just capture -- --run=res://tools/capture_course.gd --stage=1 --d=700 --u=8 --h=5 --props --square --size=256 --out=assets/ui/stage1.png and
+## just capture -- --run=res://tools/capture_course.gd --stage=2 --d=700 --u=0 --h=5 --props --square --size=256 --out=assets/ui/stage2.png (run `just stage-thumbnails`).
 
 
 func run() -> int:

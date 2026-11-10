@@ -1,6 +1,6 @@
 extends Node
 ## Screenshots of every debug room row plus an overview.
-## Usage: xvfb-run -a godot --path . --resolution 960x540 -- --run=res://tools/debug_room_shots.gd --out=builds/debug_room
+## Usage: just capture --resolution 960x540 -- --run=res://tools/debug_room_shots.gd --out=builds/debug_room
 
 
 func run() -> int:

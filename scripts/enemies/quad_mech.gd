@@ -18,6 +18,8 @@ const MORTAR_CORRECTION := 14.0 ## Degrees a shell may leave off the tube: it th
 const MORTAR_GRAVITY := 20.0
 const WHEEL_RADIUS := 0.4
 const STANCE_SPLAY := 0.12 ## Radians the shins splay outward.
+const SHIN := Vector2(0.75, -3.05) ## Knee to wheel centre as (x, y) for a right leg.
+const FOOT_REACH := 1.0 ## Metres a foot rises or drops to meet the ground under it.
 const STOMP_RANGE := 8.0 ## A tank this close is stomped.
 const STOMP_REACH := 6.0 ## The stomp shakes this far; the ring shows it.
 const STOMP_WIND := 0.6
@@ -41,8 +43,9 @@ var _turret := Node3D.new()
 var _gun := Node3D.new() ## Pivot the flak barrels or the mortar tube turn on; its -Z is the bore.
 var _barrels := Node3D.new() ## The spinning flak cluster inside `_gun`.
 var _muzzle := Node3D.new()
-var _legs: Array[Dictionary] = [] ## {hip, knee, wheel, corner, hp, lost}
+var _legs: Array[Dictionary] = [] ## {hip, knee, wheel, corner, hp, lost, lift, ground, foot}; lift is the ground under the foot above the root.
 var _hard := false
+var _stand := 2.6 ## Smoothed body height over flat ground; the feet's ground moves it at once.
 
 
 func _init() -> void:
@@ -94,10 +97,11 @@ func build() -> void:
 		hip.add_child(knee)
 		_add_mesh(knee, ActorMeshes.mesh("quad_mech", "shin_" + side))
 		var wheel := Node3D.new()
-		wheel.position = Vector3(corner.x * 0.75, -3.05, 0)
+		wheel.position = Vector3(corner.x * SHIN.x, SHIN.y, 0)
 		knee.add_child(wheel)
 		_add_mesh(wheel, ActorMeshes.mesh("quad_mech", "wheel"))
-		_legs.append({"hip": hip, "knee": knee, "wheel": wheel, "corner": corner, "hp": LEG_HP, "lost": false})
+		var splayed := Vector2(corner.x * SHIN.x, SHIN.y).rotated(STANCE_SPLAY * corner.x)
+		_legs.append({"hip": hip, "knee": knee, "wheel": wheel, "corner": corner, "hp": LEG_HP, "lost": false, "lift": 0.0, "ground": NAN, "foot": Vector3(corner.x * 2.3 + splayed.x, 0.0, corner.y * 1.4)})
 	_lane = Course.to_course(global_position).y
 	_attack_timer = randf_range(1.5, 2.5)
 
@@ -266,30 +270,59 @@ func _lob(from: Vector3, target: Vector3, flight: float) -> Vector3:
 ## Settles into its stance without running any AI (debug room).
 func pose_idle() -> void:
 	for _i in 10:
-		_animate(0.05)
+		_animate(0.05, false)
 
 
 ## Rolling stance: the legs stay planted in one pose with a small suspension bob over the ground and
-## a lean into acceleration, and the wheels spin at the ground speed. Lost legs hang limp; collapse
-## drops the body.
-func _animate(delta: float) -> void:
+## a lean into acceleration, and the wheels spin at the ground speed. Each foot splays in or out to
+## meet the ground under it and the body pitches and rolls toward the higher feet. Lost legs hang limp;
+## collapse drops the body.
+func _animate(delta: float, feel_ground := true) -> void:
 	var lean := sway(delta)
 	var bob := clampf(lean.y * 0.02, -1.0, 1.0)
 	var spin := rolled() / WHEEL_RADIUS
 	var tilt := Vector2.ZERO
+	var slope := Vector2.ZERO
+	var low := INF
+	for leg in _legs:
+		leg.lift = 0.0 if leg.lost or collapsed() or not feel_ground else clampf(foot_ground(leg, delta) - global_position.y, -FOOT_REACH, FOOT_REACH)
+		slope += (leg.corner as Vector2) * (leg.lift as float) * 0.25
+		if not leg.lost:
+			low = minf(low, leg.lift)
+	low = 0.0 if low == INF else low
+	for leg in _legs:
+		if leg.lost:
+			tilt += leg.corner as Vector2
+	var sag := 1.8 if collapsed() else 0.0
+	var stand := 2.6 - sag - bob * 0.08
+	_stand = lerpf(_stand, stand, 5.0 * delta)
+	_body.position.y = _stand + low
+	_body.rotation.x = lerpf(_body.rotation.x, -tilt.y * 0.12 - atan2(slope.y, 2.8) + clampf(lean.z * 0.005, -0.08, 0.08) + (0.3 if _stomp > 0.0 else 0.0), 3.0 * delta)
+	_body.rotation.z = lerpf(_body.rotation.z, tilt.x * 0.12 + atan2(slope.x, 5.0) - clampf(lean.x * 0.005, -0.08, 0.08), 3.0 * delta)
 	for leg in _legs:
 		var corner: Vector2 = leg.corner
 		if leg.lost:
-			tilt += corner
 			(leg.knee as Node3D).rotation.z = lerpf((leg.knee as Node3D).rotation.z, corner.x * 1.2, 4.0 * delta)
 			continue
 		(leg.hip as Node3D).rotation.x = 0.0
-		(leg.knee as Node3D).rotation.z = (STANCE_SPLAY + bob * 0.04) * corner.x
+		# What the body's own rise, pitch and roll already lift this foot (hips 1.4 m fore and aft, wheels a foot's reach out); the knee makes up the rest.
+		var carried := _body.position.y - stand - corner.y * 1.4 * sin(_body.rotation.x) + absf(leg.foot.x) * corner.x * sin(_body.rotation.z)
+		(leg.knee as Node3D).rotation.z = _splay((STANCE_SPLAY + bob * 0.04) * corner.x, corner.x, leg.lift - carried)
 		(leg.wheel as Node3D).rotation.x -= spin
-	var sag := 1.8 if collapsed() else 0.0
-	_body.position.y = lerpf(_body.position.y, 2.6 - sag - bob * 0.08, 5.0 * delta)
-	_body.rotation.x = lerpf(_body.rotation.x, -tilt.y * 0.12 + clampf(lean.z * 0.005, -0.08, 0.08) + (0.3 if _stomp > 0.0 else 0.0), 3.0 * delta)
-	_body.rotation.z = lerpf(_body.rotation.z, tilt.x * 0.12 - clampf(lean.x * 0.005, -0.08, 0.08), 3.0 * delta)
+
+
+## The knee splay that lifts the wheel `lift` higher than the splay `base` puts it: the shin swings
+## out to shorten the leg, keeping to the side it already leans.
+static func _splay(base: float, side: float, lift: float) -> float:
+	if absf(lift) < 0.001:
+		return base
+	var shin := Vector2(side * SHIN.x, SHIN.y)
+	var height := shin.rotated(base).y + lift
+	var lean := Vector2(0.0, -1.0).angle_to(shin) # Rest angle of the shin off straight down (y is up here).
+	var off := acos(clampf(-height / shin.length(), -1.0, 1.0)) # Angle off straight down that gives `height`.
+	var out := off - lean
+	var other := -off - lean
+	return out if absf(out - base) < absf(other - base) else other
 
 
 func damage_multiplier(hit: Hit) -> float:

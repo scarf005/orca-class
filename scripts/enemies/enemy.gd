@@ -427,6 +427,22 @@ static func wading_at(d: float, u: float) -> Vector3:
 	return p
 
 
+## Height a foot at `at` stands on: the same ground or wading depth as `wading_at`.
+func ground_under(at: Vector3) -> float:
+	var c := Course.to_course(at)
+	return wading_at(c.x, c.y).y
+
+
+## The ground under a leg's wheel, eased over about 50 ms so a foot crossing a kerb steps rather than snaps.
+## Kept in world height, so the body's own rise and fall never drags the foot's target with it. Sampled under
+## `leg.foot`, where the wheel stands in the level stance, so a foot the legs splay out to reach a step does not
+## step off it again.
+func foot_ground(leg: Dictionary, delta: float) -> float:
+	var ground := ground_under(model.to_global(leg.foot))
+	leg.ground = ground if is_nan(leg.ground) else lerpf(leg.ground, ground, 1.0 - exp(-20.0 * delta))
+	return leg.ground
+
+
 ## Where a body at `at` circling `tank` heads next on the ground: `radius` out from the tank, `turn` radians further
 ## round than where it stands, cut short where that ray leaves the arena (`center`, `bound`), so an arena boss hunts the
 ## tank wherever it waits and runs along the edge where its ring would leave the arena.

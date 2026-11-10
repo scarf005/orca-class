@@ -4,6 +4,9 @@ godot := env("GODOT", "godot")
 blender := env("BLENDER", "blender")
 butler := env("BUTLER", "butler")
 itch_project := env("ITCH_PROJECT", "scarf005/orca-class")
+# Off-screen X server for captures. Godot falls back to the desktop's Wayland socket when Xvfb fails to start,
+# so the bogus socket name makes that a failure instead of a window on the user's desktop.
+offscreen := 'env -u DISPLAY WAYLAND_DISPLAY=no-such-socket xvfb-run -a -s "-screen 0 1920x1080x24"'
 
 # List common actions.
 default:
@@ -29,8 +32,12 @@ duel *args:
 promo *args:
     mkdir -p builds/promo
     touch builds/.gdignore
-    xvfb-run -a -s "-screen 0 1920x1080x24" {{ quote(godot) }} --path . --resolution 1920x1080 --fixed-fps 60 --audio-driver Dummy --write-movie builds/promo/promo.avi -- --run=res://tools/promo.gd --sound "$@"
+    {{ offscreen }} {{ quote(godot) }} --display-driver x11 --path . --resolution 1920x1080 --fixed-fps 60 --audio-driver Dummy --write-movie builds/promo/promo.avi -- --run=res://tools/promo.gd --sound "$@"
     ffmpeg -y -loglevel error -i builds/promo/promo.avi -vf scale=1920:1080:flags=neighbor -c:v libx264 -crf 24 -preset slow -pix_fmt yuv420p -c:a aac -b:a 192k -movflags +faststart builds/promo/promo.mp4
+
+# Run a capture tool off-screen; e.g. just capture --resolution 960x720 -- --run=res://tools/actor_showcase.gd --actor=hi_mo
+capture *args:
+    {{ offscreen }} {{ quote(godot) }} --display-driver x11 --audio-driver Dummy --path . "$@"
 
 # Open the debug room.
 debug-room:
@@ -112,10 +119,10 @@ audio:
 # Regenerate the square stage-select map thumbnails.
 stage-thumbnails: import
     mkdir -p assets/ui
-    xvfb-run -a {{ quote(godot) }} --path . -- --run=res://tools/capture_course.gd --stage=1 --d=700 --u=8 --h=5 --props --square --size=256 --out=assets/ui/stage1.png
-    xvfb-run -a {{ quote(godot) }} --path . -- --run=res://tools/capture_course.gd --stage=2 --d=700 --u=0 --h=5 --props --square --size=256 --out=assets/ui/stage2.png
-    xvfb-run -a {{ quote(godot) }} --path . -- --run=res://tools/capture_course.gd --stage=3 --d=1000 --u=0 --h=12 --props --square --size=256 --out=assets/ui/stage3.png
-    xvfb-run -a {{ quote(godot) }} --path . -- --run=res://tools/capture_course.gd --stage=4 --d=1000 --u=0 --h=12 --props --square --size=256 --out=assets/ui/stage4.png
+    {{ offscreen }} {{ quote(godot) }} --display-driver x11 --path . -- --run=res://tools/capture_course.gd --stage=1 --d=700 --u=8 --h=5 --props --square --size=256 --out=assets/ui/stage1.png
+    {{ offscreen }} {{ quote(godot) }} --display-driver x11 --path . -- --run=res://tools/capture_course.gd --stage=2 --d=700 --u=0 --h=5 --props --square --size=256 --out=assets/ui/stage2.png
+    {{ offscreen }} {{ quote(godot) }} --display-driver x11 --path . -- --run=res://tools/capture_course.gd --stage=3 --d=1000 --u=0 --h=12 --props --square --size=256 --out=assets/ui/stage3.png
+    {{ offscreen }} {{ quote(godot) }} --display-driver x11 --path . -- --run=res://tools/capture_course.gd --stage=4 --d=1000 --u=0 --h=12 --props --square --size=256 --out=assets/ui/stage4.png
 
 # Measure terrain streaming CPU timings.
 benchmark: import
